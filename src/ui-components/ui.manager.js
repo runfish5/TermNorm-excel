@@ -1,6 +1,7 @@
 // ui-components/ui.manager.js
 import { MetadataDisplay } from './metadata.display.js';
 import { ExcelIntegration } from '../services/excel-integration.js';
+import { CandidateRankingUI } from './CandidateRankingUI.js';
 
 export class UIManager {
     constructor() {
@@ -13,7 +14,10 @@ export class UIManager {
         this.metadataDisplay.init();
         this.setupEvents();
         this.loadCurrentSheets();
+        CandidateRankingUI.init();
+
         return this;
+        
     }
 
     setupEvents() {

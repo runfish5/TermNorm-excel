@@ -122,3 +122,5 @@
 {"timestamp":"2025-07-04T09:15:24.430Z","source":"Agc3","target":"AgC3 | 83% Silver 17%Graphite /RER","method":"ProfileRank","confidence":0.5,"session_id":"excel_1751620375049_yezpmgm32"}
 {"timestamp":"2025-07-04T09:31:01.425Z","source":"Copper/stamping","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.9,"session_id":"excel_1751621431283_3hrvbh813"}
 {"timestamp":"2025-07-04T09:48:10.705Z","source":"Copper/stamping","target":"Copper, cathode {GLO}| market for copper, cathode | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751622472166_f9qf4s1bz"}
+{"timestamp":"2025-07-04T12:44:53.578Z","source":"Copper Wire","target":"Copper, cathode {GLO}| market for copper, cathode | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633067328_ea2abr1ok"}
+{"timestamp":"2025-07-04T12:49:10.867Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633335642_5zdxw1wmx"}
