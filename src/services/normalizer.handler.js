@@ -60,22 +60,12 @@ export class LiveTracker {
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
-            console.log('Processing result:', result);
-            
-            // Add the full result to the candidate ranking UI
             CandidateRankingUI.add(value, result);
             
             let finalResult;
             
-            // Check if we got multiple matches that need selection
             if (result && result.type === 'multiple_matches') {
-                console.log('Multiple candidates found:', result.matches);
-                console.log('Full results for selection:', result.fullResults);
-                
-                // Call selectBestMatch here
                 const bestMatch = this.processor.selectBestMatch(result.matches, result.fullResults);
-                console.log('Selected best match:', bestMatch);
-                
                 finalResult = {
                     target: bestMatch[0],
                     method: result.method,
