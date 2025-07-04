@@ -1,6 +1,6 @@
 // ./services/normalizer.handler.js
 import { ActivityFeed } from '../ui-components/ActivityFeedUI.js';
-import { CandidateRankingUI } from '../ui-components/CandidateRankingUI.js';
+import { ActivityDisplay } from '../ui-components/CandidateRankingUI.js';
 import { NormalizerRouter } from './normalizer.router.js';
 import { logActivity } from '../shared-services/activity.logger.js';
 
@@ -18,22 +18,26 @@ export class LiveTracker {
         }
         this.columnMap = await config.setupCols(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
+        
         await Excel.run(async ctx => {
             const ws = ctx.workbook.worksheets.getActiveWorksheet();
             if (this.handler) ws.onChanged.remove(this.handler);
             this.handler = ws.onChanged.add(this.handleChange.bind(this));
             await ctx.sync();
         });
+        
         this.active = true;
     }
 
     handleChange = async (e) => {
         if (!this.active) return;
+        
         await Excel.run(async ctx => {
             const ws = ctx.workbook.worksheets.getActiveWorksheet();
             const range = ws.getRange(e.address);
             range.load("values, rowIndex, columnIndex, rowCount, columnCount");
             await ctx.sync();
+            
             // Apply visual feedback immediately
             const tasks = [];
             for (let r = 0; r < range.rowCount; r++) {
@@ -42,6 +46,7 @@ export class LiveTracker {
                     const col = range.columnIndex + c;
                     const targetCol = this.columnMap.get(col);
                     const value = range.values[r][c];
+                    
                     if (row > 0 && targetCol && value) {
                         ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFFB9D";
                         tasks.push(() => this.processCell(ws, row, col, targetCol, value));
@@ -49,6 +54,7 @@ export class LiveTracker {
                 }
             }
             await ctx.sync();
+            
             // Process all cells
             for (const task of tasks) {
                 await task();
@@ -60,7 +66,7 @@ export class LiveTracker {
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
-            CandidateRankingUI.add(value, result);
+            ActivityDisplay.addCandidate(value, result);
             
             let finalResult;
             
@@ -80,6 +86,7 @@ export class LiveTracker {
                 ActivityFeed.add(value, finalResult.target, finalResult.method, finalResult.confidence);
                 logActivity(value, finalResult.target, finalResult.method, finalResult.confidence);
             }
+            
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
         } catch (error) {
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFC7CE";
@@ -94,7 +101,6 @@ export class LiveTracker {
     }
 
     static setup() {
-        ActivityFeed.init();
-        CandidateRankingUI.init();
+        ActivityDisplay.init();
     }
 }

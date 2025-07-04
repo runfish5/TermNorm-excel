@@ -18,7 +18,6 @@
         <img width="40" height="40" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
         <h1 class="ms-font-su">TermNorm</h1>
     </header>
-
     <section id="sideload-msg" class="ms-welcome__main">
         <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
     </section>
@@ -31,7 +30,6 @@
             </button>
             <div id="config-status" class="ms-font-m"></div>
         </section>
-
         <!-- Mapping Source Configuration with Details/Summary -->
         <details id="mapping-source-details" class="ms-welcome__section" open>
             <summary class="ms-font-xl">
@@ -47,7 +45,6 @@
                         <input type="radio" id="external-file" name="file-source" value="external" />
                         <label for="external-file" class="ms-font-m">External Excel file</label>
                     </div>
-
                     <!-- External file selection (hidden by default) -->
                     <div id="external-file-section" class="hidden margin-top-10">
                         <label for="file-path-display" class="ms-font-m">File Path:</label>
@@ -60,7 +57,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- Single worksheet dropdown for both current and external files -->
                 <div class="ms-font-m">
                     <label for="worksheet-dropdown" class="ms-font-m-plus enhanced-label">Worksheet:</label>
@@ -68,7 +64,6 @@
                         <option value="">Select a worksheet...</option>
                     </select>
                 </div>
-
                 <div class="ms-font-m margin-bottom-15">
                     <div class="flex-gap-15">
                         <div class="flex-1">
@@ -86,32 +81,27 @@
                     <span class="ms-Button-label">Load Mapping Table</span>
                 </button>
         </details>
-
         <!-- Action Buttons -->
         <section class="button-group">
             <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l">
                 <span class="ms-Button-label">Renew Prompt 🤖</span>
             </button>
         </section>
-
         <!-- Status Messages -->
         <section id="status-section">
             <div id="mapping-status" class="ms-font-m"></div>
             <div id="prompt-status" class="ms-font-m"></div>
         </section>
-
         <!-- Metadata Section -->
         <section id="metadata-section" class="metadata-section">
             <button id="show-metadata-btn" class="ms-Button ms-Button--compound margin-bottom-10">
                 <span class="ms-Button-label">Show Processing Details</span>
             </button>
-
             <div id="metadata-content" class="ms-welcome__section metadata-content is-hidden">
                 <h3 class="ms-font-l metadata-header">Processing Details</h3>
                 <div id="metadata-display" class="ms-font-s metadata-display"></div>
             </div>
         </section>
-
         <!-- Live Tracking Section -->
         <section id="tracking-section" class="ms-welcome__section">
             <button id="setup-map-tracking" class="ms-Button ms-Button--primary">
@@ -120,31 +110,8 @@
             <p class="ms-font-m">Activate to automatically replace cell values based on the mapping configuration.</p>
             <p id="item-subject" class="ms-font-m"></p>
             
-            <!-- Live Activity Display -->
-            <!-- Live Activity Display -->
-            <div id="live-activity-section" class="activity-section">
-                <div class="activity-header">
-                    <h4 class="ms-font-l">Live Activity</h4>
-                    <div class="activity-toggle">
-                        <input type="radio" id="activity-history" name="activity-mode" value="history" checked />
-                        <label for="activity-history" class="ms-font-s">History</label>
-                        <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" />
-                        <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
-                    </div>
-                    <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">
-                        <span class="ms-Button-label">Clear</span>
-                    </button>
-                </div>
-                
-                <!-- History View -->
-                <div id="activity-feed" class="activity-feed"></div>
-                
-                <!-- Candidate Ranked View -->
-                <div id="candidate-ranked" class="activity-feed" style="display: none;">
-                    <div class="ms-font-m">Candidate Ranked View - Coming Soon</div>
-                    <div class="ms-font-s">This will display ranked candidates based on mapping confidence.</div>
-                </div>
-            </div>
+            <!-- Simplified Live Activity Display - All structure created by JavaScript -->
+            <div id="live-activity-section" class="activity-section"></div>
         </section>
     </main>
 </body>
