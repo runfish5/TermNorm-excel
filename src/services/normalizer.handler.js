@@ -59,10 +59,32 @@ export class LiveTracker {
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
-            if (result) {
-                ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
-                ActivityFeed.add(value, result.target, result.method, result.confidence);
-                logActivity(value, result.target, result.method, result.confidence);
+            console.log('Processing result:', result);
+            
+            let finalResult;
+            
+            // Check if we got multiple matches that need selection
+            if (result && result.type === 'multiple_matches') {
+                console.log('Multiple candidates found:', result.matches);
+                console.log('Full results for selection:', result.fullResults);
+                
+                // Call selectBestMatch here
+                const bestMatch = this.processor.selectBestMatch(result.matches, result.fullResults);
+                console.log('Selected best match:', bestMatch);
+                
+                finalResult = {
+                    target: bestMatch[0],
+                    method: result.method,
+                    confidence: bestMatch[1]
+                };
+            } else {
+                finalResult = result;
+            }
+            
+            if (finalResult) {
+                ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[finalResult.target]];
+                ActivityFeed.add(value, finalResult.target, finalResult.method, finalResult.confidence);
+                logActivity(value, finalResult.target, finalResult.method, finalResult.confidence);
             }
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
         } catch (error) {
