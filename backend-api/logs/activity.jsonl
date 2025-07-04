@@ -128,3 +128,10 @@
 {"timestamp":"2025-07-04T12:55:21.781Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633705286_rb48itdjd"}
 {"timestamp":"2025-07-04T12:58:09.735Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633874584_z91x5orq5"}
 {"timestamp":"2025-07-04T12:59:14.558Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633939601_do3ua4lox"}
+{"timestamp":"2025-07-04T15:04:48.743Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.9,"session_id":"excel_1751641469243_bfushpe3s"}
+{"timestamp":"2025-07-04T15:05:06.334Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751641469243_bfushpe3s"}
+{"timestamp":"2025-07-04T15:06:31.159Z","source":"AgC3","target":"AgC3 | 83% Silver 17%Graphite /RER","method":"ProfileRank","confidence":0.9,"session_id":"excel_1751641469243_bfushpe3s"}
+{"timestamp":"2025-07-04T15:22:21.205Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.9,"session_id":"excel_1751642496266_127r0h6v0"}
+{"timestamp":"2025-07-04T15:22:28.065Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751642496266_127r0h6v0"}
+{"timestamp":"2025-07-04T15:23:15.864Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751642496266_127r0h6v0"}
+{"timestamp":"2025-07-04T15:23:21.008Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.9,"session_id":"excel_1751642496266_127r0h6v0"}
