@@ -3,27 +3,18 @@ import { ActivityFeed } from './ActivityFeedUI.js';
 
 export class ActivityDisplay {
     static container = null;
-    static candidateContainer = null;
     static currentView = 'history';
 
     static init() {
         this.container = document.getElementById('live-activity-section');
-        if (!this.container) {
-            console.error('ActivityDisplay: Container not found');
-            return;
-        }
+        if (!this.container) return console.error('ActivityDisplay: Container not found');
         
-        this.createUI();
-        this.setupEventListeners();
-        
-        // Initialize sub-components
+        this.render();
+        this.bindEvents();
         ActivityFeed.init('activity-feed');
-        this.initCandidateView();
-        
-        console.log('ActivityDisplay initialized');
     }
 
-    static createUI() {
+    static render() {
         this.container.innerHTML = `
             <div class="activity-header">
                 <h4 class="ms-font-l">Live Activity</h4>
@@ -33,114 +24,70 @@ export class ActivityDisplay {
                     <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" />
                     <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
                 </div>
-                <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">
-                    <span class="ms-Button-label">Clear</span>
-                </button>
+                <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">Clear</button>
             </div>
             <div id="activity-feed" class="activity-feed"></div>
-            <div id="candidate-ranked" class="activity-feed" style="display: none;"></div>
+            <div id="candidate-ranked" class="activity-feed" style="display:none">
+                <div class="placeholder-text">Rankings appear here during processing</div>
+            </div>
         `;
+    }
+
+    static bindEvents() {
+        this.container.addEventListener('change', e => {
+            if (e.target.name === 'activity-mode') this.switchView(e.target.value);
+        });
         
-        this.candidateContainer = this.container.querySelector('#candidate-ranked');
+        this.container.addEventListener('click', e => {
+            if (e.target.closest('#clear-activity')) this.clearActive();
+        });
     }
 
-    static setupEventListeners() {
-        const historyRadio = this.container.querySelector('#activity-history');
-        const rankedRadio = this.container.querySelector('#activity-ranked');
-        const clearButton = this.container.querySelector('#clear-activity');
-
-        historyRadio?.addEventListener('change', () => this.showView('history'));
-        rankedRadio?.addEventListener('change', () => this.showView('ranked'));
-        clearButton?.addEventListener('click', () => this.clearCurrentView());
-    }
-
-    static showView(view) {
+    static switchView(view) {
         this.currentView = view;
-        const feedDiv = this.container.querySelector('#activity-feed');
-        const candidateDiv = this.container.querySelector('#candidate-ranked');
-        
-        if (view === 'history') {
-            feedDiv.style.display = 'block';
-            candidateDiv.style.display = 'none';
-        } else {
-            feedDiv.style.display = 'none';
-            candidateDiv.style.display = 'block';
-        }
+        const isHistory = view === 'history';
+        this.container.querySelector('#activity-feed').style.display = isHistory ? 'block' : 'none';
+        this.container.querySelector('#candidate-ranked').style.display = isHistory ? 'none' : 'block';
     }
 
-    static clearCurrentView() {
-        if (this.currentView === 'history') {
-            ActivityFeed.clear();
-        } else {
-            this.clearCandidates();
-        }
-    }
-
-    static initCandidateView() {
-        if (!this.candidateContainer) return;
-        this.candidateContainer.innerHTML = '<div style="color:#666;font-style:italic;padding:10px;text-align:center">Rankings appear here during processing</div>';
+    static clearActive() {
+        this.currentView === 'history' ? ActivityFeed.clear() : this.clearCandidates();
     }
 
     static addCandidate(value, result) {
-        if (!this.candidateContainer) return;
+        const candidates = result?.fullResults?.ranked_candidates;
+        if (!candidates) return;
+
+        const html = `
+            <div class="candidate-entry">
+                <div class="candidate-header">Input: "${value}"</div>
+                <table class="candidate-table">
+                    <thead><tr><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Spec Match</th><th>Match Factors</th></tr></thead>
+                    <tbody>
+                        ${candidates.map(c => `
+                            <tr>
+                                <td>${c.rank}</td>
+                                <td>${c.candidate}</td>
+                                <td>${c.relevance_score}</td>
+                                <td>${c.spec_match_score}</td>
+                                <td>${c.key_match_factors?.join(', ') || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
         
-        // Clear previous content - only show the most recent
-        this.candidateContainer.innerHTML = '';
-        
-        const entry = document.createElement('div');
-        entry.style.cssText = 'border:1px solid #ddd;margin:5px 0;padding:10px;background:#f9f9f9';
-        
-        const header = document.createElement('div');
-        header.style.cssText = 'font-weight:bold;margin-bottom:8px';
-        header.textContent = `Input: "${value}"`;
-        
-        const content = document.createElement('div');
-        
-        if (result?.fullResults?.ranked_candidates) {
-            const table = document.createElement('table');
-            table.style.cssText = 'border-collapse:collapse;width:100%;font-size:12px';
-            
-            const thead = document.createElement('thead');
-            thead.innerHTML = '<tr><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Spec Match</th><th>Match Factors</th></tr>';
-            
-            const tbody = document.createElement('tbody');
-            result.fullResults.ranked_candidates.forEach(item => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.rank}</td>
-                    <td>${item.candidate}</td>
-                    <td>${item.relevance_score}</td>
-                    <td>${item.spec_match_score}</td>
-                    <td>${item.key_match_factors?.join(', ') || ''}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            table.append(thead, tbody);
-            content.appendChild(table);
-        } else {
-            content.textContent = 'No ranked candidates';
-        }
-        
-        entry.append(header, content);
-        this.candidateContainer.appendChild(entry);
+        this.container.querySelector('#candidate-ranked').innerHTML = html;
     }
 
     static clearCandidates() {
-        if (this.candidateContainer) {
-            this.candidateContainer.innerHTML = '<div style="color:#666;font-style:italic;padding:10px;text-align:center">Rankings appear here during processing</div>';
-        }
+        this.container.querySelector('#candidate-ranked').innerHTML = 
+            '<div class="placeholder-text">Rankings appear here during processing</div>';
     }
 
-    // Backward compatibility methods
-    static add(value, result) {
-        this.addCandidate(value, result);
-    }
-
-    static clear() {
-        this.clearCandidates();
-    }
+    static add = this.addCandidate;
+    static clear = this.clearCandidates;
 }
 
-// Export both new and old class names for compatibility
 export const CandidateRankingUI = ActivityDisplay;
