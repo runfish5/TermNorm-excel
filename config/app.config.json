@@ -1,0 +1,33 @@
+{
+  "excel-projects": {
+    "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
+      "column_map": {
+        "a": "a_std",
+        "b": "b_std"
+      },
+      "default_std_suffix": "standardized",
+      "mapping_reference3": "test_map1.json",
+      "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",
+      "mapping_referenceDep": "C:\\Users\\David\\test_map_xy.xlsx",
+      "mapping_reference2": "C:\\Users\\David\\Downloads\\test_map_xy.xlsx",
+      "worksheet": "Materials",
+      "source_column": "",
+      "target_column": "Dataset in SP"
+
+    },
+    "BAFU-ILCD - Copy.xlsx": {
+      "column_map": {
+        "Name": "localName"
+      },
+      "default_std_suffix": "std",
+      "mapping_reference": "test_map1.json"
+    },
+    "Append EF 2.0 to EF 3.1 - Copy.xlsx": {
+      "column_map": {
+        "Substance": "Replace Substance"
+      },
+      "default_std_suffix": "std",
+      "mapping_reference": "map_EF3.1.json"
+    }
+  }
+}
