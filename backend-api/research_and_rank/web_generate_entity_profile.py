@@ -72,32 +72,6 @@ def _scrape_with_logging(url, content_limit, index, total, verbose, detailed_log
     return result, result is not None
 
 
-def _build_analysis_prompt(query, merged_scrape_text):
-    """Build the LLM analysis prompt - extracted for clarity"""
-    return f"""Analyze this technical material '{query}' from web research and create a comprehensive JSON profile.
-
-RESEARCH DATA:
-{merged_scrape_text}
-
-Extract and organize ALL information into simple lists. Return as clean JSON object with these fields:
-- entity_name: The material name
-- categories: Types/categories (e.g., "bimetal", "alloy", "strip")
-- material_types: Specific material classifications
-- chemical_elements: Any chemical composition mentioned (mark if specified or estimated)
-- dimensions: Physical dimensions, thickness, width, weight ranges
-- temperature_ranges: Operating temperature ranges
-- industries: Industries that use this (automotive, HVAC, electronics, etc.)
-- applications: Specific uses (thermostats, switches, sensors, etc.)
-- manufacturers: Company names mentioned
-- standards: Technical standards (DIN, ASTM, etc.)
-- key_properties: Important technical properties
-- advantages: Benefits and advantages
-- limitations: Drawbacks or limitations
-- notes: Additional important information
-
-Provide comprehensive lists with all details from each source. Return valid JSON format."""
-
-
 def _collect_urls(query, max_sites, verbose):
     """DuckDuckGo search - no API key required"""
     if verbose:
@@ -180,6 +154,31 @@ def _combine_content(query, parsed_scrape_list, raw_content_limit):
         merged_scrape_text += f"{i}. {item['title']}\n{item['content'][:500]}\n\n"
     return merged_scrape_text[:raw_content_limit]
 
+
+def _build_analysis_prompt(query, merged_scrape_text):
+    return f"""You are a technical material database API. Extract information about '{query}' from the research data and return it in this exact JSON format:
+
+{{
+  "entity_name": "string",
+  "categories": ["array of strings"],
+  "material_types": ["array of strings"],
+  "chemical_elements": ["array of strings"],
+  "dimensions": ["array of strings"],
+  "temperature_ranges": ["array of strings"],
+  "industries": ["array of strings"],
+  "applications": ["array of strings"],
+  "manufacturers": ["array of strings"],
+  "standards": ["array of strings"],
+  "key_properties": ["array of strings"],
+  "advantages": ["array of strings"],
+  "limitations": ["array of strings"],
+  "notes": "string"
+}}
+
+RESEARCH DATA:
+{merged_scrape_text}
+
+Return only the JSON object with all fields populated. Use empty arrays [] for missing data."""
 
 def _analyze_with_llm(query, merged_scrape_text, groq_api_key, schema):
     """4. LLM Analysis - validate schema and get structured chat_completion"""

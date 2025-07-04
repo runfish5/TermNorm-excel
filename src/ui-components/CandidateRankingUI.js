@@ -12,6 +12,7 @@ export class ActivityDisplay {
         this.render();
         this.bindEvents();
         ActivityFeed.init('activity-feed');
+        
     }
 
     static render() {
