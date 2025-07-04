@@ -42,6 +42,25 @@ export class UIManager {
             }
         });
 
+        // Activity toggle functionality
+        const historyRadio = document.getElementById('activity-history');
+        const rankedRadio = document.getElementById('activity-ranked');
+        const activityFeed = document.getElementById('activity-feed');
+        const candidateRanked = document.getElementById('candidate-ranked');
+
+        const toggleActivityView = () => {
+            if (historyRadio?.checked) {
+                if (activityFeed) activityFeed.style.display = 'block';
+                if (candidateRanked) candidateRanked.style.display = 'none';
+            } else {
+                if (activityFeed) activityFeed.style.display = 'none';
+                if (candidateRanked) candidateRanked.style.display = 'block';
+            }
+        };
+
+        historyRadio?.addEventListener('change', toggleActivityView);
+        rankedRadio?.addEventListener('change', toggleActivityView);
+
         this.setupMetadataToggle();
     }
 
