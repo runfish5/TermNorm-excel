@@ -164,14 +164,9 @@ def _build_analysis_prompt(query, merged_scrape_text):
   "material_types": ["array of strings"],
   "chemical_elements": ["array of strings"],
   "dimensions": ["array of strings"],
-  "temperature_ranges": ["array of strings"],
   "industries": ["array of strings"],
   "applications": ["array of strings"],
-  "manufacturers": ["array of strings"],
-  "standards": ["array of strings"],
   "key_properties": ["array of strings"],
-  "advantages": ["array of strings"],
-  "limitations": ["array of strings"],
   "notes": "string"
 }}
 
