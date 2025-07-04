@@ -119,14 +119,29 @@
             <p id="item-subject" class="ms-font-m"></p>
             
             <!-- Live Activity Display -->
+            <!-- Live Activity Display -->
             <div id="live-activity-section" class="activity-section">
                 <div class="activity-header">
                     <h4 class="ms-font-l">Live Activity</h4>
+                    <div class="activity-toggle">
+                        <input type="radio" id="activity-history" name="activity-mode" value="history" checked />
+                        <label for="activity-history" class="ms-font-s">History</label>
+                        <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" />
+                        <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
+                    </div>
                     <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">
                         <span class="ms-Button-label">Clear</span>
                     </button>
                 </div>
+                
+                <!-- History View -->
                 <div id="activity-feed" class="activity-feed"></div>
+                
+                <!-- Candidate Ranked View -->
+                <div id="candidate-ranked" class="activity-feed" style="display: none;">
+                    <div class="ms-font-m">Candidate Ranked View - Coming Soon</div>
+                    <div class="ms-font-s">This will display ranked candidates based on mapping confidence.</div>
+                </div>
             </div>
         </section>
     </main>
