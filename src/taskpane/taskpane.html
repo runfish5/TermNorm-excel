@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TermNorm</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+    <link href="../ui-components/ActivityFeedUI.css" rel="stylesheet" type="text/css" />
+</head>
+<body class="ms-font-m ms-welcome ms-Fabric">
+    <header class="ms-welcome__header ms-bgColor-neutralLighter">
+        <img width="40" height="40" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
+        <h1 class="ms-font-su">TermNorm</h1>
+    </header>
+
+    <section id="sideload-msg" class="ms-welcome__main">
+        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
+    </section>
+    
+    <main id="app-body" class="ms-welcome__main is-hidden">
+        <!-- Configuration Section -->
+        <section id="config-section" class="ms-welcome__section">
+            <button id="load-config" class="ms-Button ms-Button--hero ms-font-l">
+                <span class="ms-Button-label">Load Config</span>
+            </button>
+            <div id="config-status" class="ms-font-m"></div>
+        </section>
+
+        <!-- Mapping Source Configuration with Details/Summary -->
+        <details id="mapping-source-details" class="ms-welcome__section" open>
+            <summary class="ms-font-xl">
+                Mapping Source Configuration
+            </summary>
+                <div class="ms-font-m">
+                    <label class="ms-font-m-plus enhanced-label">Excel File:</label>
+                    <div>
+                        <input type="radio" id="current-file" name="file-source" value="current" checked />
+                        <label for="current-file" class="ms-font-m">This Excel file</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="external-file" name="file-source" value="external" />
+                        <label for="external-file" class="ms-font-m">External Excel file</label>
+                    </div>
+
+                    <!-- External file selection (hidden by default) -->
+                    <div id="external-file-section" class="hidden margin-top-10">
+                        <label for="file-path-display" class="ms-font-m">File Path:</label>
+                        <div class="flex-center-gap-5">
+                            <input type="text" id="file-path-display" class="ms-TextField-field flex-grow-margin-top-5" placeholder="No file selected" readonly />
+                            <input type="file" id="file-picker-input" accept=".xlsx,.xls" class="hidden" />
+                            <button id="browse-button" class="ms-Button margin-top-5">
+                                <span class="ms-Button-label">Browse...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Single worksheet dropdown for both current and external files -->
+                <div class="ms-font-m">
+                    <label for="worksheet-dropdown" class="ms-font-m-plus enhanced-label">Worksheet:</label>
+                    <select id="worksheet-dropdown" class="ms-Dropdown-select u-width-full">
+                        <option value="">Select a worksheet...</option>
+                    </select>
+                </div>
+
+                <div class="ms-font-m margin-bottom-15">
+                    <div class="flex-gap-15">
+                        <div class="flex-1">
+                            <label for="target-column" class="ms-font-m-plus block-margin-bottom-5 enhanced-label">Reference Column:</label>
+                            <input type="text" id="target-column" class="ms-TextField-field width-100" />
+                        </div>
+                        <div class="flex-1">
+                            <label for="source-column" class="ms-font-m-plus block-margin-bottom-5 enhanced-label">Alias Column:</label>
+                            <input type="text" id="source-column" class="ms-TextField-field width-100" placeholder="optional" />
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-l">
+                    <span class="ms-Button-label">Load Mapping Table</span>
+                </button>
+        </details>
+
+        <!-- Action Buttons -->
+        <section class="button-group">
+            <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l">
+                <span class="ms-Button-label">Renew Prompt 🤖</span>
+            </button>
+        </section>
+
+        <!-- Status Messages -->
+        <section id="status-section">
+            <div id="mapping-status" class="ms-font-m"></div>
+            <div id="prompt-status" class="ms-font-m"></div>
+        </section>
+
+        <!-- Metadata Section -->
+        <section id="metadata-section" class="metadata-section">
+            <button id="show-metadata-btn" class="ms-Button ms-Button--compound margin-bottom-10">
+                <span class="ms-Button-label">Show Processing Details</span>
+            </button>
+
+            <div id="metadata-content" class="ms-welcome__section metadata-content is-hidden">
+                <h3 class="ms-font-l metadata-header">Processing Details</h3>
+                <div id="metadata-display" class="ms-font-s metadata-display"></div>
+            </div>
+        </section>
+
+        <!-- Live Tracking Section -->
+        <section id="tracking-section" class="ms-welcome__section">
+            <button id="setup-map-tracking" class="ms-Button ms-Button--primary">
+                <span class="ms-Button-label">Activate Tracking</span>
+            </button>
+            <p class="ms-font-m">Activate to automatically replace cell values based on the mapping configuration.</p>
+            <p id="item-subject" class="ms-font-m"></p>
+            
+            <!-- Live Activity Display -->
+            <div id="live-activity-section" class="activity-section">
+                <div class="activity-header">
+                    <h4 class="ms-font-l">Live Activity</h4>
+                    <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">
+                        <span class="ms-Button-label">Clear</span>
+                    </button>
+                </div>
+                <div id="activity-feed" class="activity-feed"></div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
