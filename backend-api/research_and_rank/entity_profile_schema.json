@@ -2,9 +2,11 @@
     "type": "object",
     "properties": {
         "entity_name": {"type": "string"},
-        "categories": {"type": "array", "items": {"type": "string"}},
+        "alternative_names": {"type": "array", "items": {"type": "string"}},
+        "mechanical_properties": {"type": "array", "items": {"type": "string"}}, 
         "material_types": {"type": "array", "items": {"type": "string"}},
         "chemical_elements": {"type": "array", "items": {"type": "string"}},
+        "categories": {"type": "array", "items": {"type": "string"}},
         "dimensions": {"type": "array", "items": {"type": "string"}},
         "industries": {"type": "array", "items": {"type": "string"}},
         "applications": {"type": "array", "items": {"type": "string"}},

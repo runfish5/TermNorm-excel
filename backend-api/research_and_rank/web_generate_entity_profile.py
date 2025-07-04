@@ -160,9 +160,11 @@ def _build_analysis_prompt(query, merged_scrape_text):
 
 {{
   "entity_name": "string",
-  "categories": ["array of strings"],
+  "alternative_names": ["array of strings"],
+  "mechanical_properties": ["array of strings"],
   "material_types": ["array of strings"],
   "chemical_elements": ["array of strings"],
+  "categories": ["array of strings"],
   "dimensions": ["array of strings"],
   "industries": ["array of strings"],
   "applications": ["array of strings"],
