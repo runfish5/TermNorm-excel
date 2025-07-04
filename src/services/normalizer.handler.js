@@ -1,5 +1,6 @@
 // ./services/normalizer.handler.js
 import { ActivityFeed } from '../ui-components/ActivityFeedUI.js';
+import { CandidateRankingUI } from '../ui-components/CandidateRankingUI.js';
 import { NormalizerRouter } from './normalizer.router.js';
 import { logActivity } from '../shared-services/activity.logger.js';
 
@@ -61,6 +62,9 @@ export class LiveTracker {
             const result = await this.processor.process(value);
             console.log('Processing result:', result);
             
+            // Add the full result to the candidate ranking UI
+            CandidateRankingUI.add(value, result);
+            
             let finalResult;
             
             // Check if we got multiple matches that need selection
@@ -101,5 +105,6 @@ export class LiveTracker {
 
     static setup() {
         ActivityFeed.init();
+        CandidateRankingUI.init();
     }
 }
