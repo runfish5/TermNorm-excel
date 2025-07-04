@@ -124,3 +124,7 @@
 {"timestamp":"2025-07-04T09:48:10.705Z","source":"Copper/stamping","target":"Copper, cathode {GLO}| market for copper, cathode | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751622472166_f9qf4s1bz"}
 {"timestamp":"2025-07-04T12:44:53.578Z","source":"Copper Wire","target":"Copper, cathode {GLO}| market for copper, cathode | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633067328_ea2abr1ok"}
 {"timestamp":"2025-07-04T12:49:10.867Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633335642_5zdxw1wmx"}
+{"timestamp":"2025-07-04T12:52:43.866Z","source":"Paper","target":"Paper, woodfree, coated {RER}| market for paper, woodfree, coated | Cut-off, S","method":"ProfileRank","confidence":0.111,"session_id":"excel_1751633523250_1ajzav6b7"}
+{"timestamp":"2025-07-04T12:55:21.781Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633705286_rb48itdjd"}
+{"timestamp":"2025-07-04T12:58:09.735Z","source":"Paper","target":"Paper, newsprint {RER}| market for paper, newsprint | Cut-off, S","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633874584_z91x5orq5"}
+{"timestamp":"2025-07-04T12:59:14.558Z","source":"Copper Wire","target":"Galvanized Copper | 99.6% Copper 0.4% Zinc /GLO","method":"ProfileRank","confidence":0.125,"session_id":"excel_1751633939601_do3ua4lox"}
