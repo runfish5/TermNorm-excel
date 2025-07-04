@@ -47,8 +47,8 @@ export class NormalizerRouter {
         // The findTokenMatch function expects 
         // data.matches to be an array of tuples like [candidate_name, score],
         console.log(`🔍 findTokenMatch called for: ${val}`);
-        console.trace('Called from:'); // This will show you exactly where the call originates
- 
+        console.trace('Called from:');
+    
         try {
             const res = await fetch("http://127.0.0.1:8000/research-and-match", {
                 method: "POST",
@@ -73,13 +73,12 @@ export class NormalizerRouter {
             
             if (qualifyingMatches.length === 0) return null;
 
-            // Smart selection logic
-            const bestMatch = this.selectBestMatch(qualifyingMatches, data.full_results);
-            
+            // Return all candidates instead of selecting the best one
             return { 
-                target: bestMatch[0], 
-                method: 'ProfileRank', 
-                confidence: bestMatch[1]
+                type: 'multiple_matches',
+                matches: qualifyingMatches,
+                fullResults: data.full_results,
+                method: 'ProfileRank'
             };
             
         } catch (error) {
@@ -87,7 +86,6 @@ export class NormalizerRouter {
             return null;
         }
     }
-
     selectBestMatch(matches, fullResults) {
         // If only one match, return it
         if (matches.length === 1) {
