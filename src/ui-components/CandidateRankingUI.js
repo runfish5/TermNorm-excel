@@ -17,61 +17,20 @@ export class ActivityDisplay {
     }
 
     static addFirstChoiceListener(container) {
-        const button = container.querySelector('#show-first-choice');
-        if (button) {
-            button.addEventListener('click', () => {
-                try {
-                    console.log('First choice button clicked');
-                    console.log('candidatesData:', this.candidatesData);
-                    
-                    if (this.candidatesData.length > 0) {
-                        const firstChoice = this.candidatesData[0];
-                        console.log('First choice data:', firstChoice);
-                        
-                        // Use console.log instead of alert for debugging
-                        const message = `First Choice: ${firstChoice.candidate}\nRelevance: ${firstChoice.relevance_score}\nSpec Match: ${firstChoice.spec_match_score}\nMatch Factors: ${firstChoice.key_match_factors?.join(', ') || 'None'}`;
-                        console.log('Message to display:', message);
-                        
-                        // Try to display in a div instead of alert
-                        this.displayFirstChoice(firstChoice);
-                    } else {
-                        console.log('No candidates data available');
-                        this.displayMessage('No candidates available');
-                    }
-                } catch (error) {
-                    console.error('Error in first choice listener:', error);
-                    this.displayMessage('Error displaying first choice');
-                }
-            });
-        }
-    }
-
-    static displayFirstChoice(firstChoice) {
-        const message = `
-            <div style="background: #f3f2f1; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                <strong>First Choice:</strong> ${firstChoice.candidate}<br>
-                <strong>Relevance:</strong> ${firstChoice.relevance_score}<br>
-                <strong>Spec Match:</strong> ${firstChoice.spec_match_score}<br>
-                <strong>Match Factors:</strong> ${firstChoice.key_match_factors?.join(', ') || 'None'}
-            </div>
-        `;
-        this.displayMessage(message);
-    }
-
-    static displayMessage(message) {
-        const existingMsg = this.container.querySelector('.first-choice-display');
-        if (existingMsg) {
-            existingMsg.remove();
-        }
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'first-choice-display';
-        messageDiv.innerHTML = message;
-        
-        const rankedContainer = this.container.querySelector('#candidate-ranked');
-        if (rankedContainer) {
-            rankedContainer.insertBefore(messageDiv, rankedContainer.firstChild);
-        }
+        container.querySelector('#show-first-choice')?.addEventListener('click', () => {
+            const first = this.candidatesData[0];
+            if (!first) return;
+            
+            let display = container.querySelector('.first-choice-display');
+            if (!display) {
+                display = document.createElement('div');
+                display.className = 'first-choice-display';
+                display.style.cssText = 'background:#f3f2f1;padding:8px;margin:8px 0;border-radius:4px';
+                container.querySelector('table').before(display);
+            }
+            
+            display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score} | <strong>Spec:</strong> ${first.spec_match_score}`;
+        });
     }
 
     static render() {
