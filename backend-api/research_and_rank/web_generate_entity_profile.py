@@ -160,16 +160,14 @@ def _build_analysis_prompt(query, merged_scrape_text):
 
 {{
   "entity_name": "string",
-  "alternative_names": ["array of strings"],
   "mechanical_properties": ["array of strings"],
   "material_types": ["array of strings"],
   "chemical_elements": ["array of strings"],
-  "categories": ["array of strings"],
-  "dimensions": ["array of strings"],
   "industries": ["array of strings"],
   "applications": ["array of strings"],
   "key_properties": ["array of strings"],
-  "notes": "string"
+  "alternative_names": ["array of strings"],
+  "notes": ["array of strings"]
 }}
 
 RESEARCH DATA:
@@ -185,7 +183,7 @@ def _analyze_with_llm(query, merged_scrape_text, groq_api_key, schema):
     groq = Groq(api_key=groq_api_key)
     chat_completion = groq.chat.completions.create(
         messages=[{"role": "user", "content": _build_analysis_prompt(query, merged_scrape_text)}],
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="meta-llama/llama-4-maverick-17b-128e-instruct",
         temperature=0.2,
         max_tokens=1200,
         response_format={"type": "json_object"}
