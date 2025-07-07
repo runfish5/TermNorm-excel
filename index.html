@@ -3,11 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <title>Excel Entity Standardizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .download-btn {
+            background: #0078d4;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 10px;
+        }
+        .download-btn:hover {
+            background: #106ebe;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #0078d4;
+        }
+    </style>
 </head>
 <body>
-    <h1>Excel Entity Standardizer</h1>
-    <p>This is an Excel add-in for standardizing entity names.</p>
-    <p><a href="manifest.xml">Download manifest.xml</a> to install the add-in</p>
-    <p><a href="src/taskpane/taskpane.html">View add-in interface</a></p>
+    <div class="header">
+        <h1>Excel Entity Standardizer</h1>
+        <p>AI-powered tool to standardize entity names in Excel</p>
+        <a href="manifest.xml" class="download-btn" download>Download manifest.xml</a>
+    </div>
+
+    <div class="step">
+        <h3>Installation</h3>
+        <p><strong>Desktop Excel:</strong> Home → Add-ins → Upload My Add-in → Select manifest.xml</p>
+        <p><strong>Excel Online:</strong> Home → Add-ins → More Settings → Upload My Add-in → Select manifest.xml</p>
+    </div>
+
+    <div class="step">
+        <h3>Backend Setup</h3>
+        <p>Run the backend API locally for full functionality.</p>
+    </div>
 </body>
 </html>
