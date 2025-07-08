@@ -4,23 +4,25 @@ import { ExcelIntegration } from '../services/excel-integration.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 
 export class UIManager {
-    constructor() {
+    constructor(orchestrator = null) {
         this.metadataDisplay = new MetadataDisplay();
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
+        this.orchestrator = orchestrator; // Reference to orchestrator for triggering actions
     }
 
     init() {
         this.metadataDisplay.init();
         this.setupEvents();
+        this.setupNavigationEvents();
         this.loadCurrentSheets();
         CandidateRankingUI.init();
-
+        this.showConfigDiv(); // Initialize with config view
         return this;
-        
     }
 
     setupEvents() {
+        // File source events
         document.getElementById('current-file')?.addEventListener('change', () => {
             document.getElementById('external-file-section').style.display = 'none';
             this.loadCurrentSheets();
@@ -31,6 +33,7 @@ export class UIManager {
             this.externalFile ? this.loadExternalSheets() : this.setDropdown(['Select external file first...'], true);
         });
 
+        // File picker events
         document.getElementById('browse-button')?.addEventListener('click', (e) => {
             e.preventDefault();
             document.getElementById('file-picker-input')?.click();
@@ -51,7 +54,7 @@ export class UIManager {
         const rankedRadio = document.getElementById('activity-ranked');
         const activityFeed = document.getElementById('activity-feed');
         const candidateRanked = document.getElementById('candidate-ranked');
-
+        
         const toggleActivityView = () => {
             if (historyRadio?.checked) {
                 if (activityFeed) activityFeed.style.display = 'block';
@@ -64,8 +67,87 @@ export class UIManager {
 
         historyRadio?.addEventListener('change', toggleActivityView);
         rankedRadio?.addEventListener('change', toggleActivityView);
-
+        
         this.setupMetadataToggle();
+    }
+
+    setupNavigationEvents() {
+        const loadConfigBtn = document.getElementById('load-config');
+        const activateTrackingBtn = document.getElementById('activate-tracking');
+
+        // Only handle navigation, not functionality
+        loadConfigBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showConfigDiv();
+        });
+        
+        activateTrackingBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showTrackingDiv();
+        });
+
+        // External file radio button events
+        document.getElementById('external-file')?.addEventListener('change', (e) => {
+            const externalFileSection = document.getElementById('external-file-section');
+            if (e.target.checked) {
+                externalFileSection?.classList.remove('hidden');
+            } else {
+                externalFileSection?.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('current-file')?.addEventListener('change', (e) => {
+            const externalFileSection = document.getElementById('external-file-section');
+            if (e.target.checked) {
+                externalFileSection?.classList.add('hidden');
+            }
+        });
+    }
+
+    showConfigDiv() {
+        const configDiv = document.getElementById('config-div');
+        const trackingDiv = document.getElementById('tracking-div');
+        const loadConfigBtn = document.getElementById('load-config');
+        const activateTrackingBtn = document.getElementById('activate-tracking');
+
+        configDiv?.classList.remove('is-hidden');
+        trackingDiv?.classList.add('is-hidden');
+        loadConfigBtn?.classList.add('ms-Button--primary');
+        activateTrackingBtn?.classList.remove('ms-Button--primary');
+        
+        // Automatically reload config when switching to config mode
+        if (this.orchestrator) {
+            this.orchestrator.reloadConfig();
+        } else {
+            this.updateStatus('Load Config mode active - Configure your mapping settings');
+        }
+    }
+
+    showTrackingDiv() {
+        const trackingDiv = document.getElementById('tracking-div');
+        const configDiv = document.getElementById('config-div');
+        const activateTrackingBtn = document.getElementById('activate-tracking');
+        const loadConfigBtn = document.getElementById('load-config');
+
+        trackingDiv?.classList.remove('is-hidden');
+        configDiv?.classList.add('is-hidden');
+        activateTrackingBtn?.classList.add('ms-Button--primary');
+        loadConfigBtn?.classList.remove('ms-Button--primary');
+        
+        // Automatically start tracking when switching to tracking mode
+        if (this.orchestrator) {
+            this.orchestrator.startTracking();
+        } else {
+            this.updateStatus('Tracking active (reverse-only)');
+        }
+    }
+
+    updateStatus(message) {
+        const statusMessage = document.getElementById('main-status-message');
+        const bottomStatusMessage = document.getElementById('bottom-status-message');
+        
+        if (statusMessage) statusMessage.textContent = message;
+        if (bottomStatusMessage) bottomStatusMessage.textContent = message;
     }
 
     async loadCurrentSheets() {
@@ -81,7 +163,7 @@ export class UIManager {
 
     async loadExternalSheets() {
         if (!this.externalFile) return;
-
+        
         try {
             const sheets = await this.excelIntegration.getExternalWorksheetNames(this.externalFile);
             this.setDropdown(sheets);
@@ -96,7 +178,7 @@ export class UIManager {
     setDropdown(sheets, disabled = false) {
         const dropdown = document.getElementById('worksheet-dropdown');
         if (!dropdown) return;
-
+        
         if (disabled) {
             dropdown.innerHTML = `<option value="">${sheets[0]}</option>`;
         } else {
@@ -107,6 +189,7 @@ export class UIManager {
 
     selectWorksheet(name) {
         if (!name) return;
+        
         setTimeout(() => {
             const dropdown = document.getElementById('worksheet-dropdown');
             if (dropdown && Array.from(dropdown.options).find(opt => opt.value === name)) {
@@ -189,6 +272,9 @@ export class UIManager {
         this.status(message);
         this.metadataDisplay.show(result.metadata);
         document.getElementById('mapping-source-details').open = false;
+        
+        // Update main status as well
+        this.updateStatus('Config loaded. 2 mappings configured');
     }
 
     handleMappingError(error, mappings) {

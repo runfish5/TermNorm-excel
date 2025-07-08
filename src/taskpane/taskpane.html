@@ -9,7 +9,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
-    <script type="module" src="../ui-components/CandidateRankingUI.js"></script>
     <link href="../ui-components/ActivityFeedUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/CandidateRankingUI.css" rel="stylesheet" type="text/css" />
 </head>
@@ -25,14 +24,14 @@
                 <span class="ms-Button-label">Load Config</span>
             </button>
             <button id="activate-tracking" class="ms-Button ms-font-m" style="margin-left: 10px; padding: 5px 15px;">
-                <span class="ms-Button-label">Activate Tracking</span>
+                <span class="ms-Button-label">Tracking Results</span>
             </button>
             <div style="margin-left: auto; display: flex; align-items: center;">
                 <img width="20" height="20" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" style="margin-right: 10px;" />
                 <h1 class="ms-font-l">TermNorm</h1>
             </div>
         </div>
-
+        
         <!-- System Status Window -->
         <div style="width: 100%; background: #f3f3f3; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 5px;">
             <div style="width: 100%; display: flex; align-items: center;">
@@ -42,14 +41,14 @@
                 </div>
             </div>
         </div>
-
+        
         <!-- Load Config Div -->
         <div id="config-div" style="width: 100%; padding: 10px;">
             <!-- Configuration Status Section -->
             <section id="config-section" style="width: 100%; margin-bottom: 10px;">
                 <div id="config-status" class="ms-font-m"></div>
             </section>
-
+            
             <!-- Mapping Source Configuration with Details/Summary -->
             <details id="mapping-source-details" class="ms-welcome__section" open style="width: 100%; margin-bottom: 10px;">
                 <summary class="ms-font-xl" style="width: 100%; margin-bottom: 10px;">
@@ -121,7 +120,7 @@
                     <div id="metadata-display" class="ms-font-s metadata-display" style="width: 100%;"></div>
                 </div>
             </section>
-
+            
             <!-- Setup Map Tracking Section -->
             <section id="tracking-section" class="ms-welcome__section" style="width: 100%; margin-bottom: 10px;">
                 <button id="setup-map-tracking" class="ms-Button ms-Button--primary" style="width: 100%; margin-bottom: 5px; padding: 8px;">
@@ -130,7 +129,7 @@
                 <p class="ms-font-m" style="width: 100%;">Activate to automatically replace cell values based on the mapping configuration.</p>
                 <p id="item-subject" class="ms-font-m"></p>
             </section>
-
+            
             <!-- Renew Prompt Section -->
             <section class="button-group" style="width: 100%; margin-bottom: 10px;">
                 <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l" style="width: 100%; padding: 8px;">
@@ -138,7 +137,7 @@
                 </button>
             </section>
         </div>
-
+        
         <!-- Activate Tracking Div -->
         <div id="tracking-div" class="is-hidden" style="width: 100%; padding: 10px;">
             <div style="width: 100%; margin-bottom: 10px;">
@@ -149,7 +148,7 @@
             </div>
         </div>
     </main>
-
+    
     <!-- System Status Window (fixed at bottom) -->
     <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #f3f3f3; border-top: 1px solid #ccc; padding: 10px;">
         <div style="width: 100%; display: flex; align-items: center;">
@@ -159,123 +158,14 @@
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const loadConfigBtn = document.getElementById('load-config');
-            const activateTrackingBtn = document.getElementById('activate-tracking');
-            const configDiv = document.getElementById('config-div');
-            const trackingDiv = document.getElementById('tracking-div');
-            const statusMessage = document.getElementById('main-status-message');
-            const bottomStatusMessage = document.getElementById('bottom-status-message');
-
-            function updateStatus(message) {
-                statusMessage.textContent = message;
-                bottomStatusMessage.textContent = message;
-            }
-
-            function showConfigDiv() {
-                configDiv.classList.remove('is-hidden');
-                trackingDiv.classList.add('is-hidden');
-                loadConfigBtn.classList.add('ms-Button--primary');
-                activateTrackingBtn.classList.remove('ms-Button--primary');
-                updateStatus('Load Config mode active - Configure your mapping settings');
-            }
-
-            function showTrackingDiv() {
-                trackingDiv.classList.remove('is-hidden');
-                configDiv.classList.add('is-hidden');
-                activateTrackingBtn.classList.add('ms-Button--primary');
-                loadConfigBtn.classList.remove('ms-Button--primary');
-                updateStatus('Tracking active (reverse-only)');
-            }
-
-            loadConfigBtn.addEventListener('click', showConfigDiv);
-            activateTrackingBtn.addEventListener('click', showTrackingDiv);
-
-            document.getElementById('load-mapping').addEventListener('click', function() {
-                updateStatus('Config loaded. 2 mappings configured');
-            });
-
-            document.getElementById('setup-map-tracking').addEventListener('click', function() {
-                updateStatus('Tracking active (reverse-only)');
-            });
-
-            document.getElementById('renew-prompt').addEventListener('click', function() {
-                const renewBtn = this;
-                const buttonLabel = renewBtn.querySelector('.ms-Button-label');
-                const originalText = buttonLabel ? buttonLabel.textContent : 'Renew Prompt 🤖';
-                
-                // Define the process steps
-                const steps = [
-                    { message: 'Generating new prompt based on current configuration...', delay: 0 },
-                    { message: 'Analyzing mapping configuration...', delay: 1500 },
-                ];
-                
-                // Disable button and start process
-                renewBtn.disabled = true;
-                if (buttonLabel) buttonLabel.textContent = 'Generating prompt...';
-                
-                // Execute steps sequentially
-                let totalDelay = 0;
-                steps.forEach((step, index) => {
-                    totalDelay += step.delay;
-                    setTimeout(() => {
-                        const message = typeof step.message === 'function' ? step.message() : step.message;
-                        updateStatus(message);
-                        
-                        // Re-enable button on completion
-                        if (step.isComplete) {
-                            renewBtn.disabled = false;
-                            if (buttonLabel) buttonLabel.textContent = originalText;
-                        }
-                    }, totalDelay);
-                });
-            });
-
-            // External file selection toggle
-            document.getElementById('external-file').addEventListener('change', function() {
-                const externalFileSection = document.getElementById('external-file-section');
-                if (this.checked) {
-                    externalFileSection.classList.remove('hidden');
-                } else {
-                    externalFileSection.classList.add('hidden');
-                }
-            });
-
-            document.getElementById('current-file').addEventListener('change', function() {
-                const externalFileSection = document.getElementById('external-file-section');
-                if (this.checked) {
-                    externalFileSection.classList.add('hidden');
-                }
-            });
-
-            // Browse button functionality
-            document.getElementById('browse-button').addEventListener('click', function() {
-                document.getElementById('file-picker-input').click();
-            });
-
-            document.getElementById('file-picker-input').addEventListener('change', function() {
-                const fileDisplay = document.getElementById('file-path-display');
-                if (this.files.length > 0) {
-                    fileDisplay.value = this.files[0].name;
-                }
-            });
-
-            // Metadata toggle
-            document.getElementById('show-metadata-btn').addEventListener('click', function() {
-                const metadataContent = document.getElementById('metadata-content');
-                if (metadataContent.classList.contains('is-hidden')) {
-                    metadataContent.classList.remove('is-hidden');
-                    this.querySelector('.ms-Button-label').textContent = 'Hide Processing Details';
-                } else {
-                    metadataContent.classList.add('is-hidden');
-                    this.querySelector('.ms-Button-label').textContent = 'Show Processing Details';
-                }
-            });
-
-            // Initialize
-            showConfigDiv();
+    
+    <!-- Initialize the application -->
+    <script type="module">
+        import { AppOrchestrator } from '../shared-services/app.orchestrator.js';
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            const app = new AppOrchestrator();
+            await app.init();
         });
     </script>
 </body>
