@@ -46,87 +46,87 @@
         <!-- Load Config Div -->
         <div id="config-div" style="width: 100%; padding: 10px;">
             <!-- Mapping Source Configuration with Details/Summary -->
-            <details id="mapping-source-details" class="ms-welcome__section" open style="width: 100%; margin-bottom: 10px;">
-                <summary class="ms-font-xl" style="width: 100%; margin-bottom: 10px;">
+            <details id="mapping-source-details" class="ms-welcome__section" open style="width: 100%; margin-bottom: 20px;">
+                <summary class="ms-font-xl" style="width: 100%; margin-bottom: 15px;">
                     Mapping Source Configuration
                 </summary>
                 
-                <div style="width: 100%; margin-bottom: 10px;">
-                    <label class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Excel File:</label>
-                    <div style="width: 100%; margin-bottom: 5px;">
+                <div style="width: 100%; margin-bottom: 15px;">
+                    <label class="ms-font-m" style="width: 100%; display: block; margin-bottom: 10px;">Excel File:</label>
+                    <div style="width: 100%; margin-bottom: 10px;">
                         <input type="radio" id="current-file" name="file-source" value="current" checked />
                         <label for="current-file" class="ms-font-m">This Excel file</label>
                     </div>
-                    <div style="width: 100%; margin-bottom: 5px;">
+                    <div style="width: 100%; margin-bottom: 10px;">
                         <input type="radio" id="external-file" name="file-source" value="external" />
                         <label for="external-file" class="ms-font-m">External Excel file</label>
                     </div>
-                    <div id="external-file-section" class="is-hidden" style="width: 100%; margin-top: 5px;">
+                    <div id="external-file-section" class="is-hidden" style="width: 100%; margin-top: 10px;">
                         <label for="file-path-display" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">File Path:</label>
                         <div style="width: 100%; display: flex;">
                             <input type="text" id="file-path-display" class="ms-TextField-field" placeholder="No file selected" readonly style="width: 70%;" />
                             <input type="file" id="file-picker-input" accept=".xlsx,.xls" class="is-hidden" />
-                            <button id="browse-button" class="ms-Button" style="margin-left: 5px; padding: 5px 10px;">
+                            <button id="browse-button" class="ms-Button" style="margin-left: 10px;">
                                 <span class="ms-Button-label">Browse...</span>
                             </button>
                         </div>
                     </div>
                 </div>
                 
-                <div style="width: 100%; margin-bottom: 10px;">
+                <div style="width: 100%; margin-bottom: 15px;">
                     <label for="worksheet-dropdown" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Worksheet:</label>
                     <select id="worksheet-dropdown" class="ms-Dropdown-select" style="width: 100%;">
                         <option value="">Select a worksheet...</option>
                     </select>
                 </div>
                 
-                <div style="width: 100%; margin-bottom: 10px; display: flex;">
-                    <div style="width: 50%; padding-right: 5px;">
+                <div style="width: 100%; margin-bottom: 15px; display: flex;">
+                    <div style="width: 50%; padding-right: 10px;">
                         <label for="target-column" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Reference Column:</label>
                         <input type="text" id="target-column" class="ms-TextField-field" style="width: 100%;" />
                     </div>
-                    <div style="width: 50%; padding-left: 5px;">
+                    <div style="width: 50%; padding-left: 10px;">
                         <label for="source-column" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Alias Column:</label>
                         <input type="text" id="source-column" class="ms-TextField-field" placeholder="optional" style="width: 100%;" />
                     </div>
                 </div>
                 
-                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-m" style="width: 100%; margin-bottom: 10px; padding: 8px;">
+                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-l" style="width: 100%; margin-bottom: 20px;">
                     <span class="ms-Button-label">Load Mapping Table</span>
                 </button>
             </details>
             
             <!-- Metadata Section -->
-            <div style="width: 100%; margin-bottom: 10px;">
-                <button id="show-metadata-btn" class="ms-Button ms-Button--compound" style="width: 100%; margin-bottom: 5px; padding: 8px;">
+            <div style="width: 100%; margin-bottom: 20px;">
+                <button id="show-metadata-btn" class="ms-Button ms-Button--compound" style="width: 100%; margin-bottom: 10px;">
                     <span class="ms-Button-label">Show Processing Details</span>
                 </button>
-                <div id="metadata-content" class="is-hidden" style="width: 100%; padding: 10px; background: #f8f8f8;">
-                    <h3 class="ms-font-l" style="width: 100%; margin-bottom: 5px;">Processing Details</h3>
+                <div id="metadata-content" class="is-hidden" style="width: 100%; padding: 15px; background: #f8f8f8;">
+                    <h3 class="ms-font-l" style="width: 100%; margin-bottom: 10px;">Processing Details</h3>
                     <div id="metadata-display" class="ms-font-s" style="width: 100%;"></div>
                 </div>
             </div>
 
             <!-- Setup Map Tracking Section -->
-            <div style="width: 100%; margin-bottom: 10px;">
-                <button id="setup-map-tracking" class="ms-Button ms-Button--primary" style="width: 100%; margin-bottom: 5px; padding: 8px;">
+            <div style="width: 100%; margin-bottom: 20px;">
+                <button id="setup-map-tracking" class="ms-Button ms-Button--primary" style="width: 100%; margin-bottom: 10px;">
                     <span class="ms-Button-label">Setup Map Tracking</span>
                 </button>
                 <p class="ms-font-m" style="width: 100%;">Configure tracking settings for automatic cell value replacement.</p>
             </div>
 
             <!-- Renew Prompt Section -->
-            <div style="width: 100%; margin-bottom: 10px;">
-                <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-m" style="width: 100%; padding: 8px;">
+            <div style="width: 100%; margin-bottom: 20px;">
+                <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l" style="width: 100%;">
                     <span class="ms-Button-label">Renew Prompt 🤖</span>
                 </button>
             </div>
         </div>
 
         <!-- Activate Tracking Div -->
-        <div id="tracking-div" class="is-hidden" style="width: 100%; padding: 10px;">
-            <div style="width: 100%; margin-bottom: 10px;">
-                <p class="ms-font-m" style="width: 100%; margin-bottom: 5px;">Activate to automatically replace cell values based on the mapping configuration.</p>
+        <div id="tracking-div" class="is-hidden" style="width: 100%; padding: 20px;">
+            <div style="width: 100%; margin-bottom: 20px;">
+                <p class="ms-font-m" style="width: 100%; margin-bottom: 10px;">Activate to automatically replace cell values based on the mapping configuration.</p>
                 
                 <div id="live-activity-section" style="width: 100%;"></div>
             </div>
@@ -159,6 +159,8 @@
                 configDiv.classList.remove('is-hidden');
                 trackingDiv.classList.add('is-hidden');
                 loadConfigBtn.classList.add('ms-Button--primary');
+                loadConfigBtn.classList.remove('ms-Button--hero');
+                activateTrackingBtn.classList.add('ms-Button--hero');
                 activateTrackingBtn.classList.remove('ms-Button--primary');
                 updateStatus('Load Config mode active - Configure your mapping settings');
             }
@@ -167,6 +169,8 @@
                 trackingDiv.classList.remove('is-hidden');
                 configDiv.classList.add('is-hidden');
                 activateTrackingBtn.classList.add('ms-Button--primary');
+                activateTrackingBtn.classList.remove('ms-Button--hero');
+                loadConfigBtn.classList.add('ms-Button--hero');
                 loadConfigBtn.classList.remove('ms-Button--primary');
                 updateStatus('Tracking active (reverse-only)');
             }
