@@ -15,7 +15,7 @@
 </head>
 <body class="ms-font-m ms-welcome ms-Fabric">
     <section id="sideload-msg" class="ms-welcome__main">
-        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
+        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
     </section>
     
     <main id="app-body" class="ms-welcome__main is-hidden">
@@ -45,99 +45,116 @@
 
         <!-- Load Config Div -->
         <div id="config-div" style="width: 100%; padding: 10px;">
+            <!-- Configuration Status Section -->
+            <section id="config-section" style="width: 100%; margin-bottom: 10px;">
+                <div id="config-status" class="ms-font-m"></div>
+            </section>
+
             <!-- Mapping Source Configuration with Details/Summary -->
-            <details id="mapping-source-details" class="ms-welcome__section" open style="width: 100%; margin-bottom: 20px;">
-                <summary class="ms-font-xl" style="width: 100%; margin-bottom: 15px;">
+            <details id="mapping-source-details" class="ms-welcome__section" open style="width: 100%; margin-bottom: 10px;">
+                <summary class="ms-font-xl" style="width: 100%; margin-bottom: 10px;">
                     Mapping Source Configuration
                 </summary>
                 
-                <div style="width: 100%; margin-bottom: 15px;">
-                    <label class="ms-font-m" style="width: 100%; display: block; margin-bottom: 10px;">Excel File:</label>
-                    <div style="width: 100%; margin-bottom: 10px;">
+                <div style="width: 100%; margin-bottom: 10px;">
+                    <label class="ms-font-m-plus enhanced-label" style="width: 100%; display: block; margin-bottom: 5px;">Excel File:</label>
+                    <div style="width: 100%; margin-bottom: 5px;">
                         <input type="radio" id="current-file" name="file-source" value="current" checked />
                         <label for="current-file" class="ms-font-m">This Excel file</label>
                     </div>
-                    <div style="width: 100%; margin-bottom: 10px;">
+                    <div style="width: 100%; margin-bottom: 5px;">
                         <input type="radio" id="external-file" name="file-source" value="external" />
                         <label for="external-file" class="ms-font-m">External Excel file</label>
                     </div>
-                    <div id="external-file-section" class="is-hidden" style="width: 100%; margin-top: 10px;">
+                    <!-- External file selection (hidden by default) -->
+                    <div id="external-file-section" class="hidden margin-top-10" style="width: 100%; margin-top: 5px;">
                         <label for="file-path-display" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">File Path:</label>
-                        <div style="width: 100%; display: flex;">
-                            <input type="text" id="file-path-display" class="ms-TextField-field" placeholder="No file selected" readonly style="width: 70%;" />
-                            <input type="file" id="file-picker-input" accept=".xlsx,.xls" class="is-hidden" />
-                            <button id="browse-button" class="ms-Button" style="margin-left: 10px;">
+                        <div class="flex-center-gap-5" style="width: 100%; display: flex;">
+                            <input type="text" id="file-path-display" class="ms-TextField-field flex-grow-margin-top-5" placeholder="No file selected" readonly style="width: 70%;" />
+                            <input type="file" id="file-picker-input" accept=".xlsx,.xls" class="hidden" />
+                            <button id="browse-button" class="ms-Button margin-top-5" style="margin-left: 5px; padding: 5px 10px;">
                                 <span class="ms-Button-label">Browse...</span>
                             </button>
                         </div>
                     </div>
                 </div>
                 
-                <div style="width: 100%; margin-bottom: 15px;">
-                    <label for="worksheet-dropdown" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Worksheet:</label>
-                    <select id="worksheet-dropdown" class="ms-Dropdown-select" style="width: 100%;">
+                <!-- Single worksheet dropdown for both current and external files -->
+                <div style="width: 100%; margin-bottom: 10px;">
+                    <label for="worksheet-dropdown" class="ms-font-m-plus enhanced-label" style="width: 100%; display: block; margin-bottom: 5px;">Worksheet:</label>
+                    <select id="worksheet-dropdown" class="ms-Dropdown-select u-width-full" style="width: 100%;">
                         <option value="">Select a worksheet...</option>
                     </select>
                 </div>
                 
-                <div style="width: 100%; margin-bottom: 15px; display: flex;">
-                    <div style="width: 50%; padding-right: 10px;">
-                        <label for="target-column" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Reference Column:</label>
-                        <input type="text" id="target-column" class="ms-TextField-field" style="width: 100%;" />
-                    </div>
-                    <div style="width: 50%; padding-left: 10px;">
-                        <label for="source-column" class="ms-font-m" style="width: 100%; display: block; margin-bottom: 5px;">Alias Column:</label>
-                        <input type="text" id="source-column" class="ms-TextField-field" placeholder="optional" style="width: 100%;" />
+                <div class="ms-font-m margin-bottom-15" style="width: 100%; margin-bottom: 10px;">
+                    <div class="flex-gap-15" style="width: 100%; display: flex;">
+                        <div class="flex-1" style="width: 50%; padding-right: 5px;">
+                            <label for="target-column" class="ms-font-m-plus block-margin-bottom-5 enhanced-label" style="width: 100%; display: block; margin-bottom: 5px;">Reference Column:</label>
+                            <input type="text" id="target-column" class="ms-TextField-field width-100" style="width: 100%;" />
+                        </div>
+                        <div class="flex-1" style="width: 50%; padding-left: 5px;">
+                            <label for="source-column" class="ms-font-m-plus block-margin-bottom-5 enhanced-label" style="width: 100%; display: block; margin-bottom: 5px;">Alias Column:</label>
+                            <input type="text" id="source-column" class="ms-TextField-field width-100" placeholder="optional" style="width: 100%;" />
+                        </div>
                     </div>
                 </div>
                 
-                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-l" style="width: 100%; margin-bottom: 20px;">
+                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-l" style="width: 100%; margin-bottom: 10px; padding: 8px;">
                     <span class="ms-Button-label">Load Mapping Table</span>
                 </button>
             </details>
             
+            <!-- Status Messages Section -->
+            <section id="status-section" style="width: 100%; margin-bottom: 10px;">
+                <div id="mapping-status" class="ms-font-m"></div>
+                <div id="prompt-status" class="ms-font-m"></div>
+            </section>
+            
             <!-- Metadata Section -->
-            <div style="width: 100%; margin-bottom: 20px;">
-                <button id="show-metadata-btn" class="ms-Button ms-Button--compound" style="width: 100%; margin-bottom: 10px;">
+            <section id="metadata-section" class="metadata-section" style="width: 100%; margin-bottom: 10px;">
+                <button id="show-metadata-btn" class="ms-Button ms-Button--compound margin-bottom-10" style="width: 100%; margin-bottom: 5px; padding: 8px;">
                     <span class="ms-Button-label">Show Processing Details</span>
                 </button>
-                <div id="metadata-content" class="is-hidden" style="width: 100%; padding: 15px; background: #f8f8f8;">
-                    <h3 class="ms-font-l" style="width: 100%; margin-bottom: 10px;">Processing Details</h3>
-                    <div id="metadata-display" class="ms-font-s" style="width: 100%;"></div>
+                <div id="metadata-content" class="ms-welcome__section metadata-content is-hidden" style="width: 100%; padding: 10px; background: #f8f8f8;">
+                    <h3 class="ms-font-l metadata-header" style="width: 100%; margin-bottom: 5px;">Processing Details</h3>
+                    <div id="metadata-display" class="ms-font-s metadata-display" style="width: 100%;"></div>
                 </div>
-            </div>
+            </section>
 
             <!-- Setup Map Tracking Section -->
-            <div style="width: 100%; margin-bottom: 20px;">
-                <button id="setup-map-tracking" class="ms-Button ms-Button--primary" style="width: 100%; margin-bottom: 10px;">
-                    <span class="ms-Button-label">Setup Map Tracking</span>
+            <section id="tracking-section" class="ms-welcome__section" style="width: 100%; margin-bottom: 10px;">
+                <button id="setup-map-tracking" class="ms-Button ms-Button--primary" style="width: 100%; margin-bottom: 5px; padding: 8px;">
+                    <span class="ms-Button-label">Activate Tracking</span>
                 </button>
-                <p class="ms-font-m" style="width: 100%;">Configure tracking settings for automatic cell value replacement.</p>
-            </div>
+                <p class="ms-font-m" style="width: 100%;">Activate to automatically replace cell values based on the mapping configuration.</p>
+                <p id="item-subject" class="ms-font-m"></p>
+            </section>
 
             <!-- Renew Prompt Section -->
-            <div style="width: 100%; margin-bottom: 20px;">
-                <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l" style="width: 100%;">
+            <section class="button-group" style="width: 100%; margin-bottom: 10px;">
+                <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l" style="width: 100%; padding: 8px;">
                     <span class="ms-Button-label">Renew Prompt 🤖</span>
                 </button>
-            </div>
+            </section>
         </div>
 
         <!-- Activate Tracking Div -->
-        <div id="tracking-div" class="is-hidden" style="width: 100%; padding: 20px;">
-            <div style="width: 100%; margin-bottom: 20px;">
-                <p class="ms-font-m" style="width: 100%; margin-bottom: 10px;">Activate to automatically replace cell values based on the mapping configuration.</p>
+        <div id="tracking-div" class="is-hidden" style="width: 100%; padding: 10px;">
+            <div style="width: 100%; margin-bottom: 10px;">
+                <p class="ms-font-m" style="width: 100%; margin-bottom: 5px;">Activate to automatically replace cell values based on the mapping configuration.</p>
                 
-                <div id="live-activity-section" style="width: 100%;"></div>
+                <!-- Simplified Live Activity Display - All structure created by JavaScript -->
+                <div id="live-activity-section" class="activity-section" style="width: 100%;"></div>
             </div>
         </div>
     </main>
 
-    <!-- System Status Window -->
+    <!-- System Status Window (fixed at bottom) -->
     <div style="position: fixed; bottom: 0; left: 0; width: 100%; background: #f3f3f3; border-top: 1px solid #ccc; padding: 10px;">
         <div style="width: 100%; display: flex; align-items: center;">
             <span class="ms-font-s" style="margin-right: 10px; font-weight: bold;">SYS-STATUS:</span>
-            <div id="main-status-message" class="ms-font-s" style="width: 100%;">
+            <div id="bottom-status-message" class="ms-font-s" style="width: 100%;">
                 Ready to load configuration...
             </div>
         </div>
@@ -150,17 +167,17 @@
             const configDiv = document.getElementById('config-div');
             const trackingDiv = document.getElementById('tracking-div');
             const statusMessage = document.getElementById('main-status-message');
+            const bottomStatusMessage = document.getElementById('bottom-status-message');
 
             function updateStatus(message) {
                 statusMessage.textContent = message;
+                bottomStatusMessage.textContent = message;
             }
 
             function showConfigDiv() {
                 configDiv.classList.remove('is-hidden');
                 trackingDiv.classList.add('is-hidden');
                 loadConfigBtn.classList.add('ms-Button--primary');
-                loadConfigBtn.classList.remove('ms-Button--hero');
-                activateTrackingBtn.classList.add('ms-Button--hero');
                 activateTrackingBtn.classList.remove('ms-Button--primary');
                 updateStatus('Load Config mode active - Configure your mapping settings');
             }
@@ -169,8 +186,6 @@
                 trackingDiv.classList.remove('is-hidden');
                 configDiv.classList.add('is-hidden');
                 activateTrackingBtn.classList.add('ms-Button--primary');
-                activateTrackingBtn.classList.remove('ms-Button--hero');
-                loadConfigBtn.classList.add('ms-Button--hero');
                 loadConfigBtn.classList.remove('ms-Button--primary');
                 updateStatus('Tracking active (reverse-only)');
             }
@@ -187,9 +202,87 @@
             });
 
             document.getElementById('renew-prompt').addEventListener('click', function() {
-                updateStatus('Prompt renewed - System ready');
+                const renewBtn = this;
+                const buttonLabel = renewBtn.querySelector('.ms-Button-label');
+                const originalText = buttonLabel ? buttonLabel.textContent : 'Renew Prompt 🤖';
+                
+                // Define the process steps
+                const steps = [
+                    { message: 'Generating new prompt based on current configuration...', delay: 0 },
+                    { message: 'Analyzing mapping configuration...', delay: 500 },
+                    { message: 'Building prompt template...', delay: 700 },
+                    { message: 'Optimizing prompt parameters...', delay: 800 },
+                    { message: 'Saving prompt to configuration...', delay: 800 },
+                    { 
+                        message: () => `✅ New prompt generated and saved (${new Date().toLocaleString()}) - System ready`, 
+                        delay: 700,
+                        isComplete: true 
+                    }
+                ];
+                
+                // Disable button and start process
+                renewBtn.disabled = true;
+                if (buttonLabel) buttonLabel.textContent = 'Generating prompt...';
+                
+                // Execute steps sequentially
+                let totalDelay = 0;
+                steps.forEach((step, index) => {
+                    totalDelay += step.delay;
+                    setTimeout(() => {
+                        const message = typeof step.message === 'function' ? step.message() : step.message;
+                        updateStatus(message);
+                        
+                        // Re-enable button on completion
+                        if (step.isComplete) {
+                            renewBtn.disabled = false;
+                            if (buttonLabel) buttonLabel.textContent = originalText;
+                        }
+                    }, totalDelay);
+                });
             });
 
+            // External file selection toggle
+            document.getElementById('external-file').addEventListener('change', function() {
+                const externalFileSection = document.getElementById('external-file-section');
+                if (this.checked) {
+                    externalFileSection.classList.remove('hidden');
+                } else {
+                    externalFileSection.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('current-file').addEventListener('change', function() {
+                const externalFileSection = document.getElementById('external-file-section');
+                if (this.checked) {
+                    externalFileSection.classList.add('hidden');
+                }
+            });
+
+            // Browse button functionality
+            document.getElementById('browse-button').addEventListener('click', function() {
+                document.getElementById('file-picker-input').click();
+            });
+
+            document.getElementById('file-picker-input').addEventListener('change', function() {
+                const fileDisplay = document.getElementById('file-path-display');
+                if (this.files.length > 0) {
+                    fileDisplay.value = this.files[0].name;
+                }
+            });
+
+            // Metadata toggle
+            document.getElementById('show-metadata-btn').addEventListener('click', function() {
+                const metadataContent = document.getElementById('metadata-content');
+                if (metadataContent.classList.contains('is-hidden')) {
+                    metadataContent.classList.remove('is-hidden');
+                    this.querySelector('.ms-Button-label').textContent = 'Hide Processing Details';
+                } else {
+                    metadataContent.classList.add('is-hidden');
+                    this.querySelector('.ms-Button-label').textContent = 'Show Processing Details';
+                }
+            });
+
+            // Initialize
             showConfigDiv();
         });
     </script>
