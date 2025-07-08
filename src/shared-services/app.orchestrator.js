@@ -130,10 +130,9 @@ export class AppOrchestrator {
             await this.tracker.start(config, this.mappings);
             
             const mode = Object.keys(this.mappings.forward).length ? "with mappings" : "reverse-only";
-            this.ui.status(`Tracking active (${mode})`, false, "item-subject");
             this.ui.updateStatus(`Tracking active (${mode})`);
         } catch (error) {
-            this.ui.status(`Error: ${error.message}`, true, "item-subject");
+            this.ui.updateStatus(`Error: ${error.message}`);
         }
     }
 
