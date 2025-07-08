@@ -1,271 +1,84 @@
-/* 
- * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
- * See LICENSE in the project root for license information.
- */
-
- html,
- body {
-     width: 100%;
-     height: 100%;
-     margin: 0;
-     padding: 0;
- }
- 
- ul {
-     margin: 0;
-     padding: 0;
- }
- 
- .ms-welcome__header {
-    padding: 20px;
-    padding-bottom: 10px;
-    padding-top: 10px;
-    display: -webkit-flex;
-    display: flex;
-    -webkit-flex-direction: column;
-    flex-direction: column;
-    align-items: center;
- }
-
- .ms-welcome__main {
-    display: -webkit-flex;
-    display: flex;
-    -webkit-flex-direction: column;
-    flex-direction: column;
-    -webkit-flex-wrap: nowrap;
-    flex-wrap: nowrap;
-    -webkit-align-items: center;
-    align-items: center;
-    -webkit-flex: 1 0 0;
-    flex: 1 0 0;
-    padding: 10px 20px;
- }
- 
- .ms-welcome__main > h2 {
-     width: 100%;
-     text-align: center;
- }
- 
- .ms-welcome__features {
-     list-style-type: none;
-     /* margin-top: 10px; */
- }
- 
- .ms-welcome__features.ms-List .ms-ListItem {
-     padding-bottom: 5px;
-     display: -webkit-flex;
-     display: flex;
- }
- 
-.
-
- .ms-welcome__features.ms-List .ms-ListItem > .ms-Icon {
-     margin-right: 10px;
- }
- 
-.ms-welcome__header {
-    padding: 8px 16px; /* Reduce top and bottom padding */
-    height: auto; /* Or set a specific height if needed */
-    display: flex;
-    align-items: center; /* Vertically center contents */
-    gap: 10px; /* Space between image and title, optional */
+/* Layout classes for main structure */
+.ms-welcome__main {
+   display: -webkit-flex;
+   display: flex;
+   -webkit-flex-direction: column;
+   flex-direction: column;
+   -webkit-flex-wrap: nowrap;
+   flex-wrap: nowrap;
+   -webkit-align-items: center;
+   align-items: center;
+   -webkit-flex: 1 0 0;
+   flex: 1 0 0;
+   padding: 10px 20px;
 }
 
-.ms-welcome__header h1 {
-    font-size: 1.5rem; /* Reduce font size if needed */
-    margin: 0; /* Remove default margin */
+.ms-welcome__main > h2 {
+    width: 100%;
+    text-align: center;
 }
 
-b {
-    font-weight: bold;
-}
-
-/* Additional styles for Map column tracking feature */
+/* Button styling */
 .ms-Button.ms-Button--primary {
-  background-color: #0078d7;
-  border: none;
-  border-radius: 2px;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  /* margin-top: 20px; */
-  padding: 8px 16px;
+ background-color: #0078d7;
+ border: none;
+ border-radius: 2px;
+ color: white;
+ font-size: 14px;
+ font-weight: 600;
+ padding: 8px 16px;
 }
 
 .ms-Button.ms-Button--primary:hover,
 .ms-Button.ms-Button--primary:focus {
-  background-color: #005a9e;
-  cursor: pointer;
+ background-color: #005a9e;
+ cursor: pointer;
 }
 
-#map-tracking-container {
-  width: 100%;
-  /* margin-top: 20px; */
-  padding: 15px;
-  background-color: #f4f4f4;
-  border-radius: 2px;
-}
-
-#map-tracking-container h3 {
-  margin-top: 0;
-}
-
-#item-subject {
-  margin-top: 10px;
-  font-style: italic;
-  color: #107c10;
+/* Generic utility classes */
+.hidden,
+.is-hidden {
+   display: none;
 }
 
 .status-error {
-    color: #d9534f;
+   color: #d9534f;
 }
 
 .status-success {
-    color: #5cb85c;
+   color: #5cb85c;
 }
-
-
-/* ADDED STYLES TO REPLACE INLINE STYLES */
-.hidden,
-.is-hidden {
-    display: none;
-}
-
-.margin-top-10 {
-    margin-top: 10px;
-}
-
-.margin-bottom-10 {
-    margin-bottom: 10px;
-}
-
-.margin-bottom-15 {
-    margin-bottom: 15px;
-}
-
-.margin-top-5 {
-    margin-top: 5px;
-}
-
-.block-margin-bottom-5 {
-    display: block;
-    margin-bottom: 5px;
-}
-
-.flex-center-gap-5 {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.flex-gap-15 {
-    display: flex;
-    gap: 15px;
-}
-
-.flex-1 {
-    flex: 1;
-}
-
-.flex-grow-margin-top-5 {
-    flex-grow: 1;
-    margin-top: 5px;
-}
-
-.u-width-full,
-.width-100 {
-    width: 100%;
-}
-
-/* Specific styles for the metadata display section */
-.metadata-section {
-    margin-top: 15px;
-    display: none; /* Initially hidden */
-}
-
-.metadata-content {
-    display: none; /* Initially hidden */
-    background-color: #f8f9fa;
-    border: 1px solid #e1e5e9;
-    border-radius: 4px;
-    padding: 15px;
-    margin-top: 10px;
-}
-
-.metadata-header {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #323130;
-}
-
-.metadata-display {
-    line-height: 1.4;
-}
-
-
-
-
-
-/* Styles for the pairs display section */
-
-.pairs {
-    max-height: 84px;
-    overflow-y: auto;
-    margin-top: 4px;
-    padding: 4px 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #f9f9f9;
-    font-size: 13px;
-}
-
-.pairs div {
-    padding: 2px 0;
-    user-select: none;
-    pointer-events: none;
-}
-
-.warnings {
-    margin-top: 12px;
-    padding: 8px;
-    border: 1px solid #ffd700;
-    border-radius: 4px;
-    background: #fffacd;
-}
-
-
-
 
 /* Bidirectional mapping styles */
 .bidirectional-option {
-    margin: 15px 0;
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-left: 3px solid #0078d4;
-    border-radius: 4px;
+   margin: 15px 0;
+   padding: 10px;
+   background-color: #f8f9fa;
+   border-left: 3px solid #0078d4;
+   border-radius: 4px;
 }
 
 .option-description {
-    font-size: 12px;
-    color: #666;
-    margin-top: 5px;
-    line-height: 1.4;
+   font-size: 12px;
+   color: #666;
+   margin-top: 5px;
+   line-height: 1.4;
 }
 
 .source-column-container {
-    transition: opacity 0.3s ease;
+   transition: opacity 0.3s ease;
 }
 
 .enhanced-label {
-    font-weight: 600;
-    color: #323130;
+   font-weight: 600;
+   color: #323130;
 }
 
 .mapping-mode-info {
-    background-color: #deecf9;
-    border: 1px solid #c7e0f4;
-    border-radius: 4px;
-    padding: 8px 12px;
-    margin: 10px 0;
-    font-size: 13px;
+   background-color: #deecf9;
+   border: 1px solid #c7e0f4;
+   border-radius: 4px;
+   padding: 8px 12px;
+   margin: 10px 0;
+   font-size: 13px;
 }
