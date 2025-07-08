@@ -1,84 +1,86 @@
-/* Layout classes for main structure */
+/* Layout */
 .ms-welcome__main {
-   display: -webkit-flex;
    display: flex;
-   -webkit-flex-direction: column;
    flex-direction: column;
-   -webkit-flex-wrap: nowrap;
-   flex-wrap: nowrap;
-   -webkit-align-items: center;
    align-items: center;
-   -webkit-flex: 1 0 0;
    flex: 1 0 0;
    padding: 10px 20px;
 }
+.ms-welcome__main > h2 { width: 100%; text-align: center; }
 
-.ms-welcome__main > h2 {
-    width: 100%;
-    text-align: center;
+/* Navigation & Status */
+.nav-bar { width: 100%; display: flex; padding: 5px; background: #f8f8f8; }
+.nav-btn { padding: 5px 15px; margin-left: 10px; }
+.nav-btn:first-child { margin-left: 0; }
+.nav-header { margin-left: auto; display: flex; align-items: center; }
+.nav-header img { margin-right: 10px; }
+
+.status-bar, .bottom-status { 
+    width: 100%; background: #f3f3f3; border: 1px solid #ccc; padding: 5px; 
+    display: flex; align-items: center; 
 }
+.bottom-status { position: fixed; bottom: 0; left: 0; padding: 10px; border-top: 1px solid #ccc; border-bottom: none; }
+.status-label { margin-right: 10px; font-weight: bold; }
 
-/* Button styling */
+/* Content */
+.content { width: 100%; padding: 10px; }
+section { width: 100%; margin-bottom: 10px; }
+.form-section { width: 100%; margin-bottom: 10px; }
+
+/* Forms */
+.enhanced-label { font-weight: 600; color: #323130; width: 100%; display: block; margin-bottom: 5px; }
+.ms-TextField-field, .ms-Dropdown-select { width: 100%; }
+.file-row { width: 100%; display: flex; }
+.file-row input[type="text"] { width: 70%; }
+.file-row button { margin-left: 5px; padding: 5px 10px; }
+.columns { width: 100%; display: flex; }
+.columns > div { width: 50%; padding-right: 5px; }
+.columns > div:last-child { padding-right: 0; padding-left: 5px; }
+
+/* Buttons */
 .ms-Button.ms-Button--primary {
- background-color: #0078d7;
- border: none;
- border-radius: 2px;
- color: white;
- font-size: 14px;
- font-weight: 600;
- padding: 8px 16px;
+    background-color: #0078d7;
+    border: none;
+    border-radius: 2px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 16px;
 }
+.ms-Button.ms-Button--primary:hover, .ms-Button.ms-Button--primary:focus {
+    background-color: #005a9e;
+    cursor: pointer;
+}
+.btn-full { width: 100%; margin-bottom: 10px; padding: 8px; }
 
-.ms-Button.ms-Button--primary:hover,
-.ms-Button.ms-Button--primary:focus {
- background-color: #005a9e;
- cursor: pointer;
-}
+/* Metadata */
+.metadata-content { width: 100%; padding: 10px; background: #f8f8f8; }
 
-/* Generic utility classes */
-.hidden,
-.is-hidden {
-   display: none;
-}
-
-.status-error {
-   color: #d9534f;
-}
-
-.status-success {
-   color: #5cb85c;
-}
+/* Utilities */
+.hidden, .is-hidden { display: none; }
+.status-error { color: #d9534f; }
+.status-success { color: #5cb85c; }
 
 /* Bidirectional mapping styles */
 .bidirectional-option {
-   margin: 15px 0;
-   padding: 10px;
-   background-color: #f8f9fa;
-   border-left: 3px solid #0078d4;
-   border-radius: 4px;
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #0078d4;
+    border-radius: 4px;
 }
-
 .option-description {
-   font-size: 12px;
-   color: #666;
-   margin-top: 5px;
-   line-height: 1.4;
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    line-height: 1.4;
 }
-
-.source-column-container {
-   transition: opacity 0.3s ease;
-}
-
-.enhanced-label {
-   font-weight: 600;
-   color: #323130;
-}
-
+.source-column-container { transition: opacity 0.3s ease; }
 .mapping-mode-info {
-   background-color: #deecf9;
-   border: 1px solid #c7e0f4;
-   border-radius: 4px;
-   padding: 8px 12px;
-   margin: 10px 0;
-   font-size: 13px;
+    background-color: #deecf9;
+    border: 1px solid #c7e0f4;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 13px;
 }
