@@ -209,15 +209,7 @@
                 // Define the process steps
                 const steps = [
                     { message: 'Generating new prompt based on current configuration...', delay: 0 },
-                    { message: 'Analyzing mapping configuration...', delay: 500 },
-                    { message: 'Building prompt template...', delay: 700 },
-                    { message: 'Optimizing prompt parameters...', delay: 800 },
-                    { message: 'Saving prompt to configuration...', delay: 800 },
-                    { 
-                        message: () => `✅ New prompt generated and saved (${new Date().toLocaleString()}) - System ready`, 
-                        delay: 700,
-                        isComplete: true 
-                    }
+                    { message: 'Analyzing mapping configuration...', delay: 1500 },
                 ];
                 
                 // Disable button and start process
