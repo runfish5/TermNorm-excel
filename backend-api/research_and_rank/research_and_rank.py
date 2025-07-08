@@ -33,10 +33,22 @@ def research_and_rank_candidates(query, matcher, groq_api_key, verbose=False):
         raw_content_limit=5000,
         verbose=verbose
     )
+
+    # Extract and flatten values (excluding _metadata)
+    values = [str(x) for k, v in entity_profile.items() if '_metadata' not in k 
+              for x in (v if isinstance(v, list) else [v])]
+    query = [query] + values
+
+    pprint(entity_profile)
+    
+    
+    
     
     # 2. Match
     results, match_time = rank_terms_by_shared_tokens(matcher, query)
-    
+
+    print("DONE_______________________________")
+
     # 3. Format for LLM using display_profile
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
     
