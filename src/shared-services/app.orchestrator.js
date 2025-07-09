@@ -1,4 +1,4 @@
-// ./shared-services/app.orchestrator.js - HUMAN-LIKE SIMPLICITY
+// ./shared-services/app.orchestrator.js
 import { ConfigManager } from './config.manager.js';
 import { loadAndProcessMappings } from '../data-processing/mapping.processor.js';
 import { LiveTracker } from '../services/normalizer.handler.js';
@@ -26,6 +26,19 @@ export class AppOrchestrator {
         document.getElementById('load-mapping').addEventListener('click', () => this.loadMappings());
         document.getElementById('renew-prompt').addEventListener('click', () => this.renewPrompt());
         document.getElementById('setup-map-tracking').addEventListener('click', () => this.startTracking());
+        
+        // Navigation event handlers
+        document.getElementById('load-config').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.ui.showConfigDiv();
+            this.reloadConfig();
+        });
+        
+        document.getElementById('activate-tracking').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.ui.showTrackingDiv();
+            this.startTracking();
+        });
 
         window.addEventListener('external-file-loaded', () => {
             this.ui.selectWorksheet(this.configManager.getWorksheet());
