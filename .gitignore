@@ -1,5 +1,35 @@
-# Build output
-dist/
-
-# Node modules folder
+# Dependencies
 node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env*
+
+# IDE files
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Config files (except your config folder)
+*.config.js
+*.config.json
+babel.config.json
+webpack.config.js
+package-lock.json
+
+# Other project files
+.eslintrc.json
+.nojekyll
+manifest.xml
+support.html
+index.html
+RUN_WITH_EXTENSION.md
