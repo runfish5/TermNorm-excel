@@ -3,7 +3,7 @@ import { ActivityFeed } from './ActivityFeedUI.js';
 
 export class ActivityDisplay {
     static container = null;
-    static currentView = 'history';
+    static currentView = 'ranked';
     static candidatesData = []; // Store the candidates data for reordering
 
     static init() {

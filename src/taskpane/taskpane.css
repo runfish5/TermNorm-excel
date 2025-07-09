@@ -61,8 +61,6 @@ section { width: 100%; margin-bottom: 10px; }
     display: none !important;
 }
 
-
-.is-hidden { display: none; }
 .status-error { color: #d9534f; }
 .status-success { color: #5cb85c; }
 

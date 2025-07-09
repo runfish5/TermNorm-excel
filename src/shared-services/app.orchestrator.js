@@ -134,6 +134,9 @@ export class AppOrchestrator {
             
             const mode = Object.keys(this.mappings.forward).length ? "with mappings" : "reverse-only";
             this.ui.updateStatus(`Tracking active (${mode})`);
+            
+            // Auto-switch to tracking view after successful activation
+            this.ui.showTrackingDiv();
         } catch (error) {
             this.ui.updateStatus(`Error: ${error.message}`);
         }
