@@ -57,7 +57,12 @@ section { width: 100%; margin-bottom: 10px; }
 .metadata-content { width: 100%; padding: 10px; background: #f8f8f8; }
 
 /* Utilities */
-.hidden, .is-hidden { display: none; }
+.hidden {
+    display: none !important;
+}
+
+
+.is-hidden { display: none; }
 .status-error { color: #d9534f; }
 .status-success { color: #5cb85c; }
 

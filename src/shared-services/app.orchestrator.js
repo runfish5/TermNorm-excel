@@ -1,4 +1,4 @@
-// ./shared-services/app.orchestrator.js
+// ./shared-services/app.orchestrator.js - UPDATED WITH SUBTLE FIXES
 import { ConfigManager } from './config.manager.js';
 import { loadAndProcessMappings } from '../data-processing/mapping.processor.js';
 import { LiveTracker } from '../services/normalizer.handler.js';
@@ -15,10 +15,13 @@ export class AppOrchestrator {
     }
 
     async init() {
-        this.ui.init();
+        // FIXED: Ensure event handlers are set up before config updates
+        this.ui.init(); // This sets up all event handlers first
+        this.setupEvents(); // Set up orchestrator-specific event handlers
+        
+        // THEN load and apply config (so event handlers are ready)
         await this.configManager.loadConfig();
         this.ui.updateFromConfig(this.configManager);
-        this.setupEvents();
         
         const config = this.configManager.getConfig();
         const totalMappings = Object.keys(config.column_map || {}).length + Object.keys(config.reverse_column_map || {}).length;

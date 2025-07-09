@@ -1,4 +1,4 @@
-// ui-components/ui.manager.js
+// ui-components/ui.manager.js - UPDATED WITH SUBTLE FIXES
 import { MetadataDisplay } from './metadata.display.js';
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
@@ -22,15 +22,22 @@ export class UIManager {
     }
 
     setupEvents() {
-        // File source events
+        // File source events - FIXED: Single handler, consistent CSS
         document.getElementById('current-file')?.addEventListener('change', () => {
-            document.getElementById('external-file-section').style.display = 'none';
+            const externalFileSection = document.getElementById('external-file-section');
+            externalFileSection?.classList.add('hidden');
             this.loadCurrentSheets();
         });
 
-        document.getElementById('external-file')?.addEventListener('change', () => {
-            document.getElementById('external-file-section').style.display = 'block';
-            this.externalFile ? this.loadExternalSheets() : this.setDropdown(['Select external file first...'], true);
+        // FIXED: Single external file handler with consistent CSS
+        document.getElementById('external-file')?.addEventListener('change', (e) => {
+            const externalFileSection = document.getElementById('external-file-section');
+            if (e.target.checked) {
+                externalFileSection?.classList.remove('hidden');
+                this.externalFile ? this.loadExternalSheets() : this.setDropdown(['Select external file first...'], true);
+            } else {
+                externalFileSection?.classList.add('hidden');
+            }
         });
 
         // File picker events
@@ -57,14 +64,13 @@ export class UIManager {
         
         const toggleActivityView = () => {
             if (historyRadio?.checked) {
-                if (activityFeed) activityFeed.style.display = 'block';
-                if (candidateRanked) candidateRanked.style.display = 'none';
+                if (activityFeed) activityFeed.classList.remove('hidden');
+                if (candidateRanked) candidateRanked.classList.add('hidden');
             } else {
-                if (activityFeed) activityFeed.style.display = 'none';
-                if (candidateRanked) candidateRanked.style.display = 'block';
+                if (activityFeed) activityFeed.classList.add('hidden');
+                if (candidateRanked) candidateRanked.classList.remove('hidden');
             }
         };
-
         historyRadio?.addEventListener('change', toggleActivityView);
         rankedRadio?.addEventListener('change', toggleActivityView);
         
@@ -74,7 +80,7 @@ export class UIManager {
     setupNavigationEvents() {
         const loadConfigBtn = document.getElementById('load-config');
         const activateTrackingBtn = document.getElementById('activate-tracking');
-
+        
         // Only handle navigation, not functionality
         loadConfigBtn?.addEventListener('click', (e) => {
             e.preventDefault();
@@ -86,22 +92,8 @@ export class UIManager {
             this.showTrackingDiv();
         });
 
-        // External file radio button events
-        document.getElementById('external-file')?.addEventListener('change', (e) => {
-            const externalFileSection = document.getElementById('external-file-section');
-            if (e.target.checked) {
-                externalFileSection?.classList.remove('hidden');
-            } else {
-                externalFileSection?.classList.add('hidden');
-            }
-        });
-
-        document.getElementById('current-file')?.addEventListener('change', (e) => {
-            const externalFileSection = document.getElementById('external-file-section');
-            if (e.target.checked) {
-                externalFileSection?.classList.add('hidden');
-            }
-        });
+        // REMOVED: Duplicate external file radio button handlers
+        // (These were causing conflicts with the handlers in setupEvents())
     }
 
     showConfigDiv() {
@@ -109,9 +101,10 @@ export class UIManager {
         const trackingDiv = document.getElementById('tracking-div');
         const loadConfigBtn = document.getElementById('load-config');
         const activateTrackingBtn = document.getElementById('activate-tracking');
-
-        configDiv?.classList.remove('is-hidden');
-        trackingDiv?.classList.add('is-hidden');
+        
+        // FIXED: Consistent CSS class usage
+        configDiv?.classList.remove('hidden');
+        trackingDiv?.classList.add('hidden');
         loadConfigBtn?.classList.add('ms-Button--primary');
         activateTrackingBtn?.classList.remove('ms-Button--primary');
         
@@ -128,9 +121,10 @@ export class UIManager {
         const configDiv = document.getElementById('config-div');
         const activateTrackingBtn = document.getElementById('activate-tracking');
         const loadConfigBtn = document.getElementById('load-config');
-
-        trackingDiv?.classList.remove('is-hidden');
-        configDiv?.classList.add('is-hidden');
+        
+        // FIXED: Consistent CSS class usage
+        trackingDiv?.classList.remove('hidden');
+        configDiv?.classList.add('hidden');
         activateTrackingBtn?.classList.add('ms-Button--primary');
         loadConfigBtn?.classList.remove('ms-Button--primary');
         
@@ -202,21 +196,23 @@ export class UIManager {
     updateFromConfig(configManager) {
         const config = configManager.getConfig();
         if (!config) return;
-
+        
         this.updateFields({
             'source-column': config.source_column || '',
             'target-column': config.target_column || config.mapping_reference || ''
         });
 
         if (configManager.isExternal()) {
+            // FIXED: Consistent CSS class usage
             document.getElementById('external-file').checked = true;
-            document.getElementById('external-file-section').style.display = 'block';
+            document.getElementById('external-file-section')?.classList.remove('hidden');
             document.getElementById('file-path-display').value = configManager.getFileName();
             this.setDropdown(['Browse for external file first...'], true);
             this.status(`Config expects: ${configManager.getFileName()}`);
         } else {
+            // FIXED: Consistent CSS class usage
             document.getElementById('current-file').checked = true;
-            document.getElementById('external-file-section').style.display = 'none';
+            document.getElementById('external-file-section')?.classList.add('hidden');
             this.loadCurrentSheets().then(() => this.selectWorksheet(configManager.getWorksheet()));
         }
     }
@@ -252,8 +248,8 @@ export class UIManager {
         
         if (btn && content) {
             btn.addEventListener('click', () => {
-                const isHidden = content.classList.contains('is-hidden');
-                content.classList.toggle('is-hidden', !isHidden);
+                const isHidden = content.classList.contains('hidden');
+                content.classList.toggle('hidden', !isHidden);
                 const label = btn.querySelector('.ms-Button-label');
                 if (label) label.textContent = isHidden ? 'Hide Processing Details' : 'Show Processing Details';
             });
