@@ -14,7 +14,7 @@ from .display_profile import display_profile
 from .call_llm_for_ranking import call_llm_for_ranking
 from .correct_candidate_strings import correct_candidate_strings
 
-# --- Logic from the second file ---
+# --- Configuration and Helpers ---
 
 # Load entity schema
 schema_path = Path(__file__).parent / "entity_profile_schema.json"
@@ -28,46 +28,7 @@ def rank_terms_by_shared_tokens(matcher, query):
     match_time = time.time() - start
     return results, match_time
 
-def research_and_rank_candidates(query, matcher, groq_api_key, verbose=False):
-    """
-    Main function: research topic, match candidates, get LLM ranking with string correction
-    """
-    # 1. Research
-    entity_profile = web_generate_entity_profile(
-        query,
-        groq_api_key,
-        max_sites=6,
-        schema=entity_schema,
-        content_char_limit=801,
-        raw_content_limit=5000,
-        verbose=verbose
-    )
-
-    # Extract and flatten values (excluding _metadata)
-    values = [str(x) for k, v in entity_profile.items() if '_metadata' not in k
-              for x in (v if isinstance(v, list) else [v])]
-    query_list = [query] + values
-
-    pprint(entity_profile)
-
-    # 2. Match
-    results, match_time = rank_terms_by_shared_tokens(matcher, query_list)
-
-    print("DONE_______________________________")
-
-    # 3. Format for LLM using display_profile
-    profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
-    
-    # 4. Get ranking
-    ranking_result = call_llm_for_ranking(profile_info, results, query, groq_api_key)
-    
-    # 5. Correct candidate strings
-    corrected_result = correct_candidate_strings(ranking_result, results)
-    print("ACTUALLY I SUCCEEDED AT M JOBS")
-    # pprint(corrected_result)
-    return corrected_result
-
-# --- Original logic from the upper file (API endpoint) ---
+# --- API Endpoint and Pipeline Logic ---
 
 class ResearchAndMatchRequest(BaseModel):
     query: str
@@ -77,66 +38,83 @@ router = APIRouter()
 
 @router.post("/research-and-match")
 async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest):
-    """Research a query and rank candidates using web research + LLM ranking"""
+    """
+    Research a query and rank candidates using a sequential pipeline:
+    1. Web Research -> 2. Candidate Matching -> 3. LLM Ranking -> 4. String Correction
+    """
+    print(f"[PIPELINE] Started for query: '{request.query}'")
     
-    print(f"[RESEARCH-AND-MATCH] Query: '{request.query}'")
-    
-    # Get groq API key from environment
+    # --- Setup ---
     groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
         return {"error": "GROQ_API_KEY not found in environment"}
-    
+        
     # Import the global matcher from the token matcher module
     from .TokenLookupMatcher import token_matcher
-    
     if token_matcher is None:
-        print(f"[DEBUG] token_matcher is None - matcher not initialized")
+        print("[ERROR] Matcher not initialized. Call /setup-matcher first.")
         return {"error": "Matcher not initialized. Call /setup-matcher first."}
-    
+        
     try:
-        # This now calls the function defined in this same file
-        results = research_and_rank_candidates(request.query, token_matcher, groq_api_key, verbose=True)
+        # --- PIPELINE STEP 1: Research ---
+        print("[PIPELINE] Step 1: Researching")
+        entity_profile = web_generate_entity_profile(
+            request.query,
+            groq_api_key,
+            max_sites=6,
+            schema=entity_schema,
+            verbose=True
+        )
+        pprint(entity_profile)
+        
+        # Flatten profile values for the next step
+        values = [str(x) for k, v in entity_profile.items() if '_metadata' not in k
+                  for x in (v if isinstance(v, list) else [v])]
+        query_list = [request.query] + values
+
+        # --- PIPELINE STEP 2: Match ---
+        print("\n[PIPELINE] Step 2: Matching candidates")
+        candidate_results, match_time = rank_terms_by_shared_tokens(token_matcher, query_list)
+        print(f"Match completed in {match_time:.2f}s")
+
+        # --- PIPELINE STEP 3: Format for LLM & Rank ---
+        print("\n[PIPELINE] Step 3: Ranking with LLM")
+        profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
+        ranking_result = call_llm_for_ranking(profile_info, candidate_results, request.query, groq_api_key)
+        
+        # --- PIPELINE STEP 4: Correct Candidate Strings ---
+        print("\n[PIPELINE] Step 4: Correcting candidate strings")
+        final_results = correct_candidate_strings(ranking_result, candidate_results)
+        
     except Exception as e:
-        print(f"[DEBUG] research_and_rank_candidates_endpoint called")
-        print(f"[DEBUG] token_matcher is None: {token_matcher is None}")
-        print(f"[DEBUG] Exception in research_and_rank_candidates: {e}")
-        print(f"[DEBUG] Full traceback:")
+        print(f"[ERROR] Pipeline failed during execution: {e}")
         traceback.print_exc()
-        return {"error": f"Research and ranking failed: {str(e)}"}
+        return {"error": f"Research and ranking pipeline failed: {str(e)}"}
     
-    # Handle the new dictionary structure and convert to expected format
-    if isinstance(results, dict) and 'ranked_candidates' in results:
-        ranked_candidates = results['ranked_candidates']
-        print(f"[RESEARCH-AND-MATCH] Found {len(ranked_candidates)} matches")
-        pprint(ranked_candidates)
-        # Convert to the format expected by frontend: [[candidate, score], ...]
-        formatted_matches = []
+    # --- Formatting a successful response ---
+    if isinstance(final_results, dict) and 'ranked_candidates' in final_results:
+        ranked_candidates = final_results['ranked_candidates']
+        print(f"\n[PIPELINE] Success! Found {len(ranked_candidates)} matches.")
         
-        if ranked_candidates:
-            print(f"[RESEARCH-AND-MATCH] Top 3 matches:")
-            for i, candidate_info in enumerate(ranked_candidates[:3]):
-                candidate_name = candidate_info.get('candidate', 'Unknown')
-                relevance_score = candidate_info.get('relevance_score', 0.0)
-                print(f"[RESEARCH-AND-MATCH]   {i+1}. '{candidate_name}' (score: {relevance_score:.3f})")
-            
-            # Format all matches as [candidate, score] tuples
-            for candidate_info in ranked_candidates:
-                candidate_name = candidate_info.get('candidate', 'Unknown')
-                relevance_score = candidate_info.get('relevance_score', 0.0)
-                formatted_matches.append([candidate_name, relevance_score])
-        else:
-            print(f"[RESEARCH-AND-MATCH] No matches found")
+        formatted_matches = [
+            [c.get('candidate', 'Unknown'), c.get('relevance_score', 0.0)]
+            for c in ranked_candidates
+        ]
         
+        # Log top 3 matches for clarity
+        for i, candidate in enumerate(formatted_matches[:3]):
+            print(f"  {i+1}. '{candidate[0]}' (score: {candidate[1]:.3f})")
+
         return {
             "query": request.query,
             "matches": formatted_matches,
             "total_matches": len(formatted_matches),
             "research_performed": True,
-            "full_results": results
+            "full_results": final_results
         }
     else:
-        # Fallback for unexpected format
-        print(f"[RESEARCH-AND-MATCH] Unexpected results format: {type(results)}")
+        # Fallback for unexpected format from the pipeline
+        print(f"[WARNING] Unexpected results format: {type(final_results)}")
         return {
             "query": request.query,
             "matches": [],
