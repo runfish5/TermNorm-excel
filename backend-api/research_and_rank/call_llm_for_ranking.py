@@ -1,11 +1,17 @@
 #@title call_llm_for_ranking()
 from groq import Groq
 import json
+
+# Import the correction function, assuming it's in a sibling module
+from .correct_candidate_strings import correct_candidate_strings
+
 def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
     """
-    Single-step ranking with improved prompt focus on exact spec matching
+    Ranks candidates using an LLM, corrects the output strings,
+    and formats the final successful API response.
     """
     ranking_schema = {
+        # ... (your existing schema definition remains unchanged)
         "type": "object",
         "properties": {
             "profile_specs_identified": {
@@ -46,7 +52,7 @@ def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
     }
     
     match_list = "\n".join([f"{i+1}. {term} (Score: {score:.3f})" 
-                           for i, (term, score) in enumerate(match_results[:20])])
+                            for i, (term, score) in enumerate(match_results[:20])])
     
     prompt = f"""STEP 1: IDENTIFY EXACT SPECIFICATIONS FROM PROFILE
 First, extract the exact technical specifications from the research profile below.
@@ -89,4 +95,39 @@ Provide the identified specs first, then ranking based on exact specification ma
         temperature=0
     )
     
-    return json.loads(chat_completion.choices[0].message.content)
+    ranking_result = json.loads(chat_completion.choices[0].message.content)
+    
+    # --- PIPELINE STEP 4: Correct Candidate Strings ---
+    print("\n[PIPELINE] Step 4: Correcting candidate strings")
+    final_results = correct_candidate_strings(ranking_result, match_results)
+    
+    # --- Formatting a successful response ---
+    if isinstance(final_results, dict) and 'ranked_candidates' in final_results:
+        ranked_candidates = final_results['ranked_candidates']
+        print(f"\n[PIPELINE] Success! Found {len(ranked_candidates)} matches.")
+        
+        formatted_matches = [
+            [c.get('candidate', 'Unknown'), c.get('relevance_score', 0.0)]
+            for c in ranked_candidates
+        ]
+        
+        # Log top 3 matches for clarity
+        for i, candidate in enumerate(formatted_matches[:3]):
+            print(f"  {i+1}. '{candidate[0]}' (score: {candidate[1]:.3f})")
+
+        return {
+            "query": query,
+            "matches": formatted_matches,
+            "total_matches": len(formatted_matches),
+            "research_performed": True,
+            "full_results": final_results
+        }
+    else:
+        # Fallback for unexpected format from the pipeline
+        print(f"[WARNING] Unexpected results format: {type(final_results)}")
+        return {
+            "query": query,
+            "matches": [],
+            "total_matches": 0,
+            "research_performed": True
+        }
