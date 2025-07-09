@@ -1,4 +1,4 @@
-// ui-components/ui.manager.js - UPDATED WITH SUBTLE FIXES
+// ui-components/ui.manager.js - HUMAN-LIKE SIMPLICITY
 import { MetadataDisplay } from './metadata.display.js';
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
@@ -8,42 +8,39 @@ export class UIManager {
         this.metadataDisplay = new MetadataDisplay();
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
-        this.orchestrator = orchestrator; // Reference to orchestrator for triggering actions
+        this.orchestrator = orchestrator;
     }
 
     init() {
         this.metadataDisplay.init();
         this.setupEvents();
-        this.setupNavigationEvents();
         this.loadCurrentSheets();
         CandidateRankingUI.init();
-        this.showConfigDiv(); // Initialize with config view
+        this.showConfigDiv();
         return this;
     }
 
     setupEvents() {
-        // File source events - FIXED: Single handler, consistent CSS
+        // File source
         document.getElementById('current-file')?.addEventListener('change', () => {
-            const externalFileSection = document.getElementById('external-file-section');
-            externalFileSection?.classList.add('hidden');
+            document.getElementById('external-file-section').classList.add('hidden');
             this.loadCurrentSheets();
         });
 
-        // FIXED: Single external file handler with consistent CSS
         document.getElementById('external-file')?.addEventListener('change', (e) => {
-            const externalFileSection = document.getElementById('external-file-section');
+            const section = document.getElementById('external-file-section');
             if (e.target.checked) {
-                externalFileSection?.classList.remove('hidden');
+                section.classList.remove('hidden');
                 this.externalFile ? this.loadExternalSheets() : this.setDropdown(['Select external file first...'], true);
             } else {
-                externalFileSection?.classList.add('hidden');
+                section.classList.add('hidden');
             }
         });
 
-        // File picker events
+        // File picker
         document.getElementById('browse-button')?.addEventListener('click', (e) => {
             e.preventDefault();
-            document.getElementById('file-picker-input')?.click();
+            document.getElementById('file-picker-input').click();
         });
 
         document.getElementById('file-picker-input')?.addEventListener('change', (e) => {
@@ -56,92 +53,55 @@ export class UIManager {
             }
         });
 
-        // Activity toggle functionality
+        // Activity toggles
         const historyRadio = document.getElementById('activity-history');
         const rankedRadio = document.getElementById('activity-ranked');
-        const activityFeed = document.getElementById('activity-feed');
-        const candidateRanked = document.getElementById('candidate-ranked');
-        
-        const toggleActivityView = () => {
-            if (historyRadio?.checked) {
-                if (activityFeed) activityFeed.classList.remove('hidden');
-                if (candidateRanked) candidateRanked.classList.add('hidden');
-            } else {
-                if (activityFeed) activityFeed.classList.add('hidden');
-                if (candidateRanked) candidateRanked.classList.remove('hidden');
-            }
-        };
-        historyRadio?.addEventListener('change', toggleActivityView);
-        rankedRadio?.addEventListener('change', toggleActivityView);
-        
-        this.setupMetadataToggle();
-    }
+        if (historyRadio && rankedRadio) {
+            const toggleView = () => {
+                const showHistory = historyRadio.checked;
+                document.getElementById('activity-feed')?.classList.toggle('hidden', !showHistory);
+                document.getElementById('candidate-ranked')?.classList.toggle('hidden', showHistory);
+            };
+            historyRadio.addEventListener('change', toggleView);
+            rankedRadio.addEventListener('change', toggleView);
+        }
 
-    setupNavigationEvents() {
-        const loadConfigBtn = document.getElementById('load-config');
-        const activateTrackingBtn = document.getElementById('activate-tracking');
-        
-        // Only handle navigation, not functionality
-        loadConfigBtn?.addEventListener('click', (e) => {
+        // Navigation
+        document.getElementById('load-config')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.showConfigDiv();
         });
         
-        activateTrackingBtn?.addEventListener('click', (e) => {
+        document.getElementById('activate-tracking')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.showTrackingDiv();
         });
 
-        // REMOVED: Duplicate external file radio button handlers
-        // (These were causing conflicts with the handlers in setupEvents())
+        // Metadata toggle
+        document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
+            const content = document.getElementById('metadata-content');
+            const isHidden = content.classList.toggle('hidden');
+            const label = document.querySelector('#show-metadata-btn .ms-Button-label');
+            if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+        });
     }
 
     showConfigDiv() {
-        const configDiv = document.getElementById('config-div');
-        const trackingDiv = document.getElementById('tracking-div');
-        const loadConfigBtn = document.getElementById('load-config');
-        const activateTrackingBtn = document.getElementById('activate-tracking');
+        document.getElementById('config-div').classList.remove('hidden');
+        document.getElementById('tracking-div').classList.add('hidden');
+        document.getElementById('load-config').classList.add('ms-Button--primary');
+        document.getElementById('activate-tracking').classList.remove('ms-Button--primary');
         
-        // FIXED: Consistent CSS class usage
-        configDiv?.classList.remove('hidden');
-        trackingDiv?.classList.add('hidden');
-        loadConfigBtn?.classList.add('ms-Button--primary');
-        activateTrackingBtn?.classList.remove('ms-Button--primary');
-        
-        // Automatically reload config when switching to config mode
-        if (this.orchestrator) {
-            this.orchestrator.reloadConfig();
-        } else {
-            this.updateStatus('Load Config mode active - Configure your mapping settings');
-        }
+        if (this.orchestrator) this.orchestrator.reloadConfig();
     }
 
     showTrackingDiv() {
-        const trackingDiv = document.getElementById('tracking-div');
-        const configDiv = document.getElementById('config-div');
-        const activateTrackingBtn = document.getElementById('activate-tracking');
-        const loadConfigBtn = document.getElementById('load-config');
+        document.getElementById('tracking-div').classList.remove('hidden');
+        document.getElementById('config-div').classList.add('hidden');
+        document.getElementById('activate-tracking').classList.add('ms-Button--primary');
+        document.getElementById('load-config').classList.remove('ms-Button--primary');
         
-        // FIXED: Consistent CSS class usage
-        trackingDiv?.classList.remove('hidden');
-        configDiv?.classList.add('hidden');
-        activateTrackingBtn?.classList.add('ms-Button--primary');
-        loadConfigBtn?.classList.remove('ms-Button--primary');
-        
-        // Automatically start tracking when switching to tracking mode
-        if (this.orchestrator) {
-            this.orchestrator.startTracking();
-        } else {
-            this.updateStatus('Tracking active (reverse-only)');
-        }
-    }
-
-    updateStatus(message) {
-        const statusMessage = document.getElementById('main-status-message');
-        const bottomStatusMessage = document.getElementById('bottom-status-message');
-        
-        if (statusMessage) statusMessage.textContent = message;
-        if (bottomStatusMessage) bottomStatusMessage.textContent = message;
+        if (this.orchestrator) this.orchestrator.startTracking();
     }
 
     async loadCurrentSheets() {
@@ -171,8 +131,6 @@ export class UIManager {
 
     setDropdown(sheets, disabled = false) {
         const dropdown = document.getElementById('worksheet-dropdown');
-        if (!dropdown) return;
-        
         if (disabled) {
             dropdown.innerHTML = `<option value="">${sheets[0]}</option>`;
         } else {
@@ -184,46 +142,40 @@ export class UIManager {
     selectWorksheet(name) {
         if (!name) return;
         
-        setTimeout(() => {
-            const dropdown = document.getElementById('worksheet-dropdown');
-            if (dropdown && Array.from(dropdown.options).find(opt => opt.value === name)) {
-                dropdown.value = name;
-                this.status(`Selected: ${name}`);
-            }
-        }, 100);
+        const dropdown = document.getElementById('worksheet-dropdown');
+        if (Array.from(dropdown.options).find(opt => opt.value === name)) {
+            dropdown.value = name;
+            this.status(`Selected: ${name}`);
+        }
     }
 
     updateFromConfig(configManager) {
         const config = configManager.getConfig();
         if (!config) return;
         
-        this.updateFields({
-            'source-column': config.source_column || '',
-            'target-column': config.target_column || config.mapping_reference || ''
-        });
+        document.getElementById('source-column').value = config.source_column || '';
+        document.getElementById('target-column').value = config.target_column || config.mapping_reference || '';
 
         if (configManager.isExternal()) {
-            // FIXED: Consistent CSS class usage
             document.getElementById('external-file').checked = true;
-            document.getElementById('external-file-section')?.classList.remove('hidden');
+            document.getElementById('external-file-section').classList.remove('hidden');
             document.getElementById('file-path-display').value = configManager.getFileName();
             this.setDropdown(['Browse for external file first...'], true);
             this.status(`Config expects: ${configManager.getFileName()}`);
         } else {
-            // FIXED: Consistent CSS class usage
             document.getElementById('current-file').checked = true;
-            document.getElementById('external-file-section')?.classList.add('hidden');
+            document.getElementById('external-file-section').classList.add('hidden');
             this.loadCurrentSheets().then(() => this.selectWorksheet(configManager.getWorksheet()));
         }
     }
 
     getMappingParams() {
         return {
-            useCurrentFile: document.getElementById('current-file')?.checked ?? true,
-            sheetName: document.getElementById('worksheet-dropdown')?.value,
-            sourceColumn: document.getElementById('source-column')?.value || null,
-            targetColumn: document.getElementById('target-column')?.value,
-            externalFile: document.getElementById('current-file')?.checked ? null : this.externalFile
+            useCurrentFile: document.getElementById('current-file').checked,
+            sheetName: document.getElementById('worksheet-dropdown').value,
+            sourceColumn: document.getElementById('source-column').value || null,
+            targetColumn: document.getElementById('target-column').value,
+            externalFile: document.getElementById('current-file').checked ? null : this.externalFile
         };
     }
 
@@ -233,27 +185,8 @@ export class UIManager {
             element.textContent = message;
             element.style.color = isError ? '#D83B01' : '';
         }
-    }
-
-    updateFields(fields) {
-        Object.entries(fields).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) element.value = value || '';
-        });
-    }
-
-    setupMetadataToggle() {
-        const btn = document.getElementById('show-metadata-btn');
-        const content = document.getElementById('metadata-content');
         
-        if (btn && content) {
-            btn.addEventListener('click', () => {
-                const isHidden = content.classList.contains('hidden');
-                content.classList.toggle('hidden', !isHidden);
-                const label = btn.querySelector('.ms-Button-label');
-                if (label) label.textContent = isHidden ? 'Hide Processing Details' : 'Show Processing Details';
-            });
-        }
+        document.getElementById('main-status-message').textContent = message;
     }
 
     handleMappingSuccess(result, mappings) {
@@ -268,9 +201,6 @@ export class UIManager {
         this.status(message);
         this.metadataDisplay.show(result.metadata);
         document.getElementById('mapping-source-details').open = false;
-        
-        // Update main status as well
-        this.updateStatus('Config loaded. 2 mappings configured');
     }
 
     handleMappingError(error, mappings) {
