@@ -1,14 +1,13 @@
-// ui-components/ui.manager.js - HUMAN-LIKE SIMPLICITY
+// ui-components/ui.manager.js
 import { MetadataDisplay } from './metadata.display.js';
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 
 export class UIManager {
-    constructor(orchestrator = null) {
+    constructor() {
         this.metadataDisplay = new MetadataDisplay();
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
-        this.orchestrator = orchestrator;
     }
 
     init() {
@@ -66,17 +65,6 @@ export class UIManager {
             rankedRadio.addEventListener('change', toggleView);
         }
 
-        // Navigation
-        document.getElementById('load-config')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.showConfigDiv();
-        });
-        
-        document.getElementById('activate-tracking')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.showTrackingDiv();
-        });
-
         // Metadata toggle
         document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
             const content = document.getElementById('metadata-content');
@@ -91,8 +79,6 @@ export class UIManager {
         document.getElementById('tracking-div').classList.add('hidden');
         document.getElementById('load-config').classList.add('ms-Button--primary');
         document.getElementById('activate-tracking').classList.remove('ms-Button--primary');
-        
-        if (this.orchestrator) this.orchestrator.reloadConfig();
     }
 
     showTrackingDiv() {
@@ -100,8 +86,6 @@ export class UIManager {
         document.getElementById('config-div').classList.add('hidden');
         document.getElementById('activate-tracking').classList.add('ms-Button--primary');
         document.getElementById('load-config').classList.remove('ms-Button--primary');
-        
-        if (this.orchestrator) this.orchestrator.startTracking();
     }
 
     async loadCurrentSheets() {
