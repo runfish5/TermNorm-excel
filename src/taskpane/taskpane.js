@@ -1,8 +1,4 @@
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
- * See LICENSE in the project root for license information.
- */
-
+// Entry point
 import { AppOrchestrator } from '../shared-services/app.orchestrator.js';
 import { ActivityFeed } from '../ui-components/ActivityFeedUI.js';
 
