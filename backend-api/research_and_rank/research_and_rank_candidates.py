@@ -12,7 +12,7 @@ from fastapi import APIRouter
 from .web_generate_entity_profile import web_generate_entity_profile
 from .display_profile import display_profile
 from .call_llm_for_ranking import call_llm_for_ranking
-from .correct_candidate_strings import correct_candidate_strings
+# The import for correct_candidate_strings is no longer needed here
 
 # --- Configuration and Helpers ---
 
@@ -40,7 +40,7 @@ router = APIRouter()
 async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest):
     """
     Research a query and rank candidates using a sequential pipeline:
-    1. Web Research -> 2. Candidate Matching -> 3. LLM Ranking -> 4. String Correction
+    1. Web Research -> 2. Candidate Matching -> 3. LLM Ranking, Correction & Formatting
     """
     print(f"[PIPELINE] Started for query: '{request.query}'")
     
@@ -77,47 +77,21 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
         candidate_results, match_time = rank_terms_by_shared_tokens(token_matcher, query_list)
         print(f"Match completed in {match_time:.2f}s")
 
-        # --- PIPELINE STEP 3: Format for LLM & Rank ---
-        print("\n[PIPELINE] Step 3: Ranking with LLM")
+        # --- PIPELINE STEP 3 & 4: Rank, Correct & Format ---
+        print("\n[PIPELINE] Step 3: Ranking with LLM (includes correction and formatting)")
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
-        ranking_result = call_llm_for_ranking(profile_info, candidate_results, request.query, groq_api_key)
         
-        # --- PIPELINE STEP 4: Correct Candidate Strings ---
-        print("\n[PIPELINE] Step 4: Correcting candidate strings")
-        final_results = correct_candidate_strings(ranking_result, candidate_results)
+        # This function now handles the remaining steps and returns the final API response
+        final_response = call_llm_for_ranking(
+            profile_info, 
+            candidate_results, 
+            request.query, 
+            groq_api_key
+        )
         
+        return final_response
+            
     except Exception as e:
         print(f"[ERROR] Pipeline failed during execution: {e}")
         traceback.print_exc()
         return {"error": f"Research and ranking pipeline failed: {str(e)}"}
-    
-    # --- Formatting a successful response ---
-    if isinstance(final_results, dict) and 'ranked_candidates' in final_results:
-        ranked_candidates = final_results['ranked_candidates']
-        print(f"\n[PIPELINE] Success! Found {len(ranked_candidates)} matches.")
-        
-        formatted_matches = [
-            [c.get('candidate', 'Unknown'), c.get('relevance_score', 0.0)]
-            for c in ranked_candidates
-        ]
-        
-        # Log top 3 matches for clarity
-        for i, candidate in enumerate(formatted_matches[:3]):
-            print(f"  {i+1}. '{candidate[0]}' (score: {candidate[1]:.3f})")
-
-        return {
-            "query": request.query,
-            "matches": formatted_matches,
-            "total_matches": len(formatted_matches),
-            "research_performed": True,
-            "full_results": final_results
-        }
-    else:
-        # Fallback for unexpected format from the pipeline
-        print(f"[WARNING] Unexpected results format: {type(final_results)}")
-        return {
-            "query": request.query,
-            "matches": [],
-            "total_matches": 0,
-            "research_performed": True
-        }
