@@ -38,15 +38,15 @@ export class ActivityDisplay {
             <div class="activity-header">
                 <h4 class="ms-font-l">Live Activity</h4>
                 <div class="activity-toggle">
-                    <input type="radio" id="activity-history" name="activity-mode" value="history" checked />
+                    <input type="radio" id="activity-history" name="activity-mode" value="history" />
                     <label for="activity-history" class="ms-font-s">History</label>
-                    <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" />
+                    <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
                     <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
                 </div>
                 <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">Clear</button>
             </div>
-            <div id="activity-feed" class="activity-feed"></div>
-            <div id="candidate-ranked" class="activity-feed" style="display:none">
+            <div id="activity-feed" class="activity-feed" style="display:none"></div>
+            <div id="candidate-ranked" class="activity-feed">
                 <div class="placeholder-text">Rankings appear here during processing</div>
             </div>
             <style>
