@@ -17,27 +17,20 @@ export class AppOrchestrator {
     async init() {
         this.ui.init();
         this.setupEvents();
-        
-        await this.configManager.loadConfig();
-        this.ui.updateFromConfig(this.configManager);
+        await this.reloadConfig();
     }
 
     setupEvents() {
-        document.getElementById('load-mapping').addEventListener('click', () => this.loadMappings());
-        document.getElementById('renew-prompt').addEventListener('click', () => this.renewPrompt());
-        document.getElementById('setup-map-tracking').addEventListener('click', () => this.startTracking());
-        
-        // Navigation event handlers
-        document.getElementById('load-config').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.ui.showConfigDiv();
-            this.reloadConfig();
-        });
-        
-        document.getElementById('activate-tracking').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.ui.showTrackingDiv();
-            this.startTracking();
+        const actions = {
+            'load-mapping': () => this.loadMappings(),
+            'renew-prompt': () => this.renewPrompt(),
+            'setup-map-tracking': () => this.startTracking(),
+            'load-config': (e) => { e.preventDefault(); this.ui.showConfigDiv(); this.reloadConfig(); },
+            'activate-tracking': (e) => { e.preventDefault(); this.ui.showTrackingDiv(); this.startTracking(); }
+        };
+
+        Object.entries(actions).forEach(([id, handler]) => {
+            document.getElementById(id)?.addEventListener('click', handler);
         });
 
         window.addEventListener('external-file-loaded', () => {
@@ -58,12 +51,14 @@ export class AppOrchestrator {
     async loadMappings() {
         try {
             this.ui.status("Loading...");
-            const params = this.ui.getMappingParams();
-            const result = await loadAndProcessMappings(params);
+            const result = await loadAndProcessMappings(this.ui.getMappingParams());
             
-            this.mappings.forward = result.forward || {};
-            this.mappings.reverse = result.reverse || {};
-            this.mappings.metadata = result.metadata || null;
+            // Update mappings
+            Object.assign(this.mappings, {
+                forward: result.forward || {},
+                reverse: result.reverse || {},
+                metadata: result.metadata || null
+            });
             
             this.ui.handleMappingSuccess(result, this.mappings);
         } catch (error) {
@@ -82,15 +77,14 @@ export class AppOrchestrator {
         const label = btn?.querySelector('.ms-Button-label');
         const originalText = label?.textContent || 'Renew Prompt 🤖';
         
-        // Set up cancellation
         let cancelled = false;
         const cancelHandler = () => {
             cancelled = true;
             this.ui.status("Generation cancelled", false, "prompt-status");
         };
         
+        // Switch to cancel mode
         if (btn) {
-            btn.disabled = false;
             btn.removeEventListener('click', this.renewPrompt);
             btn.addEventListener('click', cancelHandler);
         }
@@ -99,11 +93,10 @@ export class AppOrchestrator {
         try {
             await this.aiPromptRenewer.renewPrompt(this.mappings, config, () => cancelled);
         } finally {
-            // Reset button
+            // Restore normal state
             if (btn) {
                 btn.removeEventListener('click', cancelHandler);
                 btn.addEventListener('click', () => this.renewPrompt());
-                btn.disabled = false;
             }
             if (label) label.textContent = originalText;
         }
@@ -112,6 +105,7 @@ export class AppOrchestrator {
     async startTracking() {
         const config = this.configManager.getConfig();
         
+        // Quick validation
         if (!config?.column_map || !Object.keys(config.column_map).length) {
             this.ui.status("Error: Load config first");
             return;
