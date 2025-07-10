@@ -35,15 +35,12 @@ export class ActivityDisplay {
 
     static render() {
         this.container.innerHTML = `
-            <div class="activity-header">
-                <h4 class="ms-font-l">Live Activity</h4>
-                <div class="activity-toggle">
-                    <input type="radio" id="activity-history" name="activity-mode" value="history" />
-                    <label for="activity-history" class="ms-font-s">History</label>
-                    <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
-                    <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
-                </div>
-                <button id="clear-activity" class="ms-Button ms-Button--default ms-font-s">Clear</button>
+
+            <div class="activity-toggle">
+                <input type="radio" id="activity-history" name="activity-mode" value="history" />
+                <label for="activity-history" class="ms-font-s">History</label>
+                <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
+                <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
             </div>
             <div id="activity-feed" class="activity-feed" style="display:none"></div>
             <div id="candidate-ranked" class="activity-feed">
@@ -82,11 +79,7 @@ export class ActivityDisplay {
     static bindEvents() {
         this.container.addEventListener('change', e => {
             if (e.target.name === 'activity-mode') this.switchView(e.target.value);
-        });
-        
-        this.container.addEventListener('click', e => {
-            if (e.target.closest('#clear-activity')) this.clearActive();
-        });
+        });   
     }
 
     static switchView(view) {
@@ -94,10 +87,6 @@ export class ActivityDisplay {
         const isHistory = view === 'history';
         this.container.querySelector('#activity-feed').style.display = isHistory ? 'block' : 'none';
         this.container.querySelector('#candidate-ranked').style.display = isHistory ? 'none' : 'block';
-    }
-
-    static clearActive() {
-        this.currentView === 'history' ? ActivityFeed.clear() : this.clearCandidates();
     }
 
     static addCandidate(value, result) {
@@ -113,8 +102,11 @@ export class ActivityDisplay {
     static renderCandidateTable(value) {
         const html = `
             <div class="candidate-entry">
-                <div class="candidate-header">Input: "${value}" (Drag rows to reorder)</div>
-                <button id="show-first-choice" class="ms-Button ms-Button--primary ms-font-s" style="margin-bottom: 10px;">Show First Choice</button>
+                <div class="candidate-header">Input: "${value}"</div>
+                <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+                    <button id="show-first-choice" class="ms-Button ms-Button--primary ms-font-s">Show First Choice</button>
+                    <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
+                </div>
                 <table class="candidate-table">
                     <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Spec Match</th><th>Match Factors</th></tr></thead>
                     <tbody>
