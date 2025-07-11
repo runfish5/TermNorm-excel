@@ -125,8 +125,9 @@ export class UIManager {
         const config = configManager.getConfig();
         if (!config) return;
         
-        document.getElementById('source-column').value = config.source_column || '';
-        document.getElementById('target-column').value = config.target_column || config.mapping_reference || '';
+        // Use the new methods to get values from the first standard mapping
+        document.getElementById('source-column').value = configManager.getSourceColumn();
+        document.getElementById('target-column').value = configManager.getTargetColumn() || configManager.getMappingReference();
         
         const isExternal = configManager.isExternal();
         document.getElementById(isExternal ? 'external-file' : 'current-file').checked = true;
