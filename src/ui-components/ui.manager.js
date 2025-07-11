@@ -9,13 +9,10 @@ export class UIManager {
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
         this.currentView = 'config';
-        this.worksheetState = null;
-        this.elements = {};
     }
 
     init() {
         this.metadataDisplay.init();
-        this.cacheElements();
         this.setupEvents();
         this.loadSheets(false);
         CandidateRankingUI.init();
@@ -23,85 +20,66 @@ export class UIManager {
         return this;
     }
 
-    cacheElements() {
-        const ids = ['current-file', 'external-file', 'external-file-section', 
-                    'file-path-display', 'worksheet-dropdown', 'main-status-message'];
-        ids.forEach(id => this.elements[id] = document.getElementById(id));
-    }
-
     showView(viewName) {
-        if (this.currentView === 'config') this.saveWorksheetState();
-        
+        // Toggle view divs
         document.getElementById('config-div')?.classList.toggle('hidden', viewName !== 'config');
         document.getElementById('tracking-div')?.classList.toggle('hidden', viewName !== 'tracking');
+        
+        // Toggle button states
         document.getElementById('load-config')?.classList.toggle('ms-Button--primary', viewName === 'config');
         document.getElementById('activate-tracking')?.classList.toggle('ms-Button--primary', viewName === 'tracking');
         
         this.currentView = viewName;
-        if (viewName === 'config' && this.worksheetState) this.restoreWorksheetState();
-    }
-
-    saveWorksheetState() {
-        if (!this.elements['worksheet-dropdown']) return;
-        this.worksheetState = {
-            selected: this.elements['worksheet-dropdown'].value,
-            isExternal: this.elements['external-file']?.checked || false,
-            file: this.externalFile,
-            fileName: this.elements['file-path-display']?.value || ''
-        };
-    }
-
-    restoreWorksheetState() {
-        const state = this.worksheetState;
-        this.elements['external-file'].checked = state.isExternal;
-        this.elements['current-file'].checked = !state.isExternal;
-        this.elements['external-file-section']?.classList.toggle('hidden', !state.isExternal);
-        
-        if (state.isExternal && state.file) {
-            this.externalFile = state.file;
-            this.elements['file-path-display'].value = state.fileName;
-        }
-        
-        this.loadSheets(state.isExternal).then(() => {
-            if (state.selected) this.selectWorksheet(state.selected);
-        });
     }
 
     setupEvents() {
-        this.elements['current-file']?.addEventListener('change', () => this.handleFileSourceChange());
-        this.elements['external-file']?.addEventListener('change', () => this.handleFileSourceChange());
+        // File source radio buttons
+        document.getElementById('current-file')?.addEventListener('change', () => {
+            document.getElementById('external-file-section')?.classList.add('hidden');
+            this.loadSheets(false);
+        });
         
+        document.getElementById('external-file')?.addEventListener('change', () => {
+            const section = document.getElementById('external-file-section');
+            section?.classList.remove('hidden');
+            
+            if (this.externalFile) {
+                this.loadSheets(true);
+            } else {
+                this.setDropdown(['Select external file first...'], true);
+            }
+        });
+        
+        // File picker
         document.getElementById('browse-button')?.addEventListener('click', e => {
             e.preventDefault();
             document.getElementById('file-picker-input')?.click();
         });
 
         document.getElementById('file-picker-input')?.addEventListener('change', e => {
-            if (e.target.files?.[0]) this.handleFileSelected(e.target.files[0]);
+            const file = e.target.files?.[0];
+            if (!file) return;
+            
+            this.externalFile = file;
+            document.getElementById('file-path-display').value = file.name;
+            document.getElementById('external-file').checked = true;
+            document.getElementById('current-file').checked = false;
+            document.getElementById('external-file-section')?.classList.remove('hidden');
+            
+            this.status(`Reading ${file.name}...`);
+            this.loadSheets(true);
         });
 
-        document.getElementById('show-metadata-btn')?.addEventListener('click', () => this.toggleMetadata());
-    }
-
-    handleFileSourceChange() {
-        const useExternal = this.elements['external-file']?.checked;
-        this.elements['external-file-section']?.classList.toggle('hidden', !useExternal);
-        
-        if (useExternal && !this.externalFile) {
-            this.setDropdown(['Select external file first...'], true);
-        } else {
-            this.loadSheets(useExternal);
-        }
-    }
-
-    handleFileSelected(file) {
-        this.externalFile = file;
-        this.elements['file-path-display'].value = file.name;
-        this.elements['external-file'].checked = true;
-        this.elements['current-file'].checked = false;
-        this.elements['external-file-section']?.classList.remove('hidden');
-        this.status(`Reading ${file.name}...`);
-        this.loadSheets(true);
+        // Metadata toggle
+        document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
+            const content = document.getElementById('metadata-content');
+            const isHidden = content?.classList.toggle('hidden');
+            const label = document.querySelector('#show-metadata-btn .ms-Button-label');
+            
+            if (label) {
+                label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+            }
+        });
     }
 
     async loadSheets(isExternal = false) {
@@ -118,7 +96,9 @@ export class UIManager {
             this.setDropdown(sheets);
             this.status(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
             
-            if (isExternal) window.dispatchEvent(new CustomEvent('external-file-loaded'));
+            if (isExternal) {
+                window.dispatchEvent(new CustomEvent('external-file-loaded'));
+            }
         } catch (error) {
             this.setDropdown(['Error loading worksheets'], true);
             this.status(`Error: ${error.message}`, true);
@@ -126,54 +106,58 @@ export class UIManager {
     }
 
     setDropdown(sheets, disabled = false) {
-        if (!this.elements['worksheet-dropdown']) return;
+        const dropdown = document.getElementById('worksheet-dropdown');
+        if (!dropdown) return;
         
-        this.elements['worksheet-dropdown'].innerHTML = disabled 
-            ? `<option value="">${sheets[0]}</option>`
-            : '<option value="">Select a worksheet...</option>' + 
-              sheets.map(name => `<option value="${name}">${name}</option>`).join('');
-        this.elements['worksheet-dropdown'].disabled = disabled;
-    }
-
-    selectWorksheet(name) {
-        if (!name || !this.elements['worksheet-dropdown']) return;
-        if (Array.from(this.elements['worksheet-dropdown'].options).find(opt => opt.value === name)) {
-            this.elements['worksheet-dropdown'].value = name;
-            this.status(`Selected: ${name}`);
+        if (disabled) {
+            dropdown.innerHTML = `<option value="">${sheets[0]}</option>`;
+            dropdown.disabled = true;
+        } else {
+            dropdown.innerHTML = '<option value="">Select a worksheet...</option>' + 
+                sheets.map(name => `<option value="${name}">${name}</option>`).join('');
+            dropdown.disabled = false;
         }
     }
 
-    toggleMetadata() {
-        const content = document.getElementById('metadata-content');
-        const isHidden = content?.classList.toggle('hidden');
-        const label = document.querySelector('#show-metadata-btn .ms-Button-label');
-        if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+    selectWorksheet(name) {
+        const dropdown = document.getElementById('worksheet-dropdown');
+        if (!name || !dropdown) return;
+        
+        const optionExists = Array.from(dropdown.options).some(opt => opt.value === name);
+        if (optionExists) {
+            dropdown.value = name;
+            this.status(`Selected: ${name}`);
+        }
     }
 
     updateFromConfig(configManager) {
         const config = configManager.getConfig();
         if (!config) return;
         
+        // Update form fields directly
         document.getElementById('source-column').value = config.source_column || '';
         document.getElementById('target-column').value = config.target_column || config.mapping_reference || '';
         
         const isExternal = configManager.isExternal();
-        this.elements[isExternal ? 'external-file' : 'current-file'].checked = true;
-        this.elements['external-file-section']?.classList.toggle('hidden', !isExternal);
+        document.getElementById(isExternal ? 'external-file' : 'current-file').checked = true;
+        document.getElementById('external-file-section')?.classList.toggle('hidden', !isExternal);
         
         if (isExternal) {
-            this.elements['file-path-display'].value = configManager.getFileName();
+            document.getElementById('file-path-display').value = configManager.getFileName();
             this.status(`Config expects: ${configManager.getFileName()}`);
             this.setDropdown(['Browse for external file first...'], true);
         } else {
-            this.loadSheets(false).then(() => this.selectWorksheet(configManager.getWorksheet()));
+            this.loadSheets(false).then(() => {
+                this.selectWorksheet(configManager.getWorksheet());
+            });
         }
     }
 
     status(message, isError = false) {
-        if (this.elements['main-status-message']) {
-            this.elements['main-status-message'].textContent = message;
-            this.elements['main-status-message'].style.color = isError ? '#D83B01' : '';
+        const statusElement = document.getElementById('main-status-message');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.color = isError ? '#D83B01' : '';
         }
     }
 
@@ -192,7 +176,10 @@ export class UIManager {
     }
 
     handleMappingError(error, mappings) {
-        Object.assign(mappings, { forward: {}, reverse: {}, metadata: null });
+        mappings.forward = {};
+        mappings.reverse = {};
+        mappings.metadata = null;
+        
         this.status(error.message, true);
         this.metadataDisplay.hide();
     }
