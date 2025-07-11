@@ -69,72 +69,13 @@ async function setupTokenMatcher(terms) {
 }
 
 function getMappingParamsFromDOM() {
-    // More robust parameter extraction with debugging
-    const params = {};
-    
-    // Debug all checkboxes first
-    const allCheckboxes = Array.from(document.querySelectorAll('input[type="checkbox"]'));
-    console.log('All checkboxes found:', allCheckboxes.map(cb => ({
-        id: cb.id,
-        name: cb.name,
-        className: cb.className,
-        checked: cb.checked,
-        value: cb.value
-    })));
-    
-    // Try multiple selectors for useCurrentFile checkbox
-    const currentFileElement = document.querySelector('input[name="currentFile"]') ||
-                              document.querySelector('.current-file-checkbox') ||
-                              document.querySelector('#current-file') ||
-                              document.querySelector('[data-current-file]') ||
-                              document.querySelector('input[type="checkbox"]');
-    params.useCurrentFile = currentFileElement?.checked || false;
-    
-    console.log('Current file element found:', currentFileElement ? {
-        id: currentFileElement.id,
-        name: currentFileElement.name,
-        className: currentFileElement.className,
-        checked: currentFileElement.checked
-    } : 'NOT FOUND');
-    
-    // Debug all select elements
-    const allSelects = Array.from(document.querySelectorAll('select'));
-    console.log('All select elements found:', allSelects.map(sel => ({
-        id: sel.id,
-        name: sel.name,
-        className: sel.className,
-        value: sel.value,
-        options: Array.from(sel.options).map(opt => opt.value)
-    })));
-    
-    // Try multiple selectors for worksheet dropdown
-    const worksheetElement = document.querySelector('select[name="worksheet"]') ||
-                            document.querySelector('#worksheet-dropdown') ||
-                            document.querySelector('.worksheet-dropdown') ||
-                            document.querySelector('[data-worksheet]') ||
-                            document.querySelector('select');
-    params.sheetName = worksheetElement?.value || '';
-    
-    // These should be more reliable with specific IDs
-    params.sourceColumn = document.getElementById('source-column')?.value || null;
-    params.targetColumn = document.getElementById('target-column')?.value || '';
-    
-    // Debug external file sources
-    console.log('External file sources:');
-    console.log('  window.externalFile:', window.externalFile);
-    console.log('  File inputs:', Array.from(document.querySelectorAll('input[type="file"]')).map(inp => ({
-        id: inp.id,
-        name: inp.name,
-        files: inp.files?.length || 0
-    })));
-    
-    // External file from global scope or element
-    params.externalFile = window.externalFile || 
-                         document.querySelector('input[type="file"]')?.files?.[0] || 
-                         null;
-    
-    console.log('Final extracted DOM params:', params);
-    return params;
+    return {
+        useCurrentFile: document.getElementById('current-file')?.checked || false,
+        sheetName: document.getElementById('worksheet-dropdown')?.value || '',
+        sourceColumn: document.getElementById('source-column')?.value || null,
+        targetColumn: document.getElementById('target-column')?.value || '',
+        externalFile: window.externalFile || document.getElementById('external-file')?.files?.[0] || null
+    };
 }
 
 export async function loadAndProcessMappings(customParams = null) {

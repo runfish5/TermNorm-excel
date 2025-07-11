@@ -51,9 +51,17 @@ export class AppOrchestrator {
     async loadMappings() {
         try {
             this.ui.status("Loading...");
-            // No longer need to call this.ui.getMappingParams() - 
-            // loadAndProcessMappings will extract params from DOM directly
-            const result = await loadAndProcessMappings();
+            
+            // Get the external file from the UI manager
+            const customParams = {
+                useCurrentFile: document.getElementById('current-file')?.checked || false,
+                sheetName: document.getElementById('worksheet-dropdown')?.value || '',
+                sourceColumn: document.getElementById('source-column')?.value || null,
+                targetColumn: document.getElementById('target-column')?.value || '',
+                externalFile: this.ui.externalFile // Get from UI manager
+            };
+            
+            const result = await loadAndProcessMappings(customParams);
             
             // Update mappings
             Object.assign(this.mappings, {
@@ -67,7 +75,7 @@ export class AppOrchestrator {
             this.ui.handleMappingError(error, this.mappings);
         }
     }
-
+    
     async renewPrompt() {
         const config = this.configManager.getConfig();
         if (!config) {
