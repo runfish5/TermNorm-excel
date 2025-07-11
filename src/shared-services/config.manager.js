@@ -25,12 +25,12 @@ export class ConfigManager {
                 throw new Error(`No valid configuration found for workbook: ${workbook}`);
             }
 
-            this.config = { ...config, workbook, setupCols: this.setupCols.bind(this) };
+            this.config = { ...config, workbook };
             return this.config;
 
         } catch (error) {
-            if (error.message.includes("Excel file")) throw error;
-            throw new Error("Excel file not found or could not be accessed");
+            console.error("Config load error:", error);
+            throw error;
         }
     }
 
@@ -53,29 +53,5 @@ export class ConfigManager {
 
     getWorksheet() {
         return this.config?.worksheet || '';
-    }
-
-    async setupCols(colMap) {
-        return await Excel.run(async ctx => {
-            const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
-            headers.load("values");
-            await ctx.sync();
-            
-            const headerNames = headers.values[0].map(h => String(h || '').trim().toLowerCase());
-            const cols = new Map();
-            const missing = [];
-            
-            for (const [src, tgt] of Object.entries(colMap)) {
-                const srcIdx = headerNames.indexOf(src.toLowerCase());
-                const tgtIdx = headerNames.indexOf(tgt.toLowerCase());
-                
-                if (srcIdx === -1) missing.push(src);
-                if (tgtIdx === -1) missing.push(tgt);
-                else cols.set(srcIdx, tgtIdx);
-            }
-            
-            if (missing.length) throw new Error(`Missing columns: ${missing.join(', ')}`);
-            return cols;
-        });
     }
 }
