@@ -25,8 +25,8 @@ export class AppOrchestrator {
             'load-mapping': () => this.loadMappings(),
             'renew-prompt': () => this.renewPrompt(),
             'setup-map-tracking': () => this.startTracking(),
-            'load-config': (e) => { e.preventDefault(); this.ui.showConfigDiv(); this.reloadConfig(); },
-            'activate-tracking': (e) => { e.preventDefault(); this.ui.showTrackingDiv(); this.startTracking(); }
+            'load-config': (e) => { e.preventDefault(); this.ui.showView('config'); this.reloadConfig(); },
+            'activate-tracking': (e) => { e.preventDefault(); this.ui.showView('tracking'); this.startTracking(); }
         };
 
         Object.entries(actions).forEach(([id, handler]) => {
@@ -123,7 +123,7 @@ export class AppOrchestrator {
             await this.tracker.start(config, this.mappings);
             const mode = hasForward ? "with mappings" : "reverse-only";
             this.ui.status(`Tracking active (${mode})`);
-            this.ui.showTrackingDiv();
+            this.ui.showView('tracking')
         } catch (error) {
             this.ui.status(`Error: ${error.message}`);
         }

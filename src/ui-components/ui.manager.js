@@ -8,15 +8,29 @@ export class UIManager {
         this.metadataDisplay = new MetadataDisplay();
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
+        // Cache frequently used DOM elements
+        this.elements = {};
     }
 
     init() {
         this.metadataDisplay.init();
+        this.cacheElements();
         this.setupEvents();
-        this.loadCurrentSheets();
+        this.loadSheets(false);
         CandidateRankingUI.init();
         this.showView('config');
         return this;
+    }
+
+    cacheElements() {
+        this.elements = {
+            currentFile: document.getElementById('current-file'),
+            externalFile: document.getElementById('external-file'),
+            externalFileSection: document.getElementById('external-file-section'),
+            filePathDisplay: document.getElementById('file-path-display'),
+            worksheetDropdown: document.getElementById('worksheet-dropdown'),
+            statusMessage: document.getElementById('main-status-message')
+        };
     }
 
     showView(viewName) {
@@ -31,19 +45,9 @@ export class UIManager {
     }
 
     setupEvents() {
-        // File source radio buttons
-        document.getElementById('current-file')?.addEventListener('change', () => {
-            document.getElementById('external-file-section')?.classList.add('hidden');
-            this.loadCurrentSheets();
-        });
-
-        document.getElementById('external-file')?.addEventListener('change', (e) => {
-            const section = document.getElementById('external-file-section');
-            section?.classList.toggle('hidden', !e.target.checked);
-            if (e.target.checked) {
-                this.externalFile ? this.loadExternalSheets() : this.setDropdown(['Select external file first...'], true);
-            }
-        });
+        // Simplified file source handling
+        this.elements.currentFile?.addEventListener('change', () => this.handleFileSourceChange());
+        this.elements.externalFile?.addEventListener('change', () => this.handleFileSourceChange());
 
         // File picker
         document.getElementById('browse-button')?.addEventListener('click', (e) => {
@@ -54,32 +58,48 @@ export class UIManager {
         document.getElementById('file-picker-input')?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             if (file) {
-                this.externalFile = file;
-                document.getElementById('file-path-display').value = file.name;
-                this.status(`Reading ${file.name}...`);
-                this.loadExternalSheets();
+                this.handleFileSelected(file);
             }
-        });
-
-        // Activity toggles
-        ['activity-history', 'activity-ranked'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => {
-                const showHistory = document.getElementById('activity-history')?.checked;
-                document.getElementById('activity-feed')?.classList.toggle('hidden', !showHistory);
-                document.getElementById('candidate-ranked')?.classList.toggle('hidden', showHistory);
-            });
         });
 
         // Metadata toggle
         document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
-            const content = document.getElementById('metadata-content');
-            const isHidden = content?.classList.toggle('hidden');
-            const label = document.querySelector('#show-metadata-btn .ms-Button-label');
-            if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+            this.toggleMetadata();
         });
     }
 
+    handleFileSourceChange() {
+        const useExternal = this.elements.externalFile?.checked;
+        this.elements.externalFileSection?.classList.toggle('hidden', !useExternal);
+        
+        if (useExternal) {
+            this.externalFile ? this.loadSheets(true) : this.setDropdown(['Select external file first...'], true);
+        } else {
+            this.loadSheets(false);
+        }
+    }
+
+    handleFileSelected(file) {
+        this.externalFile = file;
+        this.elements.filePathDisplay.value = file.name;
+        this.status(`Reading ${file.name}...`);
+        this.loadSheets(true);
+    }
+
+    toggleMetadata() {
+        const content = document.getElementById('metadata-content');
+        const isHidden = content?.classList.toggle('hidden');
+        const label = document.querySelector('#show-metadata-btn .ms-Button-label');
+        if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+    }
+
     async loadSheets(isExternal = false) {
+        // Guard clause for external files
+        if (isExternal && !this.externalFile) {
+            this.setDropdown(['Select external file first...'], true);
+            return;
+        }
+
         try {
             const sheets = isExternal 
                 ? await this.excelIntegration.getExternalWorksheetNames(this.externalFile)
@@ -95,24 +115,19 @@ export class UIManager {
         }
     }
 
-    loadCurrentSheets() { return this.loadSheets(false); }
-    loadExternalSheets() { return this.externalFile ? this.loadSheets(true) : null; }
-
     setDropdown(sheets, disabled = false) {
-        const dropdown = document.getElementById('worksheet-dropdown');
-        if (!dropdown) return;
-
-        dropdown.innerHTML = disabled 
+        if (!this.elements.worksheetDropdown) return;
+        
+        this.elements.worksheetDropdown.innerHTML = disabled 
             ? `<option value="">${sheets[0]}</option>`
             : '<option value="">Select a worksheet...</option>' + 
               sheets.map(name => `<option value="${name}">${name}</option>`).join('');
     }
 
     selectWorksheet(name) {
-        if (!name) return;
-        const dropdown = document.getElementById('worksheet-dropdown');
-        if (Array.from(dropdown.options).find(opt => opt.value === name)) {
-            dropdown.value = name;
+        if (!name || !this.elements.worksheetDropdown) return;
+        if (Array.from(this.elements.worksheetDropdown.options).find(opt => opt.value === name)) {
+            this.elements.worksheetDropdown.value = name;
             this.status(`Selected: ${name}`);
         }
     }
@@ -124,37 +139,35 @@ export class UIManager {
         // Update form fields
         document.getElementById('source-column').value = config.source_column || '';
         document.getElementById('target-column').value = config.target_column || config.mapping_reference || '';
-
+        
         // Handle file source
         const isExternal = configManager.isExternal();
-        document.getElementById(isExternal ? 'external-file' : 'current-file').checked = true;
-        document.getElementById('external-file-section')?.classList.toggle('hidden', !isExternal);
+        this.elements[isExternal ? 'externalFile' : 'currentFile'].checked = true;
+        this.elements.externalFileSection?.classList.toggle('hidden', !isExternal);
         
         if (isExternal) {
-            document.getElementById('file-path-display').value = configManager.getFileName();
+            this.elements.filePathDisplay.value = configManager.getFileName();
             this.status(`Config expects: ${configManager.getFileName()}`);
             this.setDropdown(['Browse for external file first...'], true);
         } else {
-            this.loadCurrentSheets().then(() => this.selectWorksheet(configManager.getWorksheet()));
+            this.loadSheets(false).then(() => this.selectWorksheet(configManager.getWorksheet()));
         }
     }
 
     getMappingParams() {
         return {
-            useCurrentFile: document.getElementById('current-file')?.checked,
-            sheetName: document.getElementById('worksheet-dropdown')?.value,
+            useCurrentFile: this.elements.currentFile?.checked,
+            sheetName: this.elements.worksheetDropdown?.value,
             sourceColumn: document.getElementById('source-column')?.value || null,
             targetColumn: document.getElementById('target-column')?.value,
-            externalFile: document.getElementById('current-file')?.checked ? null : this.externalFile
+            externalFile: this.externalFile
         };
     }
 
-    // Simplified global status method - no more local elementId parameter
     status(message, isError = false) {
-        const statusElement = document.getElementById('main-status-message');
-        if (statusElement) {
-            statusElement.textContent = message;
-            statusElement.style.setProperty('color', isError ? '#D83B01' : '');
+        if (this.elements.statusMessage) {
+            this.elements.statusMessage.textContent = message;
+            this.elements.statusMessage.style.setProperty('color', isError ? '#D83B01' : '');
         }
     }
 
@@ -177,8 +190,4 @@ export class UIManager {
         this.status(error.message, true);
         this.metadataDisplay.hide();
     }
-
-    // Convenience methods
-    showConfigDiv() { this.showView('config'); }
-    showTrackingDiv() { this.showView('tracking'); }
 }
