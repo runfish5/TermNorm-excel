@@ -12,25 +12,29 @@ export class AppOrchestrator {
         this.tracker = new LiveTracker();
         this.ui = new UIManager();
         this.aiPromptRenewer = new aiPromptRenewer((msg, isError, id) => this.ui.status(msg, isError, id));
+        this.configLoaded = false;
     }
 
     async init() {
         this.ui.init();
         this.setupEvents();
         await this.reloadConfig();
+        this.configLoaded = true;
     }
 
     setupEvents() {
-        const actions = {
-            'load-mapping': () => this.loadMappings(),
-            'renew-prompt': () => this.renewPrompt(),
-            'setup-map-tracking': () => this.startTracking(),
-            'load-config': (e) => { e.preventDefault(); this.ui.showView('config'); this.reloadConfig(); },
-            'activate-tracking': (e) => { e.preventDefault(); this.ui.showView('tracking'); this.startTracking(); }
-        };
-
-        Object.entries(actions).forEach(([id, handler]) => {
-            document.getElementById(id)?.addEventListener('click', handler);
+        document.getElementById('load-mapping')?.addEventListener('click', () => this.loadMappings());
+        document.getElementById('renew-prompt')?.addEventListener('click', () => this.renewPrompt());
+        document.getElementById('setup-map-tracking')?.addEventListener('click', () => this.startTracking());
+        document.getElementById('load-config')?.addEventListener('click', e => {
+            e.preventDefault();
+            this.ui.showView('config');
+            if (!this.configLoaded) this.reloadConfig();
+        });
+        document.getElementById('activate-tracking')?.addEventListener('click', e => {
+            e.preventDefault();
+            this.ui.showView('tracking');
+            this.startTracking();
         });
 
         window.addEventListener('external-file-loaded', () => {
@@ -41,7 +45,7 @@ export class AppOrchestrator {
     async reloadConfig() {
         try {
             await this.configManager.loadConfig();
-            this.ui.updateFromConfig(this.configManager);
+            if (!this.configLoaded) this.ui.updateFromConfig(this.configManager);
             this.ui.status("Config reloaded", false, "config-status");
         } catch (error) {
             this.ui.status(`Config failed: ${error.message}`, true, "config-status");
@@ -52,18 +56,15 @@ export class AppOrchestrator {
         try {
             this.ui.status("Loading...");
             
-            // Get the external file from the UI manager
             const customParams = {
                 useCurrentFile: document.getElementById('current-file')?.checked || false,
                 sheetName: document.getElementById('worksheet-dropdown')?.value || '',
                 sourceColumn: document.getElementById('source-column')?.value || null,
                 targetColumn: document.getElementById('target-column')?.value || '',
-                externalFile: this.ui.externalFile // Get from UI manager
+                externalFile: this.ui.externalFile
             };
             
             const result = await loadAndProcessMappings(customParams);
-            
-            // Update mappings
             Object.assign(this.mappings, {
                 forward: result.forward || {},
                 reverse: result.reverse || {},
@@ -83,8 +84,8 @@ export class AppOrchestrator {
             return;
         }
         
-        const btn = document.getElementById('renew-prompt');
-        const label = btn?.querySelector('.ms-Button-label');
+        const button = document.getElementById('renew-prompt');
+        const label = button?.querySelector('.ms-Button-label');
         const originalText = label?.textContent || 'Renew Prompt 🤖';
         
         let cancelled = false;
@@ -93,20 +94,18 @@ export class AppOrchestrator {
             this.ui.status("Generation cancelled", false, "prompt-status");
         };
         
-        // Switch to cancel mode
-        if (btn) {
-            btn.removeEventListener('click', this.renewPrompt);
-            btn.addEventListener('click', cancelHandler);
+        if (button) {
+            button.removeEventListener('click', this.renewPrompt);
+            button.addEventListener('click', cancelHandler);
         }
         if (label) label.textContent = 'Cancel Generation';
         
         try {
             await this.aiPromptRenewer.renewPrompt(this.mappings, config, () => cancelled);
         } finally {
-            // Restore normal state
-            if (btn) {
-                btn.removeEventListener('click', cancelHandler);
-                btn.addEventListener('click', () => this.renewPrompt());
+            if (button) {
+                button.removeEventListener('click', cancelHandler);
+                button.addEventListener('click', () => this.renewPrompt());
             }
             if (label) label.textContent = originalText;
         }
@@ -115,7 +114,6 @@ export class AppOrchestrator {
     async startTracking() {
         const config = this.configManager.getConfig();
         
-        // Quick validation
         if (!config?.column_map || !Object.keys(config.column_map).length) {
             this.ui.status("Error: Load config first");
             return;
@@ -133,7 +131,7 @@ export class AppOrchestrator {
             await this.tracker.start(config, this.mappings);
             const mode = hasForward ? "with mappings" : "reverse-only";
             this.ui.status(`Tracking active (${mode})`);
-            this.ui.showView('tracking')
+            this.ui.showView('tracking');
         } catch (error) {
             this.ui.status(`Error: ${error.message}`);
         }
