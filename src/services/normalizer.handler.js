@@ -16,7 +16,9 @@ export class LiveTracker {
         if (!config?.column_map || !mappings) {
             throw new Error("Config and mappings required");
         }
-        this.columnMap = await config.setupCols(config.column_map);
+        
+        // Resolve column indices directly here - simple and direct!
+        this.columnMap = await this.resolveColumnIndices(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
         
         await Excel.run(async ctx => {
@@ -27,6 +29,31 @@ export class LiveTracker {
         });
         
         this.active = true;
+    }
+
+    // Simple, direct column resolution - no dependencies!
+    async resolveColumnIndices(colMap) {
+        return await Excel.run(async ctx => {
+            const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
+            headers.load("values");
+            await ctx.sync();
+            
+            const headerNames = headers.values[0].map(h => String(h || '').trim().toLowerCase());
+            const cols = new Map();
+            const missing = [];
+            
+            for (const [src, tgt] of Object.entries(colMap)) {
+                const srcIdx = headerNames.indexOf(src.toLowerCase());
+                const tgtIdx = headerNames.indexOf(tgt.toLowerCase());
+                
+                if (srcIdx === -1) missing.push(src);
+                if (tgtIdx === -1) missing.push(tgt);
+                else cols.set(srcIdx, tgtIdx);
+            }
+            
+            if (missing.length) throw new Error(`Missing columns: ${missing.join(', ')}`);
+            return cols;
+        });
     }
 
     handleChange = async (e) => {
