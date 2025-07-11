@@ -6,28 +6,20 @@
         "b": "b_std"
       },
       "default_std_suffix": "standardized",
-      "mapping_reference3": "test_map1.json",
-      "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",
-      "mapping_referenceDep": "C:\\Users\\David\\test_map_xy.xlsx",
-      "mapping_reference2": "C:\\Users\\David\\Downloads\\test_map_xy.xlsx",
-      "worksheet": "Materials",
-      "source_column": "",
-      "target_column": "Dataset in SP"
-
-    },
-    "BAFU-ILCD - Copy.xlsx": {
-      "column_map": {
-        "Name": "localName"
-      },
-      "default_std_suffix": "std",
-      "mapping_reference": "test_map1.json"
-    },
-    "Append EF 2.0 to EF 3.1 - Copy.xlsx": {
-      "column_map": {
-        "Substance": "Replace Substance"
-      },
-      "default_std_suffix": "std",
-      "mapping_reference": "map_EF3.1.json"
+      "standard_mappings": [
+        {
+          "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",
+          "worksheet": "Materials",
+          "source_column": "",
+          "target_column": "Dataset in SP"
+        },
+        {
+          "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example_n2.xlsx",
+          "worksheet": "Processing",
+          "source_column": "",
+          "target_column": "Eintrag aus Zielliste"
+        }
+      ]
     }
   }
 }
