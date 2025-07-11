@@ -1,6 +1,5 @@
 // shared-services/app.orchestrator.js
 import { ConfigManager } from './config.manager.js';
-import { loadAndProcessMappings } from '../data-processing/mapping.processor.js';
 import { LiveTracker } from '../services/normalizer.handler.js';
 import { aiPromptRenewer } from '../services/aiPromptRenewer.js';
 import { UIManager } from '../ui-components/ui.manager.js';
@@ -23,9 +22,8 @@ export class AppOrchestrator {
     }
 
     setupEvents() {
-        document.getElementById('load-mapping')?.addEventListener('click', () => this.loadMappings());
+        // Existing events
         document.getElementById('renew-prompt')?.addEventListener('click', () => this.renewPrompt());
-        document.getElementById('setup-map-tracking')?.addEventListener('click', () => this.startTracking());
         
         document.getElementById('load-config')?.addEventListener('click', e => {
             e.preventDefault();
@@ -39,8 +37,14 @@ export class AppOrchestrator {
             this.startTracking();
         });
 
-        window.addEventListener('external-file-loaded', () => {
-            this.ui.selectWorksheet(this.configManager.getWorksheet());
+        // New event for starting tracking from UI
+        window.addEventListener('start-tracking', () => {
+            this.startTracking();
+        });
+
+        // Update configs count display
+        state.subscribe('config', (config) => {
+            this.updateConfigsCount();
         });
     }
 
@@ -48,34 +52,20 @@ export class AppOrchestrator {
         try {
             await this.configManager.loadConfig();
             if (!this.configLoaded) this.ui.updateFromConfig(this.configManager);
+            this.updateConfigsCount();
             state.setStatus("Config reloaded");
         } catch (error) {
             state.setStatus(`Config failed: ${error.message}`, true);
         }
     }
 
-    async loadMappings() {
-        try {
-            state.setStatus("Loading...");
-            
-            const customParams = {
-                useCurrentFile: document.getElementById('current-file')?.checked || false,
-                sheetName: document.getElementById('worksheet-dropdown')?.value || '',
-                sourceColumn: document.getElementById('source-column')?.value || null,
-                targetColumn: document.getElementById('target-column')?.value || '',
-                externalFile: this.ui.externalFile
-            };
-            
-            const result = await loadAndProcessMappings(customParams);
-            const mappings = {
-                forward: result.forward || {},
-                reverse: result.reverse || {},
-                metadata: result.metadata || null
-            };
-            
-            this.ui.handleMappingSuccess(result, mappings);
-        } catch (error) {
-            this.ui.handleMappingError(error, {});
+    updateConfigsCount() {
+        const config = this.configManager.getConfig();
+        const countElement = document.getElementById('configs-count');
+        
+        if (countElement && config) {
+            const count = this.configManager.getStandardMappingsCount();
+            countElement.textContent = `${count} mapping configuration${count !== 1 ? 's' : ''} loaded`;
         }
     }
     
@@ -123,8 +113,8 @@ export class AppOrchestrator {
         }
         
         const mappings = state.get('mappings');
-        const hasForward = Object.keys(mappings.forward).length > 0;
-        const hasReverse = Object.keys(mappings.reverse).length > 0;
+        const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
+        const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
         
         if (!hasForward && !hasReverse) {
             state.setStatus("Error: Load mappings first", true);
@@ -133,11 +123,68 @@ export class AppOrchestrator {
         
         try {
             await this.tracker.start(config, mappings);
-            const mode = hasForward ? "with mappings" : "reverse-only";
-            state.setStatus(`Tracking active (${mode})`);
+            
+            // Calculate tracking mode info
+            const forwardCount = Object.keys(mappings.forward || {}).length;
+            const reverseCount = Object.keys(mappings.reverse || {}).length;
+            const sourcesCount = mappings.metadata?.sources?.length || 0;
+            
+            let mode = hasForward ? "with mappings" : "reverse-only";
+            if (sourcesCount > 1) {
+                mode += ` (${sourcesCount} sources)`;
+            }
+            
+            state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
             this.ui.showView('tracking');
         } catch (error) {
             state.setStatus(`Error: ${error.message}`, true);
         }
+    }
+
+    // Helper methods for debugging and monitoring
+    getConfigSummary() {
+        return this.configManager.getConfigSummary();
+    }
+
+    getAllLoadedMappings() {
+        return this.ui.getAllLoadedMappings();
+    }
+
+    getMappingModules() {
+        return this.ui.getMappingModules();
+    }
+
+    // Validation helper
+    validateReadyForTracking() {
+        const config = this.configManager.getConfig();
+        const mappings = state.get('mappings');
+        
+        const issues = [];
+        
+        if (!config) {
+            issues.push("Configuration not loaded");
+        } else {
+            if (!config.column_map || Object.keys(config.column_map).length === 0) {
+                issues.push("No column mapping configured");
+            }
+            if (!config.standard_mappings || config.standard_mappings.length === 0) {
+                issues.push("No standard mappings configured");
+            }
+        }
+        
+        if (!mappings || (!mappings.forward && !mappings.reverse)) {
+            issues.push("No mapping data loaded");
+        } else {
+            const forwardCount = Object.keys(mappings.forward || {}).length;
+            const reverseCount = Object.keys(mappings.reverse || {}).length;
+            if (forwardCount === 0 && reverseCount === 0) {
+                issues.push("No mapping entries found");
+            }
+        }
+        
+        return {
+            ready: issues.length === 0,
+            issues
+        };
     }
 }
