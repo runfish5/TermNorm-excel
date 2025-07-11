@@ -2,13 +2,13 @@
 import { MetadataDisplay } from './metadata.display.js';
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
+import { state } from '../shared-services/state.manager.js';
 
 export class UIManager {
     constructor() {
         this.metadataDisplay = new MetadataDisplay();
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
-        this.currentView = 'config';
     }
 
     init() {
@@ -17,37 +17,26 @@ export class UIManager {
         this.loadSheets(false);
         CandidateRankingUI.init();
         this.showView('config');
+        
+        // Simple status subscription
+        state.subscribe('ui', (ui) => {
+            this.updateStatus(ui.statusMessage, ui.isError);
+        });
+        
         return this;
     }
 
-    showView(viewName) {
-        // Toggle view divs
-        document.getElementById('config-div')?.classList.toggle('hidden', viewName !== 'config');
-        document.getElementById('tracking-div')?.classList.toggle('hidden', viewName !== 'tracking');
-        
-        // Toggle button states
-        document.getElementById('load-config')?.classList.toggle('ms-Button--primary', viewName === 'config');
-        document.getElementById('activate-tracking')?.classList.toggle('ms-Button--primary', viewName === 'tracking');
-        
-        this.currentView = viewName;
-    }
-
     setupEvents() {
-        // File source radio buttons
+        // File source radios
         document.getElementById('current-file')?.addEventListener('change', () => {
             document.getElementById('external-file-section')?.classList.add('hidden');
             this.loadSheets(false);
         });
         
         document.getElementById('external-file')?.addEventListener('change', () => {
-            const section = document.getElementById('external-file-section');
-            section?.classList.remove('hidden');
-            
-            if (this.externalFile) {
-                this.loadSheets(true);
-            } else {
-                this.setDropdown(['Select external file first...'], true);
-            }
+            document.getElementById('external-file-section')?.classList.remove('hidden');
+            if (this.externalFile) this.loadSheets(true);
+            else this.setDropdown(['Select external file first...'], true);
         });
         
         // File picker
@@ -55,7 +44,7 @@ export class UIManager {
             e.preventDefault();
             document.getElementById('file-picker-input')?.click();
         });
-
+        
         document.getElementById('file-picker-input')?.addEventListener('change', e => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -63,10 +52,9 @@ export class UIManager {
             this.externalFile = file;
             document.getElementById('file-path-display').value = file.name;
             document.getElementById('external-file').checked = true;
-            document.getElementById('current-file').checked = false;
             document.getElementById('external-file-section')?.classList.remove('hidden');
             
-            this.status(`Reading ${file.name}...`);
+            state.setStatus(`Reading ${file.name}...`);
             this.loadSheets(true);
         });
 
@@ -75,11 +63,16 @@ export class UIManager {
             const content = document.getElementById('metadata-content');
             const isHidden = content?.classList.toggle('hidden');
             const label = document.querySelector('#show-metadata-btn .ms-Button-label');
-            
-            if (label) {
-                label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
-            }
+            if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
         });
+    }
+
+    showView(viewName) {
+        document.getElementById('config-div')?.classList.toggle('hidden', viewName !== 'config');
+        document.getElementById('tracking-div')?.classList.toggle('hidden', viewName !== 'tracking');
+        document.getElementById('load-config')?.classList.toggle('ms-Button--primary', viewName === 'config');
+        document.getElementById('activate-tracking')?.classList.toggle('ms-Button--primary', viewName === 'tracking');
+        state.setView(viewName);
     }
 
     async loadSheets(isExternal = false) {
@@ -94,14 +87,12 @@ export class UIManager {
                 : await this.excelIntegration.getCurrentWorksheetNames();
             
             this.setDropdown(sheets);
-            this.status(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
+            state.setStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
             
-            if (isExternal) {
-                window.dispatchEvent(new CustomEvent('external-file-loaded'));
-            }
+            if (isExternal) window.dispatchEvent(new CustomEvent('external-file-loaded'));
         } catch (error) {
             this.setDropdown(['Error loading worksheets'], true);
-            this.status(`Error: ${error.message}`, true);
+            state.setStatus(`Error: ${error.message}`, true);
         }
     }
 
@@ -126,7 +117,7 @@ export class UIManager {
         const optionExists = Array.from(dropdown.options).some(opt => opt.value === name);
         if (optionExists) {
             dropdown.value = name;
-            this.status(`Selected: ${name}`);
+            state.setStatus(`Selected: ${name}`);
         }
     }
 
@@ -134,7 +125,6 @@ export class UIManager {
         const config = configManager.getConfig();
         if (!config) return;
         
-        // Update form fields directly
         document.getElementById('source-column').value = config.source_column || '';
         document.getElementById('target-column').value = config.target_column || config.mapping_reference || '';
         
@@ -144,21 +134,23 @@ export class UIManager {
         
         if (isExternal) {
             document.getElementById('file-path-display').value = configManager.getFileName();
-            this.status(`Config expects: ${configManager.getFileName()}`);
+            state.setStatus(`Config expects: ${configManager.getFileName()}`);
             this.setDropdown(['Browse for external file first...'], true);
         } else {
-            this.loadSheets(false).then(() => {
-                this.selectWorksheet(configManager.getWorksheet());
-            });
+            this.loadSheets(false).then(() => this.selectWorksheet(configManager.getWorksheet()));
         }
     }
 
-    status(message, isError = false) {
+    updateStatus(message, isError = false) {
         const statusElement = document.getElementById('main-status-message');
         if (statusElement) {
             statusElement.textContent = message;
             statusElement.style.color = isError ? '#D83B01' : '';
         }
+    }
+
+    status(message, isError = false) {
+        state.setStatus(message, isError);
     }
 
     handleMappingSuccess(result, mappings) {
@@ -170,7 +162,8 @@ export class UIManager {
         if (targetOnly > 0) message += `, ${targetOnly} target-only`;
         if (result.metadata?.issues) message += ` (${result.metadata.issues.length} issues)`;
         
-        this.status(message);
+        state.setStatus(message);
+        state.setMappings(mappings.forward, mappings.reverse, result.metadata);
         this.metadataDisplay.show(result.metadata);
         document.getElementById('mapping-source-details').open = false;
     }
@@ -180,7 +173,8 @@ export class UIManager {
         mappings.reverse = {};
         mappings.metadata = null;
         
-        this.status(error.message, true);
+        state.setStatus(error.message, true);
+        state.clearMappings();
         this.metadataDisplay.hide();
     }
 }
