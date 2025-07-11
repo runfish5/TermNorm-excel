@@ -154,15 +154,7 @@ export class UIManager {
         }
     }
 
-    getMappingParams() {
-        return {
-            useCurrentFile: this.elements.currentFile?.checked,
-            sheetName: this.elements.worksheetDropdown?.value,
-            sourceColumn: document.getElementById('source-column')?.value || null,
-            targetColumn: document.getElementById('target-column')?.value,
-            externalFile: this.externalFile
-        };
-    }
+
 
     status(message, isError = false) {
         if (this.elements.statusMessage) {

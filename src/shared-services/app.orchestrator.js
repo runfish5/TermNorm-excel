@@ -51,7 +51,9 @@ export class AppOrchestrator {
     async loadMappings() {
         try {
             this.ui.status("Loading...");
-            const result = await loadAndProcessMappings(this.ui.getMappingParams());
+            // No longer need to call this.ui.getMappingParams() - 
+            // loadAndProcessMappings will extract params from DOM directly
+            const result = await loadAndProcessMappings();
             
             // Update mappings
             Object.assign(this.mappings, {
