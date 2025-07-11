@@ -149,10 +149,13 @@ export class UIManager {
         };
     }
 
-    status(message, isError = false, elementId = 'mapping-status') {
-        document.getElementById(elementId)?.style.setProperty('color', isError ? '#D83B01' : '');
-        document.getElementById(elementId) && (document.getElementById(elementId).textContent = message);
-        document.getElementById('main-status-message') && (document.getElementById('main-status-message').textContent = message);
+    // Simplified global status method - no more local elementId parameter
+    status(message, isError = false) {
+        const statusElement = document.getElementById('main-status-message');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.setProperty('color', isError ? '#D83B01' : '');
+        }
     }
 
     handleMappingSuccess(result, mappings) {
