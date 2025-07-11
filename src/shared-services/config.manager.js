@@ -1,11 +1,8 @@
-// ./shared-services/config.manager.js
+// shared-services/config.manager.js
 import configData from '../../config/app.config.json';
+import { state } from './state.manager.js';
 
 export class ConfigManager {
-    constructor() {
-        this.config = null;
-    }
-
     async loadConfig() {
         try {
             const workbook = await Excel.run(async (context) => {
@@ -25,9 +22,10 @@ export class ConfigManager {
                 throw new Error(`No valid configuration found for workbook: ${workbook}`);
             }
 
-            this.config = { ...config, workbook };
-            return this.config;
-
+            const enhancedConfig = { ...config, workbook };
+            state.setConfig(enhancedConfig);
+            
+            return enhancedConfig;
         } catch (error) {
             console.error("Config load error:", error);
             throw error;
@@ -35,11 +33,11 @@ export class ConfigManager {
     }
 
     getConfig() { 
-        return this.config; 
+        return state.get('config.data');
     }
 
     getFileName() {
-        return this.parseFileName(this.config?.mapping_reference) || '';
+        return this.parseFileName(this.getConfig()?.mapping_reference) || '';
     }
 
     parseFileName(path) {
@@ -47,11 +45,14 @@ export class ConfigManager {
     }
 
     isExternal() {
-        const ref = this.config?.mapping_reference;
-        return ref && (ref.includes('/') || ref.includes('\\') || !this.config.workbook.includes(this.parseFileName(ref)));
+        const config = this.getConfig();
+        if (!config) return false;
+        
+        const ref = config.mapping_reference;
+        return ref && (ref.includes('/') || ref.includes('\\') || !config.workbook.includes(this.parseFileName(ref)));
     }
 
     getWorksheet() {
-        return this.config?.worksheet || '';
+        return this.getConfig()?.worksheet || '';
     }
 }
