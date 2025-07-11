@@ -7,51 +7,48 @@ export class ConfigManager {
     }
 
     async loadConfig() {
-        let workbook;
-        
         try {
-            workbook = await Excel.run(async (context) => {
+            const workbook = await Excel.run(async (context) => {
                 const wb = context.workbook;
                 wb.load("name");
                 await context.sync();
                 return wb.name;
             });
+
+            if (!configData?.["excel-projects"]) {
+                throw new Error("Configuration file not found or invalid structure");
+            }
+
+            const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
+            
+            if (!config?.mapping_reference) {
+                throw new Error(`No valid configuration found for workbook: ${workbook}`);
+            }
+
+            this.config = { ...config, workbook, setupCols: this.setupCols.bind(this) };
+            return this.config;
+
         } catch (error) {
+            if (error.message.includes("Excel file")) throw error;
             throw new Error("Excel file not found or could not be accessed");
         }
-
-        // Check if configData exists
-        if (!configData || !configData["excel-projects"]) {
-            throw new Error("Configuration file not found or invalid structure");
-        }
-
-        const config = configData["excel-projects"]?.[workbook] || configData["excel-projects"]?.["*"];
-        
-        if (!config) {
-            throw new Error(`No configuration found for workbook: ${workbook}`);
-        }
-        
-        if (!config.mapping_reference) {
-            throw new Error(`Configuration found but missing required 'mapping_reference' property for workbook: ${workbook}`);
-        }
-
-        this.config = { 
-            ...config, 
-            workbook,
-            setupCols: this.setupCols.bind(this)
-        };
-        return this.config;
     }
 
-    getConfig() { return this.config; }
-
-    isExternal() {
-        const ref = this.config?.mapping_reference;
-        return ref && (ref.includes('/') || ref.includes('\\') || !this.config.workbook.includes(ref.split(/[\\/]/).pop()));
+    getConfig() { 
+        return this.config; 
     }
 
     getFileName() {
-        return this.config?.mapping_reference?.split(/[\\/]/).pop() || '';
+        return this.parseFileName(this.config?.mapping_reference) || '';
+    }
+
+    parseFileName(path) {
+        return path?.split(/[\\/]/).pop();
+    }
+
+    isExternal() {
+        const ref = this.config?.mapping_reference;
+        return ref && (ref.includes('/') || ref.includes('\\') || !this.config.workbook.includes(this.parseFileName(ref)));
     }
 
     getWorksheet() {
