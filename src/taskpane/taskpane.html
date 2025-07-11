@@ -11,6 +11,7 @@
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/ActivityFeedUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/CandidateRankingUI.css" rel="stylesheet" type="text/css" />
+    <link href="../ui-components/mapping-config-modules.css" rel="stylesheet" type="text/css" />
 </head>
 <body class="ms-font-m ms-welcome ms-Fabric">
     <section id="sideload-msg" class="ms-welcome__main">
@@ -33,37 +34,26 @@
         </div>
         
         <div id="config-div" class="content">
-            <details id="mapping-source-details" class="ms-welcome__section" open>
-                <summary class="ms-font-xl">Mapping Source Configuration</summary>
+            <section class="ms-welcome__section">
+                <div class="mapping-configs-header">
+                    <h2 class="ms-font-xl">Mapping Source Configurations</h2>
+                    <div id="configs-count" class="configs-count">No configurations loaded</div>
+                </div>
                 
-                <div class="form-section">
-                    <label class="enhanced-label">Excel File:</label>
-                    <div><input type="radio" id="current-file" name="file-source" value="current" checked /><label for="current-file" class="ms-font-m">This Excel file</label></div>
-                    <div><input type="radio" id="external-file" name="file-source" value="external" /><label for="external-file" class="ms-font-m">External Excel file</label></div>
-                    <div id="external-file-section" class="hidden">
-                        <label for="file-path-display" class="ms-font-m">File Path:</label>
-                        <div class="file-row">
-                            <input type="text" id="file-path-display" class="ms-TextField-field" placeholder="No file selected" readonly />
-                            <input type="file" id="file-picker-input" accept=".xlsx,.xls" class="hidden" />
-                            <button id="browse-button" class="ms-Button">Browse...</button>
-                        </div>
+                <!-- Container for multiple mapping configurations -->
+                <div id="mapping-configs-container">
+                    <!-- Mapping config modules will be inserted here dynamically -->
+                </div>
+                
+                <!-- Global Actions -->
+                <div class="global-actions">
+                    <div class="button-row">
+                        <button id="load-all-mappings" class="ms-Button ms-Button--primary ms-font-l">
+                            Load All Mapping Tables
+                        </button>
                     </div>
                 </div>
-                
-                <div class="form-section">
-                    <label for="worksheet-dropdown" class="enhanced-label">Worksheet:</label>
-                    <select id="worksheet-dropdown" class="ms-Dropdown-select"><option value="">Select a worksheet...</option></select>
-                </div>
-                
-                <div class="form-section">
-                    <div class="columns">
-                        <div><label for="target-column" class="enhanced-label">Reference Column:</label><input type="text" id="target-column" class="ms-TextField-field" /></div>
-                        <div><label for="source-column" class="enhanced-label">Alias Column:</label><input type="text" id="source-column" class="ms-TextField-field" placeholder="optional" /></div>
-                    </div>
-                </div>
-                
-                <button id="load-mapping" class="ms-Button ms-Button--primary ms-font-l btn-full">Load Mapping Table</button>
-            </details>
+            </section>
             
             <section id="metadata-section" class="metadata-section">
                 <button id="show-metadata-btn" class="ms-Button ms-Button--compound btn-full">Show Processing Details</button>

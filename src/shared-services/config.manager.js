@@ -22,10 +22,12 @@ export class ConfigManager {
                 throw new Error(`No valid configuration found for workbook: ${workbook}`);
             }
 
-            // Check if the first mapping has required fields
-            const firstMapping = config.standard_mappings[0];
-            if (!firstMapping?.mapping_reference) {
-                throw new Error(`No valid mapping reference found in configuration for workbook: ${workbook}`);
+            // Validate that all mappings have required fields
+            for (let i = 0; i < config.standard_mappings.length; i++) {
+                const mapping = config.standard_mappings[i];
+                if (!mapping?.mapping_reference) {
+                    throw new Error(`Mapping ${i + 1} is missing mapping_reference`);
+                }
             }
 
             const enhancedConfig = { ...config, workbook };
@@ -42,42 +44,128 @@ export class ConfigManager {
         return state.get('config.data');
     }
 
-    // Get the first standard mapping (for backward compatibility)
-    getFirstStandardMapping() {
+    // Get all standard mappings
+    getStandardMappings() {
         const config = this.getConfig();
-        return config?.standard_mappings?.[0] || {};
+        return config?.standard_mappings || [];
     }
 
-    getFileName() {
-        return this.parseFileName(this.getFirstStandardMapping()?.mapping_reference) || '';
+    // Get a specific mapping by index
+    getStandardMapping(index) {
+        const mappings = this.getStandardMappings();
+        return mappings[index] || null;
     }
 
+    // Get count of standard mappings
+    getStandardMappingsCount() {
+        return this.getStandardMappings().length;
+    }
+
+    // Utility methods for backward compatibility and general use
     parseFileName(path) {
         return path?.split(/[\\/]/).pop();
     }
 
-    isExternal() {
+    isExternalFile(mappingReference) {
         const config = this.getConfig();
-        if (!config) return false;
+        if (!config || !mappingReference) return false;
         
-        const firstMapping = this.getFirstStandardMapping();
-        const ref = firstMapping?.mapping_reference;
-        return ref && (ref.includes('/') || ref.includes('\\') || !config.workbook.includes(this.parseFileName(ref)));
+        return mappingReference && (mappingReference.includes('/') || mappingReference.includes('\\') || 
+               !config.workbook.includes(this.parseFileName(mappingReference)));
     }
 
-    getWorksheet() {
-        return this.getFirstStandardMapping()?.worksheet || '';
+    // Methods for working with specific mappings
+    getFileName(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return this.parseFileName(mapping?.mapping_reference) || '';
     }
 
-    getSourceColumn() {
-        return this.getFirstStandardMapping()?.source_column || '';
+    isExternal(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return mapping ? this.isExternalFile(mapping.mapping_reference) : false;
     }
 
-    getTargetColumn() {
-        return this.getFirstStandardMapping()?.target_column || '';
+    getWorksheet(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return mapping?.worksheet || '';
     }
 
-    getMappingReference() {
-        return this.getFirstStandardMapping()?.mapping_reference || '';
+    getSourceColumn(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return mapping?.source_column || '';
+    }
+
+    getTargetColumn(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return mapping?.target_column || '';
+    }
+
+    getMappingReference(mappingIndex = 0) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        return mapping?.mapping_reference || '';
+    }
+
+    // Get workbook name
+    getWorkbookName() {
+        const config = this.getConfig();
+        return config?.workbook || '';
+    }
+
+    // Get column map (remains at root level)
+    getColumnMap() {
+        const config = this.getConfig();
+        return config?.column_map || {};
+    }
+
+    // Get default standard suffix
+    getDefaultStdSuffix() {
+        const config = this.getConfig();
+        return config?.default_std_suffix || 'standardized';
+    }
+
+    // Validation helpers
+    validateMapping(mappingIndex) {
+        const mapping = this.getStandardMapping(mappingIndex);
+        if (!mapping) {
+            throw new Error(`Mapping ${mappingIndex + 1} not found`);
+        }
+        if (!mapping.mapping_reference) {
+            throw new Error(`Mapping ${mappingIndex + 1} is missing mapping_reference`);
+        }
+        return mapping;
+    }
+
+    validateAllMappings() {
+        const mappings = this.getStandardMappings();
+        if (mappings.length === 0) {
+            throw new Error("No standard mappings configured");
+        }
+        
+        mappings.forEach((mapping, index) => {
+            this.validateMapping(index);
+        });
+        
+        return mappings;
+    }
+
+    // Summary info
+    getConfigSummary() {
+        const config = this.getConfig();
+        if (!config) return null;
+        
+        return {
+            workbook: config.workbook,
+            mappingsCount: this.getStandardMappingsCount(),
+            columnMapCount: Object.keys(this.getColumnMap()).length,
+            defaultSuffix: this.getDefaultStdSuffix(),
+            mappings: this.getStandardMappings().map((mapping, index) => ({
+                index,
+                worksheet: mapping.worksheet,
+                fileName: this.parseFileName(mapping.mapping_reference),
+                isExternal: this.isExternalFile(mapping.mapping_reference),
+                sourceColumn: mapping.source_column,
+                targetColumn: mapping.target_column
+            }))
+        };
     }
 }

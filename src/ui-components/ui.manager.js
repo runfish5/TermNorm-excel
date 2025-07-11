@@ -1,20 +1,19 @@
 // ui-components/ui.manager.js
 import { MetadataDisplay } from './metadata.display.js';
-import { ExcelIntegration } from '../services/excel-integration.js';
+import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
 
 export class UIManager {
     constructor() {
         this.metadataDisplay = new MetadataDisplay();
-        this.excelIntegration = new ExcelIntegration();
-        this.externalFile = null;
+        this.mappingModules = [];
+        this.loadedMappings = new Map(); // Store mappings from each module
     }
 
     init() {
         this.metadataDisplay.init();
         this.setupEvents();
-        this.loadSheets(false);
         CandidateRankingUI.init();
         this.showView('config');
         
@@ -27,43 +26,22 @@ export class UIManager {
     }
 
     setupEvents() {
-        // File source radios
-        document.getElementById('current-file')?.addEventListener('change', () => {
-            document.getElementById('external-file-section')?.classList.add('hidden');
-            this.loadSheets(false);
-        });
-        
-        document.getElementById('external-file')?.addEventListener('change', () => {
-            document.getElementById('external-file-section')?.classList.remove('hidden');
-            if (this.externalFile) this.loadSheets(true);
-            else this.setDropdown(['Select external file first...'], true);
-        });
-        
-        // File picker
-        document.getElementById('browse-button')?.addEventListener('click', e => {
-            e.preventDefault();
-            document.getElementById('file-picker-input')?.click();
-        });
-        
-        document.getElementById('file-picker-input')?.addEventListener('change', e => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            
-            this.externalFile = file;
-            document.getElementById('file-path-display').value = file.name;
-            document.getElementById('external-file').checked = true;
-            document.getElementById('external-file-section')?.classList.remove('hidden');
-            
-            state.setStatus(`Reading ${file.name}...`);
-            this.loadSheets(true);
-        });
-
-        // Metadata toggle
+        // Global metadata toggle
         document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
             const content = document.getElementById('metadata-content');
             const isHidden = content?.classList.toggle('hidden');
             const label = document.querySelector('#show-metadata-btn .ms-Button-label');
             if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+        });
+
+        // Global load all mappings button
+        document.getElementById('load-all-mappings')?.addEventListener('click', () => {
+            this.loadAllMappings();
+        });
+
+        // Global activate tracking button
+        document.getElementById('setup-map-tracking')?.addEventListener('click', () => {
+            this.setupTracking();
         });
     }
 
@@ -75,71 +53,155 @@ export class UIManager {
         state.setView(viewName);
     }
 
-    async loadSheets(isExternal = false) {
-        if (isExternal && !this.externalFile) {
-            this.setDropdown(['Select external file first...'], true);
+    updateFromConfig(configManager) {
+        const config = configManager.getConfig();
+        if (!config || !config.standard_mappings) return;
+        
+        // Clear existing modules
+        this.clearMappingModules();
+        
+        // Create mapping modules for each standard mapping
+        const container = document.getElementById('mapping-configs-container');
+        if (!container) {
+            console.error('Mapping configs container not found');
             return;
         }
 
+        config.standard_mappings.forEach((mappingConfig, index) => {
+            const module = new MappingConfigModule(
+                mappingConfig, 
+                index, 
+                (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result)
+            );
+            
+            module.init(container);
+            this.mappingModules.push(module);
+        });
+
+        this.updateGlobalStatus();
+    }
+
+    clearMappingModules() {
+        const container = document.getElementById('mapping-configs-container');
+        if (container) {
+            container.innerHTML = '';
+        }
+        this.mappingModules = [];
+        this.loadedMappings.clear();
+    }
+
+    onMappingLoaded(moduleIndex, mappings, result) {
+        this.loadedMappings.set(moduleIndex, { mappings, result });
+        this.updateGlobalStatus();
+        
+        // Update global metadata display with combined info
+        this.updateCombinedMetadata();
+    }
+
+    updateCombinedMetadata() {
+        if (this.loadedMappings.size === 0) {
+            this.metadataDisplay.hide();
+            return;
+        }
+
+        // Combine metadata from all loaded mappings
+        const combinedMetadata = {
+            summary: `${this.loadedMappings.size} mapping source(s) loaded`,
+            totalMappings: 0,
+            totalIssues: 0,
+            sources: []
+        };
+
+        this.loadedMappings.forEach((data, index) => {
+            const { mappings, result } = data;
+            const forward = Object.keys(mappings.forward).length;
+            const reverse = Object.keys(mappings.reverse).length;
+            
+            combinedMetadata.totalMappings += forward;
+            if (result.metadata?.issues) {
+                combinedMetadata.totalIssues += result.metadata.issues.length;
+            }
+            
+            combinedMetadata.sources.push({
+                index: index + 1,
+                forward,
+                reverse,
+                issues: result.metadata?.issues?.length || 0
+            });
+        });
+
+        this.metadataDisplay.show(combinedMetadata);
+    }
+
+    updateGlobalStatus() {
+        const totalLoaded = this.loadedMappings.size;
+        const totalModules = this.mappingModules.length;
+        
+        if (totalLoaded === 0) {
+            state.setStatus("Ready to load mapping configurations...");
+        } else if (totalLoaded === totalModules) {
+            const totalMappings = Array.from(this.loadedMappings.values())
+                .reduce((sum, data) => sum + Object.keys(data.mappings.forward).length, 0);
+            state.setStatus(`All ${totalModules} mapping sources loaded (${totalMappings} total mappings)`);
+        } else {
+            state.setStatus(`${totalLoaded}/${totalModules} mapping sources loaded`);
+        }
+    }
+
+    async loadAllMappings() {
+        if (this.mappingModules.length === 0) {
+            state.setStatus("No mapping configurations available", true);
+            return;
+        }
+
+        state.setStatus("Loading all mappings...");
+        
+        const promises = this.mappingModules.map(module => {
+            return module.loadMappings().catch(error => {
+                console.error(`Error loading mapping ${module.index}:`, error);
+                return null;
+            });
+        });
+
         try {
-            const sheets = isExternal 
-                ? await this.excelIntegration.getExternalWorksheetNames(this.externalFile)
-                : await this.excelIntegration.getCurrentWorksheetNames();
-            
-            this.setDropdown(sheets);
-            state.setStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
-            
-            if (isExternal) window.dispatchEvent(new CustomEvent('external-file-loaded'));
+            await Promise.all(promises);
+            this.updateGlobalStatus();
         } catch (error) {
-            this.setDropdown(['Error loading worksheets'], true);
-            state.setStatus(`Error: ${error.message}`, true);
+            state.setStatus(`Error loading mappings: ${error.message}`, true);
         }
     }
 
-    setDropdown(sheets, disabled = false) {
-        const dropdown = document.getElementById('worksheet-dropdown');
-        if (!dropdown) return;
-        
-        if (disabled) {
-            dropdown.innerHTML = `<option value="">${sheets[0]}</option>`;
-            dropdown.disabled = true;
-        } else {
-            dropdown.innerHTML = '<option value="">Select a worksheet...</option>' + 
-                sheets.map(name => `<option value="${name}">${name}</option>`).join('');
-            dropdown.disabled = false;
-        }
-    }
+    setupTracking() {
+        // Combine all loaded mappings for tracking
+        const combinedMappings = {
+            forward: {},
+            reverse: {},
+            metadata: { sources: [] }
+        };
 
-    selectWorksheet(name) {
-        const dropdown = document.getElementById('worksheet-dropdown');
-        if (!name || !dropdown) return;
-        
-        const optionExists = Array.from(dropdown.options).some(opt => opt.value === name);
-        if (optionExists) {
-            dropdown.value = name;
-            state.setStatus(`Selected: ${name}`);
-        }
-    }
+        this.loadedMappings.forEach((data, index) => {
+            const { mappings, result } = data;
+            
+            // Merge forward mappings
+            Object.assign(combinedMappings.forward, mappings.forward);
+            
+            // Merge reverse mappings
+            Object.assign(combinedMappings.reverse, mappings.reverse);
+            
+            // Add source info to metadata
+            combinedMappings.metadata.sources.push({
+                index: index + 1,
+                config: this.mappingModules[index].getConfig(),
+                mappings: mappings,
+                metadata: result.metadata
+            });
+        });
 
-    updateFromConfig(configManager) {
-        const config = configManager.getConfig();
-        if (!config) return;
+        // Update global state with combined mappings
+        state.setMappings(combinedMappings.forward, combinedMappings.reverse, combinedMappings.metadata);
         
-        // Use the new methods to get values from the first standard mapping
-        document.getElementById('source-column').value = configManager.getSourceColumn();
-        document.getElementById('target-column').value = configManager.getTargetColumn() || configManager.getMappingReference();
-        
-        const isExternal = configManager.isExternal();
-        document.getElementById(isExternal ? 'external-file' : 'current-file').checked = true;
-        document.getElementById('external-file-section')?.classList.toggle('hidden', !isExternal);
-        
-        if (isExternal) {
-            document.getElementById('file-path-display').value = configManager.getFileName();
-            state.setStatus(`Config expects: ${configManager.getFileName()}`);
-            this.setDropdown(['Browse for external file first...'], true);
-        } else {
-            this.loadSheets(false).then(() => this.selectWorksheet(configManager.getWorksheet()));
-        }
+        // Trigger tracking setup in orchestrator
+        window.dispatchEvent(new CustomEvent('start-tracking'));
     }
 
     updateStatus(message, isError = false) {
@@ -154,28 +216,20 @@ export class UIManager {
         state.setStatus(message, isError);
     }
 
+    // Keep for backward compatibility with existing code
     handleMappingSuccess(result, mappings) {
-        const forward = Object.keys(mappings.forward).length;
-        const reverse = Object.keys(mappings.reverse).length;
-        const targetOnly = reverse - forward;
-        
-        let message = `${forward} mappings loaded`;
-        if (targetOnly > 0) message += `, ${targetOnly} target-only`;
-        if (result.metadata?.issues) message += ` (${result.metadata.issues.length} issues)`;
-        
-        state.setStatus(message);
-        state.setMappings(mappings.forward, mappings.reverse, result.metadata);
-        this.metadataDisplay.show(result.metadata);
-        document.getElementById('mapping-source-details').open = false;
+        this.updateCombinedMetadata();
     }
 
     handleMappingError(error, mappings) {
-        mappings.forward = {};
-        mappings.reverse = {};
-        mappings.metadata = null;
-        
         state.setStatus(error.message, true);
-        state.clearMappings();
-        this.metadataDisplay.hide();
+    }
+
+    getAllLoadedMappings() {
+        return this.loadedMappings;
+    }
+
+    getMappingModules() {
+        return this.mappingModules;
     }
 }
