@@ -2,6 +2,7 @@
 
 /**
  * Simple centralized state management
+ * Enhanced for direct UI access to config and mappings
  */
 export class StateManager {
     constructor() {
@@ -95,6 +96,28 @@ export class StateManager {
             'mappings.metadata': null,
             'mappings.loaded': false
         });
+    }
+
+    // Enhanced getters for direct UI access
+    getConfig() {
+        return this.get('config.data');
+    }
+
+    getMappings() {
+        return this.get('mappings');
+    }
+
+    isConfigLoaded() {
+        return this.get('config.loaded');
+    }
+
+    areMappingsLoaded() {
+        return this.get('mappings.loaded');
+    }
+
+    // Debug helper
+    getFullState() {
+        return { ...this.state };
     }
 }
 
