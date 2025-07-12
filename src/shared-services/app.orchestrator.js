@@ -24,23 +24,18 @@ export class AppOrchestrator {
     setupEvents() {
         // Existing events
         document.getElementById('renew-prompt')?.addEventListener('click', () => this.renewPrompt());
-        
         document.getElementById('load-config')?.addEventListener('click', e => {
             e.preventDefault();
             this.ui.showView('config');
             if (!this.configLoaded) this.reloadConfig();
         });
-        
         document.getElementById('activate-tracking')?.addEventListener('click', e => {
             e.preventDefault();
             this.ui.showView('tracking');
             this.startTracking();
         });
 
-        // New event for starting tracking from UI
-        window.addEventListener('start-tracking', () => {
-            this.startTracking();
-        });
+        // Removed: window.addEventListener('start-tracking') - UI handles tracking directly now
 
         // Update configs count display
         state.subscribe('config', (config) => {
@@ -51,6 +46,10 @@ export class AppOrchestrator {
     async reloadConfig() {
         try {
             await this.configManager.loadConfig();
+            // Store config in state for direct UI access
+            const config = this.configManager.getConfig();
+            state.setConfig(config);
+            
             if (!this.configLoaded) this.ui.updateFromConfig(this.configManager);
             this.updateConfigsCount();
             state.setStatus("Config reloaded");
@@ -62,36 +61,35 @@ export class AppOrchestrator {
     updateConfigsCount() {
         const config = this.configManager.getConfig();
         const countElement = document.getElementById('configs-count');
-        
         if (countElement && config) {
             const count = this.configManager.getStandardMappingsCount();
             countElement.textContent = `${count} mapping configuration${count !== 1 ? 's' : ''} loaded`;
         }
     }
-    
+
     async renewPrompt() {
         const config = this.configManager.getConfig();
         if (!config) {
             state.setStatus("Config not loaded", true);
             return;
         }
-        
+
         const button = document.getElementById('renew-prompt');
         const label = button?.querySelector('.ms-Button-label');
         const originalText = label?.textContent || 'Renew Prompt 🤖';
-        
         let cancelled = false;
+
         const cancelHandler = () => {
             cancelled = true;
             state.setStatus("Generation cancelled");
         };
-        
+
         if (button) {
             button.removeEventListener('click', this.renewPrompt);
             button.addEventListener('click', cancelHandler);
         }
         if (label) label.textContent = 'Cancel Generation';
-        
+
         try {
             const mappings = state.get('mappings');
             await this.aiPromptRenewer.renewPrompt(mappings, config, () => cancelled);
@@ -106,24 +104,22 @@ export class AppOrchestrator {
 
     async startTracking() {
         const config = this.configManager.getConfig();
-        
         if (!config?.column_map || !Object.keys(config.column_map).length) {
             state.setStatus("Error: Load config first", true);
             return;
         }
-        
+
         const mappings = state.get('mappings');
         const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
         const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-        
+
         if (!hasForward && !hasReverse) {
             state.setStatus("Error: Load mappings first", true);
             return;
         }
-        
+
         try {
             await this.tracker.start(config, mappings);
-            
             // Calculate tracking mode info
             const forwardCount = Object.keys(mappings.forward || {}).length;
             const reverseCount = Object.keys(mappings.reverse || {}).length;
@@ -158,9 +154,8 @@ export class AppOrchestrator {
     validateReadyForTracking() {
         const config = this.configManager.getConfig();
         const mappings = state.get('mappings');
-        
         const issues = [];
-        
+
         if (!config) {
             issues.push("Configuration not loaded");
         } else {
@@ -171,7 +166,7 @@ export class AppOrchestrator {
                 issues.push("No standard mappings configured");
             }
         }
-        
+
         if (!mappings || (!mappings.forward && !mappings.reverse)) {
             issues.push("No mapping data loaded");
         } else {
@@ -181,7 +176,7 @@ export class AppOrchestrator {
                 issues.push("No mapping entries found");
             }
         }
-        
+
         return {
             ready: issues.length === 0,
             issues

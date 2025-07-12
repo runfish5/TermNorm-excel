@@ -3,12 +3,18 @@ import { MetadataDisplay } from './metadata.display.js';
 import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
+// Direct imports - no more orchestrator dependency
+import { LiveTracker } from '../services/normalizer.handler.js';
+import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
     constructor() {
         this.metadataDisplay = new MetadataDisplay();
         this.mappingModules = [];
         this.loadedMappings = new Map(); // Store mappings from each module
+        // Direct service instances
+        this.tracker = new LiveTracker();
+        this.configManager = new ConfigManager();
     }
 
     init() {
@@ -16,12 +22,10 @@ export class UIManager {
         this.setupEvents();
         CandidateRankingUI.init();
         this.showView('config');
-        
         // Simple status subscription
         state.subscribe('ui', (ui) => {
             this.updateStatus(ui.statusMessage, ui.isError);
         });
-        
         return this;
     }
 
@@ -39,7 +43,7 @@ export class UIManager {
             this.loadAllMappings();
         });
 
-        // Global activate tracking button
+        // Direct tracking setup - no more event dispatching
         document.getElementById('setup-map-tracking')?.addEventListener('click', () => {
             this.setupTracking();
         });
@@ -56,10 +60,10 @@ export class UIManager {
     updateFromConfig(configManager) {
         const config = configManager.getConfig();
         if (!config || !config.standard_mappings) return;
-        
+
         // Clear existing modules
         this.clearMappingModules();
-        
+
         // Create mapping modules for each standard mapping
         const container = document.getElementById('mapping-configs-container');
         if (!container) {
@@ -73,7 +77,6 @@ export class UIManager {
                 index, 
                 (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result)
             );
-            
             module.init(container);
             this.mappingModules.push(module);
         });
@@ -93,7 +96,6 @@ export class UIManager {
     onMappingLoaded(moduleIndex, mappings, result) {
         this.loadedMappings.set(moduleIndex, { mappings, result });
         this.updateGlobalStatus();
-        
         // Update global metadata display with combined info
         this.updateCombinedMetadata();
     }
@@ -121,7 +123,7 @@ export class UIManager {
             if (result.metadata?.issues) {
                 combinedMetadata.totalIssues += result.metadata.issues.length;
             }
-            
+
             combinedMetadata.sources.push({
                 index: index + 1,
                 forward,
@@ -155,7 +157,6 @@ export class UIManager {
         }
 
         state.setStatus("Loading all mappings...");
-        
         const promises = this.mappingModules.map(module => {
             return module.loadMappings().catch(error => {
                 console.error(`Error loading mapping ${module.index}:`, error);
@@ -171,7 +172,15 @@ export class UIManager {
         }
     }
 
-    setupTracking() {
+    // Direct tracking setup - no more orchestrator dependency
+    async setupTracking() {
+        // Get config directly from state
+        const config = state.get('config.data');
+        if (!config?.column_map || !Object.keys(config.column_map).length) {
+            state.setStatus("Error: Load config first", true);
+            return;
+        }
+
         // Combine all loaded mappings for tracking
         const combinedMappings = {
             forward: {},
@@ -181,13 +190,10 @@ export class UIManager {
 
         this.loadedMappings.forEach((data, index) => {
             const { mappings, result } = data;
-            
             // Merge forward mappings
             Object.assign(combinedMappings.forward, mappings.forward);
-            
             // Merge reverse mappings
             Object.assign(combinedMappings.reverse, mappings.reverse);
-            
             // Add source info to metadata
             combinedMappings.metadata.sources.push({
                 index: index + 1,
@@ -199,9 +205,36 @@ export class UIManager {
 
         // Update global state with combined mappings
         state.setMappings(combinedMappings.forward, combinedMappings.reverse, combinedMappings.metadata);
-        
-        // Trigger tracking setup in orchestrator
-        window.dispatchEvent(new CustomEvent('start-tracking'));
+
+        // Get mappings from state
+        const mappings = state.get('mappings');
+        const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
+        const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
+
+        if (!hasForward && !hasReverse) {
+            state.setStatus("Error: Load mappings first", true);
+            return;
+        }
+
+        try {
+            // Direct tracking start - no orchestrator
+            await this.tracker.start(config, mappings);
+            
+            // Calculate tracking mode info
+            const forwardCount = Object.keys(mappings.forward || {}).length;
+            const reverseCount = Object.keys(mappings.reverse || {}).length;
+            const sourcesCount = mappings.metadata?.sources?.length || 0;
+            
+            let mode = hasForward ? "with mappings" : "reverse-only";
+            if (sourcesCount > 1) {
+                mode += ` (${sourcesCount} sources)`;
+            }
+            
+            state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
+            this.showView('tracking');
+        } catch (error) {
+            state.setStatus(`Error: ${error.message}`, true);
+        }
     }
 
     updateStatus(message, isError = false) {
