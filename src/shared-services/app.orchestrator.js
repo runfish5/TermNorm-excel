@@ -29,13 +29,8 @@ export class AppOrchestrator {
             this.ui.showView('config');
             if (!this.configLoaded) this.reloadConfig();
         });
-        document.getElementById('activate-tracking')?.addEventListener('click', e => {
-            e.preventDefault();
-            this.ui.showView('tracking');
-            this.startTracking();
-        });
 
-        // Removed: window.addEventListener('start-tracking') - UI handles tracking directly now
+        // Removed: activate-tracking button - UI handles this directly now
 
         // Update configs count display
         state.subscribe('config', (config) => {
@@ -102,84 +97,4 @@ export class AppOrchestrator {
         }
     }
 
-    async startTracking() {
-        const config = this.configManager.getConfig();
-        if (!config?.column_map || !Object.keys(config.column_map).length) {
-            state.setStatus("Error: Load config first", true);
-            return;
-        }
-
-        const mappings = state.get('mappings');
-        const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
-        const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-
-        if (!hasForward && !hasReverse) {
-            state.setStatus("Error: Load mappings first", true);
-            return;
-        }
-
-        try {
-            await this.tracker.start(config, mappings);
-            // Calculate tracking mode info
-            const forwardCount = Object.keys(mappings.forward || {}).length;
-            const reverseCount = Object.keys(mappings.reverse || {}).length;
-            const sourcesCount = mappings.metadata?.sources?.length || 0;
-            
-            let mode = hasForward ? "with mappings" : "reverse-only";
-            if (sourcesCount > 1) {
-                mode += ` (${sourcesCount} sources)`;
-            }
-            
-            state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
-            this.ui.showView('tracking');
-        } catch (error) {
-            state.setStatus(`Error: ${error.message}`, true);
-        }
-    }
-
-    // Helper methods for debugging and monitoring
-    getConfigSummary() {
-        return this.configManager.getConfigSummary();
-    }
-
-    getAllLoadedMappings() {
-        return this.ui.getAllLoadedMappings();
-    }
-
-    getMappingModules() {
-        return this.ui.getMappingModules();
-    }
-
-    // Validation helper
-    validateReadyForTracking() {
-        const config = this.configManager.getConfig();
-        const mappings = state.get('mappings');
-        const issues = [];
-
-        if (!config) {
-            issues.push("Configuration not loaded");
-        } else {
-            if (!config.column_map || Object.keys(config.column_map).length === 0) {
-                issues.push("No column mapping configured");
-            }
-            if (!config.standard_mappings || config.standard_mappings.length === 0) {
-                issues.push("No standard mappings configured");
-            }
-        }
-
-        if (!mappings || (!mappings.forward && !mappings.reverse)) {
-            issues.push("No mapping data loaded");
-        } else {
-            const forwardCount = Object.keys(mappings.forward || {}).length;
-            const reverseCount = Object.keys(mappings.reverse || {}).length;
-            if (forwardCount === 0 && reverseCount === 0) {
-                issues.push("No mapping entries found");
-            }
-        }
-
-        return {
-            ready: issues.length === 0,
-            issues
-        };
-    }
 }
