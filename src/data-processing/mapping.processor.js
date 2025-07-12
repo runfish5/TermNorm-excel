@@ -1,113 +1,152 @@
 // data-processing/mapping.processor.js
 import { ExcelIntegration } from '../services/excel-integration.js';
+import { state } from '../shared-services/state.manager.js';
 
+// Simplified parameter extraction with defaults
+function extractMappingParams(customParams) {
+    if (customParams) return customParams;
+    
+    const elements = {
+        useCurrentFile: document.getElementById('current-file'),
+        sheetName: document.getElementById('worksheet-dropdown'),
+        sourceColumn: document.getElementById('source-column'),
+        targetColumn: document.getElementById('target-column'),
+        externalFile: document.getElementById('external-file')
+    };
+    
+    return {
+        useCurrentFile: elements.useCurrentFile?.checked || false,
+        sheetName: elements.sheetName?.value?.trim() || '',
+        sourceColumn: elements.sourceColumn?.value?.trim() || null,
+        targetColumn: elements.targetColumn?.value?.trim() || '',
+        externalFile: window.externalFile || elements.externalFile?.files?.[0] || null
+    };
+}
+
+// Simplified validation with clear error messages
+function validateParams({ useCurrentFile, sheetName, targetColumn, externalFile }) {
+    if (!sheetName) throw new Error('Sheet name is required');
+    if (!targetColumn) throw new Error('Target column is required');
+    if (!useCurrentFile && !externalFile) throw new Error('External file required when not using current file');
+}
+
+// Simplified column finder
+function findColumn(headers, columnName) {
+    if (!columnName) return -1;
+    return headers.findIndex(h => 
+        h?.toString().trim().toLowerCase() === columnName.toLowerCase()
+    );
+}
+
+// Streamlined mapping processor
 export function processMappings(data, sourceColumn, targetColumn) {
-    if (!data?.length || data.length < 2) throw new Error("Need header + data rows");
+    if (!data?.length || data.length < 2) {
+        throw new Error("Need header row and at least one data row");
+    }
     
     const [headers, ...rows] = data;
-    const srcIdx = sourceColumn ? headers.findIndex(h => h?.toString().trim().toLowerCase() === sourceColumn.trim().toLowerCase()) : -1;
-    const tgtIdx = headers.findIndex(h => h?.toString().trim().toLowerCase() === targetColumn.trim().toLowerCase());
+    const srcIdx = findColumn(headers, sourceColumn);
+    const tgtIdx = findColumn(headers, targetColumn);
     
+    // Validate columns exist
     if (sourceColumn && srcIdx === -1) throw new Error(`Source column "${sourceColumn}" not found`);
     if (tgtIdx === -1) throw new Error(`Target column "${targetColumn}" not found`);
     
-    const forward = {};
-    const reverse = {};
+    // Build mappings in one pass
+    const mappings = { forward: {}, reverse: {} };
     const issues = [];
     
-    rows.forEach((row, i) => {
+    for (const [i, row] of rows.entries()) {
         const source = srcIdx >= 0 ? (row[srcIdx] || '').toString().trim() : '';
         const target = (row[tgtIdx] || '').toString().trim();
+        const rowNum = i + 2; // Header is row 1
         
-        if (!target) return issues.push(`Row ${i + 2}: Empty target`);
-        
-        if (!source) {
-            if (!reverse[target]) reverse[target] = { alias: [] };
-            return;
+        if (!target) {
+            issues.push(`Row ${rowNum}: Empty target`);
+            continue;
         }
         
-        if (forward[source]) return issues.push(`Row ${i + 2}: Duplicate source "${source}"`);
+        // Initialize reverse mapping
+        if (!mappings.reverse[target]) {
+            mappings.reverse[target] = { alias: [] };
+        }
         
-        forward[source] = target;
-        if (!reverse[target]) reverse[target] = { alias: [] };
-        reverse[target].alias.push(source);
-    });
-
+        // Handle source mapping
+        if (source) {
+            if (mappings.forward[source]) {
+                issues.push(`Row ${rowNum}: Duplicate source "${source}"`);
+                continue;
+            }
+            mappings.forward[source] = target;
+            mappings.reverse[target].alias.push(source);
+        }
+    }
+    
     return {
-        forward,
-        reverse,
+        ...mappings,
         metadata: {
             totalRows: rows.length,
-            validMappings: Object.keys(forward).length,
-            targets: Object.keys(reverse).length,
+            validMappings: Object.keys(mappings.forward).length,
+            targets: Object.keys(mappings.reverse).length,
             issues: issues.length ? issues : null
         }
     };
 }
 
+// Simplified API call with better error handling
 async function setupTokenMatcher(terms) {
-    const API_BASE = 'http://127.0.0.1:8000';
+    const response = await fetch('http://127.0.0.1:8000/setup-matcher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ terms })
+    });
+    
+    if (!response.ok) {
+        throw new Error(`Token matcher setup failed: ${response.status} ${response.statusText}`);
+    }
+    
+    return response.json();
+}
+
+// Main orchestration function - broken into clear steps
+export async function loadAndProcessMappings(customParams = null) {
+    state.setStatus('Starting mapping process...');
     
     try {
-        const response = await fetch(`${API_BASE}/setup-matcher`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ terms })
-        });
+        // Step 1: Get and validate parameters
+        const params = extractMappingParams(customParams);
+        validateParams(params);
+        console.log('Mapping parameters:', params);
         
-        if (!response.ok) {
-            throw new Error(`API call failed: ${response.status}`);
-        }
+        // Step 2: Load data
+        state.setStatus('Loading worksheet data...');
+        const excel = new ExcelIntegration();
+        const data = await excel.loadWorksheetData(params);
         
-        return await response.json();
+        // Step 3: Process mappings
+        state.setStatus('Processing mappings...');
+        const result = processMappings(data, params.sourceColumn, params.targetColumn);
+        
+        // Step 4: Setup token matcher
+        state.setStatus('Configuring token matcher...');
+        const matcherSetup = await setupTokenMatcher(Object.keys(result.reverse));
+        
+        // Step 5: Update state and complete
+        state.setMappings(result.forward, result.reverse, result.metadata);
+        
+        const { validMappings, targets, issues } = result.metadata;
+        const statusMsg = issues 
+            ? `Loaded ${validMappings} mappings with ${issues.length} issues`
+            : `Loaded ${validMappings} mappings to ${targets} targets`;
+        
+        state.setStatus(statusMsg);
+        if (issues) console.warn('Mapping issues:', issues);
+        
+        return { ...result, matcherSetup };
+        
     } catch (error) {
-        console.error('Failed to setup token matcher:', error);
+        state.setStatus(`Mapping failed: ${error.message}`, true);
+        state.clearMappings();
         throw error;
     }
-}
-
-function getMappingParamsFromDOM() {
-    return {
-        useCurrentFile: document.getElementById('current-file')?.checked || false,
-        sheetName: document.getElementById('worksheet-dropdown')?.value || '',
-        sourceColumn: document.getElementById('source-column')?.value || null,
-        targetColumn: document.getElementById('target-column')?.value || '',
-        externalFile: window.externalFile || document.getElementById('external-file')?.files?.[0] || null
-    };
-}
-
-export async function loadAndProcessMappings(customParams = null) {
-    // Extract params from DOM if not provided, otherwise use custom params
-    const params = customParams || getMappingParamsFromDOM();
-    
-    const { useCurrentFile, sheetName, sourceColumn, targetColumn, externalFile } = params;
-    
-    // Enhanced validation with better error messages
-    if (!sheetName?.trim()) {
-        throw new Error(`Sheet name required. Received: "${sheetName}". Check if worksheet dropdown element exists and has a value.`);
-    }
-    if (!targetColumn?.trim()) {
-        throw new Error(`Target column required. Received: "${targetColumn}". Check if target-column element exists and has a value.`);
-    }
-    if (!useCurrentFile && !externalFile) {
-        throw new Error(`External file required when not using current file. useCurrentFile: ${useCurrentFile}, externalFile: ${externalFile}`);
-    }
-    
-    console.log('Processing mappings with params:', params);
-    
-    const excel = new ExcelIntegration();
-    const data = await excel.loadWorksheetData({ useCurrentFile, sheetName, externalFile });
-    
-    const mappings = processMappings(data, sourceColumn, targetColumn);
-    
-    // Setup TokenLookupMatcher with keys from mappings.reverse
-    const termList = Object.keys(mappings.reverse);
-    const matcherSetup = await setupTokenMatcher(termList);
-    
-    return {
-        ...mappings,
-        matcherSetup
-    };
 }
