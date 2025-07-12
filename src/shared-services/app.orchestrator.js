@@ -45,7 +45,7 @@ export class AppOrchestrator {
             const config = this.configManager.getConfig();
             state.setConfig(config);
             
-            if (!this.configLoaded) this.ui.updateFromConfig(this.configManager);
+            if (!this.configLoaded) await this.ui.reloadMappingModules();
             this.updateConfigsCount();
             state.setStatus("Config reloaded");
         } catch (error) {

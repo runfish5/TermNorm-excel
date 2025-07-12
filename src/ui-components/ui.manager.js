@@ -59,9 +59,9 @@ export class UIManager {
         state.setView(viewName);
     }
 
-    updateFromConfig(configManager) {
-        const config = configManager.getConfig();
-        if (!config?.standard_mappings) return;
+    async reloadMappingModules() {
+        const standardMappings = this.configManager.getStandardMappings();
+        if (!standardMappings || standardMappings.length === 0) return;
 
         // Clear existing modules
         const container = document.getElementById('mapping-configs-container');
@@ -74,7 +74,7 @@ export class UIManager {
             return;
         }
 
-        config.standard_mappings.forEach((mappingConfig, index) => {
+        standardMappings.forEach((mappingConfig, index) => {
             const module = new MappingConfigModule(
                 mappingConfig, 
                 index, 
@@ -86,8 +86,6 @@ export class UIManager {
 
         this.updateGlobalStatus();
     }
-
-
 
     onMappingLoaded(moduleIndex, mappings, result) {
         this.loadedMappings.set(moduleIndex, { mappings, result });
