@@ -20,68 +20,55 @@ export class UIManager {
         this.setupEvents();
         CandidateRankingUI.init();
         this.showView('config');
-        
-        state.subscribe('ui', (ui) => {
-            this.updateStatus(ui.statusMessage, ui.isError);
-        });
+        state.subscribe('ui', (ui) => this.updateStatus(ui.statusMessage, ui.isError));
         return this;
     }
 
     setupEvents() {
-        // Metadata toggle
-        document.getElementById('show-metadata-btn')?.addEventListener('click', () => {
-            const content = document.getElementById('metadata-content');
-            const isHidden = content?.classList.toggle('hidden');
-            const label = document.querySelector('#show-metadata-btn .ms-Button-label');
-            if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
-        });
-
-        // Load all mappings
-        document.getElementById('load-all-mappings')?.addEventListener('click', () => {
-            this.loadAllMappings();
-        });
-
-        // Both tracking buttons do the same thing now
-        const startTracking = () => this.startTracking();
-        document.getElementById('setup-map-tracking')?.addEventListener('click', startTracking);
-        document.getElementById('activate-tracking')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.showView('tracking');
-            startTracking();
-        });
+        const events = {
+            'show-metadata-btn': () => {
+                const content = document.getElementById('metadata-content');
+                const isHidden = content?.classList.toggle('hidden');
+                const label = document.querySelector('#show-metadata-btn .ms-Button-label');
+                if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
+            },
+            'load-all-mappings': () => this.loadAllMappings(),
+            'setup-map-tracking': () => this.startTracking(),
+            'activate-tracking': (e) => {
+                e.preventDefault();
+                this.showView('tracking');
+                this.startTracking();
+            }
+        };
+        
+        Object.entries(events).forEach(([id, handler]) => 
+            document.getElementById(id)?.addEventListener('click', handler));
     }
 
     showView(viewName) {
-        document.getElementById('config-div')?.classList.toggle('hidden', viewName !== 'config');
-        document.getElementById('tracking-div')?.classList.toggle('hidden', viewName !== 'tracking');
-        document.getElementById('load-config')?.classList.toggle('ms-Button--primary', viewName === 'config');
-        document.getElementById('activate-tracking')?.classList.toggle('ms-Button--primary', viewName === 'tracking');
+        ['config-div', 'tracking-div'].forEach(id => 
+            document.getElementById(id)?.classList.toggle('hidden', !id.startsWith(viewName)));
+        ['load-config', 'activate-tracking'].forEach(id => 
+            document.getElementById(id)?.classList.toggle('ms-Button--primary', id.includes(viewName)));
         state.setView(viewName);
     }
 
     async reloadMappingModules() {
         const standardMappings = this.configManager.getStandardMappings();
-        if (!standardMappings || standardMappings.length === 0) return;
+        if (!standardMappings?.length) return;
 
-        // Clear existing modules
         const container = document.getElementById('mapping-configs-container');
-        if (container) container.innerHTML = '';
+        if (!container) return console.error('Mapping configs container not found');
+        
+        container.innerHTML = '';
         this.mappingModules = [];
         this.loadedMappings.clear();
 
-        if (!container) {
-            console.error('Mapping configs container not found');
-            return;
-        }
-
-        standardMappings.forEach((mappingConfig, index) => {
-            const module = new MappingConfigModule(
-                mappingConfig, 
-                index, 
-                (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result)
-            );
+        this.mappingModules = standardMappings.map((config, index) => {
+            const module = new MappingConfigModule(config, index, 
+                (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result));
             module.init(container);
-            this.mappingModules.push(module);
+            return module;
         });
 
         this.updateGlobalStatus();
@@ -94,69 +81,41 @@ export class UIManager {
     }
 
     updateCombinedMetadata() {
-        if (this.loadedMappings.size === 0) {
-            this.metadataDisplay.hide();
-            return;
-        }
+        if (this.loadedMappings.size === 0) return this.metadataDisplay.hide();
 
-        const combinedMetadata = {
-            summary: `${this.loadedMappings.size} mapping source(s) loaded`,
-            totalMappings: 0,
-            totalIssues: 0,
-            sources: []
-        };
-
-        this.loadedMappings.forEach((data, index) => {
-            const { mappings, result } = data;
+        const sources = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => {
             const forward = Object.keys(mappings.forward).length;
             const reverse = Object.keys(mappings.reverse).length;
-            
-            combinedMetadata.totalMappings += forward;
-            if (result.metadata?.issues) {
-                combinedMetadata.totalIssues += result.metadata.issues.length;
-            }
-            combinedMetadata.sources.push({
-                index: index + 1,
-                forward,
-                reverse,
-                issues: result.metadata?.issues?.length || 0
-            });
+            return { index: index + 1, forward, reverse, issues: result.metadata?.issues?.length || 0 };
         });
 
-        this.metadataDisplay.show(combinedMetadata);
+        this.metadataDisplay.show({
+            summary: `${this.loadedMappings.size} mapping source(s) loaded`,
+            totalMappings: sources.reduce((sum, s) => sum + s.forward, 0),
+            totalIssues: sources.reduce((sum, s) => sum + s.issues, 0),
+            sources
+        });
     }
 
     updateGlobalStatus() {
-        const totalLoaded = this.loadedMappings.size;
-        const totalModules = this.mappingModules.length;
+        const { size: loaded } = this.loadedMappings;
+        const total = this.mappingModules.length;
         
-        if (totalLoaded === 0) {
-            state.setStatus("Ready to load mapping configurations...");
-        } else if (totalLoaded === totalModules) {
-            const totalMappings = Array.from(this.loadedMappings.values())
-                .reduce((sum, data) => sum + Object.keys(data.mappings.forward).length, 0);
-            state.setStatus(`All ${totalModules} mapping sources loaded (${totalMappings} total mappings)`);
-        } else {
-            state.setStatus(`${totalLoaded}/${totalModules} mapping sources loaded`);
-        }
+        const message = loaded === 0 ? "Ready to load mapping configurations..." :
+                       loaded === total ? `All ${total} mapping sources loaded (${Array.from(this.loadedMappings.values())
+                           .reduce((sum, data) => sum + Object.keys(data.mappings.forward).length, 0)} total mappings)` :
+                       `${loaded}/${total} mapping sources loaded`;
+        
+        state.setStatus(message);
     }
 
     async loadAllMappings() {
-        if (this.mappingModules.length === 0) {
-            state.setStatus("No mapping configurations available", true);
-            return;
-        }
+        if (this.mappingModules.length === 0) return state.setStatus("No mapping configurations available", true);
 
         state.setStatus("Loading all mappings...");
-        const promises = this.mappingModules.map(module => 
-            module.loadMappings().catch(error => {
-                console.error(`Error loading mapping ${module.index}:`, error);
-                return null;
-            })
-        );
-
         try {
-            await Promise.all(promises);
+            await Promise.all(this.mappingModules.map(module => 
+                module.loadMappings().catch(error => console.error(`Error loading mapping ${module.index}:`, error))));
             this.updateGlobalStatus();
         } catch (error) {
             state.setStatus(`Error loading mappings: ${error.message}`, true);
@@ -164,27 +123,22 @@ export class UIManager {
     }
 
     async startTracking() {
-        // Quick validation
         const config = state.get('config.data');
-        if (!config?.column_map || !Object.keys(config.column_map).length) {
-            state.setStatus("Error: Load config first", true);
-            return;
-        }
+        if (!config?.column_map || !Object.keys(config.column_map).length) 
+            return state.setStatus("Error: Load config first", true);
 
         // Combine mappings if needed
         if (this.loadedMappings.size > 0) {
-            const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
-            
-            this.loadedMappings.forEach((data, index) => {
-                Object.assign(combined.forward, data.mappings.forward);
-                Object.assign(combined.reverse, data.mappings.reverse);
-                combined.metadata.sources.push({
+            const combined = Array.from(this.loadedMappings.entries()).reduce((acc, [index, { mappings, result }]) => {
+                Object.assign(acc.forward, mappings.forward);
+                Object.assign(acc.reverse, mappings.reverse);
+                acc.metadata.sources.push({
                     index: index + 1,
                     config: this.mappingModules[index].getConfig(),
-                    mappings: data.mappings,
-                    metadata: data.result.metadata
+                    mappings, metadata: result.metadata
                 });
-            });
+                return acc;
+            }, { forward: {}, reverse: {}, metadata: { sources: [] } });
             
             state.setMappings(combined.forward, combined.reverse, combined.metadata);
         }
@@ -193,15 +147,11 @@ export class UIManager {
         const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
         const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
 
-        if (!hasForward && !hasReverse) {
-            state.setStatus("Error: Load mappings first", true);
-            return;
-        }
+        if (!hasForward && !hasReverse) return state.setStatus("Error: Load mappings first", true);
 
         try {
             await this.tracker.start(config, mappings);
             
-            // Status message
             const forwardCount = Object.keys(mappings.forward || {}).length;
             const reverseCount = Object.keys(mappings.reverse || {}).length;
             const sourcesCount = mappings.metadata?.sources?.length || 0;
@@ -225,11 +175,6 @@ export class UIManager {
     }
 
     // Public API
-    getAllLoadedMappings() {
-        return this.loadedMappings;
-    }
-
-    getMappingModules() {
-        return this.mappingModules;
-    }
+    getAllLoadedMappings() { return this.loadedMappings; }
+    getMappingModules() { return this.mappingModules; }
 }
