@@ -47,6 +47,13 @@ export class UIManager {
         document.getElementById('setup-map-tracking')?.addEventListener('click', () => {
             this.setupTracking();
         });
+
+        // Direct activate tracking - bypass orchestrator completely
+        document.getElementById('activate-tracking')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showView('tracking');
+            this.activateTracking();
+        });
     }
 
     showView(viewName) {
@@ -232,6 +239,45 @@ export class UIManager {
             
             state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
             this.showView('tracking');
+        } catch (error) {
+            state.setStatus(`Error: ${error.message}`, true);
+        }
+    }
+
+    // Simple activate tracking - uses existing state mappings
+    async activateTracking() {
+        // Get config and mappings directly from state
+        const config = state.get('config.data');
+        const mappings = state.get('mappings');
+
+        if (!config?.column_map || !Object.keys(config.column_map).length) {
+            state.setStatus("Error: Load config first", true);
+            return;
+        }
+
+        const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
+        const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
+
+        if (!hasForward && !hasReverse) {
+            state.setStatus("Error: Load mappings first", true);
+            return;
+        }
+
+        try {
+            // Direct tracking start - no orchestrator
+            await this.tracker.start(config, mappings);
+            
+            // Calculate tracking mode info
+            const forwardCount = Object.keys(mappings.forward || {}).length;
+            const reverseCount = Object.keys(mappings.reverse || {}).length;
+            const sourcesCount = mappings.metadata?.sources?.length || 0;
+            
+            let mode = hasForward ? "with mappings" : "reverse-only";
+            if (sourcesCount > 1) {
+                mode += ` (${sourcesCount} sources)`;
+            }
+            
+            state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
         } catch (error) {
             state.setStatus(`Error: ${error.message}`, true);
         }
