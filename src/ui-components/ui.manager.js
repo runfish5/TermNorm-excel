@@ -1,5 +1,4 @@
 // ui-components/ui.manager.js
-import { MetadataDisplay } from './metadata.display.js';
 import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
@@ -8,7 +7,6 @@ import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
     constructor() {
-        this.metadataDisplay = new MetadataDisplay();
         this.mappingModules = [];
         this.loadedMappings = new Map();
         this.tracker = new LiveTracker();
@@ -16,7 +14,6 @@ export class UIManager {
     }
 
     init() {
-        this.metadataDisplay.init();
         this.setupEvents();
         CandidateRankingUI.init();
         this.showView('config');
@@ -55,45 +52,45 @@ export class UIManager {
     async reloadMappingModules() {
         const standardMappings = this.configManager.getStandardMappings();
         if (!standardMappings?.length) return;
-
         const container = document.getElementById('mapping-configs-container');
         if (!container) return console.error('Mapping configs container not found');
         
         container.innerHTML = '';
         this.mappingModules = [];
         this.loadedMappings.clear();
-
         this.mappingModules = standardMappings.map((config, index) => {
             const module = new MappingConfigModule(config, index, 
                 (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result));
             module.init(container);
             return module;
         });
-
         this.updateGlobalStatus();
     }
 
     onMappingLoaded(moduleIndex, mappings, result) {
         this.loadedMappings.set(moduleIndex, { mappings, result });
         this.updateGlobalStatus();
-        this.updateCombinedMetadata();
+        this.updateJsonDump();
     }
 
-    updateCombinedMetadata() {
-        if (this.loadedMappings.size === 0) return this.metadataDisplay.hide();
+    // Minimal JSON dump functionality
+    updateJsonDump() {
+        const content = document.getElementById('metadata-content');
+        if (!content || this.loadedMappings.size === 0) return;
 
-        const sources = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => {
-            const forward = Object.keys(mappings.forward).length;
-            const reverse = Object.keys(mappings.reverse).length;
-            return { index: index + 1, forward, reverse, issues: result.metadata?.issues?.length || 0 };
-        });
+        const data = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => ({
+            sourceIndex: index + 1,
+            forwardMappings: Object.keys(mappings.forward).length,
+            reverseMappings: Object.keys(mappings.reverse).length,
+            metadata: result.metadata,
+            mappings: mappings
+        }));
 
-        this.metadataDisplay.show({
-            summary: `${this.loadedMappings.size} mapping source(s) loaded`,
-            totalMappings: sources.reduce((sum, s) => sum + s.forward, 0),
-            totalIssues: sources.reduce((sum, s) => sum + s.issues, 0),
-            sources
-        });
+        content.innerHTML = `
+            <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                <strong>Raw Data:</strong>
+                <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
+            </div>`;
     }
 
     updateGlobalStatus() {
@@ -106,7 +103,6 @@ export class UIManager {
         
         state.setStatus(message);
     }
-
 
     async startTracking() {
         const config = state.get('config.data');
@@ -132,7 +128,6 @@ export class UIManager {
         const mappings = state.get('mappings');
         const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
         const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-
         if (!hasForward && !hasReverse) return state.setStatus("Error: Load mappings first", true);
 
         try {
