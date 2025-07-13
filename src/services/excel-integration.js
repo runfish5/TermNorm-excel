@@ -41,6 +41,15 @@ export class ExcelIntegration {
         
         return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
     }
+    
+    async loadCurrentWorksheetData(sheetName) {
+        return await Excel.run(async (context) => {
+            const range = context.workbook.worksheets.getItem(sheetName).getUsedRange(true);
+            range.load("values");
+            await context.sync();
+            return range.values;
+        });
+    }
 
     
     async loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
