@@ -47,7 +47,7 @@ export class MappingConfigModule {
             
             <div class="form-section">
                 <label for="${this.elementId}-worksheet-dropdown">Worksheet:</label>
-                <select id="${this.elementId}-worksheet-dropdown" class="ms-Dropdown-select">
+                <select id="${this.elementId}-worksheet-dropdown">
                     <option value="">Select a worksheet...</option>
                 </select>
             </div>
@@ -69,10 +69,10 @@ export class MappingConfigModule {
                 Load Mapping Table ${this.index + 1}
             </button>
             
-            <div id="${this.elementId}-metadata" class="mapping-metadata hidden">
-                <h4 class="ms-font-m">Mapping Details</h4>
-                <div id="${this.elementId}-metadata-content" class="ms-font-s"></div>
-            </div>
+            // <div id="${this.elementId}-metadata" class="mapping-metadata hidden">
+            //     <h4 class="ms-font-m">Mapping Details</h4>
+            //     <div id="${this.elementId}-metadata-content" class="ms-font-s"></div>
+            // </div>
         `;
         
         return element;

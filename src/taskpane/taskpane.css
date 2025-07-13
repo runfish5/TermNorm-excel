@@ -24,7 +24,6 @@
 /* Content */
 .content { width: 100%; padding: 10px; }
 /* Forms */
-.ms-Dropdown-select { width: 100%; }
 .file-row { width: 100%; display: flex; }
 .file-row input[type="text"] { width: 70%; }
 .file-row button { margin-left: 5px; padding: 5px 10px; }
@@ -49,7 +48,7 @@
 .btn-full { width: 100%; margin-bottom: 10px; padding: 8px; }
 
 /* Metadata */
-.metadata-content { width: 100%; padding: 10px; background: #f8f8f8; }
+/* .metadata-content { width: 100%; padding: 10px; background: #f8f8f8; } */
 
 /* Utilities */
 .hidden {
