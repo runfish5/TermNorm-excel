@@ -26,7 +26,7 @@ export class MappingConfigModule {
             </summary>
             
             <div class="form-section">
-                <label class="enhanced-label">Excel File:</label>
+                <label>Excel File:</label>
                 <div>
                     <input type="radio" id="${this.elementId}-current-file" name="${this.elementId}-file-source" value="current" checked />
                     <label for="${this.elementId}-current-file" class="ms-font-m">This Excel file</label>
@@ -38,7 +38,7 @@ export class MappingConfigModule {
                 <div id="${this.elementId}-external-file-section" class="hidden">
                     <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
                     <div class="file-row">
-                        <input type="text" id="${this.elementId}-file-path-display" class="ms-TextField-field" placeholder="No file selected" readonly />
+                        <input type="text" id="${this.elementId}-file-path-display" placeholder="No file selected" readonly />
                         <input type="file" id="${this.elementId}-file-picker-input" accept=".xlsx,.xls" class="hidden" />
                         <button id="${this.elementId}-browse-button" class="ms-Button">Browse...</button>
                     </div>
@@ -46,7 +46,7 @@ export class MappingConfigModule {
             </div>
             
             <div class="form-section">
-                <label for="${this.elementId}-worksheet-dropdown" class="enhanced-label">Worksheet:</label>
+                <label for="${this.elementId}-worksheet-dropdown">Worksheet:</label>
                 <select id="${this.elementId}-worksheet-dropdown" class="ms-Dropdown-select">
                     <option value="">Select a worksheet...</option>
                 </select>
@@ -55,12 +55,12 @@ export class MappingConfigModule {
             <div class="form-section">
                 <div class="columns">
                     <div>
-                        <label for="${this.elementId}-target-column" class="enhanced-label">Reference Column:</label>
-                        <input type="text" id="${this.elementId}-target-column" class="ms-TextField-field" />
+                        <label for="${this.elementId}-target-column">Reference Column:</label>
+                        <input type="text" id="${this.elementId}-target-column" />
                     </div>
                     <div>
-                        <label for="${this.elementId}-source-column" class="enhanced-label">Alias Column:</label>
-                        <input type="text" id="${this.elementId}-source-column" class="ms-TextField-field" placeholder="optional" />
+                        <label for="${this.elementId}-source-column">Alias Column:</label>
+                        <input type="text" id="${this.elementId}-source-column" placeholder="optional" />
                     </div>
                 </div>
             </div>
