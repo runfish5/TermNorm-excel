@@ -29,13 +29,6 @@ export class AppOrchestrator {
             this.ui.showView('config');
             if (!this.configLoaded) this.reloadConfig();
         });
-
-        // Removed: activate-tracking button - UI handles this directly now
-
-        // Update configs count display
-        state.subscribe('config', (config) => {
-            this.updateConfigsCount();
-        });
     }
 
     async reloadConfig() {
@@ -46,19 +39,10 @@ export class AppOrchestrator {
             state.setConfig(config);
             
             if (!this.configLoaded) await this.ui.reloadMappingModules();
-            this.updateConfigsCount();
+
             state.setStatus("Config reloaded");
         } catch (error) {
             state.setStatus(`Config failed: ${error.message}`, true);
-        }
-    }
-
-    updateConfigsCount() {
-        const config = this.configManager.getConfig();
-        const countElement = document.getElementById('configs-count');
-        if (countElement && config) {
-            const count = this.configManager.getStandardMappingsCount();
-            countElement.textContent = `${count} mapping configuration${count !== 1 ? 's' : ''} loaded`;
         }
     }
 
