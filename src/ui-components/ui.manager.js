@@ -101,9 +101,8 @@ export class UIManager {
         const total = this.mappingModules.length;
         
         const message = loaded === 0 ? "Ready to load mapping configurations..." :
-                       loaded === total ? `All ${total} mapping sources loaded (${Array.from(this.loadedMappings.values())
-                           .reduce((sum, data) => sum + Object.keys(data.mappings.forward).length, 0)} total mappings)` :
-                       `${loaded}/${total} mapping sources loaded`;
+                    loaded === total ? `All ${total} mapping sources loaded` :
+                    `${loaded}/${total} mapping sources loaded`;
         
         state.setStatus(message);
     }
