@@ -241,40 +241,12 @@ export class MappingConfigModule {
         if (result.metadata?.issues) message += ` (${result.metadata.issues.length} issues)`;
         
         this.updateStatus(message, false, 'success');
-        this.showMetadata(result.metadata);
+        // this.showMetadata(result.metadata);
     }
 
     handleMappingError(error) {
         this.mappings = { forward: {}, reverse: {}, metadata: null };
         this.updateStatus(error.message, true);
-        this.hideMetadata();
-    }
-
-    showMetadata(metadata) {
-        if (!metadata) return;
-        
-        const metadataDiv = document.getElementById(`${this.elementId}-metadata`);
-        const contentDiv = document.getElementById(`${this.elementId}-metadata-content`);
-        
-        if (!metadataDiv || !contentDiv) return;
-        
-        let html = '';
-        if (metadata.summary) {
-            html += `<div><strong>Summary:</strong> ${metadata.summary}</div>`;
-        }
-        if (metadata.issues && metadata.issues.length > 0) {
-            html += `<div><strong>Issues:</strong> ${metadata.issues.length} found</div>`;
-        }
-        
-        contentDiv.innerHTML = html;
-        metadataDiv.classList.remove('hidden');
-    }
-
-    hideMetadata() {
-        const metadataDiv = document.getElementById(`${this.elementId}-metadata`);
-        if (metadataDiv) {
-            metadataDiv.classList.add('hidden');
-        }
     }
 
     updateStatus(message, isError = false, type = 'info') {
