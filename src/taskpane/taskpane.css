@@ -6,12 +6,11 @@
    flex: 1 0 0;
    padding: 10px 20px;
 }
-.ms-welcome__main > h2 { width: 100%; text-align: center; }
 
 /* Navigation & Status */
 .nav-bar { width: 100%; display: flex; padding: 5px; }
-.nav-btn { padding: 5px 15px; margin-left: 10px; }
-.nav-btn:first-child { margin-left: 0; }
+/* .nav-btn { margin-left: 10px; }
+.nav-btn:first-child { margin-left: 0; } */
 .nav-header { margin-left: auto; display: flex; align-items: center; }
 .nav-header img { margin-right: 10px; }
 
