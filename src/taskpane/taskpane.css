@@ -9,27 +9,22 @@
 .ms-welcome__main > h2 { width: 100%; text-align: center; }
 
 /* Navigation & Status */
-.nav-bar { width: 100%; display: flex; padding: 5px; background: #f8f8f8; }
+.nav-bar { width: 100%; display: flex; padding: 5px; }
 .nav-btn { padding: 5px 15px; margin-left: 10px; }
 .nav-btn:first-child { margin-left: 0; }
 .nav-header { margin-left: auto; display: flex; align-items: center; }
 .nav-header img { margin-right: 10px; }
 
-.status-bar, .bottom-status { 
-    width: 100%; background: #f3f3f3; border: 1px solid #ccc; padding: 5px; 
-    display: flex; align-items: center; 
+.status-bar { 
+    width: 100%; background: #f3f3f3; padding: 5px; 
+    display: flex;
 }
-.bottom-status { position: fixed; bottom: 0; left: 0; padding: 10px; border-top: 1px solid #ccc; border-bottom: none; }
 .status-label { margin-right: 10px; font-weight: bold; }
 
 /* Content */
 .content { width: 100%; padding: 10px; }
-section { width: 100%; margin-bottom: 10px; }
-.form-section { width: 100%; margin-bottom: 10px; }
-
 /* Forms */
-.enhanced-label { font-weight: 600; color: #323130; width: 100%; display: block; margin-bottom: 5px; }
-.ms-TextField-field, .ms-Dropdown-select { width: 100%; }
+.ms-Dropdown-select { width: 100%; }
 .file-row { width: 100%; display: flex; }
 .file-row input[type="text"] { width: 70%; }
 .file-row button { margin-left: 5px; padding: 5px 10px; }
