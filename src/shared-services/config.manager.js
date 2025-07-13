@@ -49,9 +49,4 @@ export class ConfigManager {
         const config = this.getConfig();
         return config?.standard_mappings || [];
     }
-
-    // Get count of standard mappings
-    getStandardMappingsCount() {
-        return this.getStandardMappings().length;
-    }
 }

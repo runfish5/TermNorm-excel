@@ -22,8 +22,7 @@ export class MappingConfigModule {
         
         element.innerHTML = `
             <summary class="ms-font-xl">
-                Mapping Configuration ${this.index + 1}
-                <span class="mapping-status" id="${this.elementId}-status">Not loaded</span>
+                Map Config ${this.index + 1}
             </summary>
             
             <div class="form-section">
