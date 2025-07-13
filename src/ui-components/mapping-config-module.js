@@ -66,7 +66,7 @@ export class MappingConfigModule {
                 </div>
             </div>
             
-            <button id="${this.elementId}-load-mapping" class="ms-Button ms-Button--primary ms-font-l btn-full">
+            <button id="${this.elementId}-load-mapping" class="btn-full">
                 Load Mapping Table ${this.index + 1}
             </button>
             

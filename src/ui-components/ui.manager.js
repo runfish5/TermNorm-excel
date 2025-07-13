@@ -32,7 +32,6 @@ export class UIManager {
                 const label = document.querySelector('#show-metadata-btn .ms-Button-label');
                 if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
             },
-            'load-all-mappings': () => this.loadAllMappings(),
             'setup-map-tracking': () => this.startTracking(),
             'activate-tracking': (e) => {
                 e.preventDefault();
@@ -109,18 +108,6 @@ export class UIManager {
         state.setStatus(message);
     }
 
-    async loadAllMappings() {
-        if (this.mappingModules.length === 0) return state.setStatus("No mapping configurations available", true);
-
-        state.setStatus("Loading all mappings...");
-        try {
-            await Promise.all(this.mappingModules.map(module => 
-                module.loadMappings().catch(error => console.error(`Error loading mapping ${module.index}:`, error))));
-            this.updateGlobalStatus();
-        } catch (error) {
-            state.setStatus(`Error loading mappings: ${error.message}`, true);
-        }
-    }
 
     async startTracking() {
         const config = state.get('config.data');
