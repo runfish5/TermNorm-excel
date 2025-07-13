@@ -31,4 +31,24 @@ export class ExcelIntegration {
         this.cachedFileName = file.name;
         return this.cachedWorkbook;
     }
+
+    async loadExternalWorksheetData(file, sheetName) {
+        const workbook = await this.loadExternalWorkbook(file);
+        
+        if (!workbook.SheetNames.includes(sheetName)) {
+            throw new Error(`Sheet "${sheetName}" not found in ${file.name}`);
+        }
+        
+        return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
+    }
+
+    
+    async loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
+        if (!sheetName?.trim()) throw new Error("Sheet name is required");
+        
+        return useCurrentFile ? 
+            await this.loadCurrentWorksheetData(sheetName) : 
+            await this.loadExternalWorksheetData(externalFile, sheetName);
+    }
+
 }
