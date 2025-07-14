@@ -1,7 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from './normalizer.fuzzy.js';
-import { UIManager } from '../ui-components/ui.manager.js'; // Add this import
-
+import { state } from '../shared-services/state.manager.js'; // Use state instead of UIManager
 
 export class NormalizerRouter {
     constructor(forward, reverse, config) {
@@ -14,7 +13,6 @@ export class NormalizerRouter {
         const val = String(value || '').trim();
         if (!val) return null;
 
-        // return this.findCached(val) || await this.findTokenMatch(val) || this.findFuzzy(val) || await this.callLLM(val);
         return this.findCached(val) || await this.findTokenMatch(val) || this.findFuzzy(val);
     }
 
@@ -58,7 +56,8 @@ export class NormalizerRouter {
             // Check if it's an error response
             if (!data.success) {
                 console.error(`API Error: ${data.error} (${data.error_type})`);
-                this.uiManager.updateStatus(`Research failed: ${data.error}`, true);
+                // Use state manager to communicate with UI
+                state.setStatus(`Research failed: ${data.error}`, true);
                 return null;
             }
             
@@ -78,9 +77,12 @@ export class NormalizerRouter {
             
         } catch (error) {
             console.error('Token match error:', error);
+            // Also communicate network/other errors via state
+            state.setStatus(`Network error during research: ${error.message}`, true);
             return null;
         }
     }
+
     selectBestMatch(matches, fullResults) {
         // If only one match, return it
         if (matches.length === 1) {
@@ -123,7 +125,6 @@ export class NormalizerRouter {
         // Default to highest relevance score (first match)
         return topMatch;
     }
-
 
     async callLLM(val) {
         const body = { source_value: val, project_name: "dummy-project", mapping_name: "dummy-mapping" };
