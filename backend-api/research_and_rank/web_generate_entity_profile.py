@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 import re
 import requests
 from urllib.parse import quote_plus, urljoin
+from pprint import pprint
 
 
 def is_scrapable_url(url):
@@ -40,7 +41,7 @@ def quick_scrape(url, content_char_limit=800):
         text = re.sub(r'\s+', ' ', text).strip()
 
         # Quick quality check
-        if len(text) < 200 or len(text) > 10000:
+        if len(text) < 200 or len(text) > 20000:
             return None
 
         title = soup.find('title')
@@ -235,6 +236,7 @@ def web_generate_entity_profile(query, groq_api_key, max_sites=4, schema=None,
     
     ''' 2 '''
     parsed_scrape_list = _scrape_content_parallel(urls, max_sites, content_char_limit, verbose, detailed_logging)
+    pprint(parsed_scrape_list)
     if verbose:
         print(f"⏱️  Scraped in {time.time() - start_time:.1f}s")
     if not parsed_scrape_list:
