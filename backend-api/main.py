@@ -15,6 +15,13 @@ from research_and_rank.research_and_rank_candidates import router as research_an
 
 load_dotenv()
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG to include traceback details in responses
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 # Create the FastAPI app instance
 app = FastAPI(
     title="Groq Processing API",

@@ -1,6 +1,7 @@
 // services/normalizer.router.js
-
 import { findBestMatch } from './normalizer.fuzzy.js';
+import { UIManager } from '../ui-components/ui.manager.js'; // Add this import
+
 
 export class NormalizerRouter {
     constructor(forward, reverse, config) {
@@ -43,12 +44,6 @@ export class NormalizerRouter {
     }
 
     async findTokenMatch(val) {
-        // The normalizer.router.js code, I can see the issue. 
-        // The findTokenMatch function expects 
-        // data.matches to be an array of tuples like [candidate_name, score],
-        console.log(`🔍 findTokenMatch called for: ${val}`);
-        console.trace('Called from:');
-    
         try {
             const res = await fetch("http://127.0.0.1:8000/research-and-match", {
                 method: "POST",
@@ -59,25 +54,25 @@ export class NormalizerRouter {
             if (!res.ok) return null;
             
             const data = await res.json();
-            if (data.error || !data.matches?.length) return null;
-
-            // Log the API output
-            console.log('API Response Data:', JSON.stringify(data, null, 2));
-            console.log('Raw matches:', data.matches);
-            console.log('Full results:', data.full_results);
-
-            // Filter matches above minimum confidence threshold
-            const qualifyingMatches = data.matches.filter(match => match[1] >= 0.005);
             
-            console.log('Qualifying matches (>= 0.005):', qualifyingMatches);
+            // Check if it's an error response
+            if (!data.success) {
+                console.error(`API Error: ${data.error} (${data.error_type})`);
+                this.uiManager.updateStatus(`Research failed: ${data.error}`, true);
+                return null;
+            }
+            
+            // Handle success response
+            if (!data.data.matches?.length) return null;
+
+            const qualifyingMatches = data.data.matches.filter(match => match[1] >= 0.005);
             
             if (qualifyingMatches.length === 0) return null;
 
-            // Return all candidates instead of selecting the best one
             return { 
                 type: 'multiple_matches',
                 matches: qualifyingMatches,
-                fullResults: data.full_results,
+                fullResults: data.data.full_results,
                 method: 'ProfileRank'
             };
             
