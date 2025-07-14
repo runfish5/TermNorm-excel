@@ -159,3 +159,4 @@
 {"timestamp":"2025-07-11T13:15:49.484Z","source":"AgC3 fiber parallel/stamping","target":"AgC3 | 83% Silver 17%Graphite /RER","method":"ProfileRank","confidence":0.032,"session_id":"excel_1752239729558_eprwtld3n"}
 {"timestamp":"2025-07-11T14:31:03.567Z","source":"AgC3 fiber parallel/stamping","target":"AgC3 | 83% Silver 17%Graphite /RER","method":"ProfileRank","confidence":0.8,"session_id":"excel_1752244241864_r4yjvk9tf"}
 {"timestamp":"2025-07-11T14:37:18.896Z","source":"AgC3 fiber parallel/stamping","target":"AgC3 | 83% Silver 17%Graphite /RER","method":"ProfileRank","confidence":0.033,"session_id":"excel_1752244612212_jb54x38s3"}
+{"timestamp":"2025-07-14T10:42:10.535Z","source":"Stainless steel EN 10270-3/winding","target":"Wire drawing, steel {RER}| wire drawing, steel | Cut-off, S","method":"ProfileRank","confidence":0.065,"session_id":"excel_1752489690049_ko9cevily"}

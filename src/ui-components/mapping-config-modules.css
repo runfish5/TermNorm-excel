@@ -1,40 +1,39 @@
 /* Mapping Config Module Styles */
-
 /* Main module container */
 .mapping-config-module {
     border: 1px solid #d1d1d1;
 }
-
 /* Form layout */
 .file-row {
-    width: 100%;
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 5px;
 }
-
 .file-row input[type="text"] {
-    width: 70%;
+    flex: 1;
+    min-width: 150px;
 }
-
 .file-row button {
-    margin-left: 5px;
     padding: 5px 10px;
 }
-
 .columns {
     width: 100%;
     display: flex;
+    flex-wrap: wrap;
+    gap: 0 10px;
 }
-
 .columns > div {
-    width: 50%;
-    padding-right: 5px;
+    flex: 1;
+    min-width: 200px;
 }
-
-.columns > div:last-child {
-    padding-right: 0;
-    padding-left: 5px;
+/* Radio group flexbox */
+.radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 15px;
 }
-
 /* Buttons */
 .btn-full {
     width: 100%;
