@@ -2,8 +2,15 @@
 /* Main module container */
 .mapping-config-module {
     border: 1px solid #d1d1d1;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background-color: #fafafa;
 }
 /* Form layout */
+.form-section {
+    margin-bottom: 8px;
+}
 .file-row {
     display: flex;
     flex-wrap: wrap;
