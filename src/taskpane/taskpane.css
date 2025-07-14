@@ -1,34 +1,94 @@
 /* Layout */
 .ms-welcome__main {
-   display: flex;
-   flex-direction: column;
-   align-items: center;
-   flex: 1 0 0;
-   padding: 10px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 0 0;
+    padding: 10px 20px;
 }
 
-/* Navigation & Status */
-.nav-bar { width: 100%; display: flex; padding: 5px; }
-/* .nav-btn { margin-left: 10px; }
-.nav-btn:first-child { margin-left: 0; } */
-.nav-header { margin-left: auto; display: flex; align-items: center; }
-.nav-header img { margin-right: 10px; }
+.content {
+    width: 100%;
+    padding: 10px;
+    margin-top: 25px;
+}
 
-.status-bar { 
-    width: 100%; background: #f3f3f3; padding: 5px; 
+/* Navigation */
+.nav-bar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 2px 20px;
+    height: 32px;
+    background: white;
+    border-bottom: 1px solid #eee;
+    z-index: 1000;
+}
+
+.nav-btn {
+    padding: 2px 12px;
+}
+
+.nav-header {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.nav-header img {
+    margin-right: 10px;
+}
+
+/* Status Bar */
+.status-bar {
+    position: fixed;
+    top: 32px;
+    width: 100%;
+    display: flex;
+    padding: 5px 20px;
+    background: #f3f3f3;
+    z-index: 1000;
+}
+
+.status-label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+.status-error { color: #d9534f; }
+.status-success { color: #5cb85c; }
+
+/* Forms */
+.file-row {
+    width: 100%;
     display: flex;
 }
-.status-label { margin-right: 10px; font-weight: bold; }
 
-/* Content */
-.content { width: 100%; padding: 10px; }
-/* Forms */
-.file-row { width: 100%; display: flex; }
-.file-row input[type="text"] { width: 70%; }
-.file-row button { margin-left: 5px; padding: 5px 10px; }
-.columns { width: 100%; display: flex; }
-.columns > div { width: 50%; padding-right: 5px; }
-.columns > div:last-child { padding-right: 0; padding-left: 5px; }
+.file-row input[type="text"] {
+    width: 70%;
+}
+
+.file-row button {
+    margin-left: 5px;
+    padding: 5px 10px;
+}
+
+.columns {
+    width: 100%;
+    display: flex;
+}
+
+.columns > div {
+    width: 50%;
+    padding-right: 5px;
+}
+
+.columns > div:last-child {
+    padding-right: 0;
+    padding-left: 5px;
+}
 
 /* Buttons */
 .ms-Button.ms-Button--primary {
@@ -40,24 +100,20 @@
     font-weight: 600;
     padding: 8px 16px;
 }
-.ms-Button.ms-Button--primary:hover, .ms-Button.ms-Button--primary:focus {
+
+.ms-Button.ms-Button--primary:hover,
+.ms-Button.ms-Button--primary:focus {
     background-color: #005a9e;
     cursor: pointer;
 }
-.btn-full { width: 100%; margin-bottom: 10px; padding: 8px; }
 
-/* Metadata */
-/* .metadata-content { width: 100%; padding: 10px; background: #f8f8f8; } */
-
-/* Utilities */
-.hidden {
-    display: none !important;
+.btn-full {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px;
 }
 
-.status-error { color: #d9534f; }
-.status-success { color: #5cb85c; }
-
-/* Bidirectional mapping styles */
+/* Bidirectional Mapping */
 .bidirectional-option {
     margin: 15px 0;
     padding: 10px;
@@ -65,13 +121,14 @@
     border-left: 3px solid #0078d4;
     border-radius: 4px;
 }
+
 .option-description {
     font-size: 12px;
     color: #666;
     margin-top: 5px;
     line-height: 1.4;
 }
-.source-column-container { transition: opacity 0.3s ease; }
+
 .mapping-mode-info {
     background-color: #deecf9;
     border: 1px solid #c7e0f4;
@@ -79,4 +136,13 @@
     padding: 8px 12px;
     margin: 10px 0;
     font-size: 13px;
+}
+
+.source-column-container {
+    transition: opacity 0.3s ease;
+}
+
+/* Utilities */
+.hidden {
+    display: none;
 }
