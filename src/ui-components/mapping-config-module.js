@@ -2,7 +2,6 @@
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { loadAndProcessMappings } from '../data-processing/mapping.processor.js';
 import { state } from '../shared-services/state.manager.js';
-
 export class MappingConfigModule {
     constructor(mappingConfig, index, onMappingLoaded) {
         this.mappingConfig = mappingConfig;
@@ -13,7 +12,6 @@ export class MappingConfigModule {
         this.elementId = `mapping-config-${index}`;
         this.mappings = { forward: {}, reverse: {}, metadata: null };
     }
-
     createElement() {
         const element = document.createElement('details');
         element.id = this.elementId;
@@ -26,18 +24,20 @@ export class MappingConfigModule {
             </summary>
             
             <div class="form-section">
-                <label>Excel File:</label>
-                <div>
-                    <input type="radio" id="${this.elementId}-current-file" name="${this.elementId}-file-source" value="current" checked />
-                    <label for="${this.elementId}-current-file" class="ms-font-m">This Excel file</label>
-                </div>
-                <div>
-                    <input type="radio" id="${this.elementId}-external-file" name="${this.elementId}-file-source" value="external" />
-                    <label for="${this.elementId}-external-file" class="ms-font-m">External Excel file</label>
+                <div class="radio-group">
+                    <label>Excel File:</label>
+                    <div>
+                        <input type="radio" id="${this.elementId}-current-file" name="${this.elementId}-file-source" value="current" checked />
+                        <label for="${this.elementId}-current-file" class="ms-font-m">This Excel file</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="${this.elementId}-external-file" name="${this.elementId}-file-source" value="external" />
+                        <label for="${this.elementId}-external-file" class="ms-font-m">External Excel file</label>
+                    </div>
                 </div>
                 <div id="${this.elementId}-external-file-section" class="hidden">
-                    <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
                     <div class="file-row">
+                        <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
                         <input type="text" id="${this.elementId}-file-path-display" placeholder="No file selected" readonly />
                         <input type="file" id="${this.elementId}-file-picker-input" accept=".xlsx,.xls" class="hidden" />
                         <button id="${this.elementId}-browse-button" class="ms-Button">Browse...</button>
@@ -73,7 +73,6 @@ export class MappingConfigModule {
         
         return element;
     }
-
     init(container) {
         const element = this.createElement();
         container.appendChild(element);
@@ -81,7 +80,6 @@ export class MappingConfigModule {
         this.loadInitialData();
         return element;
     }
-
     setupEvents() {
         // File source radios
         document.getElementById(`${this.elementId}-current-file`)?.addEventListener('change', () => {
@@ -113,13 +111,11 @@ export class MappingConfigModule {
             this.updateStatus(`Reading ${file.name}...`);
             this.loadSheets(true);
         });
-
         // Load mapping button
         document.getElementById(`${this.elementId}-load-mapping`)?.addEventListener('click', () => {
             this.loadMappings();
         });
     }
-
     loadInitialData() {
         // Pre-fill form with config data
         if (this.mappingConfig.source_column) {
@@ -146,13 +142,11 @@ export class MappingConfigModule {
             });
         }
     }
-
     async loadSheets(isExternal = false) {
         if (isExternal && !this.externalFile) {
             this.setDropdown(['Select external file first...'], true);
             return;
         }
-
         try {
             const sheets = isExternal 
                 ? await this.excelIntegration.getExternalWorksheetNames(this.externalFile)
@@ -170,7 +164,6 @@ export class MappingConfigModule {
             this.updateStatus(`Error: ${error.message}`, true);
         }
     }
-
     setDropdown(sheets, disabled = false) {
         const dropdown = document.getElementById(`${this.elementId}-worksheet-dropdown`);
         if (!dropdown) return;
@@ -184,7 +177,6 @@ export class MappingConfigModule {
             dropdown.disabled = false;
         }
     }
-
     selectWorksheet(name) {
         const dropdown = document.getElementById(`${this.elementId}-worksheet-dropdown`);
         if (!name || !dropdown) return;
@@ -195,7 +187,6 @@ export class MappingConfigModule {
             this.updateStatus(`Selected: ${name}`);
         }
     }
-
     async loadMappings() {
         try {
             this.updateStatus("Loading...");
@@ -228,7 +219,6 @@ export class MappingConfigModule {
             this.handleMappingError(error);
         }
     }
-
     handleMappingSuccess(result) {
         const forward = Object.keys(this.mappings.forward).length;
         const reverse = Object.keys(this.mappings.reverse).length;
@@ -241,12 +231,10 @@ export class MappingConfigModule {
         this.updateStatus(message, false, 'success');
         // this.showMetadata(result.metadata);
     }
-
     handleMappingError(error) {
         this.mappings = { forward: {}, reverse: {}, metadata: null };
         this.updateStatus(error.message, true);
     }
-
     updateStatus(message, isError = false, type = 'info') {
         const statusElement = document.getElementById(`${this.elementId}-status`);
         if (statusElement) {
@@ -257,20 +245,16 @@ export class MappingConfigModule {
             }
         }
     }
-
     isExternalFile() {
         const ref = this.mappingConfig.mapping_reference;
         return ref && (ref.includes('/') || ref.includes('\\'));
     }
-
     parseFileName(path) {
         return path?.split(/[\\/]/).pop();
     }
-
     getMappings() {
         return this.mappings;
     }
-
     getConfig() {
         return this.mappingConfig;
     }
