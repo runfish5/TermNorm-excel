@@ -60,35 +60,6 @@
 .status-error { color: #d9534f; }
 .status-success { color: #5cb85c; }
 
-/* Forms */
-.file-row {
-    width: 100%;
-    display: flex;
-}
-
-.file-row input[type="text"] {
-    width: 70%;
-}
-
-.file-row button {
-    margin-left: 5px;
-    padding: 5px 10px;
-}
-
-.columns {
-    width: 100%;
-    display: flex;
-}
-
-.columns > div {
-    width: 50%;
-    padding-right: 5px;
-}
-
-.columns > div:last-child {
-    padding-right: 0;
-    padding-left: 5px;
-}
 
 /* Buttons */
 .ms-Button.ms-Button--primary {
@@ -105,12 +76,6 @@
 .ms-Button.ms-Button--primary:focus {
     background-color: #005a9e;
     cursor: pointer;
-}
-
-.btn-full {
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 8px;
 }
 
 /* Bidirectional Mapping */
