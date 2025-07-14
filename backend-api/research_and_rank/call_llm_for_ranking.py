@@ -14,14 +14,15 @@ def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
         # ... (your existing schema definition remains unchanged)
         "type": "object",
         "properties": {
-            "profile_specs_identified": {
+            "profile_specs_identified": {"type": "array", "items": {"type": "string"}},
+            "ranking_explanation": {
                 "type": "object",
                 "properties": {
-                    "material_type": {"type": "string"},
-                    "glass_fiber_percentage": {"type": "string"},
-                    "other_critical_specs": {"type": "array", "items": {"type": "string"}}
+                    "methodology": {"type": "string"},
+                    "key_differentiators": {"type": "array", "items": {"type": "string"}},
+                    "confidence_level": {"type": "string"}
                 },
-                "required": ["material_type", "glass_fiber_percentage"]
+                "required": ["methodology", "key_differentiators", "confidence_level"]
             },
             "ranked_candidates": {
                 "type": "array",
@@ -37,15 +38,6 @@ def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
                     },
                     "required": ["rank", "candidate", "relevance_score", "spec_match_score", "key_match_factors"]
                 }
-            },
-            "ranking_explanation": {
-                "type": "object",
-                "properties": {
-                    "methodology": {"type": "string"},
-                    "key_differentiators": {"type": "array", "items": {"type": "string"}},
-                    "confidence_level": {"type": "string"}
-                },
-                "required": ["methodology", "key_differentiators", "confidence_level"]
             }
         },
         "required": ["profile_specs_identified", "ranked_candidates", "ranking_explanation"]

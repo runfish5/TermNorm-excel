@@ -88,7 +88,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
             request.query, 
             groq_api_key
         )
-        
+        pprint(final_response)
         return final_response
             
     except Exception as e:
