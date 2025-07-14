@@ -162,7 +162,7 @@ export class MappingConfigModule {
             this.updateStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
             
             // Auto-select worksheet if specified in config
-            if (this.mappingConfig.worksheet && !isExternal) {
+            if (this.mappingConfig.worksheet) {
                 this.selectWorksheet(this.mappingConfig.worksheet);
             }
         } catch (error) {
