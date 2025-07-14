@@ -221,6 +221,9 @@ export class MappingConfigModule {
             if (this.onMappingLoaded) {
                 this.onMappingLoaded(this.index, this.mappings, result);
             }
+            // Collapse the details element
+            document.getElementById(this.elementId).open = false;
+    
         } catch (error) {
             this.handleMappingError(error);
         }
