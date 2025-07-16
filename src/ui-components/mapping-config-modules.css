@@ -1,5 +1,4 @@
 /* Mapping Config Module Styles */
-/* Main module container */
 .mapping-config-module {
     border: 1px solid #d1d1d1;
     border-radius: 6px;
@@ -7,41 +6,58 @@
     margin-bottom: 12px;
     background-color: #fafafa;
 }
-/* Form layout */
+
 .form-section {
     margin-bottom: 8px;
 }
+
 .file-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0 5px;
 }
+
 .file-row input[type="text"] {
     flex: 1;
     min-width: 150px;
 }
+
 .file-row button {
     padding: 5px 10px;
 }
+
 .columns {
-    width: 100%;
     display: flex;
     flex-wrap: wrap;
     gap: 0 10px;
 }
+
 .columns > div {
     flex: 1;
-    min-width: 200px;
+    min-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-/* Radio group flexbox */
+
+.columns > div label {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.columns > div input {
+    flex: 1;
+    min-width: 120px;
+}
+
 .radio-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0 15px;
 }
-/* Buttons */
+
 .btn-full {
     width: 100%;
     margin-bottom: 10px;
