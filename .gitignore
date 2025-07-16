@@ -33,3 +33,9 @@ manifest.xml
 support.html
 index.html
 RUN_WITH_EXTENSION.md
+
+# Py
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
