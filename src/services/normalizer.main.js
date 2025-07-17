@@ -94,9 +94,9 @@ export class LiveTracker {
         try {
             const result = await this.processor.process(value);
             
-            console.log('\n### RESULT \n\n', result);
-            console.log('\n### </RESULT>');
-            console.log(`${JSON.stringify(result, null, 2)}`);
+            // console.log('\n### RESULT \n\n', result);
+            // console.log('\n### </RESULT>');
+            // console.log(`${JSON.stringify(result, null, 2)}`);
             ActivityDisplay.addCandidate(value, result);
             
             let finalResult;
