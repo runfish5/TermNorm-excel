@@ -7,6 +7,14 @@
     background-color: #fafafa;
 }
 
+.mapping-config-module summary {
+    margin-bottom: 16px;
+    color: #004b32;
+    font-weight: bold;
+    border: 2px solid #d1d1d1;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
 .form-section {
     margin-bottom: 8px;
 }
@@ -57,7 +65,13 @@
     align-items: center;
     gap: 0 15px;
 }
+.radio-group input[type="radio"] {
+    accent-color: #004b32;
+}
 
+.radio-group label.ms-font-m {
+    color: #004b32;
+}
 .btn-full {
     width: 100%;
     margin-bottom: 10px;
