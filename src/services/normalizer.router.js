@@ -61,10 +61,17 @@ export class NormalizerRouter {
                 return null;
             }
             
-            // Handle success response
-            if (!data.data.matches?.length) return null;
+            // Handle success response - extract matches from full_results.ranked_candidates
+            const rankedCandidates = data.data.full_results?.ranked_candidates;
+            if (!rankedCandidates?.length) return null;
 
-            const qualifyingMatches = data.data.matches.filter(match => match[1] >= 0.005);
+            // Convert ranked_candidates to the expected [name, score] format
+            const formattedMatches = rankedCandidates.map(candidate => [
+                candidate.candidate,
+                candidate.relevance_score
+            ]);
+
+            const qualifyingMatches = formattedMatches.filter(match => match[1] >= 0.005);
             
             if (qualifyingMatches.length === 0) return null;
 
