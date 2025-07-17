@@ -2,7 +2,7 @@
 import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
-import { LiveTracker } from '../services/normalizer.handler.js';
+import { LiveTracker } from '../services/normalizer.main.js';
 import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
