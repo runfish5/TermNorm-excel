@@ -32,7 +32,8 @@
             <span class="ms-font-s status-label">SYS-STATUS:</span>
             <div id="main-status-message" class="ms-font-s">Ready to load configuration...</div>
         </div>
-        
+
+        <!-- 1st main view -->
         <div id="config-div" class="content">
             <section class="ms-welcome__section">
                 <h3>Mapping Source Configurations</h3>
@@ -47,20 +48,20 @@
                 </div>
             </section>            
 
-            <button id="show-metadata-btn" class="ms-Button ">Show Processing Details</button>
-            <div id="metadata-content" class="ms-welcome__section hidden">
-                <h3 class="ms-font-l">Processing Details</h3>
-                <div id="metadata-display" class="ms-font-s"></div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
+                <div id="metadata-content" class="ms-welcome__section hidden">
+                    <h3 class="ms-font-l">Processing Details</h3>
+                    <div id="metadata-display" class="ms-font-s"></div>
+                </div>
+                <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
+                <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
+                <img width="40" height="40" src="../../assets/Runfish_Logo1.5greenyCube.png" alt="x" title="x" 
+                    style="margin-left: 10px;" />
             </div>
-            <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
-            <button id="renew-prompt" class="ms-Button ms-Button--default ms-font-l">Renew Prompt 🤖</button>
-
-
-            
-            
         </div>
         
-        <!-- Container for tracking results (2nd main view) -->
+        <!-- 2nd main view -->
         <div id="tracking-div" class="hidden content">
             <div id="live-activity-section" class="activity-section"></div>
         </div>
