@@ -1,6 +1,6 @@
 // shared-services/app.orchestrator.js
 import { ConfigManager } from './config.manager.js';
-import { LiveTracker } from '../services/normalizer.handler.js';
+import { LiveTracker } from '../services/normalizer.main.js';
 import { aiPromptRenewer } from '../services/aiPromptRenewer.js';
 import { UIManager } from '../ui-components/ui.manager.js';
 import { state } from './state.manager.js';
