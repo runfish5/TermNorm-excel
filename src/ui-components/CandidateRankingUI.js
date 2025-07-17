@@ -1,100 +1,15 @@
 // ./ui-components/CandidateRankingUI.js
 import { ActivityFeed } from './ActivityFeedUI.js';
-import { logActivity } from '../shared-services/activity.logger.js';
 
 export class ActivityDisplay {
     static container = null;
-    static currentView = 'ranked';
-    static candidatesData = []; // Store the candidates data for reordering
-    static firstChoiceHandler = null; // Store the handler from LiveTracker
+    static candidatesData = [];
+    static firstChoiceHandler = null;
 
     static init() {
         this.container = document.getElementById('live-activity-section');
         if (!this.container) return console.error('ActivityDisplay: Container not found');
         
-        this.render();
-        this.bindEvents();
-        ActivityFeed.init('activity-feed');
-    }
-
-    // Method to set the first choice handler from LiveTracker
-    static setFirstChoiceHandler(handler) {
-        this.firstChoiceHandler = handler;
-    }
-
-    static addFirstChoiceListener(container) {
-        container.querySelector('#show-first-choice')?.addEventListener('click', async () => {
-            const first = this.candidatesData[0];
-            console.log('\n========= this.candidatesData[0] ========= \n\n', this.candidatesData);
-            console.log('\n### </==========================================>');
-            console.log(`${JSON.stringify(this.candidatesData, null, 2)}`);
-            
-            if (!first) {
-                console.error('No first choice available');
-                return;
-            }
-            
-            // If handler is available, use it to process the first choice
-            if (this.firstChoiceHandler) {
-                try {
-                    await this.firstChoiceHandler(first);
-                    
-                    // Show success feedback
-                    let display = container.querySelector('.first-choice-display');
-                    if (!display) {
-                        display = document.createElement('div');
-                        display.className = 'first-choice-display';
-                        display.style.cssText = 'background:#d4edda;padding:8px;margin:8px 0;border-radius:4px;border:1px solid #c3e6cb;color:#155724;';
-                        container.querySelector('table').before(display);
-                    }
-                    
-                    display.innerHTML = `✅ <strong>Applied:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
-                    
-                    // Clear the feedback after 3 seconds
-                    setTimeout(() => {
-                        if (display && display.parentNode) {
-                            display.remove();
-                        }
-                    }, 3000);
-                    
-                } catch (error) {
-                    console.error('Error applying first choice:', error);
-                    
-                    // Show error feedback
-                    let display = container.querySelector('.first-choice-display');
-                    if (!display) {
-                        display = document.createElement('div');
-                        display.className = 'first-choice-display';
-                        display.style.cssText = 'background:#f8d7da;padding:8px;margin:8px 0;border-radius:4px;border:1px solid #f5c6cb;color:#721c24;';
-                        container.querySelector('table').before(display);
-                    }
-                    
-                    display.innerHTML = `❌ <strong>Error:</strong> Failed to apply first choice`;
-                    
-                    setTimeout(() => {
-                        if (display && display.parentNode) {
-                            display.remove();
-                        }
-                    }, 3000);
-                }
-            } else {
-                // Fallback to old behavior if no handler
-                console.warn('No first choice handler available');
-                
-                let display = container.querySelector('.first-choice-display');
-                if (!display) {
-                    display = document.createElement('div');
-                    display.className = 'first-choice-display';
-                    display.style.cssText = 'background:#f3f2f1;padding:8px;margin:8px 0;border-radius:4px';
-                    container.querySelector('table').before(display);
-                }
-                
-                display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
-            }
-        });
-    }
-
-    static render() {
         this.container.innerHTML = `
             <div class="activity-toggle">
                 <input type="radio" id="activity-history" name="activity-mode" value="history" />
@@ -107,72 +22,47 @@ export class ActivityDisplay {
                 <div class="placeholder-text">Rankings appear here during processing</div>
             </div>
             <style>
-                .candidate-table tbody tr {
-                    cursor: move;
-                    transition: background-color 0.2s;
-                }
-                .candidate-table tbody tr:hover {
-                    background-color: #f3f2f1;
-                }
-                .candidate-table tbody tr.dragging {
-                    opacity: 0.5;
-                    background-color: #deecf9;
-                }
-                .candidate-table tbody tr.drag-over {
-                    border-top: 2px solid #0078d4;
-                }
-                .drag-handle {
-                    cursor: grab;
-                    padding: 4px;
-                    color: #605e5c;
-                }
-                .drag-handle:hover {
-                    color: #0078d4;
-                }
-                .drag-handle:active {
-                    cursor: grabbing;
-                }
+                .candidate-table tr { cursor: move; transition: background 0.2s; }
+                .candidate-table tr:hover { background: #f3f2f1; }
+                .candidate-table tr.dragging { opacity: 0.5; }
+                .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
             </style>
         `;
-    }
-
-    static bindEvents() {
+        
         this.container.addEventListener('change', e => {
-            if (e.target.name === 'activity-mode') this.switchView(e.target.value);
-        });   
+            if (e.target.name === 'activity-mode') {
+                const isHistory = e.target.value === 'history';
+                this.container.querySelector('#activity-feed').style.display = isHistory ? 'block' : 'none';
+                this.container.querySelector('#candidate-ranked').style.display = isHistory ? 'none' : 'block';
+            }
+        });
+        
+        ActivityFeed.init('activity-feed');
     }
 
-    static switchView(view) {
-        this.currentView = view;
-        const isHistory = view === 'history';
-        this.container.querySelector('#activity-feed').style.display = isHistory ? 'block' : 'none';
-        this.container.querySelector('#candidate-ranked').style.display = isHistory ? 'none' : 'block';
+    static setFirstChoiceHandler(handler) {
+        this.firstChoiceHandler = handler;
     }
 
     static addCandidate(value, result) {
         const candidates = result?.fullResults?.ranked_candidates;
         if (!candidates) return;
-
-        // Store the candidates data for reordering
+        
         this.candidatesData = [...candidates];
-
-        this.renderCandidateTable(value);
-    }
-
-    static renderCandidateTable(value) {
-        const html = `
+        
+        const rankedContainer = this.container.querySelector('#candidate-ranked');
+        rankedContainer.innerHTML = `
             <div class="candidate-entry">
                 <div class="candidate-header">Input: "${value}"</div>
                 <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
-                    <button id="show-first-choice" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
+                    <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
-                    <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
+                    <thead><tr><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
                     <tbody>
-                        ${this.candidatesData.map((c, index) => `
-                            <tr draggable="true" data-index="${index}">
-                                <td class="drag-handle">⋮⋮</td>
+                        ${this.candidatesData.map((c, i) => `
+                            <tr draggable="true" data-index="${i}">
                                 <td>${c.rank}</td>
                                 <td>${c.candidate}</td>
                                 <td>${c.relevance_score}</td>
@@ -184,84 +74,86 @@ export class ActivityDisplay {
             </div>
         `;
         
-        const rankedContainer = this.container.querySelector('#candidate-ranked');
-        rankedContainer.innerHTML = html;
-        
-        // Add drag and drop event listeners
-        this.addDragListeners(rankedContainer);
-        
-        // Add first choice button listener
-        this.addFirstChoiceListener(rankedContainer);
+        this.setupDragDrop(rankedContainer);
+        this.setupFirstChoice(rankedContainer);
     }
 
-    static addDragListeners(container) {
-        const tbody = container.querySelector('tbody');
-        let draggedElement = null;
-        let draggedIndex = null;
-
-        tbody.addEventListener('dragstart', (e) => {
-            if (e.target.tagName === 'TR') {
-                draggedElement = e.target;
-                draggedIndex = parseInt(e.target.dataset.index);
-                e.target.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/html', e.target.outerHTML);
+    static setupFirstChoice(container) {
+        container.querySelector('#apply-first').onclick = async () => {
+            const first = this.candidatesData[0];
+            if (!first) return;
+            
+            const feedback = this.showFeedback(container, 'Processing...', '#f3f2f1');
+            
+            try {
+                if (this.firstChoiceHandler) {
+                    await this.firstChoiceHandler(first);
+                    feedback.innerHTML = `✅ Applied: ${first.candidate} | Relevance: ${first.relevance_score}`;
+                    feedback.style.background = '#d4edda';
+                } else {
+                    feedback.innerHTML = `First: ${first.candidate} | Relevance: ${first.relevance_score}`;
+                }
+                setTimeout(() => feedback.remove(), 3000);
+            } catch (error) {
+                feedback.innerHTML = '❌ Error: Failed to apply first choice';
+                feedback.style.background = '#f8d7da';
+                setTimeout(() => feedback.remove(), 3000);
             }
-        });
+        };
+    }
 
-        tbody.addEventListener('dragend', (e) => {
+    static showFeedback(container, message, bg) {
+        let feedback = container.querySelector('.feedback');
+        if (!feedback) {
+            feedback = document.createElement('div');
+            feedback.className = 'feedback';
+            feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
+            container.querySelector('table').before(feedback);
+        }
+        feedback.innerHTML = message;
+        return feedback;
+    }
+
+    static setupDragDrop(container) {
+        const tbody = container.querySelector('tbody');
+        let dragIndex = null;
+        
+        tbody.ondragstart = (e) => {
+            if (e.target.tagName === 'TR') {
+                dragIndex = parseInt(e.target.dataset.index);
+                e.target.classList.add('dragging');
+            }
+        };
+        
+        tbody.ondragend = (e) => {
             if (e.target.tagName === 'TR') {
                 e.target.classList.remove('dragging');
-                // Remove drag-over class from all rows
-                tbody.querySelectorAll('tr').forEach(row => {
-                    row.classList.remove('drag-over');
-                });
+                tbody.querySelectorAll('tr').forEach(row => row.classList.remove('drag-over'));
             }
-        });
-
-        tbody.addEventListener('dragover', (e) => {
+        };
+        
+        tbody.ondragover = (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            
             const targetRow = e.target.closest('tr');
-            if (targetRow && targetRow !== draggedElement) {
-                // Remove drag-over class from all rows
-                tbody.querySelectorAll('tr').forEach(row => {
-                    row.classList.remove('drag-over');
-                });
-                // Add drag-over class to current target
+            if (targetRow && dragIndex !== null) {
+                tbody.querySelectorAll('tr').forEach(row => row.classList.remove('drag-over'));
                 targetRow.classList.add('drag-over');
             }
-        });
-
-        tbody.addEventListener('drop', (e) => {
+        };
+        
+        tbody.ondrop = (e) => {
             e.preventDefault();
             const targetRow = e.target.closest('tr');
-            
-            if (targetRow && targetRow !== draggedElement) {
+            if (targetRow && dragIndex !== null) {
                 const targetIndex = parseInt(targetRow.dataset.index);
+                const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
+                this.candidatesData.splice(targetIndex, 0, draggedItem);
                 
-                // Reorder the candidates data
-                const draggedCandidate = this.candidatesData[draggedIndex];
-                this.candidatesData.splice(draggedIndex, 1);
-                this.candidatesData.splice(targetIndex, 0, draggedCandidate);
-                
-                // Re-render the table with updated order
-                const currentInput = container.querySelector('.candidate-header').textContent.match(/Input: "([^"]+)"/)?.[1] || '';
-                this.renderCandidateTable(currentInput);
+                const input = container.querySelector('.candidate-header').textContent.match(/Input: "([^"]+)"/)?.[1];
+                this.addCandidate(input, { fullResults: { ranked_candidates: this.candidatesData } });
             }
-            
-            // Clean up
-            draggedElement = null;
-            draggedIndex = null;
-        });
-
-        tbody.addEventListener('dragleave', (e) => {
-            const targetRow = e.target.closest('tr');
-            if (targetRow) {
-                targetRow.classList.remove('drag-over');
-            }
-        });
+            dragIndex = null;
+        };
     }
 
     static clearCandidates() {
