@@ -1,5 +1,6 @@
 // ./ui-components/CandidateRankingUI.js
 import { ActivityFeed } from './ActivityFeedUI.js';
+import { logActivity } from '../shared-services/activity.logger.js';
 
 export class ActivityDisplay {
     static container = null;
