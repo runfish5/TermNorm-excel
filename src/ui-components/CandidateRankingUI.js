@@ -20,9 +20,9 @@ export class ActivityDisplay {
     static addFirstChoiceListener(container) {
         container.querySelector('#show-first-choice')?.addEventListener('click', () => {
             const first = this.candidatesData[0];
-            console.log('\n========= this.candidatesData[0] ========= \n\n', result);
+            console.log('\n========= this.candidatesData[0] ========= \n\n', candidatesData);
             console.log('\n### </==========================================>');
-            console.log(`${JSON.stringify(result, null, 2)}`);
+            console.log(`${JSON.stringify(candidatesData, null, 2)}`);
             if (!first) return;
             
             let display = container.querySelector('.first-choice-display');
