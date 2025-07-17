@@ -23,7 +23,7 @@ export class MappingConfigModule {
                 Map Config ${this.index + 1}
             </summary>
             
-            <div class="form-section">
+            <div class="form-section first-form-section">
                 <div class="radio-group">
                     <label>Excel File:</label>
                     <div>
@@ -35,7 +35,7 @@ export class MappingConfigModule {
                         <label for="${this.elementId}-external-file" class="ms-font-m">External Excel file</label>
                     </div>
                 </div>
-                <div id="${this.elementId}-external-file-section" class="hidden">
+                <div id="${this.elementId}-external-file-section" class="hidden form-section">
                     <div class="file-row">
                         <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
                         <input type="text" id="${this.elementId}-file-path-display" placeholder="No file selected" readonly />
@@ -65,7 +65,7 @@ export class MappingConfigModule {
                 </div>
             </div>
             
-            <button id="${this.elementId}-load-mapping" class="btn-full">
+            <button id="${this.elementId}-load-mapping" class="btn-full form-section">
                 Load Mapping Table ${this.index + 1}
             </button>
             
