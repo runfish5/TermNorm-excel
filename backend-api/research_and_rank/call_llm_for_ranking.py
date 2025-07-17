@@ -109,7 +109,6 @@ Provide the identified specs first, then ranking based on exact specification ma
 
         return {
             "query": query,
-            "matches": formatted_matches,
             "total_matches": len(formatted_matches),
             "research_performed": True,
             "full_results": final_results
@@ -119,7 +118,6 @@ Provide the identified specs first, then ranking based on exact specification ma
         print(f"[WARNING] Unexpected results format: {type(final_results)}")
         return {
             "query": query,
-            "matches": [],
             "total_matches": 0,
             "research_performed": True
         }
