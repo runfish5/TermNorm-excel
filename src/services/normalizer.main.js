@@ -10,6 +10,7 @@ export class LiveTracker {
         this.handler = null;
         this.processor = null;
         this.columnMap = new Map();
+        this.currentProcessingContext = null; // Store current context for first choice
     }
 
     async start(config, mappings) {
@@ -20,6 +21,9 @@ export class LiveTracker {
         // Resolve column indices directly here - simple and direct!
         this.columnMap = await this.resolveColumnIndices(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
+        
+        // Pass the first choice handler to ActivityDisplay
+        ActivityDisplay.setFirstChoiceHandler(this.handleFirstChoice.bind(this));
         
         await Excel.run(async ctx => {
             const ws = ctx.workbook.worksheets.getActiveWorksheet();
@@ -92,17 +96,23 @@ export class LiveTracker {
     
     async processCell(ws, row, col, targetCol, value) {
         try {
+            // Store current context for first choice handler
+            this.currentProcessingContext = { ws, row, col, targetCol, value };
+            
             const result = await this.processor.process(value);
             
-            // console.log('\n### RESULT \n\n', result);
-            // console.log('\n### </RESULT>');
-            // console.log(`${JSON.stringify(result, null, 2)}`);
+            console.log(`${JSON.stringify(result, null, 2)}`);
             ActivityDisplay.addCandidate(value, result);
             
             let finalResult;
             
             if (result && result.type === 'multiple_matches') {
-                const bestMatch = this.processor.selectBestMatch(result.matches, result.fullResults);
+                // Simply take the first match - no need for selectBestMatch function
+                const bestMatch = result.matches[0];
+                
+                console.log('\n### Best match selected \n\n', bestMatch);
+                console.log(`${JSON.stringify(bestMatch, null, 2)}`);
+
                 finalResult = {
                     target: bestMatch[0],
                     method: result.method,
@@ -113,12 +123,9 @@ export class LiveTracker {
             }
             
             if (finalResult) {
-                ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[finalResult.target]];
-                ActivityFeed.add(value, finalResult.target, finalResult.method, finalResult.confidence);
-                logActivity(value, finalResult.target, finalResult.method, finalResult.confidence);
+                this.applyResult(ws, row, col, targetCol, value, finalResult);
             }
             
-            ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
         } catch (error) {
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFC7CE";
             ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[`Error: ${error.message}`]];
@@ -127,8 +134,44 @@ export class LiveTracker {
         }
     }
 
+    // Extract the result application logic to reuse for first choice
+    applyResult(ws, row, col, targetCol, value, finalResult) {
+        ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[finalResult.target]];
+        ActivityFeed.add(value, finalResult.target, finalResult.method, finalResult.confidence);
+        logActivity(value, finalResult.target, finalResult.method, finalResult.confidence);
+        ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
+    }
+
+    // Handler for first choice selection from UI
+    handleFirstChoice = async (firstChoice) => {
+        if (!this.currentProcessingContext) {
+            console.error('No current processing context for first choice');
+            return;
+        }
+
+        const { ws, row, col, targetCol, value } = this.currentProcessingContext;
+        
+        await Excel.run(async ctx => {
+            const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
+            
+            const finalResult = {
+                target: firstChoice.candidate,
+                method: 'FirstChoice',
+                confidence: firstChoice.relevance_score
+            };
+            
+            console.log('\n### First Choice Applied \n\n', finalResult);
+            console.log(`${JSON.stringify(finalResult, null, 2)}`);
+            
+            this.applyResult(worksheet, row, col, targetCol, value, finalResult);
+            
+            await ctx.sync();
+        });
+    }
+
     stop() {
         this.active = false;
+        this.currentProcessingContext = null;
     }
 
     static setup() {

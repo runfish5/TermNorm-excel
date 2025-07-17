@@ -6,6 +6,7 @@ export class ActivityDisplay {
     static container = null;
     static currentView = 'ranked';
     static candidatesData = []; // Store the candidates data for reordering
+    static firstChoiceHandler = null; // Store the handler from LiveTracker
 
     static init() {
         this.container = document.getElementById('live-activity-section');
@@ -14,32 +15,87 @@ export class ActivityDisplay {
         this.render();
         this.bindEvents();
         ActivityFeed.init('activity-feed');
-        
+    }
+
+    // Method to set the first choice handler from LiveTracker
+    static setFirstChoiceHandler(handler) {
+        this.firstChoiceHandler = handler;
     }
 
     static addFirstChoiceListener(container) {
-        container.querySelector('#show-first-choice')?.addEventListener('click', () => {
+        container.querySelector('#show-first-choice')?.addEventListener('click', async () => {
             const first = this.candidatesData[0];
             console.log('\n========= this.candidatesData[0] ========= \n\n', this.candidatesData);
             console.log('\n### </==========================================>');
             console.log(`${JSON.stringify(this.candidatesData, null, 2)}`);
-            if (!first) return;
             
-            let display = container.querySelector('.first-choice-display');
-            if (!display) {
-                display = document.createElement('div');
-                display.className = 'first-choice-display';
-                display.style.cssText = 'background:#f3f2f1;padding:8px;margin:8px 0;border-radius:4px';
-                container.querySelector('table').before(display);
+            if (!first) {
+                console.error('No first choice available');
+                return;
             }
             
-            display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
+            // If handler is available, use it to process the first choice
+            if (this.firstChoiceHandler) {
+                try {
+                    await this.firstChoiceHandler(first);
+                    
+                    // Show success feedback
+                    let display = container.querySelector('.first-choice-display');
+                    if (!display) {
+                        display = document.createElement('div');
+                        display.className = 'first-choice-display';
+                        display.style.cssText = 'background:#d4edda;padding:8px;margin:8px 0;border-radius:4px;border:1px solid #c3e6cb;color:#155724;';
+                        container.querySelector('table').before(display);
+                    }
+                    
+                    display.innerHTML = `✅ <strong>Applied:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
+                    
+                    // Clear the feedback after 3 seconds
+                    setTimeout(() => {
+                        if (display && display.parentNode) {
+                            display.remove();
+                        }
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('Error applying first choice:', error);
+                    
+                    // Show error feedback
+                    let display = container.querySelector('.first-choice-display');
+                    if (!display) {
+                        display = document.createElement('div');
+                        display.className = 'first-choice-display';
+                        display.style.cssText = 'background:#f8d7da;padding:8px;margin:8px 0;border-radius:4px;border:1px solid #f5c6cb;color:#721c24;';
+                        container.querySelector('table').before(display);
+                    }
+                    
+                    display.innerHTML = `❌ <strong>Error:</strong> Failed to apply first choice`;
+                    
+                    setTimeout(() => {
+                        if (display && display.parentNode) {
+                            display.remove();
+                        }
+                    }, 3000);
+                }
+            } else {
+                // Fallback to old behavior if no handler
+                console.warn('No first choice handler available');
+                
+                let display = container.querySelector('.first-choice-display');
+                if (!display) {
+                    display = document.createElement('div');
+                    display.className = 'first-choice-display';
+                    display.style.cssText = 'background:#f3f2f1;padding:8px;margin:8px 0;border-radius:4px';
+                    container.querySelector('table').before(display);
+                }
+                
+                display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
+            }
         });
     }
 
     static render() {
         this.container.innerHTML = `
-
             <div class="activity-toggle">
                 <input type="radio" id="activity-history" name="activity-mode" value="history" />
                 <label for="activity-history" class="ms-font-s">History</label>
@@ -108,7 +164,7 @@ export class ActivityDisplay {
             <div class="candidate-entry">
                 <div class="candidate-header">Input: "${value}"</div>
                 <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
-                    <button id="show-first-choice" class="ms-Button ms-Button--primary ms-font-s">Show First Choice</button>
+                    <button id="show-first-choice" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
