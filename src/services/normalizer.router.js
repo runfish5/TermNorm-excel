@@ -93,6 +93,10 @@ export class NormalizerRouter {
     selectBestMatch(matches, fullResults) {
         // If only one match, return it
         if (matches.length === 1) {
+            
+            concole.log('\n[IIIIIIII]### Single match found \n\n', matches[0]);
+            
+            
             return matches[0];
         }
         
@@ -122,6 +126,14 @@ export class NormalizerRouter {
         }
         
         // Default to highest relevance score (first match)
+        console.log('\n### fullResults \n\n', result);
+        console.log(`${JSON.stringify(fullResults, null, 2)}`);
+        console.log('\n### </fullResults>');
+
+        console.log(`${JSON.stringify(topMatch, null, 2)}`);
+        
+        console.log('\n### </topMatch>=========----');
+        
         return topMatch;
     }
 
