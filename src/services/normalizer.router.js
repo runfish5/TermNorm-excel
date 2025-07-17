@@ -90,53 +90,6 @@ export class NormalizerRouter {
         }
     }
 
-    selectBestMatch(matches, fullResults) {
-        // If only one match, return it
-        if (matches.length === 1) {
-            
-            concole.log('\n[IIIIIIII]### Single match found \n\n', matches[0]);
-            
-            
-            return matches[0];
-        }
-        
-        // Multiple matches - apply selection logic
-        const [topMatch, secondMatch] = matches;
-        
-        // If top match has significantly higher score (>20% difference), use it
-        const scoreDifference = topMatch[1] - secondMatch[1];
-        if (scoreDifference > 0.2) {
-            return topMatch;
-        }
-        
-        // If scores are close, check for spec gaps to help decide
-        if (fullResults?.ranked_candidates) {
-            const topCandidate = fullResults.ranked_candidates.find(c => c.candidate === topMatch[0]);
-            const secondCandidate = fullResults.ranked_candidates.find(c => c.candidate === secondMatch[0]);
-            
-            if (topCandidate && secondCandidate) {
-                // Prefer fewer spec_gaps
-                if (topCandidate.spec_gaps.length < secondCandidate.spec_gaps.length) {
-                    return topMatch;
-                }
-                if (secondCandidate.spec_gaps.length < topCandidate.spec_gaps.length) {
-                    return secondMatch;
-                }
-            }
-        }
-        
-        // Default to highest relevance score (first match)
-        console.log('\n### fullResults \n\n', result);
-        console.log(`${JSON.stringify(fullResults, null, 2)}`);
-        console.log('\n### </fullResults>');
-
-        console.log(`${JSON.stringify(topMatch, null, 2)}`);
-        
-        console.log('\n### </topMatch>=========----');
-        
-        return topMatch;
-    }
-
     async callLLM(val) {
         const body = { source_value: val, project_name: "dummy-project", mapping_name: "dummy-mapping" };
         const prompt = this.config?.standardization_prompt;
