@@ -43,20 +43,30 @@
 
 /* Status Bar */
 .status-bar {
+}
+
+/* Status Bar - Now wrapping and dynamic */
+.status-bar {
     position: fixed;
     top: 32px;
     width: 100%;
     display: flex;
-    padding: 5px 20px;
+    flex-wrap: wrap; /* Allow wrapping */
+    align-items: flex-start;
+    padding: 12px 20px;
     background: #f3f3f3;
+    border-bottom: 1px solid #eee;
+    min-height: auto; /* Dynamic height */
     z-index: 1000;
+    justify-content: center;
+
 }
 
 .status-label {
     margin-right: 10px;
     font-weight: bold;
+    white-space: nowrap; /* Keep label on one line */
 }
-
 .status-error { color: #d9534f; }
 .status-success { color: #5cb85c; }
 
