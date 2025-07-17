@@ -33,7 +33,7 @@ export class ActivityDisplay {
                 container.querySelector('table').before(display);
             }
             
-            display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score} | <strong>Spec:</strong> ${first.spec_match_score}`;
+            display.innerHTML = `<strong>First:</strong> ${first.candidate} | <strong>Relevance:</strong> ${first.relevance_score}`;
         });
     }
 
@@ -112,7 +112,7 @@ export class ActivityDisplay {
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
-                    <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Spec Match</th><th>Match Factors</th></tr></thead>
+                    <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
                     <tbody>
                         ${this.candidatesData.map((c, index) => `
                             <tr draggable="true" data-index="${index}">
@@ -120,7 +120,6 @@ export class ActivityDisplay {
                                 <td>${c.rank}</td>
                                 <td>${c.candidate}</td>
                                 <td>${c.relevance_score}</td>
-                                <td>${c.spec_match_score}</td>
                                 <td>${c.key_match_factors?.join(', ') || ''}</td>
                             </tr>
                         `).join('')}

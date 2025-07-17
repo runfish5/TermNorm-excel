@@ -32,11 +32,10 @@ def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
                         "rank": {"type": "integer"},
                         "candidate": {"type": "string"},
                         "relevance_score": {"type": "number"},
-                        "spec_match_score": {"type": "number"},
                         "key_match_factors": {"type": "array", "items": {"type": "string"}},
                         "spec_gaps": {"type": "array", "items": {"type": "string"}}
                     },
-                    "required": ["rank", "candidate", "relevance_score", "spec_match_score", "key_match_factors"]
+                    "required": ["rank", "candidate", "relevance_score", "key_match_factors"]
                 }
             }
         },
