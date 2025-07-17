@@ -19,7 +19,7 @@ export class MappingConfigModule {
         element.open = true;
         
         element.innerHTML = `
-            <summary class="ms-font-xl">
+            <summary class="ms-font-m">
                 Map Config ${this.index + 1}
             </summary>
             
