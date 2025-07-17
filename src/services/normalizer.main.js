@@ -89,10 +89,14 @@ export class LiveTracker {
             await ctx.sync();
         });
     }
-
+    
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
+            
+            console.log('\n### RESULT \n\n', result);
+            console.log('\n### </RESULT>');
+            console.log(`${JSON.stringify(result, null, 2)}`);
             ActivityDisplay.addCandidate(value, result);
             
             let finalResult;
