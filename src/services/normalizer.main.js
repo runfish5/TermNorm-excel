@@ -10,7 +10,6 @@ export class LiveTracker {
         this.handler = null;
         this.processor = null;
         this.columnMap = new Map();
-        this.currentProcessingContext = null; // Store current context for first choice
     }
 
     async start(config, mappings) {
@@ -21,9 +20,6 @@ export class LiveTracker {
         // Resolve column indices directly here - simple and direct!
         this.columnMap = await this.resolveColumnIndices(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
-        
-        // Pass the first choice handler to ActivityDisplay
-        ActivityDisplay.setFirstChoiceHandler(this.handleFirstChoice.bind(this));
         
         await Excel.run(async ctx => {
             const ws = ctx.workbook.worksheets.getActiveWorksheet();
@@ -96,13 +92,14 @@ export class LiveTracker {
     
     async processCell(ws, row, col, targetCol, value) {
         try {
-            // Store current context for first choice handler
-            this.currentProcessingContext = { ws, row, col, targetCol, value };
-            
             const result = await this.processor.process(value);
             
             console.log(`${JSON.stringify(result, null, 2)}`);
-            ActivityDisplay.addCandidate(value, result);
+            
+            // Pass context directly to UI - no stored state needed!
+            ActivityDisplay.addCandidate(value, result, {
+                applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
+            });
             
             let finalResult;
             
@@ -142,22 +139,15 @@ export class LiveTracker {
         ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 
-    // Handler for first choice selection from UI
-    handleFirstChoice = async (firstChoice) => {
-        if (!this.currentProcessingContext) {
-            console.error('No current processing context for first choice');
-            return;
-        }
-
-        const { ws, row, col, targetCol, value } = this.currentProcessingContext;
-        
+    // Simplified choice application - context passed directly
+    applyChoice = async (ws, row, col, targetCol, value, choice) => {
         await Excel.run(async ctx => {
             const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
             
             const finalResult = {
-                target: firstChoice.candidate,
+                target: choice.candidate,
                 method: 'FirstChoice',
-                confidence: firstChoice.relevance_score
+                confidence: choice.relevance_score
             };
             
             console.log('\n### First Choice Applied \n\n', finalResult);
@@ -171,7 +161,6 @@ export class LiveTracker {
 
     stop() {
         this.active = false;
-        this.currentProcessingContext = null;
     }
 
     static setup() {

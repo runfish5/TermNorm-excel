@@ -4,7 +4,7 @@ import { ActivityFeed } from './ActivityFeedUI.js';
 export class ActivityDisplay {
     static container = null;
     static candidatesData = [];
-    static firstChoiceHandler = null;
+    static currentContext = null; // Store context per candidate instead of globally
 
     static init() {
         this.container = document.getElementById('live-activity-section');
@@ -51,15 +51,13 @@ export class ActivityDisplay {
         ActivityFeed.init('activity-feed');
     }
 
-    static setFirstChoiceHandler(handler) {
-        this.firstChoiceHandler = handler;
-    }
-
-    static addCandidate(value, result) {
+    // Context passed directly - no global state management needed!
+    static addCandidate(value, result, context) {
         const candidates = result?.fullResults?.ranked_candidates;
         if (!candidates) return;
         
         this.candidatesData = [...candidates];
+        this.currentContext = context; // Store context for this specific candidate
         
         const rankedContainer = this.container.querySelector('#candidate-ranked');
         rankedContainer.innerHTML = `
@@ -93,18 +91,15 @@ export class ActivityDisplay {
     static setupFirstChoice(container) {
         container.querySelector('#apply-first').onclick = async () => {
             const first = this.candidatesData[0];
-            if (!first) return;
+            if (!first || !this.currentContext) return;
             
             const feedback = this.showFeedback(container, 'Processing...', '#f3f2f1');
             
             try {
-                if (this.firstChoiceHandler) {
-                    await this.firstChoiceHandler(first);
-                    feedback.innerHTML = `✅ Applied: ${first.candidate} | Relevance: ${first.relevance_score}`;
-                    feedback.style.background = '#d4edda';
-                } else {
-                    feedback.innerHTML = `First: ${first.candidate} | Relevance: ${first.relevance_score}`;
-                }
+                // Use context directly - clean and simple!
+                await this.currentContext.applyChoice(first);
+                feedback.innerHTML = `✅ Applied: ${first.candidate} | Relevance: ${first.relevance_score}`;
+                feedback.style.background = '#d4edda';
                 setTimeout(() => feedback.remove(), 3000);
             } catch (error) {
                 feedback.innerHTML = '❌ Error: Failed to apply first choice';
@@ -162,7 +157,7 @@ export class ActivityDisplay {
                 this.candidatesData.splice(targetIndex, 0, draggedItem);
                 
                 const input = container.querySelector('.candidate-header').textContent.match(/Input: "([^"]+)"/)?.[1];
-                this.addCandidate(input, { fullResults: { ranked_candidates: this.candidatesData } });
+                this.addCandidate(input, { fullResults: { ranked_candidates: this.candidatesData } }, this.currentContext);
             }
             dragIndex = null;
         };
@@ -170,6 +165,7 @@ export class ActivityDisplay {
 
     static clearCandidates() {
         this.candidatesData = [];
+        this.currentContext = null;
         this.container.querySelector('#candidate-ranked').innerHTML = 
             '<div class="placeholder-text">Rankings appear here during processing</div>';
     }
