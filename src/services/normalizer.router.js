@@ -105,20 +105,12 @@ export class NormalizerRouter {
             return topMatch;
         }
         
-        // If scores are close, prefer matches with better spec_match_score
+        // If scores are close, check for spec gaps to help decide
         if (fullResults?.ranked_candidates) {
             const topCandidate = fullResults.ranked_candidates.find(c => c.candidate === topMatch[0]);
             const secondCandidate = fullResults.ranked_candidates.find(c => c.candidate === secondMatch[0]);
             
             if (topCandidate && secondCandidate) {
-                // Prefer higher spec_match_score
-                if (topCandidate.spec_match_score > secondCandidate.spec_match_score) {
-                    return topMatch;
-                }
-                if (secondCandidate.spec_match_score > topCandidate.spec_match_score) {
-                    return secondMatch;
-                }
-                
                 // Prefer fewer spec_gaps
                 if (topCandidate.spec_gaps.length < secondCandidate.spec_gaps.length) {
                     return topMatch;
