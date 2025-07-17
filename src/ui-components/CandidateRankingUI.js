@@ -26,6 +26,17 @@ export class ActivityDisplay {
                 .candidate-table tr:hover { background: #f3f2f1; }
                 .candidate-table tr.dragging { opacity: 0.5; }
                 .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
+                .drag-handle {
+                    cursor: grab;
+                    padding: 4px;
+                    color: #605e5c;
+                }
+                .drag-handle:hover {
+                    color: #0078d4;
+                }
+                .drag-handle:active {
+                    cursor: grabbing;
+                }
             </style>
         `;
         
@@ -59,10 +70,11 @@ export class ActivityDisplay {
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
-                    <thead><tr><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
+                    <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
                     <tbody>
                         ${this.candidatesData.map((c, i) => `
                             <tr draggable="true" data-index="${i}">
+                                <td class="drag-handle">⋮⋮</td>
                                 <td>${c.rank}</td>
                                 <td>${c.candidate}</td>
                                 <td>${c.relevance_score}</td>
