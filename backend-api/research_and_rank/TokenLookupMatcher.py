@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 from fastapi import APIRouter
 import time
+from pprint import pprint
 
 # Global matcher instance
 token_matcher = None
@@ -14,6 +15,8 @@ class TokenLookupMatcher:
         self.complete_term_dataset = terms  # Before unique
         self.deduplicated_terms = list(set(terms))  # After unique
         self.token_term_lookup = self._build_index()
+        # pprint(self.deduplicated_terms)
+
 
     def _tokenize(self, text):
         return set(re.findall(r'[a-zA-Z0-9]+', str(text).lower()))
@@ -45,6 +48,24 @@ class TokenLookupMatcher:
                 scores.append((self.deduplicated_terms[i], score))
 
         return sorted(scores, key=lambda x: x[1], reverse=True)
+    
+    def append_terms(self, new_terms: List[str]):
+        """Add new terms to existing matcher"""
+        if not new_terms:
+            return
+        
+        # Add to datasets
+        self.complete_term_dataset.extend(new_terms)
+        
+        # Add unique terms and update index
+        start_index = len(self.deduplicated_terms)
+        for term in new_terms:
+            if term not in self.deduplicated_terms:
+                self.deduplicated_terms.append(term)
+                # Update index for this new term
+                term_index = len(self.deduplicated_terms) - 1
+                for token in self._tokenize(term):
+                    self.token_term_lookup[token].add(term_index)
 
 class SetupMatcherRequest(BaseModel):
     terms: List[str]
@@ -70,6 +91,17 @@ async def setup_matcher(request: SetupMatcherRequest):
         "unique_terms": len(token_matcher.deduplicated_terms),
         "duplicates_removed": len(token_matcher.complete_term_dataset) - len(token_matcher.deduplicated_terms)
     }
+
+@router.post("/append-matcher-terms")
+async def append_matcher_terms(request: SetupMatcherRequest):
+    global token_matcher
+    
+    if token_matcher is None:
+        # If no matcher, just setup normally
+        return await setup_matcher(request)
+    
+    token_matcher.append_terms(request.terms)
+    return {"status": "terms_appended"}
 
 @router.post("/match-term")
 async def match_term(request: MatchRequest):

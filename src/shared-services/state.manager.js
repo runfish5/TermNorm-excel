@@ -119,6 +119,38 @@ export class StateManager {
     getFullState() {
         return { ...this.state };
     }
+
+    // shared-services/state.manager.js
+// Add this ONE method to your existing StateManager class:
+
+    // NEW: Merge method with proper reverse mapping handling
+    mergeMappings(newForward, newReverse, newMetadata) {
+        const current = this.get('mappings');
+        
+        // Merge forward mappings (simple)
+        const mergedForward = { ...current.forward, ...newForward };
+        
+        // Merge reverse mappings (complex - merge alias arrays)
+        const mergedReverse = { ...current.reverse };
+        for (const [target, data] of Object.entries(newReverse || {})) {
+            if (mergedReverse[target]) {
+                // Merge aliases, avoiding duplicates
+                const existingAliases = new Set(mergedReverse[target].alias || []);
+                const newAliases = data.alias || [];
+                newAliases.forEach(alias => existingAliases.add(alias));
+                mergedReverse[target] = { alias: Array.from(existingAliases) };
+            } else {
+                mergedReverse[target] = { ...data };
+            }
+        }
+        
+        this.update({
+            'mappings.forward': mergedForward,
+            'mappings.reverse': mergedReverse,
+            'mappings.metadata': newMetadata,
+            'mappings.loaded': true
+        });
+    }
 }
 
 export const state = new StateManager();
