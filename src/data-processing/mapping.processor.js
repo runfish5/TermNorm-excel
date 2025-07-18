@@ -129,11 +129,16 @@ export async function loadAndProcessMappings(customParams = null) {
         
         // Step 4: Setup token matcher
         state.setStatus('Configuring token matcher...');
-        const matcherSetup = await setupTokenMatcher(Object.keys(result.reverse));
-        
+        // const matcherSetup = await setupTokenMatcher(Object.keys(result.reverse));
+        const matcherSetup = await fetch('http://127.0.0.1:8000/append-matcher-terms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ terms: Object.keys(result.reverse) })
+        }).then(r => r.json());
         // Step 5: Update state and complete
-        state.setMappings(result.forward, result.reverse, result.metadata);
-        
+        // state.setMappings(result.forward, result.reverse, result.metadata);
+        state.mergeMappings(result.forward, result.reverse, result.metadata);
+
         const { validMappings, targets, issues } = result.metadata;
         const statusMsg = issues 
             ? `Loaded ${validMappings} mappings with ${issues.length} issues`

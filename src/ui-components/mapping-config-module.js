@@ -200,11 +200,13 @@ export class MappingConfigModule {
             };
             
             const result = await loadAndProcessMappings(customParams);
-            this.mappings = {
-                forward: result.forward || {},
-                reverse: result.reverse || {},
-                metadata: result.metadata || null
-            };
+            // this.mappings = {
+            //     forward: result.forward || {},
+            //     reverse: result.reverse || {},
+            //     metadata: result.metadata || null
+            // };
+            state.mergeMappings(result.forward || {}, result.reverse || {}, result.metadata || null);
+            this.mappings = state.getMappings();
             
             this.handleMappingSuccess(result);
             
