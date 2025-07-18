@@ -9,6 +9,35 @@ import re
 import asyncio
 
 
+def generate_format_string_from_schema(schema):
+    """Generate the JSON format string for LLM prompt from a JSON schema"""
+    if 'properties' not in schema:
+        raise ValueError("Schema must contain 'properties' field")
+    
+    format_items = []
+    for prop_name, prop_def in schema['properties'].items():
+        prop_type = prop_def.get('type', 'string')
+        
+        if prop_type == 'string':
+            format_items.append(f'  "{prop_name}": "string"')
+        elif prop_type == 'array':
+            items_type = prop_def.get('items', {}).get('type', 'string')
+            if items_type == 'string':
+                format_items.append(f'  "{prop_name}": ["array of strings"]')
+            else:
+                format_items.append(f'  "{prop_name}": ["array of {items_type}s"]')
+        elif prop_type == 'object':
+            format_items.append(f'  "{prop_name}": {{"object"}}')
+        elif prop_type == 'number' or prop_type == 'integer':
+            format_items.append(f'  "{prop_name}": {prop_type}')
+        elif prop_type == 'boolean':
+            format_items.append(f'  "{prop_name}": true/false')
+        else:
+            format_items.append(f'  "{prop_name}": "{prop_type}"')
+    
+    return "{\n" + ",\n".join(format_items) + "\n}"
+
+
 def scrape_url(url, char_limit):
     """Fast content extraction"""
     skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
@@ -41,7 +70,7 @@ def scrape_url(url, char_limit):
 async def web_generate_entity_profile(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     """Research a topic and return structured data"""
     if schema is None:
-        raise ValueError("Schema parameter is required")
+        raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
     
     start_time = time.time()
     time.sleep(1)
@@ -92,19 +121,20 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
         [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
     )[:raw_content_limit]
     
-    format_string = "{\n" + ",\n".join([
-        f'  "{name}": []' if props.get('type') == 'array' else f'  "{name}": ""' 
-        for name, props in schema['properties'].items()
-    ]) + "\n}"
+    # Use the old format string generation
+    format_string = generate_format_string_from_schema(schema)
     
-    # Call LLM
-    messages = [{"role": "user", "content": f"""Extract information about '{query}' from the research data and return it in this exact JSON format:
+    # Use the old, more detailed prompt text
+    prompt = f"""You are a technical material database API. Extract information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
 
 RESEARCH DATA:
 {combined_text}
 
-Return only the JSON object with all fields populated. Use empty arrays [] for missing data."""}]
+Return only the JSON object with all fields populated. Use empty arrays [] for missing data."""
+    
+    # Call LLM
+    messages = [{"role": "user", "content": prompt}]
     
     result = await llm_call(messages=messages, temperature=0.2, max_tokens=1200, output_format="json")
     

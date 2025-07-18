@@ -63,7 +63,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     print("\n[PIPELINE] Step 2: Matching candidates")
     candidate_results, match_time = rank_terms_by_shared_tokens(token_matcher, query_list)
     print(f"Match completed in {match_time:.2f}s")
-
+    pprint(candidate_results)
     print("\n[PIPELINE] Step 3: Ranking with LLM")
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
     
