@@ -12,6 +12,9 @@ export class AppOrchestrator {
         this.ui = new UIManager();
         this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
         this.configLoaded = false;
+        
+        // Add this line for easy debugging
+        window.state = state;
     }
 
     async init() {
