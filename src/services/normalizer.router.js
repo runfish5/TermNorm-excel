@@ -1,6 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from './normalizer.fuzzy.js';
-import { state } from '../shared-services/state.manager.js'; // Use state instead of UIManager
+import { state } from '../shared-services/state.manager.js';
 
 export class NormalizerRouter {
     constructor(forward, reverse, config) {
@@ -56,7 +56,6 @@ export class NormalizerRouter {
             // Check if it's an error response
             if (!data.success) {
                 console.error(`API Error: ${data.error} (${data.error_type})`);
-                // Use state manager to communicate with UI
                 state.setStatus(`Research failed: ${data.error}`, true);
                 return null;
             }
@@ -66,14 +65,20 @@ export class NormalizerRouter {
             if (!rankedCandidates?.length) return null;
 
             // Convert ranked_candidates to the expected [name, score] format
-            const formattedMatches = rankedCandidates.map(candidate => [
-                candidate.candidate,
-                candidate.relevance_score
-            ]);
+            // Handle case where candidate is None by using _original_llm_string as fallback
+            const formattedMatches = rankedCandidates.map(candidate => {
+                const candidateValue = candidate.candidate || candidate._original_llm_string || 'Unknown';
+                return [candidateValue, candidate.relevance_score];
+            }).filter(match => match[0] !== 'Unknown' && match[0] !== null); // Filter out invalid candidates
 
             const qualifyingMatches = formattedMatches.filter(match => match[1] >= 0.005);
             
-            if (qualifyingMatches.length === 0) return null;
+            if (qualifyingMatches.length === 0) {
+                console.log('No qualifying matches found after filtering');
+                return null;
+            }
+
+            console.log('Formatted matches:', formattedMatches);
 
             return { 
                 type: 'multiple_matches',
@@ -84,7 +89,6 @@ export class NormalizerRouter {
             
         } catch (error) {
             console.error('Token match error:', error);
-            // Also communicate network/other errors via state
             state.setStatus(`Network error during research: ${error.message}`, true);
             return null;
         }

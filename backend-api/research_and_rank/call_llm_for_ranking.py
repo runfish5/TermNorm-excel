@@ -1,17 +1,15 @@
-#@title call_llm_for_ranking()
-from groq import Groq
+from research_and_rank.llm_providers import llm_call
 import json
 
 # Import the correction function, assuming it's in a sibling module
 from .correct_candidate_strings import correct_candidate_strings
 
-def call_llm_for_ranking(profile_info, match_results, query, groq_api_key):
+async def call_llm_for_ranking(profile_info, match_results, query):
     """
     Ranks candidates using an LLM, corrects the output strings,
     and formats the final successful API response.
     """
     ranking_schema = {
-        # ... (your existing schema definition remains unchanged)
         "type": "object",
         "properties": {
             "profile_specs_identified": {"type": "array", "items": {"type": "string"}},
@@ -71,22 +69,15 @@ If profile shows 35% Glass Fiber, then "35% GF" candidates must rank higher than
 
 Provide the identified specs first, then ranking based on exact specification matching."""
 
-    client = Groq(api_key=groq_api_key)
+    messages = [{"role": "user", "content": prompt}]
     
-    chat_completion = client.chat.completions.create(
-        model="meta-llama/llama-4-maverick-17b-128e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "spec_based_ranking",
-                "schema": ranking_schema
-            }
-        },
-        temperature=0
+    ranking_result = await llm_call(
+        messages=messages,
+        temperature=0,
+        max_tokens=2000,
+        output_format="schema",
+        schema=ranking_schema
     )
-    
-    ranking_result = json.loads(chat_completion.choices[0].message.content)
     
     # --- PIPELINE STEP 4: Correct Candidate Strings ---
     print("\n[PIPELINE] Step 4: Correcting candidate strings")

@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from utils.exceptions import handle_exceptions, ApiResponse
 from .web_generate_entity_profile import web_generate_entity_profile
 from .display_profile import display_profile
-from .call_llm_for_ranking import call_llm_for_ranking
+from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 
 # Load entity schema
 schema_path = Path(__file__).parent / "entity_profile_schema.json"
@@ -42,19 +42,14 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     print(f"[PIPELINE] Started for query: '{request.query}'")
     
     # --- Setup ---
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY not found in environment")
-        
     from .TokenLookupMatcher import token_matcher
     if token_matcher is None:
         raise HTTPException(status_code=503, detail="Matcher not initialized. Call /setup-matcher first.")
         
     # Pipeline execution - no try-catch needed, decorator handles it
     print("[PIPELINE] Step 1: Researching")
-    entity_profile = web_generate_entity_profile(
-        request.query,
-        groq_api_key,
+    entity_profile = await web_generate_entity_profile(
+        query=request.query,
         max_sites=6,
         schema=entity_schema,
         verbose=True
@@ -72,11 +67,10 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     print("\n[PIPELINE] Step 3: Ranking with LLM")
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
     
-    final_response = call_llm_for_ranking(
+    final_response = await call_llm_for_ranking(
         profile_info, 
         candidate_results, 
-        request.query, 
-        groq_api_key
+        request.query
     )
     pprint(final_response)
     return final_response
