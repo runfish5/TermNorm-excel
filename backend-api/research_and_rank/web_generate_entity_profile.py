@@ -10,7 +10,6 @@ import re
 
 def scrape_url(url, char_limit):
     """Fast content extraction with aggressive timeouts and filtering"""
-    # Skip problematic URLs
     skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
     skip_domains = ['academia.edu', 'researchgate.net', 'arxiv.org', 'ieee.org']
     
@@ -31,7 +30,6 @@ def scrape_url(url, char_limit):
         
         text = re.sub(r'\s+', ' ', soup.get_text().strip())
         
-        # Better content validation (200-10000 range works better)
         if len(text) < 200 or len(text) > 10000:
             return None
         
@@ -44,31 +42,64 @@ def scrape_url(url, char_limit):
 
 
 def web_generate_entity_profile(query, groq_api_key, max_sites=4, schema=None, 
-                  content_char_limit=800, raw_content_limit=5000, verbose=False, detailed_logging=False):
-    """Research a topic and return structured data - simplified 2-step workflow"""
+                  content_char_limit=800, raw_content_limit=5000, verbose=False):
+    """Research a topic and return structured data"""
     start_time = time.time()
+    time.sleep(1)  # Rate limiting prevention
     
     if schema is None:
-        raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
+        raise ValueError("Schema parameter is required")
     
-    if verbose:
-        print(f"🦆 DuckDuckGo Search: {query}")
-    
-    # Search DuckDuckGo - get more URLs for better success rate
+    # Search DuckDuckGo
     search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
-    search_response = requests.get(search_url, headers={
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }, timeout=10)
+    search_engine_used = "DuckDuckGo"
+    
+    try:
+        search_response = requests.get(search_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }, timeout=10)
+        
+        # Handle 202 status (rate limiting)
+        if search_response.status_code == 202:
+            time.sleep(2)
+            search_response = requests.get(search_url, headers={
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            }, timeout=15)
+        
+        if search_response.status_code not in [200, 202]:
+            raise Exception(f"Search failed with status {search_response.status_code}")
+            
+    except Exception as e:
+        raise Exception(f"Search request failed: {str(e)}")
+    
+    # Parse search results
     search_soup = BeautifulSoup(search_response.content, 'html.parser')
-    urls = [link.get('href') for link in search_soup.find_all('a', class_='result__a') 
-            if link.get('href') and link.get('href').startswith('http')][:max_sites * 8]
+    all_links = search_soup.find_all('a', class_='result__a')
+    urls = [link.get('href') for link in all_links 
+            if link.get('href') and link.get('href').startswith('http')]
     
-    if verbose:
-        print(f"📄 Scraping {max_sites} URLs in parallel...")
+    # Fallback to Bing if no results
+    if not urls:
+        search_engine_used = "Bing"
+        try:
+            bing_response = requests.get(f"https://www.bing.com/search?q={quote_plus(query)}", 
+                                       headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, 
+                                       timeout=10)
+            if bing_response.status_code == 200:
+                bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
+                bing_links = bing_soup.find_all('a', href=True)
+                urls = [link.get('href') for link in bing_links 
+                       if link.get('href') and link.get('href').startswith('http') 
+                       and 'bing.com' not in link.get('href')][:max_sites * 4]
+        except:
+            pass
     
-    # Scrape URLs in parallel with better error handling
+    if not urls:
+        raise Exception("No URLs found in search results")
+    
+    # Scrape URLs in parallel
+    urls_to_try = urls[:max_sites * 2]
     scraped_content = []
-    urls_to_try = urls[:max_sites * 2]  # Try more URLs than we need
     
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(scrape_url, url, content_char_limit) for url in urls_to_try]
@@ -80,19 +111,13 @@ def web_generate_entity_profile(query, groq_api_key, max_sites=4, schema=None,
                 if len(scraped_content) >= max_sites:
                     break
     
-    if verbose:
-        print(f"⏱️  Scraped in {time.time() - start_time:.1f}s")
-    
     if not scraped_content:
         raise Exception("No content found during web scraping")
     
-    # Combine content and analyze with LLM
+    # Combine content for LLM
     combined_text = f"Research about: {query}\n\n" + "\n\n".join(
         [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
     )[:raw_content_limit]
-    
-    if verbose:
-        print(f"🤖 Summarizing {len(scraped_content)} sources...")
     
     # Create JSON format from schema
     format_string = "{\n" + ",\n".join([
@@ -117,11 +142,28 @@ Return only the JSON object with all fields populated. Use empty arrays [] for m
     )
     
     result = json.loads(response.choices[0].message.content)
+    
+    # Enhanced metadata
+    processing_time = time.time() - start_time
+    total_content_chars = sum(len(item['content']) for item in scraped_content)
+    success_rate = len(scraped_content) / len(urls_to_try) * 100
+    
     result['_metadata'] = {
         'query': query,
+        'search_engine': search_engine_used,
         'sources_count': len(scraped_content),
-        'processing_time': time.time() - start_time,
+        'urls_attempted': len(urls_to_try),
+        'success_rate_percent': round(success_rate, 1),
+        'processing_time_seconds': round(processing_time, 2),
+        'total_content_chars': total_content_chars,
+        'avg_content_per_source': round(total_content_chars / len(scraped_content)),
         'sources': [{'title': item['title'], 'url': item['url']} for item in scraped_content]
     }
+    
+    if verbose:
+        print(f"🎉 SUCCESS! Generated profile with {len(result)-1} fields | "
+              f"{len(scraped_content)} sources ({success_rate:.1f}% success) | "
+              f"{search_engine_used} | {processing_time:.1f}s | "
+              f"{total_content_chars:,} chars processed")
     
     return result
