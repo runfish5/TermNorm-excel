@@ -43,6 +43,8 @@ export class NormalizerRouter {
 
     async findTokenMatch(val) {
         try {
+            state.setStatus('Starting mapping process...');
+            
             const res = await fetch("http://127.0.0.1:8000/research-and-match", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -64,21 +66,22 @@ export class NormalizerRouter {
             const rankedCandidates = data.data.full_results?.ranked_candidates;
             if (!rankedCandidates?.length) return null;
 
-            // Convert ranked_candidates to the expected [name, score] format
-            // Handle case where candidate is None by using _original_llm_string as fallback
+            // Map all candidates for display (including None candidates with _original_llm_string)
             const formattedMatches = rankedCandidates.map(candidate => {
-                const candidateValue = candidate.candidate || candidate._original_llm_string || 'Unknown';
-                return [candidateValue, candidate.relevance_score];
-            }).filter(match => match[0] !== 'Unknown' && match[0] !== null); // Filter out invalid candidates
+                const displayValue = candidate.candidate || candidate._original_llm_string || 'Unknown';
+                return [displayValue, candidate.relevance_score];
+            });
 
             const qualifyingMatches = formattedMatches.filter(match => match[1] >= 0.005);
             
             if (qualifyingMatches.length === 0) {
                 console.log('No qualifying matches found after filtering');
+                state.setStatus('No qualifying matches found', true);
                 return null;
             }
 
             console.log('Formatted matches:', formattedMatches);
+            state.setStatus(`Found ${qualifyingMatches.length} qualifying matches`);
 
             return { 
                 type: 'multiple_matches',
