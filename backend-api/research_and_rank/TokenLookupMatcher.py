@@ -58,7 +58,6 @@ class TokenLookupMatcher:
         self.complete_term_dataset.extend(new_terms)
         
         # Add unique terms and update index
-        start_index = len(self.deduplicated_terms)
         for term in new_terms:
             if term not in self.deduplicated_terms:
                 self.deduplicated_terms.append(term)
@@ -67,7 +66,7 @@ class TokenLookupMatcher:
                 for token in self._tokenize(term):
                     self.token_term_lookup[token].add(term_index)
 
-class SetupMatcherRequest(BaseModel):
+class UpdateMatcherRequest(BaseModel):
     terms: List[str]
 
 class MatchRequest(BaseModel):
@@ -76,32 +75,34 @@ class MatchRequest(BaseModel):
 # Create router
 router = APIRouter()
 
-@router.post("/setup-matcher")
-async def setup_matcher(request: SetupMatcherRequest):
-    """Setup the TokenLookupMatcher with a list of terms"""
+@router.post("/update-matcher")
+async def update_matcher(request: UpdateMatcherRequest):
+    """Smart endpoint that creates new matcher or appends to existing one"""
     global token_matcher
     start = time.time()
-    token_matcher = TokenLookupMatcher(request.terms)
-    setup_time = time.time() - start
-    print(f"[DEBUG] TokenLookupMatcher setup complete in {setup_time:.2f} seconds")
-    return {
-        "status": "matcher_setup_complete",
-        "setup_time": setup_time,
-        "total_terms": len(token_matcher.complete_term_dataset),
-        "unique_terms": len(token_matcher.deduplicated_terms),
-        "duplicates_removed": len(token_matcher.complete_term_dataset) - len(token_matcher.deduplicated_terms)
-    }
-
-@router.post("/append-matcher-terms")
-async def append_matcher_terms(request: SetupMatcherRequest):
-    global token_matcher
     
     if token_matcher is None:
-        # If no matcher, just setup normally
-        return await setup_matcher(request)
-    
-    token_matcher.append_terms(request.terms)
-    return {"status": "terms_appended"}
+        # Create new matcher
+        token_matcher = TokenLookupMatcher(request.terms)
+        setup_time = time.time() - start
+        print(f"[DEBUG] TokenLookupMatcher setup complete in {setup_time:.2f} seconds")
+        
+        return {
+            "status": "matcher_setup_complete",
+            "setup_time": setup_time,
+            "total_terms": len(token_matcher.complete_term_dataset),
+            "unique_terms": len(token_matcher.deduplicated_terms),
+            "duplicates_removed": len(token_matcher.complete_term_dataset) - len(token_matcher.deduplicated_terms)
+        }
+    else:
+        # Append to existing matcher
+        token_matcher.append_terms(request.terms)
+        append_time = time.time() - start
+        return {
+            "status": "terms_appended",
+            "append_time": append_time,
+            "total_unique_terms": len(token_matcher.deduplicated_terms)
+        }
 
 @router.post("/match-term")
 async def match_term(request: MatchRequest):
@@ -109,7 +110,7 @@ async def match_term(request: MatchRequest):
     
     if token_matcher is None:
         print(f"[DEBUG] token_matcher is None - matcher not initialized")
-        return {"error": "Matcher not initialized. Call /setup-matcher first."}
+        return {"error": "Matcher not initialized. Call /update-matcher first."}
     
     print(f"[MATCH-TERM] Query: '{request.query}'")
     
@@ -128,7 +129,7 @@ async def match_term(request: MatchRequest):
         
         return {
             "query": request.query,
-            "matches": results,  # Already in [[candidate, score], ...] format
+            "matches": results,
             "total_matches": len(results),
             "match_time": match_time,
             "research_performed": False

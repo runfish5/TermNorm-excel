@@ -2,40 +2,30 @@
 import { ExcelIntegration } from '../services/excel-integration.js';
 import { state } from '../shared-services/state.manager.js';
 
-// Simplified parameter extraction with defaults
-function extractMappingParams(customParams) {
-    if (customParams) return customParams;
-    
-    const elements = {
-        useCurrentFile: document.getElementById('current-file'),
-        sheetName: document.getElementById('worksheet-dropdown'),
-        sourceColumn: document.getElementById('source-column'),
-        targetColumn: document.getElementById('target-column'),
-        externalFile: document.getElementById('external-file')
+// Combined parameter extraction and validation
+function getValidatedParams(customParams) {
+    // Use custom params or extract from DOM
+    const params = customParams || {
+        useCurrentFile: document.getElementById('current-file')?.checked || false,
+        sheetName: document.getElementById('worksheet-dropdown')?.value?.trim() || '',
+        sourceColumn: document.getElementById('source-column')?.value?.trim() || null,
+        targetColumn: document.getElementById('target-column')?.value?.trim() || '',
+        externalFile: window.externalFile || document.getElementById('external-file')?.files?.[0] || null
     };
     
-    return {
-        useCurrentFile: elements.useCurrentFile?.checked || false,
-        sheetName: elements.sheetName?.value?.trim() || '',
-        sourceColumn: elements.sourceColumn?.value?.trim() || null,
-        targetColumn: elements.targetColumn?.value?.trim() || '',
-        externalFile: window.externalFile || elements.externalFile?.files?.[0] || null
-    };
-}
-
-// Simplified validation with clear error messages
-function validateParams({ useCurrentFile, sheetName, targetColumn, externalFile }) {
-    if (!sheetName) throw new Error('Sheet name is required');
-    if (!targetColumn) throw new Error('Target column is required');
-    if (!useCurrentFile && !externalFile) throw new Error('External file required when not using current file');
+    // Validate required fields
+    if (!params.sheetName) throw new Error('Sheet name is required');
+    if (!params.targetColumn) throw new Error('Target column is required');
+    if (!params.useCurrentFile && !params.externalFile) throw new Error('External file required when not using current file');
+    
+    return params;
 }
 
 // Simplified column finder
 function findColumn(headers, columnName) {
-    if (!columnName) return -1;
-    return headers.findIndex(h => 
+    return columnName ? headers.findIndex(h => 
         h?.toString().trim().toLowerCase() === columnName.toLowerCase()
-    );
+    ) : -1;
 }
 
 // Streamlined mapping processor
@@ -59,10 +49,9 @@ export function processMappings(data, sourceColumn, targetColumn) {
     for (const [i, row] of rows.entries()) {
         const source = srcIdx >= 0 ? (row[srcIdx] || '').toString().trim() : '';
         const target = (row[tgtIdx] || '').toString().trim();
-        const rowNum = i + 2; // Header is row 1
         
         if (!target) {
-            issues.push(`Row ${rowNum}: Empty target`);
+            issues.push(`Row ${i + 2}: Empty target`);
             continue;
         }
         
@@ -74,7 +63,7 @@ export function processMappings(data, sourceColumn, targetColumn) {
         // Handle source mapping
         if (source) {
             if (mappings.forward[source]) {
-                issues.push(`Row ${rowNum}: Duplicate source "${source}"`);
+                issues.push(`Row ${i + 2}: Duplicate source "${source}"`);
                 continue;
             }
             mappings.forward[source] = target;
@@ -93,64 +82,49 @@ export function processMappings(data, sourceColumn, targetColumn) {
     };
 }
 
-// Simplified API call with better error handling
-async function setupTokenMatcher(terms) {
-    const response = await fetch('http://127.0.0.1:8000/setup-matcher', {
+// Simplified token matcher update
+async function updateTokenMatcher(terms) {
+    const response = await fetch('http://127.0.0.1:8000/update-matcher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ terms })
     });
     
     if (!response.ok) {
-        throw new Error(`Token matcher setup failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Token matcher failed: ${response.statusText}`);
     }
     
     return response.json();
 }
 
-// Main orchestration function - broken into clear steps
+// Main function - much simpler
 export async function loadAndProcessMappings(customParams = null) {
-    state.setStatus('Starting mapping process...');
-    
     try {
-        // Step 1: Get and validate parameters
-        const params = extractMappingParams(customParams);
-        validateParams(params);
-        console.log('Mapping parameters:', params);
+        state.setStatus('Loading mappings...');
         
-        // Step 2: Load data
-        state.setStatus('Loading worksheet data...');
+        // Get params, load data, process mappings
+        const params = getValidatedParams(customParams);
         const excel = new ExcelIntegration();
         const data = await excel.loadWorksheetData(params);
-        
-        // Step 3: Process mappings
-        state.setStatus('Processing mappings...');
         const result = processMappings(data, params.sourceColumn, params.targetColumn);
         
-        // Step 4: Setup token matcher
-        state.setStatus('Configuring token matcher...');
-        // const matcherSetup = await setupTokenMatcher(Object.keys(result.reverse));
-        const matcherSetup = await fetch('http://127.0.0.1:8000/append-matcher-terms', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ terms: Object.keys(result.reverse) })
-        }).then(r => r.json());
-        // Step 5: Update state and complete
-        // state.setMappings(result.forward, result.reverse, result.metadata);
+        // Update matcher and state
+        await updateTokenMatcher(Object.keys(result.reverse));
         state.mergeMappings(result.forward, result.reverse, result.metadata);
-
-        const { validMappings, targets, issues } = result.metadata;
+        
+        // Simple status message
+        const { validMappings, issues } = result.metadata;
         const statusMsg = issues 
-            ? `Loaded ${validMappings} mappings with ${issues.length} issues`
-            : `Loaded ${validMappings} mappings to ${targets} targets`;
+            ? `Loaded ${validMappings} mappings (${issues.length} issues)`
+            : `Loaded ${validMappings} mappings`;
         
         state.setStatus(statusMsg);
-        if (issues) console.warn('Mapping issues:', issues);
+        if (issues) console.warn('Issues:', issues);
         
-        return { ...result, matcherSetup };
+        return result;
         
     } catch (error) {
-        state.setStatus(`Mapping failed: ${error.message}`, true);
+        state.setStatus(`Failed: ${error.message}`, true);
         state.clearMappings();
         throw error;
     }
