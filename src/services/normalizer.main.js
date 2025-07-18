@@ -104,23 +104,34 @@ export class LiveTracker {
             let finalResult;
             
             if (result && result.type === 'multiple_matches') {
-                // Simply take the first match - no need for selectBestMatch function
-                const bestMatch = result.matches[0];
+                // Find the first match that has an actual candidate (not None)
+                const validMatches = result.fullResults.ranked_candidates.filter(c => c.candidate);
                 
-                console.log('\n### Best match selected \n\n', bestMatch);
-                console.log(`${JSON.stringify(bestMatch, null, 2)}`);
-
-                finalResult = {
-                    target: bestMatch[0],
-                    method: result.method,
-                    confidence: bestMatch[1]
-                };
+                if (validMatches.length > 0) {
+                    const bestValidCandidate = validMatches[0];
+                    console.log('\n### Best valid match selected \n\n', bestValidCandidate);
+                    
+                    finalResult = {
+                        target: bestValidCandidate.candidate,
+                        method: result.method,
+                        confidence: bestValidCandidate.relevance_score
+                    };
+                } else {
+                    // All candidates are None - no valid normalization possible
+                    console.log('\n### All candidates are None - no valid match \n\n');
+                    finalResult = null;
+                }
             } else {
                 finalResult = result;
             }
             
             if (finalResult) {
                 this.applyResult(ws, row, col, targetCol, value, finalResult);
+            } else {
+                // No result found - just clear the yellow color and log the activity
+                ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
+                ActivityFeed.add(value, 'No matches found', 'no_match', 0);
+                logActivity(value, 'No matches found', 'no_match', 0);
             }
             
         } catch (error) {
