@@ -2,11 +2,9 @@
     "type": "object",
     "properties": {
         "entity_name": {"type": "string"},
-        "mechanical_properties": {"type": "array", "items": {"type": "string"}}, 
-        "material_types": {"type": "array", "items": {"type": "string"}},
-        "chemical_elements": {"type": "array", "items": {"type": "string"}},
-        "industries": {"type": "array", "items": {"type": "string"}},
+        "entity_type": {"type": "string", "enum": ["material", "process"]},
         "applications": {"type": "array", "items": {"type": "string"}},
+        "all_components": {"type": "array", "items": {"type": "string"}},
         "technical_specifications": {"type": "array", "items": {"type": "string"}},
         "distinguishing_features": {"type": "array", "items": {"type": "string"}},
         "functional_descriptors": {"type": "array", "items": {"type": "string"}},
@@ -16,8 +14,8 @@
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
-        "entity_name", "mechanical_properties", "material_types",
-        "chemical_elements", "industries", "applications",
+        "entity_name", "entity_type", "applications",
+        "all_components",
         "technical_specifications", "distinguishing_features",
         "functional_descriptors",
         "key_properties", "alternative_names", "term_variants", "notes"

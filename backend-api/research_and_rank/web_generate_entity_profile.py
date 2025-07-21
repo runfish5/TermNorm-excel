@@ -20,10 +20,7 @@ def generate_format_string_from_schema(schema):
             format_items.append(f'  "{prop_name}": "string"')
         elif prop_type == 'array':
             items_type = prop_def.get('items', {}).get('type', 'string')
-            if items_type == 'string':
-                format_items.append(f'  "{prop_name}": ["array of strings"]')
-            else:
-                format_items.append(f'  "{prop_name}": ["array of {items_type}s"]')
+            format_items.append(f'  "{prop_name}": ["array of strings"]')
         elif prop_type == 'object':
             format_items.append(f'  "{prop_name}": {{"object"}}')
         elif prop_type == 'number' or prop_type == 'integer':
@@ -88,13 +85,14 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
             bing_response = requests.get(f"https://www.bing.com/search?q={quote_plus(query)}", 
                                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, timeout=10)
             bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
+            print("THIS IS RESPONSE FROM BING"+ str(bing_soup))
             urls = [link.get('href') for link in bing_soup.find_all('a', href=True) 
                    if link.get('href') and link.get('href').startswith('http') and 'bing.com' not in link.get('href')][:max_sites * 4]
         except:
             pass
     
-    if not urls:
-        raise Exception("No URLs found in search results")
+    # if not urls:
+    #     raise Exception("No URLs found in search results")
     
     # Scrape URLs in parallel
     scraped_content = []
@@ -107,8 +105,8 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
                 if len(scraped_content) >= max_sites:
                     break
     
-    if not scraped_content:
-        raise Exception("No content found during web scraping")
+    # if not scraped_content:
+    #     raise Exception("No content found during web scraping")
     
     # Prepare data for LLM
     combined_text = f"Research about: {query}\n\n" + "\n\n".join(
@@ -124,8 +122,8 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
 
 CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
 - MAXIMIZE keyword diversity: Include ALL synonyms, alternative names, trade names, scientific names, common names, abbreviations, acronyms
-- COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned
-- EXTENSIVE lists: Aim for 5-0+ items per array field where possible - be thorough, not minimal
+- - COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned, including numerical values and compositional data
+- EXTENSIVE lists: Aim for 5-10+ items per array field where possible - be thorough, not minimal
 - INCLUDE variations: different spellings, regional terms, industry-specific terminology
 - CAPTURE context: related terms, associated concepts, derivative names
 - COMPONENT VARIANTS: For 'term_variants', extract spelling variations of ANY component terms (e.g., "molding"→"moulding", "color"→"colour", "fiber"→"fibre")
@@ -137,6 +135,7 @@ RESEARCH DATA:
 ---
 Return only the JSON object with ALL fields maximally populated. For array fields, provide extensive lists with comprehensive coverage. Use empty arrays [] only if absolutely no relevant data exists."""
     
+    print(prompt)
     # Call LLM with enhanced parameters for richer output
     messages = [{"role": "user", "content": prompt}]
     
@@ -153,6 +152,8 @@ Return only the JSON object with ALL fields maximally populated. For array field
     
     if verbose:
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
+    
+    
     
     return result
 def web_generate_entity_profile_sync(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
