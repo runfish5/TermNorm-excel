@@ -53,7 +53,7 @@ export class ActivityDisplay {
 
     // Context passed directly - no global state management needed!
     static addCandidate(value, result, context) {
-        const candidates = result?.fullResults?.ranked_candidates;
+        const candidates = result?.apiData?.data?.full_results?.ranked_candidates;
         if (!candidates) return;
         
         this.candidatesData = [...candidates];

@@ -62,32 +62,30 @@ export class NormalizerRouter {
                 return null;
             }
             
-            // Handle success response - extract matches from full_results.ranked_candidates
+            // Check if we have results
             const rankedCandidates = data.data.full_results?.ranked_candidates;
             if (!rankedCandidates?.length) return null;
 
-            // Map all candidates for display (including None candidates with _original_llm_string)
-            const formattedMatches = rankedCandidates.map(candidate => {
-                const displayValue = candidate.candidate || candidate._original_llm_string || 'Unknown';
-                return [displayValue, candidate.relevance_score];
-            });
-
-            const qualifyingMatches = formattedMatches.filter(match => match[1] >= 0.005);
+            // Find the first valid candidate (has actual candidate + meets score threshold)
+            const bestCandidate = rankedCandidates.find(c => 
+                c.candidate && c.relevance_score >= 0.005
+            );
             
-            if (qualifyingMatches.length === 0) {
-                console.log('No qualifying matches found after filtering');
+            if (!bestCandidate) {
+                console.log('No qualifying matches found');
                 state.setStatus('No qualifying matches found', true);
                 return null;
             }
 
-            console.log('Formatted matches:', formattedMatches);
-            state.setStatus(`Found ${qualifyingMatches.length} qualifying matches`);
+            console.log('Best candidate selected:', bestCandidate);
+            state.setStatus(`Found match: ${bestCandidate.candidate}`);
 
-            return { 
-                type: 'multiple_matches',
-                matches: qualifyingMatches,
-                fullResults: data.data.full_results,
-                method: 'ProfileRank'
+            // Return same format as other methods, but include full API data for UI
+            return {
+                target: bestCandidate.candidate,
+                method: 'ProfileRank',
+                confidence: bestCandidate.relevance_score,
+                apiData: data // Include full API data for UI display
             };
             
         } catch (error) {
