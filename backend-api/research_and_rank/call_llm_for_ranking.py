@@ -4,6 +4,10 @@ import json
 # Import the correction function, assuming it's in a sibling module
 from .correct_candidate_strings import correct_candidate_strings
 
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RESET = '\033[0m'
+
 async def call_llm_for_ranking(profile_info, match_results, query):
     """
     Ranks candidates using an LLM, corrects the output strings,
@@ -42,9 +46,9 @@ async def call_llm_for_ranking(profile_info, match_results, query):
     
     match_list = "\n".join([f"{i+1}. {term} (Score: {score:.3f})" 
                             for i, (term, score) in enumerate(match_results[:20])])
-    
-    prompt = f"""STEP 1: IDENTIFY EXACT SPECIFICATIONS FROM PROFILE
-First, extract the exact technical specifications from the research profile below.
+    domain_instructions = ""
+    prompt = f"""STEP 1: IDENTIFY KEY SPECIFICATIONS FROM PROFILE
+First, extract the key specifications and requirements from the research profile below.
 
 QUERY: {query}
 
@@ -54,21 +58,22 @@ RESEARCH PROFILE:
 CANDIDATE MATCHES:
 {match_list}
 
-CRITICAL INSTRUCTIONS:
-1. FIRST: Identify the exact Glass Fiber percentage specified in the profile (look for "Glass Fiber', 'specification': 'X%'")
-2. SECOND: Identify the exact material type (PA66, PA6, etc.)
-3. THIRD: Rank candidates based on EXACT specification matches
+INSTRUCTIONS:
+1. FIRST: Identify the key specifications mentioned in the profile
+2. SECOND: Identify any specific requirements or constraints
+3. THIRD: Rank candidates based on how well they match the identified specifications
 
-RANKING PRIORITY:
-- Exact Glass Fiber % match = highest priority
-- Exact material type match = second priority  
-- Close matches = lower priority
-- Mismatched specs = lowest priority
+RANKING APPROACH:
+- Exact specification matches = highest priority
+- Close specification matches = medium priority
+- Partial matches = lower priority
+- Poor matches = lowest priority
 
-If profile shows 35% Glass Fiber, then "35% GF" candidates must rank higher than "25% GF" or "50% GF" candidates.
+{domain_instructions}
 
-Provide the identified specs first, then ranking based on exact specification matching."""
+Provide the identified specifications first, then ranking based on specification matching and relevance to the query."""
 
+    print(GREEN + prompt +RESET)
     messages = [{"role": "user", "content": prompt}]
     
     ranking_result = await llm_call(

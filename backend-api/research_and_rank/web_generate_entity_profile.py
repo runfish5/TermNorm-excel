@@ -7,8 +7,6 @@ from urllib.parse import quote_plus
 from research_and_rank.llm_providers import llm_call
 import re
 import asyncio
-
-
 def generate_format_string_from_schema(schema):
     """Generate the JSON format string for LLM prompt from a JSON schema"""
     if 'properties' not in schema:
@@ -36,8 +34,6 @@ def generate_format_string_from_schema(schema):
             format_items.append(f'  "{prop_name}": "{prop_type}"')
     
     return "{\n" + ",\n".join(format_items) + "\n}"
-
-
 def scrape_url(url, char_limit):
     """Fast content extraction"""
     skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
@@ -65,8 +61,6 @@ def scrape_url(url, char_limit):
         return {'title': title, 'content': text[:char_limit], 'url': url}
     except:
         return None
-
-
 async def web_generate_entity_profile(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     """Research a topic and return structured data"""
     if schema is None:
@@ -124,19 +118,29 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
     # Use the old format string generation
     format_string = generate_format_string_from_schema(schema)
     
-    # Use the old, more detailed prompt text
-    prompt = f"""You are a technical material database API. Extract information about '{query}' from the research data and return it in this exact JSON format:
+    # Enhanced prompt for richer keyword and attribute collection
+    prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
 
+CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
+- MAXIMIZE keyword diversity: Include ALL synonyms, alternative names, trade names, scientific names, common names, abbreviations, acronyms
+- COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned
+- EXTENSIVE lists: Aim for 5-0+ items per array field where possible - be thorough, not minimal
+- INCLUDE variations: different spellings, regional terms, industry-specific terminology
+- CAPTURE context: related terms, associated concepts, derivative names
+- COMPONENT VARIANTS: For 'term_variants', extract spelling variations of ANY component terms (e.g., "molding"→"moulding", "color"→"colour", "fiber"→"fibre")
+- PRIORITIZE completeness over brevity - this is a comprehensive profiling task
+
+---
 RESEARCH DATA:
 {combined_text}
-
-Return only the JSON object with all fields populated. Use empty arrays [] for missing data."""
+---
+Return only the JSON object with ALL fields maximally populated. For array fields, provide extensive lists with comprehensive coverage. Use empty arrays [] only if absolutely no relevant data exists."""
     
-    # Call LLM
+    # Call LLM with enhanced parameters for richer output
     messages = [{"role": "user", "content": prompt}]
     
-    result = await llm_call(messages=messages, temperature=0.2, max_tokens=1200, output_format="json")
+    result = await llm_call(messages=messages, temperature=0.3, max_tokens=1800, output_format="json")
     
     # Add metadata
     processing_time = time.time() - start_time
@@ -151,8 +155,6 @@ Return only the JSON object with all fields populated. Use empty arrays [] for m
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
     
     return result
-
-
 def web_generate_entity_profile_sync(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     """Synchronous wrapper"""
     return asyncio.run(web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, verbose))

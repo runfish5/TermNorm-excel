@@ -7,9 +7,19 @@
         "chemical_elements": {"type": "array", "items": {"type": "string"}},
         "industries": {"type": "array", "items": {"type": "string"}},
         "applications": {"type": "array", "items": {"type": "string"}},
+        "technical_specifications": {"type": "array", "items": {"type": "string"}},
+        "distinguishing_features": {"type": "array", "items": {"type": "string"}},
+        "functional_descriptors": {"type": "array", "items": {"type": "string"}},
         "key_properties": {"type": "array", "items": {"type": "string"}},
         "alternative_names": {"type": "array", "items": {"type": "string"}},
+        "term_variants": {"type": "array", "items": {"type": "string"}},
         "notes": {"type": "array", "items": {"type": "string"}}
     },
-    "required": ["entity_name"]
+    "required": [
+        "entity_name", "mechanical_properties", "material_types",
+        "chemical_elements", "industries", "applications",
+        "technical_specifications", "distinguishing_features",
+        "functional_descriptors",
+        "key_properties", "alternative_names", "term_variants", "notes"
+    ]
 }
