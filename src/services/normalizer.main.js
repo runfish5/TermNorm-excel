@@ -93,42 +93,18 @@ export class LiveTracker {
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
-            
-            console.log(`${JSON.stringify(result, null, 2)}`);
-            
-            // Pass context directly to UI - no stored state needed!
-            ActivityDisplay.addCandidate(value, result, {
-                applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
-            });
-            
-            let finalResult;
-            
-            if (result && result.type === 'multiple_matches') {
-                // Find the first match that has an actual candidate (not None)
-                const validMatches = result.fullResults.ranked_candidates.filter(c => c.candidate);
+            console.log(`###################################################### variable result`);            
+            console.log(`${JSON.stringify(result, null, 2)}`);         
+            if (result) {
+                // Pass context directly to UI - include API data if available for candidate selection
+                ActivityDisplay.addCandidate(value, result, {
+                    applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
+                });
                 
-                if (validMatches.length > 0) {
-                    const bestValidCandidate = validMatches[0];
-                    console.log('\n### Best valid match selected \n\n', bestValidCandidate);
-                    
-                    finalResult = {
-                        target: bestValidCandidate.candidate,
-                        method: result.method,
-                        confidence: bestValidCandidate.relevance_score
-                    };
-                } else {
-                    // All candidates are None - no valid normalization possible
-                    console.log('\n### All candidates are None - no valid match \n\n');
-                    finalResult = null;
-                }
+                // Apply the result directly - router already normalized everything
+                this.applyResult(ws, row, col, targetCol, value, result);
             } else {
-                finalResult = result;
-            }
-            
-            if (finalResult) {
-                this.applyResult(ws, row, col, targetCol, value, finalResult);
-            } else {
-                // No result found - just clear the yellow color and log the activity
+                // No result found - clear yellow color and log activity
                 ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
                 ActivityFeed.add(value, 'No matches found', 'no_match', 0);
                 logActivity(value, 'No matches found', 'no_match', 0);
@@ -143,10 +119,10 @@ export class LiveTracker {
     }
 
     // Extract the result application logic to reuse for first choice
-    applyResult(ws, row, col, targetCol, value, finalResult) {
-        ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[finalResult.target]];
-        ActivityFeed.add(value, finalResult.target, finalResult.method, finalResult.confidence);
-        logActivity(value, finalResult.target, finalResult.method, finalResult.confidence);
+    applyResult(ws, row, col, targetCol, value, result) {
+        ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
+        ActivityFeed.add(value, result.target, result.method, result.confidence);
+        logActivity(value, result.target, result.method, result.confidence, result.apiData?.data?.total_time);
         ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 
@@ -155,16 +131,16 @@ export class LiveTracker {
         await Excel.run(async ctx => {
             const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
             
-            const finalResult = {
+            const choiceResult = {
                 target: choice.candidate,
-                method: 'FirstChoice',
+                method: 'UserChoice',
                 confidence: choice.relevance_score
             };
             
-            console.log('\n### First Choice Applied \n\n', finalResult);
-            console.log(`${JSON.stringify(finalResult, null, 2)}`);
+            console.log('\n### User Choice Applied \n\n', choiceResult);
+            console.log(`${JSON.stringify(choiceResult, null, 2)}`);
             
-            this.applyResult(worksheet, row, col, targetCol, value, finalResult);
+            this.applyResult(worksheet, row, col, targetCol, value, choiceResult);
             
             await ctx.sync();
         });

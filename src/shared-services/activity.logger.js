@@ -1,4 +1,4 @@
-// ./utils/logger.js
+// ./utils/activity.logger.js
 const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export function logActivity(source, target, method, confidence) {
@@ -8,7 +8,9 @@ export function logActivity(source, target, method, confidence) {
         body: JSON.stringify({
             timestamp: new Date().toISOString(),
             source, target, method, confidence,
-            session_id: sessionId
+            // total_time,
+            session_id: sessionId,
+
         })
     }).catch(err => console.warn('Log failed:', err));
 }

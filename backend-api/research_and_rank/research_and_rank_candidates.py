@@ -40,6 +40,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     1. Web Research -> 2. Candidate Matching -> 3. LLM Ranking, Correction & Formatting
     """
     print(f"[PIPELINE] Started for query: '{request.query}'")
+    start_time = time.time()  # Add this line
     
     # --- Setup ---
     from .TokenLookupMatcher import token_matcher
@@ -72,5 +73,6 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
         candidate_results, 
         request.query
     )
+    final_response['total_time'] = round(time.time() - start_time, 2)  # Add this line
     pprint(final_response)
     return final_response
