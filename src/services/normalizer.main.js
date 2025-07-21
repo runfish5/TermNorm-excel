@@ -17,7 +17,6 @@ export class LiveTracker {
             throw new Error("Config and mappings required");
         }
         
-        // Resolve column indices directly here - simple and direct!
         this.columnMap = await this.resolveColumnIndices(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
         
@@ -31,7 +30,6 @@ export class LiveTracker {
         this.active = true;
     }
 
-    // Simple, direct column resolution - no dependencies!
     async resolveColumnIndices(colMap) {
         return await Excel.run(async ctx => {
             const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
@@ -65,7 +63,6 @@ export class LiveTracker {
             range.load("values, rowIndex, columnIndex, rowCount, columnCount");
             await ctx.sync();
             
-            // Apply visual feedback immediately
             const tasks = [];
             for (let r = 0; r < range.rowCount; r++) {
                 for (let c = 0; c < range.columnCount; c++) {
@@ -82,7 +79,6 @@ export class LiveTracker {
             }
             await ctx.sync();
             
-            // Process all cells
             for (const task of tasks) {
                 await task();
             }
@@ -96,15 +92,13 @@ export class LiveTracker {
             console.log(`###################################################### variable result`);            
             console.log(`${JSON.stringify(result, null, 2)}`);         
             if (result) {
-                // Pass context directly to UI - include API data if available for candidate selection
-                ActivityDisplay.addCandidate(value, result, {
-                    applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
-                });
-                
-                // Apply the result directly - router already normalized everything
+                if (result.candidates) {
+                    ActivityDisplay.addCandidate(value, result, {
+                        applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
+                    });
+                }
                 this.applyResult(ws, row, col, targetCol, value, result);
             } else {
-                // No result found - clear yellow color and log activity
                 ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
                 ActivityFeed.add(value, 'No matches found', 'no_match', 0);
                 logActivity(value, 'No matches found', 'no_match', 0);
@@ -118,30 +112,22 @@ export class LiveTracker {
         }
     }
 
-    // Extract the result application logic to reuse for first choice
     applyResult(ws, row, col, targetCol, value, result) {
         ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
         ActivityFeed.add(value, result.target, result.method, result.confidence);
-        logActivity(value, result.target, result.method, result.confidence, result.apiData?.data?.total_time);
+        logActivity(value, result.target, result.method, result.confidence);
         ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 
-    // Simplified choice application - context passed directly
     applyChoice = async (ws, row, col, targetCol, value, choice) => {
         await Excel.run(async ctx => {
             const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
-            
             const choiceResult = {
                 target: choice.candidate,
                 method: 'UserChoice',
                 confidence: choice.relevance_score
             };
-            
-            console.log('\n### User Choice Applied \n\n', choiceResult);
-            console.log(`${JSON.stringify(choiceResult, null, 2)}`);
-            
             this.applyResult(worksheet, row, col, targetCol, value, choiceResult);
-            
             await ctx.sync();
         });
     }
