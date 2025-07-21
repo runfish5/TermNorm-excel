@@ -4,7 +4,7 @@ import { ActivityFeed } from './ActivityFeedUI.js';
 export class ActivityDisplay {
     static container = null;
     static candidatesData = [];
-    static currentContext = null; // Store context per candidate instead of globally
+    static currentContext = null;
 
     static init() {
         this.container = document.getElementById('live-activity-section');
@@ -26,17 +26,9 @@ export class ActivityDisplay {
                 .candidate-table tr:hover { background: #f3f2f1; }
                 .candidate-table tr.dragging { opacity: 0.5; }
                 .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
-                .drag-handle {
-                    cursor: grab;
-                    padding: 4px;
-                    color: #605e5c;
-                }
-                .drag-handle:hover {
-                    color: #0078d4;
-                }
-                .drag-handle:active {
-                    cursor: grabbing;
-                }
+                .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
+                .drag-handle:hover { color: #0078d4; }
+                .drag-handle:active { cursor: grabbing; }
             </style>
         `;
         
@@ -51,13 +43,12 @@ export class ActivityDisplay {
         ActivityFeed.init('activity-feed');
     }
 
-    // Context passed directly - no global state management needed!
     static addCandidate(value, result, context) {
-        const candidates = result?.apiData?.data?.full_results?.ranked_candidates;
+        const candidates = result?.candidates;
         if (!candidates) return;
         
         this.candidatesData = [...candidates];
-        this.currentContext = context; // Store context for this specific candidate
+        this.currentContext = context;
         
         const rankedContainer = this.container.querySelector('#candidate-ranked');
         rankedContainer.innerHTML = `
@@ -96,7 +87,6 @@ export class ActivityDisplay {
             const feedback = this.showFeedback(container, 'Processing...', '#f3f2f1');
             
             try {
-                // Use context directly - clean and simple!
                 await this.currentContext.applyChoice(first);
                 feedback.innerHTML = `✅ Applied: ${first.candidate} | Relevance: ${first.relevance_score}`;
                 feedback.style.background = '#d4edda';
@@ -157,7 +147,8 @@ export class ActivityDisplay {
                 this.candidatesData.splice(targetIndex, 0, draggedItem);
                 
                 const input = container.querySelector('.candidate-header').textContent.match(/Input: "([^"]+)"/)?.[1];
-                this.addCandidate(input, { fullResults: { ranked_candidates: this.candidatesData } }, this.currentContext);
+                const mockResult = { candidates: this.candidatesData };
+                this.addCandidate(input, mockResult, this.currentContext);
             }
             dragIndex = null;
         };

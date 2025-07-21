@@ -12,14 +12,17 @@ export class NormalizerRouter {
     async process(value) {
         const val = String(value || '').trim();
         if (!val) return null;
-
         return this.findCached(val) || await this.findTokenMatch(val) || this.findFuzzy(val);
     }
 
     findCached(val) {
         if (val in this.forward) {
             const mapping = this.forward[val];
-            return { target: typeof mapping === 'string' ? mapping : mapping.target, method: 'cached', confidence: 1.0 };
+            return { 
+                target: typeof mapping === 'string' ? mapping : mapping.target, 
+                method: 'cached', 
+                confidence: 1.0 
+            };
         }
         if (val in this.reverse) {
             return { target: val, method: 'cached', confidence: 1.0 };
@@ -31,14 +34,15 @@ export class NormalizerRouter {
         const fwd = findBestMatch(val, this.forward, 0.7);
         if (fwd) {
             const mapping = fwd.value;
-            return { target: typeof mapping === 'string' ? mapping : mapping.target, method: 'fuzzy', confidence: fwd.score };
+            return { 
+                target: typeof mapping === 'string' ? mapping : mapping.target, 
+                method: 'fuzzy', 
+                confidence: fwd.score 
+            };
         }
 
         const rev = findBestMatch(val, this.reverse, 0.5);
-        if (rev) {
-            return { target: rev.key, method: 'fuzzy', confidence: rev.score };
-        }
-        return null;
+        return rev ? { target: rev.key, method: 'fuzzy', confidence: rev.score } : null;
     }
 
     async findTokenMatch(val) {
@@ -52,40 +56,29 @@ export class NormalizerRouter {
             });
 
             if (!res.ok) return null;
-            
             const data = await res.json();
             
-            // Check if it's an error response
             if (!data.success) {
                 console.error(`API Error: ${data.error} (${data.error_type})`);
                 state.setStatus(`Research failed: ${data.error}`, true);
                 return null;
             }
             
-            // Check if we have results
             const rankedCandidates = data.data.full_results?.ranked_candidates;
             if (!rankedCandidates?.length) return null;
 
-            // Find the first valid candidate (has actual candidate + meets score threshold)
-            const bestCandidate = rankedCandidates.find(c => 
-                c.candidate && c.relevance_score >= 0.005
-            );
-            
+            const bestCandidate = rankedCandidates.find(c => c.candidate && c.relevance_score >= 0.005);
             if (!bestCandidate) {
-                console.log('No qualifying matches found');
                 state.setStatus('No qualifying matches found', true);
                 return null;
             }
 
-            console.log('Best candidate selected:', bestCandidate);
             state.setStatus(`Found match: ${bestCandidate.candidate}`);
-
-            // Return same format as other methods, but include full API data for UI
             return {
                 target: bestCandidate.candidate,
                 method: 'ProfileRank',
                 confidence: bestCandidate.relevance_score,
-                apiData: data // Include full API data for UI display
+                candidates: rankedCandidates
             };
             
         } catch (error) {
@@ -111,7 +104,6 @@ export class NormalizerRouter {
         const data = await res.json();
         if (!data.mappedValue) throw new Error("No value returned from LLM");
 
-        // Store new mapping in the forward object
         this.forward[val] = {
             target: data.mappedValue,
             method: 'llm',
