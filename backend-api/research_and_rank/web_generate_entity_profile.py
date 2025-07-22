@@ -117,14 +117,12 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
     format_string = generate_format_string_from_schema(schema)
     
     # Enhanced prompt for richer keyword and attribute collection
-prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
+    prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
-
-CRITICAL: Parse '{query}' as complete entity - each part separated by non-alphanumeric characters contributes to the whole meaning.
 
 CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
 - MAXIMIZE keyword diversity: Include ALL synonyms, alternative names, trade names, scientific names, common names, abbreviations, acronyms
-- COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned, including numerical values and compositional data
+- - COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned, including numerical values and compositional data
 - EXTENSIVE lists: Aim for 5-10+ items per array field where possible - be thorough, not minimal
 - INCLUDE variations: different spellings, regional terms, industry-specific terminology
 - CAPTURE context: related terms, associated concepts, derivative names
