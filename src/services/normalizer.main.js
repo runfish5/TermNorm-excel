@@ -54,6 +54,11 @@ export class LiveTracker {
         });
     }
 
+    getRelevanceColor(score) {
+        const s = score > 1 ? score / 100 : score;
+        return s >= 0.9 ? "#C6EFCE" : s >= 0.8 ? "#FFEB9C" : s >= 0.6 ? "#FFD1A9" : s >= 0.2 ? "#FFC7CE" : "#E1E1E1";
+    }
+
     handleChange = async (e) => {
         if (!this.active) return;
         
@@ -87,47 +92,53 @@ export class LiveTracker {
     }
     
     async processCell(ws, row, col, targetCol, value) {
+        const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+        const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+        
         try {
             const result = await this.processor.process(value);
-            console.log(`###################################################### variable result`);            
-            console.log(`${JSON.stringify(result, null, 2)}`);         
-            if (result) {
-                if (result.candidates) {
-                    ActivityDisplay.addCandidate(value, result, {
-                        applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
-                    });
-                }
-                this.applyResult(ws, row, col, targetCol, value, result);
-            } else {
-                ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
-                ActivityFeed.add(value, 'No matches found', 'no_match', 0);
-                logActivity(value, 'No matches found', 'no_match', 0, 0);
+            console.log(`Result: ${JSON.stringify(result, null, 2)}`);
+            
+            if (result?.candidates) {
+                ActivityDisplay.addCandidate(value, result, {
+                    applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
+                });
             }
             
+            const status = result ? 'match' : 'no_match';
+            const target = result?.target || 'No matches found';
+            const confidence = result?.confidence || 0;
+            
+            tgtCell.values = [[target]];
+            tgtCell.format.fill.color = this.getRelevanceColor(confidence);
+            srcCell.format.fill.clear();
+            
+            ActivityFeed.add(value, target, result?.method || status, confidence);
+            logActivity(value, target, result?.method || status, confidence, result?.total_time || 0);
+            
         } catch (error) {
-            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFC7CE";
-            ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[`Error: ${error.message}`]];
-            ActivityFeed.add(value, `Error: ${error.message}`, 'error', 0);
-            logActivity(value, `Error: ${error.message}`, 'error', 0, 0);
+            const errorMsg = `Error: ${error.message}`;
+            tgtCell.values = [[errorMsg]];
+            tgtCell.format.fill.color = "#FFC7CE";
+            srcCell.format.fill.color = "#FFC7CE";
+            
+            ActivityFeed.add(value, errorMsg, 'error', 0);
+            logActivity(value, errorMsg, 'error', 0, 0);
         }
-    }
-
-    applyResult(ws, row, col, targetCol, value, result) {
-        ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
-        ActivityFeed.add(value, result.target, result.method, result.confidence);
-        logActivity(value, result.target, result.method, result.confidence, result.total_time);
-        ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 
     applyChoice = async (ws, row, col, targetCol, value, choice) => {
         await Excel.run(async ctx => {
-            const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
-            const choiceResult = {
-                target: choice.candidate,
-                method: 'UserChoice',
-                confidence: choice.relevance_score
-            };
-            this.applyResult(worksheet, row, col, targetCol, value, choiceResult);
+            const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
+            const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
+            
+            tgtCell.values = [[choice.candidate]];
+            tgtCell.format.fill.color = this.getRelevanceColor(choice.relevance_score);
+            srcCell.format.fill.clear();
+            
+            ActivityFeed.add(value, choice.candidate, 'UserChoice', choice.relevance_score);
+            logActivity(value, choice.candidate, 'UserChoice', choice.relevance_score, 0);
+            
             await ctx.sync();
         });
     }

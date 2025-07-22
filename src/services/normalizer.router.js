@@ -73,7 +73,7 @@ export class NormalizerRouter {
                 return null;
             }
 
-            state.setStatus(`Found match: ${bestCandidate.candidate} - Total time: ${data.data.total_time} s`);
+            state.setStatus(`Found match:\n- ${bestCandidate.candidate} \n- Total time: ${data.data.total_time} s`);
 
             return {
                 target: bestCandidate.candidate,
