@@ -101,21 +101,21 @@ export class LiveTracker {
             } else {
                 ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
                 ActivityFeed.add(value, 'No matches found', 'no_match', 0);
-                logActivity(value, 'No matches found', 'no_match', 0);
+                logActivity(value, 'No matches found', 'no_match', 0, 0);
             }
             
         } catch (error) {
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFC7CE";
             ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[`Error: ${error.message}`]];
             ActivityFeed.add(value, `Error: ${error.message}`, 'error', 0);
-            logActivity(value, `Error: ${error.message}`, 'error', 0);
+            logActivity(value, `Error: ${error.message}`, 'error', 0, 0);
         }
     }
 
     applyResult(ws, row, col, targetCol, value, result) {
         ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
         ActivityFeed.add(value, result.target, result.method, result.confidence);
-        logActivity(value, result.target, result.method, result.confidence);
+        logActivity(value, result.target, result.method, result.confidence, result.total_time);
         ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 

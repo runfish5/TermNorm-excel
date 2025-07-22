@@ -73,13 +73,14 @@ export class NormalizerRouter {
                 return null;
             }
 
-            state.setStatus(`Found match: ${bestCandidate.candidate} - Total time: ${data.data.total_time}ms`);
+            state.setStatus(`Found match: ${bestCandidate.candidate} - Total time: ${data.data.total_time} s`);
 
             return {
                 target: bestCandidate.candidate,
                 method: 'ProfileRank',
                 confidence: bestCandidate.relevance_score,
-                candidates: rankedCandidates
+                candidates: rankedCandidates,
+                total_time: data.data.total_time  // Add this line
             };
             
         } catch (error) {
