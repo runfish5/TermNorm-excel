@@ -45,7 +45,7 @@ export class AppOrchestrator {
 
             state.setStatus("Config reloaded");
         } catch (error) {
-            state.setStatus(`Config failed: ${error.message}`, true);
+            state.setStatus(`Config failed\n ${error.message}\n\n Please create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\n For Help go to\nhttps://github.com/runfish5/TermNorm-excel`, true);
         }
     }
 

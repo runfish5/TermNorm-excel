@@ -40,12 +40,11 @@
 .nav-header img {
     margin-right: 10px;
 }
-
-/* Status Bar */
-.status-bar {
+#main-status-message {
+    white-space: pre-wrap; /* Preserves newlines and spaces */
 }
 
-/* Status Bar - Now wrapping and dynamic */
+/* Status Bar*/
 .status-bar {
     position: fixed;
     top: 32px;
