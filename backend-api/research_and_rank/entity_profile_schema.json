@@ -2,7 +2,7 @@
     "type": "object",
     "properties": {
         "entity_name": {"type": "string"},
-        "entity_type": {"type": "string", "enum": ["material", "process"]},
+        "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
         "applications": {"type": "array", "items": {"type": "string"}},
         "all_components": {"type": "array", "items": {"type": "string"}},
         "technical_specifications": {"type": "array", "items": {"type": "string"}},
@@ -14,10 +14,8 @@
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
-        "entity_name", "entity_type", "applications",
-        "all_components",
-        "technical_specifications", "distinguishing_features",
-        "functional_descriptors",
+        "entity_name", "core_concept", "applications", "all_components",
+        "technical_specifications", "distinguishing_features", "functional_descriptors",
         "key_properties", "alternative_names", "term_variants", "notes"
     ]
 }
