@@ -44,7 +44,8 @@ class TokenLookupMatcher:
             term_tokens = self._tokenize(self.deduplicated_terms[i])
             shared_token_count = len(query_tokens & term_tokens)
             if shared_token_count > 0:
-                score = shared_token_count / max(len(query_tokens), len(term_tokens))
+                # score = shared_token_count / max(len(query_tokens), len(term_tokens))
+                score = shared_token_count / len(term_tokens)
                 scores.append((self.deduplicated_terms[i], score))
 
         return sorted(scores, key=lambda x: x[1], reverse=True)
