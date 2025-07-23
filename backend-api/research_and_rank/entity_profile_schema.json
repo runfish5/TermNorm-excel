@@ -10,12 +10,11 @@
         "functional_descriptors": {"type": "array", "items": {"type": "string"}},
         "key_properties": {"type": "array", "items": {"type": "string"}},
         "alternative_names": {"type": "array", "items": {"type": "string"}},
-        "term_variants": {"type": "array", "items": {"type": "string"}},
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
         "entity_name", "core_concept", "applications", "all_components",
         "technical_specifications", "distinguishing_features", "functional_descriptors",
-        "key_properties", "alternative_names", "term_variants", "notes"
+        "key_properties", "alternative_names", "notes"
     ]
 }
