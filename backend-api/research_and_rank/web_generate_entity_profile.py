@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from research_and_rank.llm_providers import llm_call
+from utils.colors import CYAN, RED, RESET
+
 import re
 import asyncio
 def generate_format_string_from_schema(schema):
@@ -85,7 +87,7 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
             bing_response = requests.get(f"https://www.bing.com/search?q={quote_plus(query)}", 
                                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, timeout=10)
             bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
-            print("THIS IS RESPONSE FROM BING"+ str(bing_soup))
+            # print("THIS IS RESPONSE FROM BING"+ str(bing_soup))
             urls = [link.get('href') for link in bing_soup.find_all('a', href=True) 
                    if link.get('href') and link.get('href').startswith('http') and 'bing.com' not in link.get('href')][:max_sites * 4]
         except:
@@ -139,8 +141,9 @@ RESEARCH DATA:
 {combined_text}
 ---
 REMEMBER: Every term must be followed by its US/GB variant if different. Return only the JSON object with ALL fields maximally populated."""
-    
+    print(CYAN)
     print(prompt)
+    print(RESET)
     # Call LLM with enhanced parameters for richer output
     messages = [{"role": "user", "content": prompt}]
     
