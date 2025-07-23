@@ -3,6 +3,7 @@
     "properties": {
         "entity_name": {"type": "string"},
         "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
+        "professional_classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic "},
         "applications": {"type": "array", "items": {"type": "string"}},
         "all_components": {"type": "array", "items": {"type": "string"}},
         "technical_specifications": {"type": "array", "items": {"type": "string"}},
@@ -13,7 +14,7 @@
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
-        "entity_name", "core_concept", "applications", "all_components",
+        "entity_name", "core_concept", "professional_classification_aliases", "applications", "all_components",
         "technical_specifications", "distinguishing_features", "functional_descriptors",
         "key_properties", "alternative_names", "notes"
     ]
