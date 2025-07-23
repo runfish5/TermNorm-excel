@@ -55,7 +55,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     print("\n[PIPELINE] Step 3: Ranking with LLM")
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
     
-    response = await call_llm_for_ranking(profile_info, candidate_results, request.query)
+    response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, request.query)
     response['total_time'] = round(time.time() - start_time, 2)
     pprint(response)
     return response

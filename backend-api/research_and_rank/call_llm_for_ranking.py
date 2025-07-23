@@ -37,19 +37,20 @@ RANKING_SCHEMA = {
     "required": ["profile_specs_identified", "ranked_candidates", "ranking_explanation"]
 }
 
-async def call_llm_for_ranking(profile_info, match_results, query):
+async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
     """Rank candidates using LLM and return standardized structure"""
     
     # Build prompt directly
     matches = "\n".join(f"{i+1}. {term} (Score: {score:.3f})" for i, (term, score) in enumerate(match_results[:20]))
-    
+    core_concept = entity_profile["core_concept"]
     domain_instructions = ""
     prompt = f"""STEP 1: IDENTIFY KEY SPECIFICATIONS FROM PROFILE
 First, extract the key specifications and requirements from the research profile below.
 
 QUERY: {query}
+CORE CONCEPT: {core_concept}
 
-RESEARCH PROFILE:
+SPECIFIYNG TERMS:
 {profile_info}
 
 CANDIDATE MATCHES:
