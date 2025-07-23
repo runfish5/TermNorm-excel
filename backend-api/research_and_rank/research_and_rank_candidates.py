@@ -9,7 +9,7 @@ from utils.exceptions import handle_exceptions, ApiResponse
 from .web_generate_entity_profile import web_generate_entity_profile
 from .display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
-
+from collections import Counter
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 import utils.utils as utils
 
@@ -49,11 +49,19 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
 
     # Usage - direct replacement:
     search_terms = [request.query] + utils.flatten_strings(entity_profile)
+    
+    print(f"LENGTH OF SEARCH TERMS: {len(search_terms)}")
+    search_terms = [word for s in search_terms for word in s.split()]
+    print(f"(After) LENGTH OF SEARCH TERMS: {len(search_terms)}")
+    print(3*"\n>" + f">{'search_terms'}")
+    word_counts = Counter(search_terms)
+    print(f"WORD COUNTS BEFORE SET:")
+    for word, count in word_counts.most_common():
+        print(f"  '{word}': {count}")
 
     match_start = time.time()
-    candidate_results = token_matcher.match(search_terms)
-    print("33##########33333333333####3333##")
-    print(3*"\n>" + f">{search_terms}")
+    candidate_results = token_matcher.match(list(set(search_terms)))
+
     print(f"{RED}{'\n'.join([str(item) for item in candidate_results])}{RESET}")
     print(f"Match completed in {time.time() - match_start:.2f}s")
     # Step 3: LLM ranking
