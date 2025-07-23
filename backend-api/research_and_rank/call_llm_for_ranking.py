@@ -41,35 +41,42 @@ async def call_llm_for_ranking(profile_info, entity_profile, match_results, quer
     """Rank candidates using LLM and return standardized structure"""
     
     # Build prompt directly
-    matches = "\n".join(f"{i+1}. {term} (Score: {score:.3f})" for i, (term, score) in enumerate(match_results[:20]))
+    matches = "\n".join(f"{i+1}. {term}" for i, (term, score) in enumerate(match_results[:20]))
     core_concept = entity_profile["core_concept"]
     domain_instructions = ""
-    prompt = f"""STEP 1: IDENTIFY KEY SPECIFICATIONS FROM PROFILE
-First, extract the key specifications and requirements from the research profile below.
+    prompt = f"""STEP 1: CORE CONCEPT EVALUATION (PRIMARY FACTOR - 70% WEIGHT)
+First, evaluate which candidates best align with the core concept: "{core_concept}"
+The core_concept represents the fundamental intent - all other profile terms are modifying specifiers.
+
+STEP 2: IDENTIFY KEY SPECIFICATIONS FROM PROFILE  
+Extract specifications and requirements from the research profile below.
+
+STEP 3: RANK CANDIDATES
+Rank based on core concept alignment first, then specification matching.
 
 QUERY: {query}
 CORE CONCEPT: {core_concept}
 
-SPECIFIYNG TERMS:
+SPECIFYING TERMS:
 {profile_info}
 
 CANDIDATE MATCHES:
 {matches}
 
 INSTRUCTIONS:
-1. FIRST: Identify the key specifications mentioned in the profile
-2. SECOND: Identify any specific requirements or constraints
-3. THIRD: Rank candidates based on how well they match the identified specifications
+1. FIRST: Evaluate semantic alignment with core concept "{core_concept}" 
+2. SECOND: Identify key specifications mentioned in the profile
+3. THIRD: Rank candidates prioritizing core concept match over specification details
 
 RANKING APPROACH:
-- Exact specification matches = highest priority
-- Close specification matches = medium priority
-- Partial matches = lower priority
-- Poor matches = lowest priority
+- Strong core concept alignment + exact specifications = highest priority
+- Strong core concept alignment + partial specifications = high priority  
+- Weak core concept alignment + exact specifications = medium priority
+- Poor core concept alignment = lowest priority
 
 {domain_instructions}
 
-Provide the identified specifications first, then ranking based on specification matching and relevance to the query."""
+For each candidate, provide core_concept_alignment_score (0-10) and justify why it matches the fundamental concept."""
 
     print(GREEN + prompt + RESET)
     

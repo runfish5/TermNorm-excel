@@ -120,6 +120,8 @@ async def web_generate_entity_profile(query, max_sites=4, schema=None, content_c
     prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
 
+CRITICAL SPELLING REQUIREMENT: In ALL arrays, after each term, immediately add its US/GB spelling variant if different. Example: ["colour", "color", "analyse", "analyze"]. This is MANDATORY for every array field.
+
 CORE CONCEPT IDENTIFICATION: Within '{query}', certain words carry more semantic weight than others. Material names, product codes, and specifications describe WHAT is involved, but other terms describe the fundamental NATURE of what is being expressed. Identify the single word that defines the conceptual essence - typically the term that indicates an activity, action, method, or process rather than an object or material. Output only this one defining word.
 
 CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
@@ -128,14 +130,13 @@ CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
 - EXTENSIVE lists: Aim for 5-10+ items per array field where possible - be thorough, not minimal
 - INCLUDE variations: different spellings, regional terms, industry-specific terminology
 - CAPTURE context: related terms, associated concepts, derivative names
-- COMPONENT VARIANTS: For 'term_variants', extract spelling variations of ANY component terms (GB and US spellings, plural/singular forms, etc.)
 - PRIORITIZE completeness over brevity - this is a comprehensive profiling task
 
 ---
 RESEARCH DATA:
 {combined_text}
 ---
-Return only the JSON object with ALL fields maximally populated. For array fields, provide extensive lists with comprehensive coverage. Use empty arrays [] only if absolutely no relevant data exists."""
+REMEMBER: Every term must be followed by its US/GB variant if different. Return only the JSON object with ALL fields maximally populated."""
     
     print(prompt)
     # Call LLM with enhanced parameters for richer output
