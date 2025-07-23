@@ -1,8 +1,22 @@
-# ./backend-api/utils/colors.py
+# ./backend-api/utils/utils.py
 """
 Shared ASCII color codes for console output formatting.
-Usage: from utils.colors import CYAN, RED, RESET, etc.
+Usage: from utils.utils import CYAN, RED, RESET, etc.
 """
+
+def flatten_strings(data, exclude=None):
+    """Recursively extract all strings from nested dict/list, excluding specified keys."""
+    if exclude is None:
+        exclude = {'_metadata'}
+    
+    if isinstance(data, dict):
+        return [s for k, v in data.items() if k not in exclude for s in flatten_strings(v, exclude)]
+    elif isinstance(data, list):
+        return [s for item in data for s in flatten_strings(item, exclude)]
+    else:
+        return [str(data)]
+
+
 
 # Standard Colors
 BLACK   = '\033[30m'

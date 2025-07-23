@@ -10,7 +10,8 @@ from .web_generate_entity_profile import web_generate_entity_profile
 from .display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 
-from utils.colors import CYAN, MAGENTA, RED, YELLOW, RESET
+from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
+import utils.utils as utils
 
 # Load entity schema
 schema_path = Path(__file__).parent / "entity_profile_schema.json"
@@ -45,17 +46,16 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     
     # Step 2: Token matching
     print("\n[PIPELINE] Step 2: Matching candidates")
-    search_terms = [request.query] + [str(v) for k, v in entity_profile.items() 
-                                     if '_metadata' not in k for v in (v if isinstance(v, list) else [v])]
-    
+
+    # Usage - direct replacement:
+    search_terms = [request.query] + utils.flatten_strings(entity_profile)
+
     match_start = time.time()
     candidate_results = token_matcher.match(search_terms)
     print("33##########33333333333####3333##")
     print(3*"\n>" + f">{search_terms}")
+    print(f"{RED}{'\n'.join([str(item) for item in candidate_results])}{RESET}")
     print(f"Match completed in {time.time() - match_start:.2f}s")
-    print(RED)
-    pprint(candidate_results)
-    print(RESET)
     # Step 3: LLM ranking
     
     print(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
@@ -63,5 +63,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     
     response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, request.query)
     response['total_time'] = round(time.time() - start_time, 2)
-    pprint(YELLOW + response + RESET)
+    print(YELLOW)
+    pprint(response )
+    print(RESET)
     return response
