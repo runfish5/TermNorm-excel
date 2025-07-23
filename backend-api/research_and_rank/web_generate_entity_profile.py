@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from research_and_rank.llm_providers import llm_call
-from utils.colors import CYAN, RED, RESET
+from utils.utils import CYAN, RED, RESET
 
 import re
 import asyncio
