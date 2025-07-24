@@ -131,10 +131,8 @@ PROFESSIONAL CLASSIFICATION ALIASES: Generate the full spectrum of expert-level 
 CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
 - MAXIMIZE keyword diversity: Include ALL synonyms, alternative names, trade names, scientific names, common names, abbreviations, acronyms
 - COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned, including numerical values and compositional data
-- EXTENSIVE lists: Aim for 5-10+ items per array field where possible - be thorough, not minimal
-- INCLUDE variations: different spellings, regional terms, industry-specific terminology
-- CAPTURE context: related terms, associated concepts, derivative names
-- PRIORITIZE completeness over brevity - this is a comprehensive profiling task
+- CAPTURE context: related terms, associated concepts, derivative names,  regional terms, industry-specific terminology
+- PRIORITIZE completeness over brevity: This is a comprehensive profiling task. Aim for 5-10+ items per array field where possible - be thorough, not minimal
 
 ---
 RESEARCH DATA:
