@@ -123,12 +123,20 @@ CORE CONCEPT IDENTIFICATION: Within '{query}', certain words carry more semantic
 
 PROFESSIONAL CLASSIFICATION ALIASES: Generate the full spectrum of expert-level references for this entity, spanning precise technical descriptors to broader categorical terms. These terms stem from domain-specific terminology and industry-standard nomenclature that professionals recognize. Include approximations and near-equivalent terms that experts use when exact terminology doesn't exist, accepting that some terms may not be perfect equivalents but represent the best available expert terminology for referencing similar concepts.
 
-CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
-- MAXIMIZE keyword diversity: Include ALL synonyms, alternative names, trade names, scientific names, common names, abbreviations, acronyms
-- COMPREHENSIVE coverage: Extract every property, characteristic, specification, feature, attribute mentioned, including numerical values and compositional data
-- CAPTURE context: related terms, associated concepts, derivative names,  regional terms, industry-specific terminology
-- PRIORITIZE completeness over brevity: This is a comprehensive profiling task. Aim for 5-10+ items per array field where possible - be thorough, not minimal
+GENERIC TECHNICAL INFERENCE INSTRUCTION: Given the product or technical description '{query}', perform comprehensive analysis to extract and infer:
 
+1. **Explicit Information**: Directly stated specifications, dimensions, materials, codes, and properties
+2. **Implicit Information**: Commonly associated materials, manufacturing processes, applications, and technical characteristics that are standard for this type of product/component, even if not explicitly mentioned
+3. **Manufacturing Processes**: Both stated and inferred processes based on product type, materials, and specifications
+4. **Material Composition**: Complete material breakdown including standard/typical materials used in such products
+5. **Applications & Use Cases**: Direct and derived applications based on product characteristics
+
+**Include domain knowledge**: Draw from technical standards, industry practices, and material science to infer missing but relevant information.
+
+CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
+- MAXIMIZE diversity: Include ALL synonyms, trade names, scientific names, abbreviations, acronyms, regional terms, industry terminology
+- COMPREHENSIVE extraction: Capture every property, specification, feature, attribute, including numerical values and compositional data  
+- PRIORITIZE completeness over brevity: Aim for 5-10+ items per array field - be thorough, not minimal
 ---
 RESEARCH DATA:
 {combined_text}
