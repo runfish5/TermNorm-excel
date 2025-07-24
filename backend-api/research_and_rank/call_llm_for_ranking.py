@@ -8,50 +8,53 @@ RESET = '\033[0m'
 RANKING_SCHEMA = {
     "type": "object",
     "properties": {
+        "profile_summary": {"type": "string"},
+        "core_concept_description": {"type": "string"},
         "ranked_candidates": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
                     "candidate": {"type": "string"},
-                    "relevance_score": {"type": "number"},
+                    "core_concept_score": {"type": "number"},
+                    "spec_score": {"type": "number"},
                     "evaluation_reasoning": {"type": "string"},
                     "key_match_factors": {"type": "array", "items": {"type": "string"}},
                     "spec_gaps": {"type": "array", "items": {"type": "string"}}
                 },
-                "required": ["candidate", "relevance_score", "evaluation_reasoning", "key_match_factors"]
+                "required": ["candidate", "core_concept_score", "spec_score", "evaluation_reasoning", "key_match_factors"]
             }
         }
     },
-    "required": ["ranked_candidates"]
+    "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
 }
 
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
     """Rank candidates using LLM and return standardized structure"""
     
-    matches = "\n".join(f"{i+1}. {term}" for i, (term, score) in enumerate(match_results[:20]))
+    matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(reversed(match_results[:20])))
+
     core_concept = entity_profile["core_concept"]
     
-    prompt = f"""You are a candidate evaluation expert specializing in semantic alignment assessment.
+    prompt = f"""You are a candidate evaluation expert.
 
-TASK: Filter and score candidates based on alignment with core concept and specifications.
+TASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)  
+- Summarize the profile in 1-2 sentences capturing key details
+- Describe what the core concept "{core_concept}" fundamentally is and identify its foundational category - this represents the fundamental intent, all other profile terms are modifying specifiers
 
-PROCESS:
-1. Filter out completely irrelevant candidates
-2. Filter out candidates categorically different from core concept type
-3. Identify key specifications from the profile to evaluate against
-4. Score remaining candidates (0-10) with detailed assessment
+TASK 2: Score each candidate (0-5 scale)
+- Core concept score: semantic alignment with fundamental intent "{core_concept}" - candidates must match the same foundational category to score above 2
+- Specification score: match with profile modifying specifiers
+- Prioritize core concept alignment over specification details
+
+CRITICAL: If core concept and candidate belong to different foundational categories (e.g. process vs material, object vs method), core concept score must be 0-2 regardless of relatedness. Match the core concept exactly as stated - do not add words or interpret it as a compound concept with additional terms.
 
 QUERY: {query}
 CORE CONCEPT: {core_concept}
+PROFILE: {profile_info}
+CANDIDATES: {matches}
 
-PROFILE SPECIFICATIONS:
-{profile_info}
-
-CANDIDATES:
-{matches}
-
-OUTPUT: For each relevant candidate, provide score and explain alignment strengths/issues. Focus on core concept match first, then specification fit."""
+Evaluate semantic alignment with core concept "{core_concept}" first, then specification matching."""
 
     print(GREEN + prompt + RESET)
     
@@ -71,7 +74,9 @@ OUTPUT: For each relevant candidate, provide score and explain alignment strengt
         print(f"\n[PIPELINE] Success! Found {len(candidates)} matches.")
         
         for i, c in enumerate(candidates[:3]):
-            print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (score: {c.get('relevance_score', 0.0):.3f})")
+            core_score = c.get('core_concept_score', 0.0)
+            spec_score = c.get('spec_score', 0.0)
+            print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (core: {core_score:.1f}, spec: {spec_score:.1f})")
         
         return {
             "query": query,
