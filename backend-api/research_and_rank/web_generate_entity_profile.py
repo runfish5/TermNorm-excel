@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from research_and_rank.llm_providers import llm_call
 from utils.utils import CYAN, RED, RESET
-
 import re
 import asyncio
 def generate_format_string_from_schema(schema):
@@ -33,8 +32,8 @@ def generate_format_string_from_schema(schema):
             format_items.append(f'  "{prop_name}": "{prop_type}"')
     
     return "{\n" + ",\n".join(format_items) + "\n}"
+
 def scrape_url(url, char_limit):
-    """Fast content extraction"""
     skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
     skip_domains = ['academia.edu', 'researchgate.net', 'arxiv.org', 'ieee.org']
     
@@ -42,7 +41,12 @@ def scrape_url(url, char_limit):
         return None
     
     try:
-        response = requests.get(url, timeout=5, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.9'
+        }
+        
+        response = requests.get(url, timeout=5, headers=headers)
         if response.status_code != 200:
             return None
         
@@ -60,43 +64,40 @@ def scrape_url(url, char_limit):
         return {'title': title, 'content': text[:char_limit], 'url': url}
     except:
         return None
+
 async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
-    """Research a topic and return structured data"""
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
     
     start_time = time.time()
     time.sleep(1)
     
-    # Search DuckDuckGo
-    search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
-    search_response = requests.get(search_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, timeout=10)
+    english_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+    }
+    
+    search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en&lr=lang_en"
+    search_response = requests.get(search_url, headers=english_headers, timeout=10)
     
     if search_response.status_code == 202:
         time.sleep(2)
-        search_response = requests.get(search_url, headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}, timeout=15)
+        search_response = requests.get(search_url, headers=english_headers, timeout=15)
     
-    # Parse search results
     search_soup = BeautifulSoup(search_response.content, 'html.parser')
     urls = [link.get('href') for link in search_soup.find_all('a', class_='result__a') 
             if link.get('href') and link.get('href').startswith('http')]
     
-    # Fallback to Bing if no results
     if not urls:
         try:
-            bing_response = requests.get(f"https://www.bing.com/search?q={quote_plus(query)}", 
-                                       headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, timeout=10)
+            bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
+            bing_response = requests.get(bing_url, headers=english_headers, timeout=10)
             bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
-            # print("THIS IS RESPONSE FROM BING"+ str(bing_soup))
             urls = [link.get('href') for link in bing_soup.find_all('a', href=True) 
                    if link.get('href') and link.get('href').startswith('http') and 'bing.com' not in link.get('href')][:max_sites * 4]
         except:
             pass
     
-    # if not urls:
-    #     raise Exception("No URLs found in search results")
-    
-    # Scrape URLs in parallel
     scraped_content = []
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(scrape_url, url, content_char_limit) for url in urls[:max_sites * 2]]
@@ -107,18 +108,12 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
                 if len(scraped_content) >= max_sites:
                     break
     
-    # if not scraped_content:
-    #     raise Exception("No content found during web scraping")
-    
-    # Prepare data for LLM
     combined_text = f"Research about: {query}\n\n" + "\n\n".join(
         [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
     )[:raw_content_limit]
     
-    # Use the old format string generation
     format_string = generate_format_string_from_schema(schema)
     
-    # Enhanced prompt for richer keyword and attribute collection
     prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
 
@@ -139,15 +134,14 @@ RESEARCH DATA:
 {combined_text}
 ---
 REMEMBER: Every term must be followed by its US/GB variant if different. Return only the JSON object with ALL fields maximally populated."""
+    
     print(CYAN)
     print(prompt)
     print(RESET)
-    # Call LLM with enhanced parameters for richer output
-    messages = [{"role": "user", "content": prompt}]
     
+    messages = [{"role": "user", "content": prompt}]
     result = await llm_call(messages=messages, temperature=0.3, max_tokens=1800, output_format="json")
     
-    # Add metadata
     processing_time = time.time() - start_time
     result['_metadata'] = {
         'query': query,
@@ -158,7 +152,5 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
     
     if verbose:
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
-    
-    
     
     return result

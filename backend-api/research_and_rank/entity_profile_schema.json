@@ -3,20 +3,19 @@
     "properties": {
         "entity_name": {"type": "string"},
         "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
-        "professional_classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic "},
-        "applications": {"type": "array", "items": {"type": "string"}},
-        "all_components": {"type": "array", "items": {"type": "string"}},
         "distinguishing_features": {"type": "array", "items": {"type": "string"}},
-        "functional_descriptors": {"type": "array", "items": {"type": "string"}},
         "key_properties": {"type": "array", "items": {"type": "string"}},
         "alternative_names": {"type": "array", "items": {"type": "string"}},
+        "classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic "},
+        "constituent_material_aliases": {"type": "array", "items": {"type": "string"}},
+        "applications": {"type": "array", "items": {"type": "string"}},        
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
         "entity_name", "core_concept", 
-        "professional_classification_aliases",
-        "applications", "all_components",
-        "distinguishing_features", "functional_descriptors",
-        "key_properties", "alternative_names", "notes"
+        "distinguishing_features", "key_properties", "alternative_names",
+        "classification_aliases",
+        "constituent_material_aliases",
+        "applications", "notes"
     ]
 }
