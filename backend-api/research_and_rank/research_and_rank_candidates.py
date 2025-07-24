@@ -38,7 +38,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     print("[PIPELINE] Step 1: Researching")
     entity_profile = await web_generate_entity_profile(
         request.query,
-        max_sites=6,
+        max_sites=7,
         schema=entity_schema,
         verbose=True
     )
