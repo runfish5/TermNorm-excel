@@ -72,9 +72,9 @@ export class NormalizerRouter {
                 return null;
             }
             
-            const best = data.data.ranked_candidates.find(c => c.candidate && c.relevance_score >= 0.005);
+            const best = data.data.ranked_candidates[0]
             if (!best) {
-                state.setStatus('No qualifying matches found', true);
+                state.setStatus('ranked_candidates has wrong schema or empty', true);
                 return null;
             }
 
