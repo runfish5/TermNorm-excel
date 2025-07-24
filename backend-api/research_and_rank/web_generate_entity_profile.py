@@ -60,7 +60,7 @@ def scrape_url(url, char_limit):
         return {'title': title, 'content': text[:char_limit], 'url': url}
     except:
         return None
-async def web_generate_entity_profile(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     """Research a topic and return structured data"""
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
@@ -162,6 +162,3 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
     
     
     return result
-def web_generate_entity_profile_sync(query, max_sites=4, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
-    """Synchronous wrapper"""
-    return asyncio.run(web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, verbose))
