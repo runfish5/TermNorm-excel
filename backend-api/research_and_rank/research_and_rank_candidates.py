@@ -72,6 +72,6 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, request.query)
     response['total_time'] = round(time.time() - start_time, 2)
     print(YELLOW)
-    pprint(response )
+    print(json.dumps(response, indent=2))
     print(RESET)
     return response
