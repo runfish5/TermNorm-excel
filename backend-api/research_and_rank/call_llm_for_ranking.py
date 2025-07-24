@@ -9,15 +9,6 @@ RESET = '\033[0m'
 RANKING_SCHEMA = {
     "type": "object",
     "properties": {
-        "ranking_explanation": {
-            "type": "object",
-            "properties": {
-                "methodology": {"type": "string"},
-                "key_differentiators": {"type": "array", "items": {"type": "string"}},
-                "confidence_level": {"type": "string"}
-            },
-            "required": ["methodology", "key_differentiators", "confidence_level"]
-        },
         "ranked_candidates": {
             "type": "array",
             "items": {
@@ -33,7 +24,7 @@ RANKING_SCHEMA = {
             }
         }
     },
-    "required": ["ranked_candidates", "ranking_explanation"]
+    "required": ["ranked_candidates"]
 }
 
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
@@ -104,7 +95,6 @@ For each candidate, provide core_concept_alignment_score (0-10) and justify why 
             "total_matches": len(candidates),
             "research_performed": True,
             "ranked_candidates": candidates,
-            "ranking_explanation": corrected.get('ranking_explanation', {})
         }
     
     print(f"[WARNING] Unexpected results format: {type(corrected)}")
@@ -113,5 +103,4 @@ For each candidate, provide core_concept_alignment_score (0-10) and justify why 
         "total_matches": 0,
         "research_performed": True,
         "ranked_candidates": [],
-        "ranking_explanation": {}
     }
