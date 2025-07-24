@@ -1,6 +1,7 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
 from research_and_rank.llm_providers import llm_call
 from .correct_candidate_strings import correct_candidate_strings
+import random
 
 GREEN = '\033[92m'
 RESET = '\033[0m'
@@ -32,8 +33,9 @@ RANKING_SCHEMA = {
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
     """Rank candidates using LLM and return standardized structure"""
     
-    matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(reversed(match_results[:20])))
-
+    # matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(match_results[:20]))
+    random_20 = random.sample(list(match_results[:20]), 20)
+    matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
     
     prompt = f"""You are a candidate evaluation expert.
@@ -49,10 +51,16 @@ TASK 2: Score each candidate (0-5 scale)
 
 CRITICAL: If core concept and candidate belong to different foundational categories (e.g. process vs material, object vs method), core concept score must be 0-2 regardless of relatedness. Match the core concept exactly as stated - do not add words or interpret it as a compound concept with additional terms.
 
-QUERY: {query}
-CORE CONCEPT: {core_concept}
-PROFILE: {profile_info}
-CANDIDATES: {matches}
+### QUERY:
+{query}
+### CORE CONCEPT:
+{core_concept}
+
+## PROFILE:
+{profile_info}
+
+## CANDIDATES: 
+{matches}
 
 Evaluate semantic alignment with core concept "{core_concept}" first, then specification matching."""
 
