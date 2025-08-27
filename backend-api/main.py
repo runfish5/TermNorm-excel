@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from fastapi import FastAPI
 from dotenv import load_dotenv
@@ -61,3 +62,47 @@ async def log_activity(entry: ActivityLogEntry):
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(entry.model_dump_json() + "\n")
     return {"status": "logged"}
+
+class ConfigRequest(BaseModel):
+    workbook: str
+
+@app.post("/config")
+async def get_config(request: ConfigRequest):
+    """Get configuration for a specific workbook from cloud or local storage"""
+    try:
+        # Load config from file system for now
+        # In production, this would query a cloud database or config service
+        config_path = Path("../config/app.config.json")
+        
+        if not config_path.exists():
+            return {"error": "Configuration not found"}, 404
+            
+        with open(config_path, "r", encoding="utf-8") as f:
+            config_data = json.load(f)
+        
+        return config_data
+    except Exception as e:
+        return {"error": f"Failed to load config: {str(e)}"}, 500
+
+class CloudFileRequest(BaseModel):
+    url: str
+
+@app.post("/fetch-cloud-file") 
+async def fetch_cloud_file(request: CloudFileRequest):
+    """Proxy endpoint to fetch Excel files from cloud storage (SharePoint/OneDrive)"""
+    try:
+        # In production, this would:
+        # 1. Validate the URL
+        # 2. Handle authentication (OAuth tokens)
+        # 3. Fetch the file through Microsoft Graph API
+        # 4. Return the file content
+        
+        # For now, return an error message with instructions
+        return {
+            "error": "Cloud file fetching not yet implemented",
+            "message": "Please implement Microsoft Graph API integration for production use",
+            "url": request.url
+        }, 501
+        
+    except Exception as e:
+        return {"error": f"Failed to fetch cloud file: {str(e)}"}, 500
