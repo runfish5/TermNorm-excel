@@ -66,6 +66,12 @@
     font-weight: bold;
     white-space: nowrap; /* Keep label on one line */
 }
+
+.env-icon {
+    font-size: 16px;
+    margin: 0 10px;
+    cursor: help;
+}
 .status-error { color: #d9534f; }
 .status-success { color: #5cb85c; }
 
