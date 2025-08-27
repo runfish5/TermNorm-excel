@@ -9,15 +9,33 @@
       "standard_mappings": [
         {
           "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",
+          "file_type": "local",
           "worksheet": "Materials",
           "source_column": "",
           "target_column": "Dataset in SP"
         },
         {
-          "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example_n2.xlsx",
+          "mapping_reference": "https://contoso.sharepoint.com/sites/team/Documents/BOM-example_n2.xlsx",
+          "file_type": "cloud",
           "worksheet": "Processing",
           "source_column": "",
           "target_column": "Eintrag aus Zielliste"
+        }
+      ]
+    },
+    "*": {
+      "column_map": {
+        "source": "target",
+        "term": "standardized_term"
+      },
+      "default_std_suffix": "std",
+      "standard_mappings": [
+        {
+          "mapping_reference": "https://mycompany.sharepoint.com/sites/data/Shared Documents/master-mappings.xlsx",
+          "file_type": "cloud",
+          "worksheet": "StandardTerms",
+          "source_column": "Alias",
+          "target_column": "StandardTerm"
         }
       ]
     }

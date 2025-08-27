@@ -89,3 +89,54 @@
 .btn-full + * {
     margin-top: 10px;
 }
+
+/* Cloud file picker styles */
+.file-type-indicator {
+    margin-top: 5px;
+    margin-left: 5px;
+}
+
+.file-type-indicator span {
+    color: #666;
+    font-style: italic;
+}
+
+.cloud-file-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: white;
+    border: 2px solid #004b32;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 400px;
+    max-width: 90vw;
+}
+
+.cloud-file-dialog h4 {
+    margin: 0 0 10px 0;
+    color: #004b32;
+}
+
+.cloud-file-dialog input[type="url"] {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+}
+
+.cloud-file-dialog button {
+    margin-right: 10px;
+}
+
+.file-row .ms-Button--primary {
+    background-color: #004b32;
+    border-color: #004b32;
+}
+
+.file-row .ms-Button--primary:hover {
+    background-color: #003d28;
+    border-color: #003d28;
+}

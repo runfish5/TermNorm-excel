@@ -9,6 +9,8 @@ export class MappingConfigModule {
         this.onMappingLoaded = onMappingLoaded;
         this.excelIntegration = new ExcelIntegration();
         this.externalFile = null;
+        this.cloudFileUrl = null;
+        this.fileType = 'local'; // 'local' or 'cloud'
         this.elementId = `mapping-config-${index}`;
         this.mappings = { forward: {}, reverse: {}, metadata: null };
     }
@@ -40,7 +42,11 @@ export class MappingConfigModule {
                         <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
                         <input type="text" id="${this.elementId}-file-path-display" placeholder="No file selected" readonly />
                         <input type="file" id="${this.elementId}-file-picker-input" accept=".xlsx,.xls" class="hidden" />
-                        <button id="${this.elementId}-browse-button" class="ms-Button">Browse...</button>
+                        <button id="${this.elementId}-browse-button" class="ms-Button">Browse Local...</button>
+                        <button id="${this.elementId}-cloud-picker-button" class="ms-Button ms-Button--primary">Browse Cloud...</button>
+                    </div>
+                    <div class="file-type-indicator">
+                        <span id="${this.elementId}-file-type" class="ms-font-xs"></span>
                     </div>
                 </div>
             </div>
@@ -93,23 +99,23 @@ export class MappingConfigModule {
             else this.setDropdown(['Select external file first...'], true);
         });
         
-        // File picker
+        // Local file picker
         document.getElementById(`${this.elementId}-browse-button`)?.addEventListener('click', e => {
             e.preventDefault();
             document.getElementById(`${this.elementId}-file-picker-input`)?.click();
+        });
+
+        // Cloud file picker
+        document.getElementById(`${this.elementId}-cloud-picker-button`)?.addEventListener('click', e => {
+            e.preventDefault();
+            this.openCloudFilePicker();
         });
         
         document.getElementById(`${this.elementId}-file-picker-input`)?.addEventListener('change', e => {
             const file = e.target.files?.[0];
             if (!file) return;
             
-            this.externalFile = file;
-            document.getElementById(`${this.elementId}-file-path-display`).value = file.name;
-            document.getElementById(`${this.elementId}-external-file`).checked = true;
-            document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove('hidden');
-            
-            this.updateStatus(`Reading ${file.name}...`);
-            this.loadSheets(true);
+            this.setLocalFile(file);
         });
         // Load mapping button
         document.getElementById(`${this.elementId}-load-mapping`)?.addEventListener('click', () => {
@@ -143,17 +149,31 @@ export class MappingConfigModule {
         }
     }
     async loadSheets(isExternal = false) {
-        if (isExternal && !this.externalFile) {
+        if (isExternal && !this.externalFile && !this.cloudFileUrl) {
             this.setDropdown(['Select external file first...'], true);
             return;
         }
         try {
-            const sheets = isExternal 
-                ? await this.excelIntegration.getExternalWorksheetNames(this.externalFile)
-                : await this.excelIntegration.getCurrentWorksheetNames();
+            let sheets;
+            if (isExternal) {
+                if (this.fileType === 'cloud' && this.cloudFileUrl) {
+                    // For cloud files, we'll load sheets during processing
+                    // For now, show a placeholder
+                    sheets = ['Loading from cloud...'];
+                    this.setDropdown(sheets, true);
+                    this.updateStatus(`Cloud file connected: ${this.parseFileName(this.cloudFileUrl)}`);
+                    return;
+                } else if (this.externalFile) {
+                    sheets = await this.excelIntegration.getExternalWorksheetNames(this.externalFile);
+                } else {
+                    throw new Error('No external file selected');
+                }
+            } else {
+                sheets = await this.excelIntegration.getCurrentWorksheetNames();
+            }
             
             this.setDropdown(sheets);
-            this.updateStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ''}`);
+            this.updateStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.getFileDisplayName()}` : ''}`);
             
             // Auto-select worksheet if specified in config
             if (this.mappingConfig.worksheet) {
@@ -196,7 +216,9 @@ export class MappingConfigModule {
                 sheetName: document.getElementById(`${this.elementId}-worksheet-dropdown`)?.value || '',
                 sourceColumn: document.getElementById(`${this.elementId}-source-column`)?.value || null,
                 targetColumn: document.getElementById(`${this.elementId}-target-column`)?.value || '',
-                externalFile: this.externalFile
+                externalFile: this.externalFile,
+                cloudFileUrl: this.cloudFileUrl,
+                fileType: this.fileType
             };
             
             const result = await loadAndProcessMappings(customParams);
@@ -257,6 +279,119 @@ export class MappingConfigModule {
     parseFileName(path) {
         return path?.split(/[\\/]/).pop();
     }
+    getFileDisplayName() {
+        if (this.fileType === 'cloud' && this.cloudFileUrl) {
+            return this.parseFileName(this.cloudFileUrl);
+        } else if (this.externalFile) {
+            return this.externalFile.name;
+        }
+        return 'Unknown file';
+    }
+    async openCloudFilePicker() {
+        try {
+            this.updateStatus('Opening cloud file picker...');
+            
+            // Use Office.js file picker for cloud files
+            if (typeof Office !== 'undefined' && Office.context && Office.context.document) {
+                // Check if we're in Excel Online or desktop
+                const isOnline = Office.context.host === Office.HostType.Excel && 
+                                Office.context.platform === Office.PlatformType.OfficeOnline;
+                
+                if (isOnline) {
+                    // For Excel Online, use the file picker dialog
+                    await this.showCloudFilePickerDialog();
+                } else {
+                    // For Excel Desktop, provide instructions for cloud file access
+                    this.showCloudFileInstructions();
+                }
+            } else {
+                throw new Error('Office.js not available');
+            }
+        } catch (error) {
+            this.updateStatus(`Cloud picker error: ${error.message}`, true);
+        }
+    }
+
+    async showCloudFilePickerDialog() {
+        try {
+            // Create a dialog for file URL input since direct file picker APIs are limited
+            const dialog = document.createElement('div');
+            dialog.innerHTML = `
+                <div class="cloud-file-dialog" style="padding: 10px; background: white; border: 1px solid #ccc;">
+                    <h4>Enter Cloud File URL</h4>
+                    <p class="ms-font-xs">Paste the SharePoint/OneDrive URL to your Excel file:</p>
+                    <input type="url" id="cloud-url-input" placeholder="https://contoso.sharepoint.com/..." style="width: 100%; margin: 10px 0;" />
+                    <div>
+                        <button id="cloud-url-ok" class="ms-Button ms-Button--primary">OK</button>
+                        <button id="cloud-url-cancel" class="ms-Button">Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(dialog);
+            
+            return new Promise((resolve, reject) => {
+                document.getElementById('cloud-url-ok').onclick = () => {
+                    const url = document.getElementById('cloud-url-input').value.trim();
+                    document.body.removeChild(dialog);
+                    if (url) {
+                        this.setCloudFile(url);
+                        resolve(url);
+                    } else {
+                        reject(new Error('No URL provided'));
+                    }
+                };
+                
+                document.getElementById('cloud-url-cancel').onclick = () => {
+                    document.body.removeChild(dialog);
+                    reject(new Error('Cancelled'));
+                };
+            });
+        } catch (error) {
+            this.updateStatus(`Dialog error: ${error.message}`, true);
+        }
+    }
+
+    showCloudFileInstructions() {
+        const message = `For Excel Desktop users:
+        
+1. Upload your Excel file to OneDrive or SharePoint
+2. Get the sharing URL from the cloud
+3. Use the URL input option instead`;
+        
+        this.updateStatus(message);
+        this.showCloudFilePickerDialog();
+    }
+
+    setLocalFile(file) {
+        this.externalFile = file;
+        this.cloudFileUrl = null;
+        this.fileType = 'local';
+        
+        document.getElementById(`${this.elementId}-file-path-display`).value = file.name;
+        document.getElementById(`${this.elementId}-external-file`).checked = true;
+        document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove('hidden');
+        document.getElementById(`${this.elementId}-file-type`).textContent = '📁 Local file';
+        
+        this.updateStatus(`Reading ${file.name}...`);
+        this.loadSheets(true);
+    }
+
+    setCloudFile(url) {
+        this.cloudFileUrl = url;
+        this.externalFile = null;
+        this.fileType = 'cloud';
+        
+        const fileName = this.parseFileName(url);
+        document.getElementById(`${this.elementId}-file-path-display`).value = url;
+        document.getElementById(`${this.elementId}-external-file`).checked = true;
+        document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove('hidden');
+        document.getElementById(`${this.elementId}-file-type`).textContent = '☁️ Cloud file';
+        
+        this.updateStatus(`Connected to cloud file: ${fileName}`);
+        this.updateStatus('Cloud file sheets will be loaded when processing...');
+    }
+
     getMappings() {
         return this.mappings;
     }
