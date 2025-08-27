@@ -3,14 +3,12 @@ import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
 import { LiveTracker } from '../services/normalizer.main.js';
-import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
     constructor() {
         this.mappingModules = [];
         this.loadedMappings = new Map();
         this.tracker = new LiveTracker();
-        this.configManager = new ConfigManager();
     }
 
     init() {
@@ -50,8 +48,14 @@ export class UIManager {
     }
 
     async reloadMappingModules() {
-        const standardMappings = this.configManager.getStandardMappings();
-        if (!standardMappings?.length) return;
+        const config = state.get('config.data');
+        const standardMappings = config?.standard_mappings || [];
+        
+        if (!standardMappings?.length) {
+            console.log('No standard mappings found in config:', config);
+            return;
+        }
+        
         const container = document.getElementById('mapping-configs-container');
         if (!container) return console.error('Mapping configs container not found');
         
