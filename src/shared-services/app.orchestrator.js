@@ -18,10 +18,20 @@ export class AppOrchestrator {
     }
 
     async init() {
+        this.setEnvironmentIcon();
         this.ui.init();
         this.setupEvents();
         await this.reloadConfig();
         this.configLoaded = true;
+    }
+
+    setEnvironmentIcon() {
+        const envIcon = document.getElementById('env-icon');
+        if (!envIcon) return;
+        
+        const isOnline = Office.context?.platform === Office.PlatformType.OfficeOnline;
+        envIcon.textContent = isOnline ? '🌐' : '💻';
+        envIcon.title = isOnline ? 'Excel Online' : 'Excel Desktop';
     }
 
     setupEvents() {
