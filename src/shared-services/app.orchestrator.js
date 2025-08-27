@@ -26,6 +26,9 @@ export class AppOrchestrator {
         this.environmentInfo = EnvironmentDetector.getEnvironmentInfo();
         console.log('Environment detected:', this.environmentInfo);
         
+        // Set environment icon
+        this.setEnvironmentIcon();
+        
         this.ui.init();
         this.setupEvents();
         
@@ -131,6 +134,22 @@ export class AppOrchestrator {
                 button.addEventListener('click', () => this.renewPrompt());
             }
             if (label) label.textContent = originalText;
+        }
+    }
+
+    setEnvironmentIcon() {
+        const iconElement = document.getElementById('environment-icon');
+        if (!iconElement) return;
+        
+        if (this.environmentInfo.isOnline) {
+            iconElement.textContent = '🌐';
+            iconElement.title = 'Excel Online (Cloud Environment)';
+        } else if (this.environmentInfo.isDesktop) {
+            iconElement.textContent = '💻';
+            iconElement.title = 'Excel Desktop (Local Environment)';
+        } else {
+            iconElement.textContent = '❓';
+            iconElement.title = 'Unknown Environment';
         }
     }
 
