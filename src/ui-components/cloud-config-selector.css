@@ -1,0 +1,169 @@
+/* Cloud Config Selector Styles */
+
+.cloud-config-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cloud-config-dialog {
+    background: white;
+    border: 2px solid #004b32;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    min-width: 500px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.cloud-config-header {
+    padding: 20px 20px 10px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.cloud-config-header h2 {
+    margin: 0 0 10px 0;
+    color: #004b32;
+}
+
+.cloud-config-header p {
+    margin: 0;
+    color: #666;
+}
+
+.cloud-config-content {
+    padding: 20px;
+}
+
+.config-option {
+    margin-bottom: 25px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #fafafa;
+}
+
+.config-option h3 {
+    margin: 0 0 10px 0;
+    color: #004b32;
+}
+
+.config-option p {
+    margin: 0 0 10px 0;
+    color: #666;
+}
+
+.config-url-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: monospace;
+    box-sizing: border-box;
+}
+
+.config-url-input:focus {
+    border-color: #004b32;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 75, 50, 0.2);
+}
+
+.url-help {
+    margin-top: 10px;
+}
+
+.url-help details {
+    color: #666;
+}
+
+.url-help details[open] {
+    margin-top: 5px;
+}
+
+.url-help ol {
+    margin: 5px 0;
+    padding-left: 20px;
+}
+
+.url-help ol li {
+    margin: 3px 0;
+}
+
+.cloud-config-actions {
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background-color: #f9f9f9;
+}
+
+.cloud-config-actions .ms-Button--primary {
+    background-color: #004b32;
+    border-color: #004b32;
+    color: white;
+}
+
+.cloud-config-actions .ms-Button--primary:hover:not(:disabled) {
+    background-color: #003d28;
+    border-color: #003d28;
+}
+
+.cloud-config-actions .ms-Button--primary:disabled {
+    background-color: #ccc;
+    border-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.cloud-config-actions .ms-Button {
+    padding: 8px 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    cursor: pointer;
+}
+
+.cloud-config-actions .ms-Button:hover:not(:disabled) {
+    background-color: #f5f5f5;
+    border-color: #999;
+}
+
+.environment-info {
+    padding: 10px 20px;
+    background-color: #f0f0f0;
+    color: #666;
+    text-align: center;
+    font-style: italic;
+    border-radius: 0 0 6px 6px;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+    .cloud-config-dialog {
+        min-width: 90vw;
+        margin: 20px;
+    }
+    
+    .config-url-input {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .cloud-config-actions {
+        flex-direction: column;
+    }
+    
+    .cloud-config-actions .ms-Button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
