@@ -4,6 +4,8 @@ import { LiveTracker } from '../services/normalizer.main.js';
 import { aiPromptRenewer } from '../services/aiPromptRenewer.js';
 import { UIManager } from '../ui-components/ui.manager.js';
 import { state } from './state.manager.js';
+import { EnvironmentDetector } from './environment.detector.js';
+import { CloudConfigSelector } from '../ui-components/cloud-config-selector.js';
 
 export class AppOrchestrator {
     constructor() {
@@ -12,16 +14,53 @@ export class AppOrchestrator {
         this.ui = new UIManager();
         this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
         this.configLoaded = false;
+        this.cloudConfigSelector = new CloudConfigSelector();
+        this.environmentInfo = null;
         
         // Add this line for easy debugging
         window.state = state;
     }
 
     async init() {
+        // Get environment information
+        this.environmentInfo = EnvironmentDetector.getEnvironmentInfo();
+        console.log('Environment detected:', this.environmentInfo);
+        
         this.ui.init();
         this.setupEvents();
-        await this.reloadConfig();
+        
+        // Two-stage initialization for cloud environments
+        await this.initializeConfiguration();
         this.configLoaded = true;
+    }
+
+    async initializeConfiguration() {
+        try {
+            // Stage 1: Determine config source
+            let configSource = null;
+            
+            if (this.environmentInfo.requiresCloudConfig) {
+                state.setStatus('Excel Online detected - Select configuration file location...');
+                
+                try {
+                    configSource = await this.cloudConfigSelector.show();
+                    console.log('Config source selected:', configSource);
+                } catch (error) {
+                    if (error.message === 'Config selection cancelled') {
+                        state.setStatus('Configuration selection cancelled', true);
+                        return;
+                    }
+                    throw error;
+                }
+            }
+            
+            // Stage 2: Load configuration
+            await this.reloadConfig(configSource);
+            
+        } catch (error) {
+            console.error('Configuration initialization failed:', error);
+            state.setStatus(`Config initialization failed: ${error.message}`, true);
+        }
     }
 
     setupEvents() {
@@ -34,18 +73,29 @@ export class AppOrchestrator {
         });
     }
 
-    async reloadConfig() {
+    async reloadConfig(configSource = null) {
         try {
-            await this.configManager.loadConfig();
+            await this.configManager.loadConfig(configSource);
             // Store config in state for direct UI access
             const config = this.configManager.getConfig();
             state.setConfig(config);
             
             if (!this.configLoaded) await this.ui.reloadMappingModules();
 
-            state.setStatus("Config reloaded");
+            const sourceMsg = configSource ? 
+                `Config loaded from ${configSource.type === 'cloud' ? 'cloud URL' : 'local file'}` : 
+                "Config reloaded";
+            state.setStatus(sourceMsg);
         } catch (error) {
-            state.setStatus(`Config failed\n ${error.message}\n\n Please create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\n For Help go to\nhttps://github.com/runfish5/TermNorm-excel`, true);
+            let errorMessage = `Config failed: ${error.message}`;
+            
+            if (!configSource && !this.environmentInfo?.requiresCloudConfig) {
+                errorMessage += `\n\nPlease create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\nFor Help go to:\nhttps://github.com/runfish5/TermNorm-excel`;
+            } else if (this.environmentInfo?.requiresCloudConfig) {
+                errorMessage += `\n\nFor Excel Online:\n1. Upload your app.config.json to SharePoint/OneDrive\n2. Use "Load Config" button to specify the file location\n3. Ensure the backend API supports cloud file access`;
+            }
+            
+            state.setStatus(errorMessage, true);
         }
     }
 
