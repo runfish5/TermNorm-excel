@@ -46,20 +46,16 @@ export class CloudConfigPickerUI {
                     
                     <div class="cloud-config-content">
                         <div class="config-option">
-                            <h3>📁 SharePoint/OneDrive Link</h3>
-                            <p>Paste a sharing link to your app.config.json file:</p>
+                            <h3>📁 Select from OneDrive</h3>
+                            <p>Browse and select your app.config.json file from OneDrive:</p>
                             <div class="supported-formats">
-                                <small>✅ Supports: 1drv.ms, onedrive.live.com, company.sharepoint.com</small>
+                                <small>✅ Secure Microsoft authentication • No URL needed</small>
                             </div>
-                            <input type="url" 
-                                   id="config-url-input" 
-                                   placeholder="https://1drv.ms/u/c/..." 
-                                   class="config-input">
-                            <button id="load-from-url" class="ms-Button ms-Button--primary config-button">
-                                Load from URL
+                            <button id="select-from-onedrive" class="ms-Button ms-Button--primary config-button">
+                                📁 Browse OneDrive Files
                             </button>
                             <div class="help-text">
-                                <small>💡 Make sure "People with access" can view the file</small>
+                                <small>💡 Sign in with your Microsoft account to access your files</small>
                             </div>
                         </div>
                         
@@ -100,17 +96,11 @@ export class CloudConfigPickerUI {
      * Attach event listeners to dialog elements
      */
     attachEventListeners() {
-        // URL loading
-        const urlInput = this.dialogElement.querySelector('#config-url-input');
-        const loadFromUrlBtn = this.dialogElement.querySelector('#load-from-url');
+        // OneDrive file picker
+        const selectFromOneDriveBtn = this.dialogElement.querySelector('#select-from-onedrive');
         
-        loadFromUrlBtn.addEventListener('click', () => {
-            const url = urlInput.value.trim();
-            if (url) {
-                this.loadConfigFromUrl(url);
-            } else {
-                this.showStatus('Please enter a valid URL', 'error');
-            }
+        selectFromOneDriveBtn.addEventListener('click', () => {
+            this.openOneDriveFilePicker();
         });
 
         // File upload
@@ -139,25 +129,66 @@ export class CloudConfigPickerUI {
             }
         });
 
-        // Enter key on URL input
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                loadFromUrlBtn.click();
-            }
-        });
     }
 
     /**
-     * Load config from URL
+     * Open OneDrive file picker
      */
-    async loadConfigFromUrl(url) {
-        this.showStatus('Loading configuration from URL...', 'loading');
+    openOneDriveFilePicker() {
+        this.showStatus('Opening OneDrive file picker...', 'loading');
         this.setButtonsDisabled(true);
 
         try {
+            // Check if OneDrive SDK is loaded
+            if (typeof OneDrive === 'undefined') {
+                throw new Error('OneDrive SDK not loaded. Please refresh the page and try again.');
+            }
+
+            const pickerOptions = {
+                clientId: 'TermNorm-Excel-AddIn', // You may need to register this
+                action: 'download',
+                multiSelect: false,
+                openInNewWindow: true,
+                advanced: {
+                    filter: '.json',
+                    queryParameters: 'select=id,name,size,file,@microsoft.graph.downloadUrl'
+                },
+                success: (files) => this.onFilePickerSuccess(files),
+                cancel: () => this.onFilePickerCancel(),
+                error: (error) => this.onFilePickerError(error)
+            };
+
+            OneDrive.open(pickerOptions);
+            
+        } catch (error) {
+            this.showStatus(`Failed to open file picker: ${error.message}`, 'error');
+            this.setButtonsDisabled(false);
+        }
+    }
+
+    /**
+     * Handle successful file picker selection
+     */
+    async onFilePickerSuccess(files) {
+        try {
+            if (!files || !files.value || files.value.length === 0) {
+                throw new Error('No file selected');
+            }
+
+            const selectedFile = files.value[0];
+            this.showStatus(`Loading ${selectedFile.name}...`, 'loading');
+
+            // Get the download URL from the file picker result
+            const downloadUrl = selectedFile['@microsoft.graph.downloadUrl'] || selectedFile.downloadUrl;
+            
+            if (!downloadUrl) {
+                throw new Error('Unable to get download URL for the selected file');
+            }
+
             const config = await this.configManager.setupCloudConfig({
-                type: 'url',
-                url: url
+                type: 'picker',
+                downloadUrl: downloadUrl,
+                fileName: selectedFile.name
             });
 
             this.showStatus('Configuration loaded successfully! ✅', 'success');
@@ -173,6 +204,23 @@ export class CloudConfigPickerUI {
             this.showStatus(`Failed to load config: ${error.message}`, 'error');
             this.setButtonsDisabled(false);
         }
+    }
+
+    /**
+     * Handle file picker cancellation
+     */
+    onFilePickerCancel() {
+        this.showStatus('File selection cancelled', 'info');
+        this.setButtonsDisabled(false);
+    }
+
+    /**
+     * Handle file picker error
+     */
+    onFilePickerError(error) {
+        console.error('OneDrive file picker error:', error);
+        this.showStatus(`File picker error: ${error.message || 'Unknown error'}`, 'error');
+        this.setButtonsDisabled(false);
     }
 
     /**
