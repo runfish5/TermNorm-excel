@@ -90,6 +90,21 @@
     font-size: 14px;
 }
 
+.supported-formats,
+.help-text {
+    margin-bottom: 8px;
+}
+
+.supported-formats small {
+    color: #107c10;
+    font-weight: 500;
+}
+
+.help-text small {
+    color: #605e5c;
+    font-style: italic;
+}
+
 .config-input {
     width: 100%;
     padding: 8px 12px;

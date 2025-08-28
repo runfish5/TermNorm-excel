@@ -99,44 +99,130 @@ export class CloudConfigService {
      */
     async loadConfigFromUrl(url) {
         try {
+            console.log('Attempting to load config from URL:', url);
+            
             const response = await fetch(url);
+            
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Provide specific error messages for common issues
+                if (response.status === 403) {
+                    throw new Error("Access denied. Please check that 'People with access' or 'Anyone with the link' can view this file.");
+                } else if (response.status === 404) {
+                    throw new Error("File not found. Please check that the OneDrive link is correct and the file exists.");
+                } else if (response.status === 401) {
+                    throw new Error("Authentication required. Please check the sharing permissions of your OneDrive file.");
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            }
+            
+            // Check if we got HTML instead of JSON (common with OneDrive preview pages)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                throw new Error("Received HTML instead of JSON. Please ensure you're using a direct download link, not a preview link.");
             }
             
             const configData = await response.json();
             
             // Validate config structure
             if (!configData?.["excel-projects"]) {
-                throw new Error("Invalid config file structure");
+                throw new Error("Invalid config file structure. Missing 'excel-projects' section.");
             }
             
+            console.log('Successfully loaded config data');
             return configData;
         } catch (error) {
             console.error('Failed to load config from URL:', error);
-            throw new Error(`Failed to load config from URL: ${error.message}`);
+            
+            // If it's already our custom error, rethrow it
+            if (error.message.includes('Access denied') || 
+                error.message.includes('File not found') ||
+                error.message.includes('Authentication required') ||
+                error.message.includes('Received HTML')) {
+                throw error;
+            }
+            
+            // For JSON parsing errors, provide helpful message
+            if (error.name === 'SyntaxError') {
+                throw new Error("Invalid JSON file. Please check that your config file contains valid JSON data.");
+            }
+            
+            throw new Error(`Failed to load config: ${error.message}`);
         }
     }
 
     /**
-     * Parse SharePoint sharing link to direct download URL
+     * Convert various sharing links to direct download URLs
      */
     convertSharePointLinkToDirectUrl(shareLink) {
         try {
-            // SharePoint sharing links typically look like:
-            // https://company.sharepoint.com/:u:/g/personal/user_company_com/ExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxB
+            // Handle different OneDrive/SharePoint link formats
             
-            if (shareLink.includes('sharepoint.com') && shareLink.includes('/:')) {
-                // Extract base URL and encode the sharing link
-                const baseUrl = shareLink.split('/:')[0];
-                const encodedUrl = encodeURIComponent(shareLink);
-                return `${baseUrl}/_api/v2.0/shares/u!${btoa(shareLink).replace(/=+$/, '')}/driveItem/content`;
+            // 1. Modern OneDrive short links (1drv.ms)
+            // Format: https://1drv.ms/u/c/ID/FILE?e=TOKEN
+            if (shareLink.includes('1drv.ms')) {
+                return this.convertOneDriveShortLink(shareLink);
             }
             
-            // If it's already a direct URL, return as is
-            return shareLink;
+            // 2. Classic OneDrive links (onedrive.live.com)  
+            // Format: https://onedrive.live.com/redir?resid=ID&authkey=TOKEN
+            if (shareLink.includes('onedrive.live.com/redir')) {
+                return shareLink.replace('/redir?', '/download?');
+            }
+            
+            // 3. SharePoint corporate links
+            // Format: https://company.sharepoint.com/:u:/g/personal/user_company_com/ExxxB
+            if (shareLink.includes('sharepoint.com') && shareLink.includes('/:')) {
+                return this.convertSharePointCorporateLink(shareLink);
+            }
+            
+            // 4. Direct download links - return as is
+            if (shareLink.includes('download=1') || shareLink.includes('/download?')) {
+                return shareLink;
+            }
+            
+            // If unknown format, try adding download parameter
+            const separator = shareLink.includes('?') ? '&' : '?';
+            return `${shareLink}${separator}download=1`;
+            
         } catch (error) {
-            console.error('Failed to convert SharePoint link:', error);
+            console.error('Failed to convert sharing link:', error);
+            return shareLink;
+        }
+    }
+
+    /**
+     * Convert modern OneDrive short links (1drv.ms format)
+     */
+    convertOneDriveShortLink(shareLink) {
+        try {
+            // Format: https://1drv.ms/u/c/0F398A63FF396AF9/AerwLGraTSFHtrETzoYivfE?e=7W8dQW
+            // Add download parameter to get direct file content
+            
+            if (shareLink.includes('download=1')) {
+                return shareLink; // Already a download link
+            }
+            
+            const separator = shareLink.includes('?') ? '&' : '?';
+            return `${shareLink}${separator}download=1`;
+            
+        } catch (error) {
+            console.error('Failed to convert OneDrive short link:', error);
+            return shareLink;
+        }
+    }
+
+    /**
+     * Convert SharePoint corporate sharing links
+     */
+    convertSharePointCorporateLink(shareLink) {
+        try {
+            // Format: https://company.sharepoint.com/:u:/g/personal/user_company_com/ExxxB
+            const baseUrl = shareLink.split('/:')[0];
+            const encodedUrl = encodeURIComponent(shareLink);
+            return `${baseUrl}/_api/v2.0/shares/u!${btoa(shareLink).replace(/=+$/, '')}/driveItem/content`;
+        } catch (error) {
+            console.error('Failed to convert SharePoint corporate link:', error);
             return shareLink;
         }
     }
