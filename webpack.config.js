@@ -5,7 +5,7 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://runfish5.github.io/TermNorm-excel/"; // GitHub Pages deployment location
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
