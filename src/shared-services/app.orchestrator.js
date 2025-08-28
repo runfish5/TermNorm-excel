@@ -3,6 +3,7 @@ import { ConfigManager } from './config.manager.js';
 import { LiveTracker } from '../services/normalizer.main.js';
 import { aiPromptRenewer } from '../services/aiPromptRenewer.js';
 import { UIManager } from '../ui-components/ui.manager.js';
+import { CloudConfigPickerUI } from '../ui-components/CloudConfigPickerUI.js';
 import { state } from './state.manager.js';
 
 export class AppOrchestrator {
@@ -11,6 +12,7 @@ export class AppOrchestrator {
         this.tracker = new LiveTracker();
         this.ui = new UIManager();
         this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
+        this.cloudConfigPicker = null;
         this.configLoaded = false;
         
         // Add this line for easy debugging
@@ -55,7 +57,42 @@ export class AppOrchestrator {
 
             state.setStatus("Config reloaded");
         } catch (error) {
-            state.setStatus(`Config failed\n ${error.message}\n\n Please create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\n For Help go to\nhttps://github.com/runfish5/TermNorm-excel`, true);
+            // Check if we need cloud config setup
+            if (this.configManager.needsCloudSetup()) {
+                this.showCloudConfigPicker();
+            } else {
+                state.setStatus(`Config failed\n ${error.message}\n\n Please create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\n For Help go to\nhttps://github.com/runfish5/TermNorm-excel`, true);
+            }
+        }
+    }
+
+    showCloudConfigPicker() {
+        if (!this.cloudConfigPicker) {
+            this.cloudConfigPicker = new CloudConfigPickerUI(
+                this.configManager,
+                (config) => this.onCloudConfigLoaded(config)
+            );
+        }
+        
+        state.setStatus("Cloud configuration required", true);
+        this.cloudConfigPicker.show();
+    }
+
+    async onCloudConfigLoaded(config) {
+        try {
+            // Store config in state
+            state.setConfig(config);
+            
+            // Reload UI components
+            if (!this.configLoaded) {
+                await this.ui.reloadMappingModules();
+                this.configLoaded = true;
+            }
+            
+            state.setStatus("Cloud configuration loaded successfully! ✅");
+        } catch (error) {
+            console.error("Failed to process loaded config:", error);
+            state.setStatus("Failed to process loaded configuration", true);
         }
     }
 
