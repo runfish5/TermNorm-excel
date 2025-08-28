@@ -48,13 +48,19 @@ export class CloudConfigPickerUI {
                         <div class="config-option">
                             <h3>📁 SharePoint/OneDrive Link</h3>
                             <p>Paste a sharing link to your app.config.json file:</p>
+                            <div class="supported-formats">
+                                <small>✅ Supports: 1drv.ms, onedrive.live.com, company.sharepoint.com</small>
+                            </div>
                             <input type="url" 
                                    id="config-url-input" 
-                                   placeholder="https://company.sharepoint.com/..." 
+                                   placeholder="https://1drv.ms/u/c/..." 
                                    class="config-input">
                             <button id="load-from-url" class="ms-Button ms-Button--primary config-button">
                                 Load from URL
                             </button>
+                            <div class="help-text">
+                                <small>💡 Make sure "People with access" can view the file</small>
+                            </div>
                         </div>
                         
                         <div class="config-divider">
