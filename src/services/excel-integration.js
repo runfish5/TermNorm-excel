@@ -1,5 +1,5 @@
 // services/excel-integration.js
-import * as XLSX from 'xlsx';
+/* global XLSX */
 
 export class ExcelIntegration {
     constructor() {
