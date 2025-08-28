@@ -102,6 +102,12 @@ export class ConfigManager {
                 
                 // Store the location for future use
                 await this.cloudConfig.storeConfigLocation(directUrl);
+            } else if (configSource.type === 'picker') {
+                // Handle OneDrive file picker result
+                configData = await this.cloudConfig.loadConfigFromUrl(configSource.downloadUrl);
+                
+                // Store the download URL for future use (though it may expire)
+                await this.cloudConfig.storeConfigLocation(configSource.downloadUrl);
             } else if (configSource.type === 'file') {
                 configData = await this.cloudConfig.handleFileUpload(configSource.file);
                 
