@@ -61,7 +61,7 @@ This is a **TermNorm Excel Add-in** - a data normalization tool that uses AI to 
 ## Configuration
 
 - **App Config**: `config/app.config.json` defines column mappings and standard mappings
-- **Project Mappings**: `config/project_mappings/` contains Excel-specific configurations
+- **Project Mappings**: `config/app.config.json` contains Excel-specific configurations
 - **Manifest**: `manifest.xml` defines Office Add-in metadata and permissions
 
 ## Key Architecture Patterns
