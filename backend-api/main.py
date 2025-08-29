@@ -81,11 +81,14 @@ async def check_api_key(request: Request, call_next):
     # Check if this is a protected endpoint
     if any(request.url.path.startswith(path) for path in protected_paths):
         api_key = request.headers.get("X-API-Key")
+        print(f"[API_KEY_CHECK] Path: {request.url.path}, API Key provided: {'Yes' if api_key else 'No'}")
         if not api_key or api_key != API_KEY:
+            print(f"[API_KEY_CHECK] Rejecting request - API key invalid")
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid or missing API key", "message": "Please provide a valid X-API-Key header"}
             )
+        print(f"[API_KEY_CHECK] API key valid, proceeding")
     
     response = await call_next(request)
     return response
