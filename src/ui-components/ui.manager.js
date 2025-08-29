@@ -6,11 +6,12 @@ import { LiveTracker } from '../services/normalizer.main.js';
 import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
-    constructor() {
+    constructor(orchestrator = null) {
         this.mappingModules = [];
         this.loadedMappings = new Map();
         this.tracker = new LiveTracker();
         this.configManager = new ConfigManager();
+        this.orchestrator = orchestrator;
     }
 
     init() {
@@ -115,6 +116,11 @@ export class UIManager {
             
             this.configManager.setConfig(configData);
             await this.reloadMappingModules();
+            
+            // Trigger orchestrator's reloadConfig for cloud environment support
+            if (this.orchestrator) {
+                await this.orchestrator.reloadConfig();
+            }
             
             state.setStatus(`Configuration loaded from ${file.name}`);
         } catch (error) {
