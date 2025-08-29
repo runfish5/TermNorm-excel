@@ -271,6 +271,10 @@ export class UIManager {
   }
 
   setupServerStatus() {
+    // Initialize local IP detection
+    this.localIP = "127.0.0.1";
+    this.detectLocalIP();
+
     // Extract backend URL from existing services
     const backendUrl = this.getBackendUrl();
     state.set("server.host", backendUrl);
@@ -281,18 +285,60 @@ export class UIManager {
       led.addEventListener("click", () => this.checkServerStatus());
     }
 
+    // Set up network mode toggle handler
+    const toggle = document.getElementById("network-mode-toggle");
+    if (toggle) {
+      toggle.addEventListener("change", (e) => {
+        state.set("server.networkMode", e.target.checked);
+        const newUrl = this.getBackendUrl();
+        state.set("server.host", newUrl);
+        this.checkServerStatus();
+      });
+    }
+
+    // Set up API key input handler
+    const apiKeyInput = document.getElementById("api-key-input");
+    if (apiKeyInput) {
+      apiKeyInput.addEventListener("input", (e) => {
+        state.set("server.apiKey", e.target.value.trim());
+      });
+    }
+
     // Initial status check
     this.checkServerStatus();
   }
 
+  detectLocalIP() {
+    try {
+      const pc = new RTCPeerConnection();
+      pc.createDataChannel("");
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          const ip = e.candidate.candidate.match(/\d+\.\d+\.\d+\.\d+/)?.[0];
+          if (ip && ip !== "127.0.0.1") {
+            this.localIP = ip;
+          }
+        }
+      };
+      pc.createOffer().then((offer) => pc.setLocalDescription(offer));
+    } catch (error) {
+      console.log("IP detection failed, using localhost");
+    }
+  }
+
   getBackendUrl() {
-    // Extract from existing services - check for aiPromptRenewer first
+    const isNetworkMode = state.get("server.networkMode");
+
+    if (isNetworkMode) {
+      return `http://${this.localIP}:8000`;
+    }
+
+    // Local mode - check for existing service configuration first
     if (this.orchestrator?.aiPromptRenewer?.backendUrl) {
       return this.orchestrator.aiPromptRenewer.backendUrl;
     }
-    
-    // Fallback: extract from hardcoded URL patterns in existing code
-    // This matches the pattern used in normalizer.router.js and aiPromptRenewer.js
+
+    // Fallback to localhost
     return "http://127.0.0.1:8000";
   }
 
@@ -301,9 +347,15 @@ export class UIManager {
     if (!host) return;
 
     try {
+      const apiKey = state.get("server.apiKey");
+      const headers = { "Content-Type": "application/json" };
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
+
       const response = await fetch(`${host}/test-connection`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify({}),
         signal: AbortSignal.timeout(5000),
       });
@@ -313,6 +365,11 @@ export class UIManager {
         "server.online": isOnline,
         "server.host": host,
       });
+
+      // Show API key error if applicable
+      if (!response.ok && response.status === 401) {
+        state.setStatus("API key required or invalid", true);
+      }
     } catch (error) {
       state.update({
         "server.online": false,
@@ -329,10 +386,10 @@ export class UIManager {
 
     const status = isOnline ? "Online" : "Offline";
     const hostDisplay = host || "Unknown";
-    const bindingInfo =
-      host && host.includes("127.0.0.1") ? "accessible locally only" : "accessible from network (0.0.0.0)";
+    const isNetworkMode = state.get("server.networkMode");
+    const bindingInfo = isNetworkMode ? "accessible from network" : "accessible locally only";
 
-    led.title = `Server: ${hostDisplay} - Status: ${status}\nBinding: ${bindingInfo}\nClick to refresh`;
+    led.title = `Server: ${hostDisplay} - Status: ${status}\nMode: ${bindingInfo}\nClick to refresh`;
   }
 
   // Public API

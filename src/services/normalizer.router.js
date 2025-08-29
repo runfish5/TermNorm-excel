@@ -55,13 +55,26 @@ export class NormalizerRouter {
     try {
       state.setStatus("Starting mapping process...");
 
-      const response = await fetch("http://127.0.0.1:8000/research-and-match", {
+      const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
+      const apiKey = state.get("server.apiKey");
+
+      const headers = { "Content-Type": "application/json" };
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
+
+      const response = await fetch(`${serverHost}/research-and-match`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify({ query: val }),
       });
 
       if (!response.ok) return null;
+
+      if (response.status === 401) {
+        state.setStatus("API key required or invalid", true);
+        return null;
+      }
 
       const data = await response.json();
       if (!data.success || !data.data.ranked_candidates?.length) {

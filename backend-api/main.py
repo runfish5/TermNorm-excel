@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -15,7 +16,28 @@ from research_and_rank.research_and_rank_candidates import router as research_an
 
 load_dotenv()
 
+# Get API key from environment variable with fallback
+API_KEY = os.getenv("TERMNORM_API_KEY", "mycatlikesfish")
+
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
+
+# API Key middleware
+@app.middleware("http")
+async def check_api_key(request: Request, call_next):
+    # Protected endpoints that require API key
+    protected_paths = ["/research-and-match", "/analyze-patterns", "/match-term"]
+    
+    # Check if this is a protected endpoint
+    if any(request.url.path.startswith(path) for path in protected_paths):
+        api_key = request.headers.get("X-API-Key")
+        if not api_key or api_key != API_KEY:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Invalid or missing API key", "message": "Please provide a valid X-API-Key header"}
+            )
+    
+    response = await call_next(request)
+    return response
 
 app.add_middleware(
     CORSMiddleware,

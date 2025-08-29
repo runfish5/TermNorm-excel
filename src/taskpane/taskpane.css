@@ -173,6 +173,35 @@
     background-color: #d9534f;
 }
 
+/* Network Mode Toggle */
+.network-toggle {
+    margin-left: 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* API Key Section */
+.api-key-section {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.api-key-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+#api-key-input {
+    width: 200px;
+    padding: 4px 8px;
+    margin-left: 8px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 13px;
+}
+
 /* Utilities */
 .hidden {
     display: none;
