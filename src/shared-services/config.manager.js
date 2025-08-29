@@ -68,4 +68,11 @@ export class ConfigManager {
         const excelProjects = currentConfigData?.["excel-projects"];
         return excelProjects ? Object.keys(excelProjects).length : 0;
     }
+
+    // Get available excel-projects keys
+    getExcelProjectsKeys() {
+        const currentConfigData = this.rawConfigData || configData;
+        const excelProjects = currentConfigData?.["excel-projects"];
+        return excelProjects ? Object.keys(excelProjects) : [];
+    }
 }
