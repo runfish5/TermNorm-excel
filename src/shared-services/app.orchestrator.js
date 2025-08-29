@@ -43,7 +43,9 @@ export class AppOrchestrator {
             
             if (!this.configLoaded) await this.ui.reloadMappingModules();
 
-            state.setStatus("Config reloaded");
+            // Show confirmation with excel-projects count
+            const excelProjectsCount = this.configManager.getExcelProjectsCount();
+            state.setStatus(`Config reloaded - Found ${excelProjectsCount} excel-project(s)`);
         } catch (error) {
             console.error('Reload config error:', error);
             

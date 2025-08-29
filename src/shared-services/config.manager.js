@@ -3,6 +3,10 @@ import configData from '../../config/app.config.json';
 import { state } from './state.manager.js';
 
 export class ConfigManager {
+    constructor() {
+        this.rawConfigData = null;
+    }
+
     async loadConfig() {
         try {
             const workbook = await Excel.run(async (context) => {
@@ -12,11 +16,14 @@ export class ConfigManager {
                 return wb.name;
             });
 
-            if (!configData?.["excel-projects"]) {
+            // Use rawConfigData if set via setConfig, otherwise use imported configData
+            const currentConfigData = this.rawConfigData || configData;
+
+            if (!currentConfigData?.["excel-projects"]) {
                 throw new Error("Configuration file not found or invalid structure");
             }
 
-            const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
+            const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
             
             if (!config?.standard_mappings || !Array.isArray(config.standard_mappings) || config.standard_mappings.length === 0) {
                 throw new Error(`No valid configuration found for workbook: ${workbook}`);
@@ -48,5 +55,17 @@ export class ConfigManager {
     getStandardMappings() {
         const config = this.getConfig();
         return config?.standard_mappings || [];
+    }
+
+    // Set config data (used by drag-and-drop)
+    setConfig(configData) {
+        this.rawConfigData = configData;
+    }
+
+    // Get count of excel-projects
+    getExcelProjectsCount() {
+        const currentConfigData = this.rawConfigData || configData;
+        const excelProjects = currentConfigData?.["excel-projects"];
+        return excelProjects ? Object.keys(excelProjects).length : 0;
     }
 }
