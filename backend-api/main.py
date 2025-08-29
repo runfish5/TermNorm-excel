@@ -16,8 +16,10 @@ from research_and_rank.research_and_rank_candidates import router as research_an
 
 load_dotenv()
 
-# Get API key from environment variable with fallback
-API_KEY = os.getenv("TERMNORM_API_KEY", "mycatlikesfish")
+# Get API key from environment variable - no fallback for security
+API_KEY = os.getenv("TERMNORM_API_KEY")
+if not API_KEY:
+    raise ValueError("TERMNORM_API_KEY environment variable must be set! Example: set TERMNORM_API_KEY=your_secret_key")
 
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
 
