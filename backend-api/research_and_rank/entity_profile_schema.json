@@ -2,22 +2,22 @@
     "type": "object",
     "properties": {
         "entity_name": {"type": "string"},
-        "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
+        "entity_type": {"type": "string", "enum": ["material", "process"]},
+        "applications": {"type": "array", "items": {"type": "string"}},
+        "all_components": {"type": "array", "items": {"type": "string"}},
+        "technical_specifications": {"type": "array", "items": {"type": "string"}},
         "distinguishing_features": {"type": "array", "items": {"type": "string"}},
+        "functional_descriptors": {"type": "array", "items": {"type": "string"}},
         "key_properties": {"type": "array", "items": {"type": "string"}},
-        "technical_specifications": {"type": "array", "items": {"type": "string"}, "description": "Explicit technical specs, dimensions, codes, ratings, tolerances"},
         "alternative_names": {"type": "array", "items": {"type": "string"}},
-        "classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic"},
-        "constituent_materials": {"type": "array", "items": {"type": "string"}, "description": "All materials that make up this product, both explicit and standard/typical materials inferred from domain knowledge"},
-        "manufacturing_processes": {"type": "array", "items": {"type": "string"}, "description": "Both stated and inferred manufacturing processes based on product type, materials, and industry standards"},
-        "applications": {"type": "array", "items": {"type": "string"}, "description": "Direct and derived applications based on product characteristics"},
+        "term_variants": {"type": "array", "items": {"type": "string"}},
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
-        "entity_name", "core_concept", 
-        "distinguishing_features", "key_properties", "technical_specifications",
-        "alternative_names", "classification_aliases",
-        "constituent_materials", "manufacturing_processes",
-        "applications", "notes"
+        "entity_name", "entity_type", "applications",
+        "all_components",
+        "technical_specifications", "distinguishing_features",
+        "functional_descriptors",
+        "key_properties", "alternative_names", "term_variants", "notes"
     ]
 }

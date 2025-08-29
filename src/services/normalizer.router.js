@@ -12,20 +12,10 @@ export class NormalizerRouter {
     async process(value) {
         const val = String(value || '').trim();
         if (!val) return null;
-        
-        // Try cached first
-        const cached = this.getCached(val);
-        if (cached) return cached;
-        
-        // Try research API
-        const researched = await this.findTokenMatch(val);
-        if (researched) return researched;
-        
-        // Fallback to fuzzy
-        return this.findFuzzy(val);
+        return this.findCached(val) || await this.findTokenMatch(val) || this.findFuzzy(val);
     }
 
-    getCached(val) {
+    findCached(val) {
         if (val in this.forward) {
             const mapping = this.forward[val];
             return { 
@@ -34,19 +24,23 @@ export class NormalizerRouter {
                 confidence: 1.0 
             };
         }
-        return val in this.reverse ? { target: val, method: 'cached', confidence: 1.0 } : null;
+        if (val in this.reverse) {
+            return { target: val, method: 'cached', confidence: 1.0 };
+        }
+        return null;
     }
 
     findFuzzy(val) {
         const fwd = findBestMatch(val, this.forward, 0.7);
         if (fwd) {
+            const mapping = fwd.value;
             return { 
-                target: typeof fwd.value === 'string' ? fwd.value : fwd.value.target, 
+                target: typeof mapping === 'string' ? mapping : mapping.target, 
                 method: 'fuzzy', 
                 confidence: fwd.score 
             };
         }
-        
+
         const rev = findBestMatch(val, this.reverse, 0.5);
         return rev ? { target: rev.key, method: 'fuzzy', confidence: rev.score } : null;
     }
@@ -55,36 +49,36 @@ export class NormalizerRouter {
         try {
             state.setStatus('Starting mapping process...');
             
-            const response = await fetch("http://127.0.0.1:8000/research-and-match", {
+            const res = await fetch("http://127.0.0.1:8000/research-and-match", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ query: val })
             });
+
+            if (!res.ok) return null;
+            const data = await res.json();
             
-            if (!response.ok) return null;
-            
-            const data = await response.json();
-            if (!data.success || !data.data.ranked_candidates?.length) {
-                if (!data.success) {
-                    console.error(`API Error: ${data.error} (${data.error_type})`);
-                    state.setStatus(`Research failed: ${data.error}`, true);
-                }
+            if (!data.success) {
+                console.error(`API Error: ${data.error} (${data.error_type})`);
+                state.setStatus(`Research failed: ${data.error}`, true);
                 return null;
             }
             
-            const best = data.data.ranked_candidates[0]
-            if (!best) {
-                state.setStatus('ranked_candidates has wrong schema or empty', true);
+            const rankedCandidates = data.data.full_results?.ranked_candidates;
+            if (!rankedCandidates?.length) return null;
+
+            const bestCandidate = rankedCandidates.find(c => c.candidate && c.relevance_score >= 0.005);
+            if (!bestCandidate) {
+                state.setStatus('No qualifying matches found', true);
                 return null;
             }
 
-            state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${data.data.total_time} s`);
+            state.setStatus(`Found match: ${bestCandidate.candidate}`);
             return {
-                target: best.candidate,
+                target: bestCandidate.candidate,
                 method: 'ProfileRank',
-                confidence: best.relevance_score,
-                candidates: data.data.ranked_candidates,
-                total_time: data.data.total_time
+                confidence: bestCandidate.relevance_score,
+                candidates: rankedCandidates
             };
             
         } catch (error) {
@@ -92,5 +86,31 @@ export class NormalizerRouter {
             state.setStatus(`Network error during research: ${error.message}`, true);
             return null;
         }
+    }
+
+    async callLLM(val) {
+        const body = { source_value: val, project_name: "dummy-project", mapping_name: "dummy-mapping" };
+        const prompt = this.config?.standardization_prompt;
+        if (Array.isArray(prompt) && prompt.length) body.standardization_prompt = prompt.at(-1);
+
+        const res = await fetch("http://127.0.0.1:8000/llm-generate-normalized-term", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) throw new Error(`LLM API error: ${res.status}`);
+        
+        const data = await res.json();
+        if (!data.mappedValue) throw new Error("No value returned from LLM");
+
+        this.forward[val] = {
+            target: data.mappedValue,
+            method: 'llm',
+            confidence: data.confidence || 0.8,
+            timestamp: new Date().toISOString()
+        };
+
+        return { target: data.mappedValue, method: 'llm', confidence: data.confidence || 0.8 };
     }
 }

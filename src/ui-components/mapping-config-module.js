@@ -21,8 +21,8 @@ export class MappingConfigModule {
         element.innerHTML = `
             <summary class="ms-font-m">
                 Map Config ${this.index + 1}
-                <span id="${this.elementId}-filename-display" style="margin-left: 10px; font-style: italic; color: #666;"></span>
             </summary>
+            
             <div class="form-section first-form-section">
                 <div class="radio-group">
                     <label>Excel File:</label>
@@ -231,10 +231,7 @@ export class MappingConfigModule {
         if (result.metadata?.issues) message += ` (${result.metadata.issues.length} issues)`;
         
         this.updateStatus(message, false, 'success');
-        
-        // Add this line to show the filename
-        const filename = this.externalFile?.name || 'Current Excel file';
-        document.getElementById(`${this.elementId}-filename-display`).textContent = ` - ${filename}`;
+        // this.showMetadata(result.metadata);
     }
     handleMappingError(error) {
         this.mappings = { forward: {}, reverse: {}, metadata: null };
