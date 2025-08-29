@@ -35,22 +35,42 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-def detect_server_mode():
-    """Detect if server is running in network mode based on environment and common patterns"""
-    # Check if uvicorn was started with --host 0.0.0.0 (common network binding)
-    # This is a best-effort detection since we can't directly access uvicorn's bind config
+def detect_server_environment():
+    """Detect server environment: cloud, network, or local"""
+    # Check for cloud environment indicators first
     
-    # Check environment variables that might indicate network mode
+    # Azure App Service detection
+    if os.getenv("WEBSITE_SITE_NAME") or os.getenv("WEBSITE_RESOURCE_GROUP"):
+        return "cloud"
+    
+    # AWS detection
+    if os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.getenv("AWS_EXECUTION_ENV"):
+        return "cloud"
+    
+    # Google Cloud detection  
+    if os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GAE_APPLICATION"):
+        return "cloud"
+    
+    # Generic cloud indicators
+    if os.getenv("CLOUD_PROVIDER") or os.getenv("KUBERNETES_SERVICE_HOST"):
+        return "cloud"
+    
+    # Check for network mode (uvicorn --host 0.0.0.0)
     host_env = os.getenv("UVICORN_HOST", "").lower()
     if host_env in ["0.0.0.0", "network"]:
-        return True
+        return "network"
     
-    # Check if process arguments contain network indicators (rough heuristic)
+    # Check process arguments for network binding
     args_str = " ".join(sys.argv).lower()
     if "--host 0.0.0.0" in args_str or "--host=0.0.0.0" in args_str:
-        return True
+        return "network"
+    
+    # Check if local IP is in public ranges (rough cloud detection)
+    local_ip = get_local_ip()
+    if local_ip and not local_ip.startswith(("192.168.", "10.", "172.")) and local_ip != "127.0.0.1":
+        return "cloud"
         
-    return False
+    return "local"
 
 # API Key middleware
 @app.middleware("http")
@@ -94,16 +114,18 @@ def read_root():
 
 @app.post("/test-connection")
 async def test_connection():
-    # Determine if server is running in network mode
-    is_network_mode = detect_server_mode()
+    # Detect server environment
+    environment = detect_server_environment()
     
-    if is_network_mode:
-        # Server is network-accessible
+    if environment == "cloud":
+        connection_type = "Cloud API"
+        local_ip = get_local_ip()
+        connection_url = f"http://{local_ip}:8000"
+    elif environment == "network":
         connection_type = "Network API"
         local_ip = get_local_ip()
         connection_url = f"http://{local_ip}:8000"
     else:
-        # Server is local-only
         connection_type = "Local API"
         connection_url = "http://localhost:8000"
     
@@ -111,7 +133,8 @@ async def test_connection():
         "status": "OK", 
         "provider": LLM_PROVIDER,
         "connection_type": connection_type,
-        "connection_url": connection_url
+        "connection_url": connection_url,
+        "environment": environment
     }
 
 # Option 2: Allow extra fields (most flexible)

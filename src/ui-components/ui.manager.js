@@ -19,7 +19,10 @@ export class UIManager {
     CandidateRankingUI.init();
     this.showView("config");
     state.subscribe("ui", (ui) => this.updateStatus(ui.statusMessage, ui.isError));
-    state.subscribe("server", (server) => this.updateServerLED(server.online, server.host));
+    state.subscribe("server", (server) => {
+      this.updateServerLED(server.online, server.host);
+      this.updateCloudIndicator(server.info);
+    });
     return this;
   }
 
@@ -314,32 +317,58 @@ export class UIManager {
         headers["X-API-Key"] = apiKey;
       }
 
-      const response = await fetch(`${host}/test-connection`, {
+      // Test basic connection first
+      const testResponse = await fetch(`${host}/test-connection`, {
         method: "POST",
         headers: headers,
         body: JSON.stringify({}),
         signal: AbortSignal.timeout(5000),
       });
 
-      const isOnline = response.ok;
+      const isOnline = testResponse.ok;
       let serverInfo = {};
+      let connectionValidation = { basic: isOnline, protected: false, error: null };
       
       if (isOnline) {
-        const data = await response.json();
+        const data = await testResponse.json();
         serverInfo = {
           connectionType: data.connection_type || "Unknown API",
-          connectionUrl: data.connection_url || host
+          connectionUrl: data.connection_url || host,
+          environment: data.environment || "unknown"
         };
+
+        // Test a protected endpoint to validate full functionality
+        if (apiKey) {
+          try {
+            const protectedResponse = await fetch(`${host}/analyze-patterns`, {
+              method: "POST",
+              headers: headers,
+              body: JSON.stringify({ patterns: ["test"] }),
+              signal: AbortSignal.timeout(3000),
+            });
+            connectionValidation.protected = protectedResponse.ok;
+            if (!protectedResponse.ok && protectedResponse.status === 401) {
+              connectionValidation.error = "API key invalid";
+            }
+          } catch (protectedError) {
+            connectionValidation.error = "Protected endpoints unreachable";
+          }
+        }
       }
 
       state.update({
         "server.online": isOnline,
         "server.host": host,
         "server.info": serverInfo,
+        "server.validation": connectionValidation,
       });
 
-      // Show API key error if applicable
-      if (!response.ok && response.status === 401) {
+      // Show specific error messages
+      if (!isOnline) {
+        state.setStatus("Server connection failed", true);
+      } else if (apiKey && !connectionValidation.protected) {
+        state.setStatus(connectionValidation.error || "API endpoints not accessible", true);
+      } else if (!testResponse.ok && testResponse.status === 401) {
         state.setStatus("API key required or invalid", true);
       }
     } catch (error) {
@@ -347,7 +376,9 @@ export class UIManager {
         "server.online": false,
         "server.host": host,
         "server.info": {},
+        "server.validation": { basic: false, protected: false, error: error.message },
       });
+      state.setStatus(`Connection error: ${error.message}`, true);
     }
   }
 
@@ -368,6 +399,19 @@ export class UIManager {
     }
 
     led.title = tooltipText;
+  }
+
+  updateCloudIndicator(serverInfo) {
+    const cloudIndicator = document.getElementById("cloud-indicator");
+    if (!cloudIndicator) return;
+
+    const isCloudAPI = serverInfo?.connectionType === "Cloud API";
+    
+    if (isCloudAPI) {
+      cloudIndicator.classList.remove("hidden");
+    } else {
+      cloudIndicator.classList.add("hidden");
+    }
   }
 
   // Public API
