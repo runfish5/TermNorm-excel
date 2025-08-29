@@ -82,7 +82,11 @@ export class NormalizerRouter {
 
       if (!response.ok) {
         if (response.status === 401) {
-          state.setStatus("API key invalid - check your key", true);
+          state.setStatus("❌ API key invalid - check your key", true);
+          console.error("API Key Error: 401 Unauthorized");
+        } else {
+          state.setStatus(`❌ API Error: ${response.status} ${response.statusText}`, true);
+          console.error(`API Error: ${response.status} ${response.statusText}`);
         }
         return null;
       }
@@ -116,7 +120,7 @@ export class NormalizerRouter {
       return result;
     } catch (error) {
       console.error("Token match error:", error);
-      state.setStatus(`Network error during research: ${error.message}`, true);
+      state.setStatus(`❌ Connection failed: ${error.message}`, true);
       return null;
     }
   }
