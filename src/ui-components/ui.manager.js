@@ -15,6 +15,7 @@ export class UIManager {
 
     init() {
         this.setupEvents();
+        this.setupDropZone();
         CandidateRankingUI.init();
         this.showView('config');
         state.subscribe('ui', (ui) => this.updateStatus(ui.statusMessage, ui.isError));
@@ -34,12 +35,92 @@ export class UIManager {
                 e.preventDefault();
                 this.showView('tracking');
                 this.startTracking();
-            },
-            'load-onedrive-config': () => this.loadOneDriveConfig()
+            }
         };
         
         Object.entries(events).forEach(([id, handler]) => 
             document.getElementById(id)?.addEventListener('click', handler));
+    }
+
+    setupDropZone() {
+        const dropZone = document.getElementById('config-drop-zone');
+        if (!dropZone) return;
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, this.preventDefaults, false);
+            document.body.addEventListener(eventName, this.preventDefaults, false);
+        });
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', (e) => this.handleDrop(e), false);
+
+        // Handle click to open file dialog
+        dropZone.addEventListener('click', () => this.openFileDialog(), false);
+    }
+
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    async handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length === 0) return;
+
+        const file = files[0];
+        if (!file.name.endsWith('.json')) {
+            state.setStatus("Please drop a JSON configuration file", true);
+            return;
+        }
+
+        await this.loadConfigFromFile(file);
+    }
+
+    openFileDialog() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await this.loadConfigFromFile(file);
+            }
+        };
+        input.click();
+    }
+
+    async loadConfigFromFile(file) {
+        try {
+            state.setStatus("Loading configuration file...");
+            
+            const text = await file.text();
+            const configData = JSON.parse(text);
+            
+            // Validate basic config structure
+            if (!configData.column_map && !configData.standard_mappings) {
+                throw new Error("Invalid config format - missing column_map or standard_mappings");
+            }
+            
+            this.configManager.setConfig(configData);
+            await this.reloadMappingModules();
+            
+            state.setStatus(`Configuration loaded from ${file.name}`);
+        } catch (error) {
+            console.error('Config load error:', error);
+            state.setStatus(`Failed to load config: ${error.message}`, true);
+        }
     }
 
     showView(viewName) {
@@ -148,46 +229,6 @@ export class UIManager {
         }
     }
 
-    async loadOneDriveConfig() {
-        const urlInput = document.getElementById('onedrive-url-input');
-        if (!urlInput?.value) {
-            state.setStatus("Please enter a OneDrive URL", true);
-            return;
-        }
-
-        const url = urlInput.value.trim();
-        if (!url.includes('1drv.ms') && !url.includes('sharepoint.com')) {
-            state.setStatus("Invalid OneDrive URL format", true);
-            return;
-        }
-
-        try {
-            state.setStatus("Loading configuration from OneDrive...");
-            
-            // Convert sharing URL to direct API access URL if needed
-            const directUrl = this.convertToDirectUrl(url);
-            
-            const response = await fetch(directUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            const configData = await response.json();
-            
-            // Process the loaded config similar to local configs
-            this.configManager.setConfig(configData);
-            await this.reloadMappingModules();
-            
-            state.setStatus("OneDrive configuration loaded successfully");
-        } catch (error) {
-            console.error('OneDrive config load error:', error);
-            state.setStatus(`Failed to load OneDrive config: ${error.message}`, true);
-        }
-    }
-
-    convertToDirectUrl(shareUrl) {
-        // Basic conversion - in production, you'd need more robust URL parsing
-        // For now, assume user provides appropriate format or implement URL conversion logic
-        return shareUrl;
-    }
 
     updateStatus(message, isError = false) {
         const statusElement = document.getElementById('main-status-message');

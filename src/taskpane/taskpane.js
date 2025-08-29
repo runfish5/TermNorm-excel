@@ -10,12 +10,6 @@ Office.onReady(async (info) => {
     return;
   }
   
-  // Detect if running in Excel Online/Web
-  const isExcelOnline = info.platform === Office.PlatformType.OfficeOnline;
-  if (isExcelOnline) {
-    document.getElementById("cloud-indicator").classList.remove("hidden");
-    document.getElementById("onedrive-url-section").classList.remove("hidden");
-  }
   
   ActivityFeed.init();
 
