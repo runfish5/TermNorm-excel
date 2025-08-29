@@ -271,12 +271,8 @@ export class UIManager {
   }
 
   setupServerStatus() {
-    // Initialize local IP detection
-    this.localIP = "127.0.0.1";
-    this.detectLocalIP();
-
-    // Extract backend URL from existing services
-    const backendUrl = this.getBackendUrl();
+    // Set initial server host from existing service configuration
+    const backendUrl = this.orchestrator?.aiPromptRenewer?.backendUrl || "http://127.0.0.1:8000";
     state.set("server.host", backendUrl);
 
     // Set up LED click handler
@@ -290,8 +286,6 @@ export class UIManager {
     if (toggle) {
       toggle.addEventListener("change", (e) => {
         state.set("server.networkMode", e.target.checked);
-        const newUrl = this.getBackendUrl();
-        state.set("server.host", newUrl);
         this.checkServerStatus();
       });
     }
@@ -308,46 +302,6 @@ export class UIManager {
     this.checkServerStatus();
   }
 
-  detectLocalIP() {
-    try {
-      const pc = new RTCPeerConnection();
-      pc.createDataChannel("");
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          const ip = e.candidate.candidate.match(/\d+\.\d+\.\d+\.\d+/)?.[0];
-          if (ip && ip !== "127.0.0.1") {
-            this.localIP = ip;
-            console.log("Detected local IP:", ip);
-
-            // Update server host if in network mode
-            if (state.get("server.networkMode")) {
-              const newUrl = this.getBackendUrl();
-              state.set("server.host", newUrl);
-            }
-          }
-        }
-      };
-      pc.createOffer().then((offer) => pc.setLocalDescription(offer));
-    } catch (error) {
-      console.log("IP detection failed, using localhost");
-    }
-  }
-
-  getBackendUrl() {
-    const isNetworkMode = state.get("server.networkMode");
-
-    if (isNetworkMode) {
-      return `http://${this.localIP}:8000`;
-    }
-
-    // Local mode - check for existing service configuration first
-    if (this.orchestrator?.aiPromptRenewer?.backendUrl) {
-      return this.orchestrator.aiPromptRenewer.backendUrl;
-    }
-
-    // Fallback to localhost
-    return "http://127.0.0.1:8000";
-  }
 
   async checkServerStatus() {
     const host = state.get("server.host");
@@ -368,9 +322,20 @@ export class UIManager {
       });
 
       const isOnline = response.ok;
+      let serverInfo = {};
+      
+      if (isOnline) {
+        const data = await response.json();
+        serverInfo = {
+          connectionType: data.connection_type || "Unknown API",
+          connectionUrl: data.connection_url || host
+        };
+      }
+
       state.update({
         "server.online": isOnline,
         "server.host": host,
+        "server.info": serverInfo,
       });
 
       // Show API key error if applicable
@@ -381,6 +346,7 @@ export class UIManager {
       state.update({
         "server.online": false,
         "server.host": host,
+        "server.info": {},
       });
     }
   }
@@ -392,19 +358,16 @@ export class UIManager {
     led.className = `status-led ${isOnline ? "online" : "offline"}`;
 
     const status = isOnline ? "Online" : "Offline";
-    const hostDisplay = host || "Unknown";
-    const isNetworkMode = state.get("server.networkMode");
-
-    let modeDescription, accessDescription;
-    if (isNetworkMode) {
-      modeDescription = "Network Mode";
-      accessDescription = "Other devices can connect";
+    const serverInfo = state.get("server.info") || {};
+    
+    let tooltipText;
+    if (isOnline && serverInfo.connectionType && serverInfo.connectionUrl) {
+      tooltipText = `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`;
     } else {
-      modeDescription = "Local Mode";
-      accessDescription = "Same machine only";
+      tooltipText = `Server: ${host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
     }
 
-    led.title = `Server: ${hostDisplay}\nStatus: ${status}\n${modeDescription} - ${accessDescription}\nClick to refresh`;
+    led.title = tooltipText;
   }
 
   // Public API
