@@ -1,73 +1,79 @@
 // shared-services/config.manager.js
-import configData from '../../config/app.config.json';
-import { state } from './state.manager.js';
+import configData from "../../config/app.config.json";
+import { state } from "./state.manager.js";
 
 export class ConfigManager {
-    constructor() {
-        this.rawConfigData = null;
-    }
+  constructor() {
+    this.rawConfigData = null;
+  }
 
-    async loadConfig() {
-        try {
-            const workbook = await Excel.run(async (context) => {
-                const wb = context.workbook;
-                wb.load("name");
-                await context.sync();
-                return wb.name;
-            });
+  async loadConfig() {
+    try {
+      const workbook = await Excel.run(async (context) => {
+        const wb = context.workbook;
+        wb.load("name");
+        await context.sync();
+        return wb.name;
+      });
 
-            const currentConfigData = this.rawConfigData || configData;
+      const currentConfigData = this.rawConfigData || configData;
 
-            if (!currentConfigData?.["excel-projects"]) {
-                throw new Error("Configuration file not found or invalid structure");
-            }
+      if (!currentConfigData?.["excel-projects"]) {
+        throw new Error("Configuration file not found or invalid structure");
+      }
 
-            const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
-            
-            if (!config?.standard_mappings || !Array.isArray(config.standard_mappings) || config.standard_mappings.length === 0) {
-                throw new Error(`No valid configuration found for workbook: ${workbook}`);
-            }
+      const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
 
-            // Validate that all mappings have required fields
-            for (let i = 0; i < config.standard_mappings.length; i++) {
-                const mapping = config.standard_mappings[i];
-                if (!mapping?.mapping_reference) {
-                    throw new Error(`Mapping ${i + 1} is missing mapping_reference`);
-                }
-            }
+      if (
+        !config?.standard_mappings ||
+        !Array.isArray(config.standard_mappings) ||
+        config.standard_mappings.length === 0
+      ) {
+        throw new Error(`No valid configuration found for workbook: ${workbook}`);
+      }
 
-            const enhancedConfig = { ...config, workbook };
-            state.setConfig(enhancedConfig);
-            
-            return enhancedConfig;
-        } catch (error) {
-            console.error("Config load failed:", error);
-            throw error;
+      // Validate that all mappings have required fields
+      for (let i = 0; i < config.standard_mappings.length; i++) {
+        const mapping = config.standard_mappings[i];
+        if (!mapping?.mapping_reference) {
+          throw new Error(`Mapping ${i + 1} is missing mapping_reference`);
         }
-    }
+      }
 
-    getConfig() { 
-        return state.get('config.data');
-    }
+      const enhancedConfig = { ...config, workbook };
+      state.setConfig(enhancedConfig);
 
-    // Get all standard mappings
-    getStandardMappings() {
-        const config = this.getConfig();
-        return config?.standard_mappings || [];
+      return enhancedConfig;
+    } catch (error) {
+      console.error("Config load failed:", error);
+      throw error;
     }
+  }
 
-    // Set config data (used by drag-and-drop)
-    setConfig(configData) {
-        this.rawConfigData = configData;
-    }
+  getConfig() {
+    return state.get("config.data");
+  }
 
-    // Get excel-projects info for error messages
-    getExcelProjectsInfo() {
-        const currentConfigData = this.rawConfigData || configData;
-        const excelProjects = currentConfigData?.["excel-projects"];
-        return excelProjects ? {
-            count: Object.keys(excelProjects).length,
-            keys: Object.keys(excelProjects)
-        } : { count: 0, keys: [] };
-    }
+  // Get all standard mappings
+  getStandardMappings() {
+    const config = this.getConfig();
+    return config?.standard_mappings || [];
+  }
+
+  // Set config data (used by drag-and-drop)
+  setConfig(configData) {
+    this.rawConfigData = configData;
+  }
+
+  // Get excel-projects info for error messages
+  getExcelProjectsInfo() {
+    const currentConfigData = this.rawConfigData || configData;
+    const excelProjects = currentConfigData?.["excel-projects"];
+    return excelProjects
+      ? {
+          count: Object.keys(excelProjects).length,
+          keys: Object.keys(excelProjects),
+        }
+      : { count: 0, keys: [] };
+  }
 }
