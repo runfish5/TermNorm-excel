@@ -347,8 +347,12 @@ export class UIManager {
               signal: AbortSignal.timeout(3000),
             });
             connectionValidation.protected = protectedResponse.ok;
-            if (!protectedResponse.ok && protectedResponse.status === 401) {
-              connectionValidation.error = "API key invalid";
+            if (!protectedResponse.ok) {
+              if (protectedResponse.status === 401) {
+                connectionValidation.error = "API key invalid";
+              } else if (protectedResponse.status === 503) {
+                connectionValidation.error = "API service unavailable - check API key";
+              }
             }
           } catch (protectedError) {
             connectionValidation.error = "Protected endpoints unreachable";
