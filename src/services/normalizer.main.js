@@ -10,6 +10,7 @@ export class LiveTracker {
     this.handler = null;
     this.processor = null;
     this.columnMap = new Map();
+    this.recentlyProcessed = new Map(); // Track recent processing to prevent duplicates
   }
 
   async start(config, mappings) {
@@ -67,6 +68,14 @@ export class LiveTracker {
 
   handleChange = async (e) => {
     if (!this.active) return;
+
+    // Simple deduplication: ignore if same cell processed in last 1 second
+    const now = Date.now();
+    if (this.recentlyProcessed.has(e.address)) {
+      const lastProcessed = this.recentlyProcessed.get(e.address);
+      if (now - lastProcessed < 1000) return; // Skip if within 1 second
+    }
+    this.recentlyProcessed.set(e.address, now);
 
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
