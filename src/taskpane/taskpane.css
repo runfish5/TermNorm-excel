@@ -116,6 +116,44 @@
     transition: opacity 0.3s ease;
 }
 
+/* Drop Zone */
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: #f9f9f9;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: #0078d7;
+    background-color: #f0f8ff;
+}
+
+.drop-zone-content {
+    pointer-events: none;
+}
+
+.drop-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.drop-zone p {
+    margin: 8px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.drop-zone small {
+    color: #666;
+    font-size: 14px;
+}
+
 /* Utilities */
 .hidden {
     display: none;
