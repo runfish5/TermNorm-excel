@@ -176,43 +176,77 @@ export class UIManager {
                 console.log(`Attempt ${i + 1}/${urlAttempts.length}:`, attemptUrl);
                 
                 try {
-                    const response = await fetch(attemptUrl, {
+                    // Try different fetch modes for different URLs
+                    let fetchOptions = {
                         method: 'GET',
-                        headers: {
-                            'Accept': 'application/json, text/plain, */*',
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                        },
                         credentials: 'include'
+                    };
+                    
+                    // For certain attempts, try no-cors mode to bypass CORS issues
+                    if (i >= 2) { // For attempts after the first two
+                        fetchOptions.mode = 'no-cors';
+                        console.log(`Using no-cors mode for attempt ${i + 1}`);
+                    } else {
+                        fetchOptions.headers = {
+                            'Accept': 'application/json, text/plain, */*'
+                        };
+                    }
+                    
+                    const response = await fetch(attemptUrl, fetchOptions);
+                    
+                    console.log(`Attempt ${i + 1} response:`, {
+                        ok: response.ok,
+                        status: response.status,
+                        statusText: response.statusText,
+                        type: response.type,
+                        url: response.url
                     });
                     
-                    if (response.ok) {
-                        console.log(`Success with attempt ${i + 1}!`);
+                    if (response.ok || (fetchOptions.mode === 'no-cors' && response.type === 'opaque')) {
+                        console.log(`Processing response from attempt ${i + 1}...`);
                         
-                        let configData;
-                        const contentType = response.headers.get('content-type');
-                        
-                        if (contentType && contentType.includes('application/json')) {
-                            configData = await response.json();
-                        } else {
-                            const textData = await response.text();
-                            try {
-                                configData = JSON.parse(textData);
-                            } catch (parseError) {
-                                throw new Error("File is not valid JSON format");
+                        try {
+                            let configData;
+                            
+                            if (fetchOptions.mode === 'no-cors') {
+                                // no-cors mode doesn't allow reading response, so we need a different approach
+                                console.log('no-cors response received, but cannot read content');
+                                throw new Error('no-cors response cannot be read');
+                            } else {
+                                const contentType = response.headers.get('content-type');
+                                console.log('Content-Type:', contentType);
+                                
+                                if (contentType && contentType.includes('application/json')) {
+                                    configData = await response.json();
+                                } else {
+                                    const textData = await response.text();
+                                    console.log('Response text length:', textData.length);
+                                    console.log('Response text preview:', textData.substring(0, 200));
+                                    
+                                    try {
+                                        configData = JSON.parse(textData);
+                                    } catch (parseError) {
+                                        throw new Error("File is not valid JSON format");
+                                    }
+                                }
+                                
+                                if (!configData || typeof configData !== 'object') {
+                                    throw new Error("Invalid configuration format");
+                                }
+                                
+                                console.log('Successfully parsed config data');
+                                this.configManager.setConfig(configData);
+                                await this.reloadMappingModules();
+                                state.setStatus("OneDrive configuration loaded successfully");
+                                return; // Success!
                             }
+                        } catch (processError) {
+                            console.log(`Error processing response from attempt ${i + 1}:`, processError.message);
+                            lastError = processError;
                         }
-                        
-                        if (!configData || typeof configData !== 'object') {
-                            throw new Error("Invalid configuration format");
-                        }
-                        
-                        this.configManager.setConfig(configData);
-                        await this.reloadMappingModules();
-                        state.setStatus("OneDrive configuration loaded successfully");
-                        return; // Success!
                     } else {
-                        console.log(`Attempt ${i + 1} failed: HTTP ${response.status}`);
-                        lastError = new Error(`HTTP ${response.status}`);
+                        console.log(`Attempt ${i + 1} failed: HTTP ${response.status} ${response.statusText}`);
+                        lastError = new Error(`HTTP ${response.status} ${response.statusText}`);
                     }
                 } catch (fetchError) {
                     console.log(`Attempt ${i + 1} failed:`, fetchError.message);
@@ -254,22 +288,28 @@ export class UIManager {
                     const itemPath = pathParts.slice(3).join('/');
                     const authKey = urlObj.searchParams.get('e');
                     
-                    // Multiple URL format attempts
+                    // Multiple URL format attempts (ordered by likelihood of success)
                     attempts.push(
-                        // Simple download parameter (often works with session auth)
+                        // Try the original URL first (may work directly with session auth)
+                        shareUrl,
+                        
+                        // Simple download parameter addition
                         shareUrl + '&download=1',
                         
-                        // Convert 1drv.ms to onedrive.live.com
+                        // Convert 1drv.ms to onedrive.live.com with download
                         shareUrl.replace('1drv.ms', 'onedrive.live.com') + '&download=1',
                         
+                        // Remove the 'e' parameter and add download (sometimes needed)
+                        shareUrl.split('?')[0] + '?download=1',
+                        
+                        // Try with different download formats
+                        shareUrl.replace('?e=', '&download=1&e='),
+                        
                         // Direct onedrive.live.com download format
-                        `https://onedrive.live.com/download?cid=${cid}&resid=${cid}%21${itemPath.replace(/[^a-zA-Z0-9]/g, '')}&authkey=${authKey || ''}`,
+                        `https://onedrive.live.com/download?cid=${cid}&resid=${cid}%21${itemPath}&authkey=${authKey || ''}`,
                         
-                        // Alternative download.aspx format
-                        `https://onedrive.live.com/download.aspx?cid=${cid}&resid=${itemPath}&authkey=${authKey || ''}`,
-                        
-                        // Try the original URL (sometimes works directly)
-                        shareUrl
+                        // Alternative with encoded resid
+                        `https://onedrive.live.com/download?cid=${cid}&resid=${cid}!${itemPath.replace(/[^a-zA-Z0-9]/g, '')}&authkey=${authKey || ''}`
                     );
                 }
             } catch (error) {
