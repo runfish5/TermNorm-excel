@@ -7,6 +7,7 @@ export class NormalizerRouter {
     this.forward = forward;
     this.reverse = reverse;
     this.config = config;
+    this.recentQueries = new Map(); // Track recent API queries
   }
 
   async process(value) {
@@ -53,6 +54,16 @@ export class NormalizerRouter {
 
   async findTokenMatch(val) {
     try {
+      // Deduplication: check if same query made recently
+      const now = Date.now();
+      if (this.recentQueries.has(val)) {
+        const lastQuery = this.recentQueries.get(val);
+        if (now - lastQuery.timestamp < 2000) {
+          console.log(`[DEDUPE] Using recent result for: ${val}`);
+          return lastQuery.result; // Return cached result
+        }
+      }
+
       state.setStatus("Starting mapping process...");
 
       const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
@@ -92,13 +103,17 @@ export class NormalizerRouter {
       }
 
       state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${data.data.total_time} s`);
-      return {
+      const result = {
         target: best.candidate,
         method: "ProfileRank",
         confidence: best.relevance_score,
         candidates: data.data.ranked_candidates,
         total_time: data.data.total_time,
       };
+      
+      // Cache the result for deduplication
+      this.recentQueries.set(val, { timestamp: now, result });
+      return result;
     } catch (error) {
       console.error("Token match error:", error);
       state.setStatus(`Network error during research: ${error.message}`, true);

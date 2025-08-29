@@ -100,18 +100,6 @@ export class LiveTracker {
 
   async processCell(ws, row, col, targetCol, value) {
     try {
-      // Enhanced deduplication: check if same value is being processed recently
-      const valueKey = `${value}:${targetCol}`;
-      const now = Date.now();
-      if (this.recentlyProcessed.has(valueKey)) {
-        const lastProcessed = this.recentlyProcessed.get(valueKey);
-        if (now - lastProcessed < 2000) {
-          console.log(`[DEDUPE] Skipping duplicate processing: ${value}`);
-          return; // Skip if same value processed within 2 seconds
-        }
-      }
-      this.recentlyProcessed.set(valueKey, now);
-
       const result = await this.processor.process(value);
       console.log(`Result: ${JSON.stringify(result, null, 2)}`);
 
