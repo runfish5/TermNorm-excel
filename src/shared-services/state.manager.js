@@ -15,6 +15,8 @@ export class StateManager {
       server: {
         online: false,
         host: null,
+        networkMode: false,
+        apiKey: "",
       },
       config: {
         loaded: false,

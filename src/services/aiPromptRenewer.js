@@ -1,11 +1,12 @@
 // ./services/aiPromptRenewer.js
+import { state } from "../shared-services/state.manager.js";
 
 export class aiPromptRenewer {
   constructor(showStatus) {
     this.showStatus = showStatus;
     this.isGenerating = false;
     this.abortController = null;
-    this.backendUrl = "http://127.0.0.1:8000";
+    this.backendUrl = "http://127.0.0.1:8000"; // Keep as fallback
   }
 
   async renewPrompt(mappings, config, statusId = "prompt-status") {
@@ -44,11 +45,19 @@ export class aiPromptRenewer {
   }
 
   async _callBackend(mappings) {
-    await fetch(`${this.backendUrl}/test-connection`, { method: "POST" });
+    const serverHost = state.get("server.host") || this.backendUrl;
+    const apiKey = state.get("server.apiKey");
 
-    const response = await fetch(`${this.backendUrl}/analyze-patterns`, {
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["X-API-Key"] = apiKey;
+    }
+
+    await fetch(`${serverHost}/test-connection`, { method: "POST" });
+
+    const response = await fetch(`${serverHost}/analyze-patterns`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify({
         dictionary: this._toStrings(mappings.forward),
         project_name: mappings.metadata?.project_name || "unnamed_project",

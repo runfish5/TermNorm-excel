@@ -32,12 +32,22 @@
             <span class="ms-font-s status-label">SYS-STATUS:</span>
             <div id="main-status-message" class="ms-font-s">Ready to load configuration...</div>
             <div id="server-status-led" class="status-led" title="Server: Checking..."></div>
+            <label class="network-toggle">
+                <input type="checkbox" id="network-mode-toggle"> Network Mode
+            </label>
         </div>
 
         <!-- 1st main view -->
         <div id="config-div" class="content">
             <section class="ms-welcome__section">
                 <h3>Mapping Source Configurations</h3>
+
+                <!-- API Key Section -->
+                <div class="api-key-section">
+                    <label class="api-key-label">
+                        API Key: <input type="password" id="api-key-input" placeholder="Enter your API key">
+                    </label>
+                </div>
 
                 <!-- Drag and Drop Zone for app.config.json -->
                 <div id="config-drop-zone" class="drop-zone">
