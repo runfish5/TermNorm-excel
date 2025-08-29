@@ -9,7 +9,7 @@ export class AppOrchestrator {
     constructor() {
         this.configManager = new ConfigManager();
         this.tracker = new LiveTracker();
-        this.ui = new UIManager();
+        this.ui = new UIManager(this);
         this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
         this.configLoaded = false;
         
@@ -45,7 +45,26 @@ export class AppOrchestrator {
 
             state.setStatus("Config reloaded");
         } catch (error) {
-            state.setStatus(`Config failed\n ${error.message}\n\n Please create config at:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json \n\n For Help go to\nhttps://github.com/runfish5/TermNorm-excel`, true);
+            console.error('Reload config error:', error);
+            
+            // Enhanced error handling with specific key hints
+            let errorMessage = `Config failed: ${error.message}`;
+            
+            // If the error mentions workbook not found, provide specific key hint
+            if (error.message.includes('No valid configuration found for workbook:')) {
+                const workbookMatch = error.message.match(/workbook: (.+)/);
+                if (workbookMatch) {
+                    const workbookName = workbookMatch[1];
+                    errorMessage += `\n\nLooking for key "${workbookName}" in "excel-projects" dictionary of app.config.json`;
+                    errorMessage += `\nAlternatively, add a "*" key as fallback for any workbook`;
+                }
+            }
+            
+            // Add config location and help hints
+            errorMessage += `\n\nConfig location:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json`;
+            errorMessage += `\n\nFor Help visit:\nhttps://github.com/runfish5/TermNorm-excel`;
+            
+            state.setStatus(errorMessage, true);
         }
     }
 
