@@ -10,7 +10,7 @@ export class LiveTracker {
     this.handler = null;
     this.processor = null;
     this.columnMap = new Map();
-    this.recentlyProcessed = new Map(); // Track recent processing to prevent duplicates
+    this.cellValues = new Map(); // Track cell values to detect actual changes
   }
 
   async start(config, mappings) {
@@ -85,8 +85,15 @@ export class LiveTracker {
           const value = range.values[r][c];
 
           if (row > 0 && targetCol && value) {
-            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFFB9D";
-            tasks.push(() => this.processCell(ws, row, col, targetCol, value));
+            const cellKey = `${row}:${col}`;
+            const oldValue = this.cellValues.get(cellKey);
+            
+            // Only process if value actually changed
+            if (oldValue !== value) {
+              this.cellValues.set(cellKey, value);
+              ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFFB9D";
+              tasks.push(() => this.processCell(ws, row, col, targetCol, value));
+            }
           }
         }
       }
