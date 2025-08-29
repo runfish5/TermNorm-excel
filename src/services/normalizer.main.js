@@ -1,4 +1,4 @@
-// ./services/normalizer.main.js
+// ./services/normalizer.handler.js
 import { ActivityFeed } from '../ui-components/ActivityFeedUI.js';
 import { ActivityDisplay } from '../ui-components/CandidateRankingUI.js';
 import { NormalizerRouter } from './normalizer.router.js';
@@ -13,9 +13,11 @@ export class LiveTracker {
     }
 
     async start(config, mappings) {
-        if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
+        if (!config?.column_map || !mappings) {
+            throw new Error("Config and mappings required");
+        }
         
-        this.columnMap = await this.buildColumnMap(config.column_map);
+        this.columnMap = await this.resolveColumnIndices(config.column_map);
         this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
         
         await Excel.run(async ctx => {
@@ -28,37 +30,28 @@ export class LiveTracker {
         this.active = true;
     }
 
-    async buildColumnMap(colMap) {
+    async resolveColumnIndices(colMap) {
         return await Excel.run(async ctx => {
             const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
             headers.load("values");
             await ctx.sync();
             
             const headerNames = headers.values[0].map(h => String(h || '').trim().toLowerCase());
-            const result = new Map();
+            const cols = new Map();
             const missing = [];
             
-            Object.entries(colMap).forEach(([src, tgt]) => {
+            for (const [src, tgt] of Object.entries(colMap)) {
                 const srcIdx = headerNames.indexOf(src.toLowerCase());
                 const tgtIdx = headerNames.indexOf(tgt.toLowerCase());
                 
                 if (srcIdx === -1) missing.push(src);
-                else if (tgtIdx === -1) missing.push(tgt);
-                else result.set(srcIdx, tgtIdx);
-            });
+                if (tgtIdx === -1) missing.push(tgt);
+                else cols.set(srcIdx, tgtIdx);
+            }
             
             if (missing.length) throw new Error(`Missing columns: ${missing.join(', ')}`);
-            return result;
+            return cols;
         });
-    }
-
-    getRelevanceColor(score) {
-        const s = score > 1 ? score / 100 : score;
-        if (s >= 0.9) return "#C6EFCE";
-        if (s >= 0.8) return "#FFEB9C"; 
-        if (s >= 0.6) return "#FFD1A9";
-        if (s >= 0.2) return "#FFC7CE";
-        return "#E1E1E1";
     }
 
     handleChange = async (e) => {
@@ -70,7 +63,6 @@ export class LiveTracker {
             range.load("values, rowIndex, columnIndex, rowCount, columnCount");
             await ctx.sync();
             
-            // Process all cells that need mapping
             const tasks = [];
             for (let r = 0; r < range.rowCount; r++) {
                 for (let c = 0; c < range.columnCount; c++) {
@@ -87,8 +79,9 @@ export class LiveTracker {
             }
             await ctx.sync();
             
-            // Execute all processing tasks
-            for (const task of tasks) await task();
+            for (const task of tasks) {
+                await task();
+            }
             await ctx.sync();
         });
     }
@@ -96,64 +89,54 @@ export class LiveTracker {
     async processCell(ws, row, col, targetCol, value) {
         try {
             const result = await this.processor.process(value);
-            console.log(`Result: ${JSON.stringify(result, null, 2)}`);
-            
-            if (result?.candidates) {
-                ActivityDisplay.addCandidate(value, result, {
-                    applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
-                });
+            console.log(`###################################################### variable result`);            
+            console.log(`${JSON.stringify(result, null, 2)}`);         
+            if (result) {
+                if (result.candidates) {
+                    ActivityDisplay.addCandidate(value, result, {
+                        applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice)
+                    });
+                }
+                this.applyResult(ws, row, col, targetCol, value, result);
+            } else {
+                ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
+                ActivityFeed.add(value, 'No matches found', 'no_match', 0);
+                logActivity(value, 'No matches found', 'no_match', 0);
             }
             
-            const target = result?.target || 'No matches found';
-            const confidence = result?.confidence || 0;
-            const method = result?.method || (result ? 'match' : 'no_match');
-            
-            // Update cells
-            const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-            const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-            
-            tgtCell.values = [[target]];
-            tgtCell.format.fill.color = this.getRelevanceColor(confidence);
-            srcCell.format.fill.clear();
-            
-            // Log activity
-            ActivityFeed.add(value, target, method, confidence);
-            logActivity(value, target, method, confidence, result?.total_time || 0);
-            
         } catch (error) {
-            this.handleCellError(ws, row, col, targetCol, value, error);
+            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFC7CE";
+            ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[`Error: ${error.message}`]];
+            ActivityFeed.add(value, `Error: ${error.message}`, 'error', 0);
+            logActivity(value, `Error: ${error.message}`, 'error', 0);
         }
     }
 
-    handleCellError(ws, row, col, targetCol, value, error) {
-        const errorMsg = `Error: ${error.message}`;
-        const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-        const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-        
-        tgtCell.values = [[errorMsg]];
-        tgtCell.format.fill.color = "#FFC7CE";
-        srcCell.format.fill.color = "#FFC7CE";
-        
-        ActivityFeed.add(value, errorMsg, 'error', 0);
-        logActivity(value, errorMsg, 'error', 0, 0);
+    applyResult(ws, row, col, targetCol, value, result) {
+        ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[result.target]];
+        ActivityFeed.add(value, result.target, result.method, result.confidence);
+        logActivity(value, result.target, result.method, result.confidence);
+        ws.getRangeByIndexes(row, col, 1, 1).format.fill.clear();
     }
 
     applyChoice = async (ws, row, col, targetCol, value, choice) => {
         await Excel.run(async ctx => {
-            const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
-            const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
-            
-            tgtCell.values = [[choice.candidate]];
-            tgtCell.format.fill.color = this.getRelevanceColor(choice.relevance_score);
-            srcCell.format.fill.clear();
-            
-            ActivityFeed.add(value, choice.candidate, 'UserChoice', choice.relevance_score);
-            logActivity(value, choice.candidate, 'UserChoice', choice.relevance_score, 0);
-            
+            const worksheet = ctx.workbook.worksheets.getActiveWorksheet();
+            const choiceResult = {
+                target: choice.candidate,
+                method: 'UserChoice',
+                confidence: choice.relevance_score
+            };
+            this.applyResult(worksheet, row, col, targetCol, value, choiceResult);
             await ctx.sync();
         });
     }
 
-    stop() { this.active = false; }
-    static setup() { ActivityDisplay.init(); }
+    stop() {
+        this.active = false;
+    }
+
+    static setup() {
+        ActivityDisplay.init();
+    }
 }

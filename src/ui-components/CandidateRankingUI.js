@@ -50,18 +50,6 @@ export class ActivityDisplay {
         this.candidatesData = [...candidates];
         this.currentContext = context;
         
-        // Column customization
-        const hiddenColumns = ['abc']; // Add columns to hide here
-        const columnNames = {
-            'core_concept_score': 'Core Score',
-            'spec_score': 'Sp. Score',
-            'key_match_factors': 'Match Factors',
-            'spec_gaps': 'Gaps'
-        };
-        
-        // Get all unique keys from candidates, excluding private properties and hidden ones
-        const columns = [...new Set(candidates.flatMap(c => Object.keys(c).filter(k => !k.startsWith('_') && !hiddenColumns.includes(k))))];
-        
         const rankedContainer = this.container.querySelector('#candidate-ranked');
         rankedContainer.innerHTML = `
             <div class="candidate-entry">
@@ -71,12 +59,15 @@ export class ActivityDisplay {
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
-                    <thead><tr><th>🔀</th>${columns.map(col => `<th>${columnNames[col] || col.replace(/_/g, ' ')}</th>`).join('')}</tr></thead>
+                    <thead><tr><th>🔀</th><th>Rank</th><th>Candidate</th><th>Relevance</th><th>Match Factors</th></tr></thead>
                     <tbody>
                         ${this.candidatesData.map((c, i) => `
                             <tr draggable="true" data-index="${i}">
                                 <td class="drag-handle">⋮⋮</td>
-                                ${columns.map(col => `<td>${Array.isArray(c[col]) ? c[col].join(', ') : (c[col] || '')}</td>`).join('')}
+                                <td>${c.rank}</td>
+                                <td>${c.candidate}</td>
+                                <td>${c.relevance_score}</td>
+                                <td>${c.key_match_factors?.join(', ') || ''}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -97,7 +88,7 @@ export class ActivityDisplay {
             
             try {
                 await this.currentContext.applyChoice(first);
-                feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${first.core_concept_score || first.spec_score || first.relevance_score || 'N/A'}`;
+                feedback.innerHTML = `✅ Applied: ${first.candidate} | Relevance: ${first.relevance_score}`;
                 feedback.style.background = '#d4edda';
                 setTimeout(() => feedback.remove(), 3000);
             } catch (error) {
