@@ -145,6 +145,7 @@ export class CloudConfigPickerUI {
             }
 
             const pickerOptions = {
+                clientId: '00000003-0000-0ff1-ce00-000000000000', // Microsoft Office client ID
                 action: 'download',
                 multiSelect: false,
                 openInNewWindow: true,
