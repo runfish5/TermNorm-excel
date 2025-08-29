@@ -1,266 +1,345 @@
 // ui-components/ui.manager.js
-import { MappingConfigModule } from './mapping-config-module.js';
-import { CandidateRankingUI } from './CandidateRankingUI.js';
-import { state } from '../shared-services/state.manager.js';
-import { LiveTracker } from '../services/normalizer.main.js';
+import { MappingConfigModule } from "./mapping-config-module.js";
+import { CandidateRankingUI } from "./CandidateRankingUI.js";
+import { state } from "../shared-services/state.manager.js";
+import { LiveTracker } from "../services/normalizer.main.js";
 
 export class UIManager {
-    constructor(orchestrator = null) {
-        this.mappingModules = [];
-        this.loadedMappings = new Map();
-        this.tracker = new LiveTracker();
-        this.orchestrator = orchestrator;
-    }
+  constructor(orchestrator = null) {
+    this.mappingModules = [];
+    this.loadedMappings = new Map();
+    this.tracker = new LiveTracker();
+    this.orchestrator = orchestrator;
+  }
 
-    init() {
-        this.setupEvents();
-        this.setupDropZone();
-        CandidateRankingUI.init();
-        this.showView('config');
-        state.subscribe('ui', (ui) => this.updateStatus(ui.statusMessage, ui.isError));
-        return this;
-    }
+  init() {
+    this.setupEvents();
+    this.setupDropZone();
+    this.setupServerStatus();
+    CandidateRankingUI.init();
+    this.showView("config");
+    state.subscribe("ui", (ui) => this.updateStatus(ui.statusMessage, ui.isError));
+    state.subscribe("server", (server) => this.updateServerLED(server.online, server.host));
+    return this;
+  }
 
-    setupEvents() {
-        const events = {
-            'show-metadata-btn': () => {
-                const content = document.getElementById('metadata-content');
-                const isHidden = content?.classList.toggle('hidden');
-                const label = document.querySelector('#show-metadata-btn .ms-Button-label');
-                if (label) label.textContent = isHidden ? 'Show Processing Details' : 'Hide Processing Details';
-            },
-            'setup-map-tracking': () => this.startTracking(),
-            'activate-tracking': (e) => {
-                e.preventDefault();
-                this.showView('tracking');
-                this.startTracking();
-            }
-        };
-        
-        Object.entries(events).forEach(([id, handler]) => 
-            document.getElementById(id)?.addEventListener('click', handler));
-    }
-
-    setupDropZone() {
-        const dropZone = document.getElementById('config-drop-zone');
-        if (!dropZone) return;
-
-        // Prevent default drag behaviors
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, this.preventDefaults, false);
-            document.body.addEventListener(eventName, this.preventDefaults, false);
-        });
-
-        // Highlight drop zone when item is dragged over it
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-        });
-
-        // Handle dropped files
-        dropZone.addEventListener('drop', (e) => this.handleDrop(e), false);
-
-        // Handle click to open file dialog
-        dropZone.addEventListener('click', () => this.openFileDialog(), false);
-    }
-
-    preventDefaults(e) {
+  setupEvents() {
+    const events = {
+      "show-metadata-btn": () => {
+        const content = document.getElementById("metadata-content");
+        const isHidden = content?.classList.toggle("hidden");
+        const label = document.querySelector("#show-metadata-btn .ms-Button-label");
+        if (label) label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
+      },
+      "setup-map-tracking": () => this.startTracking(),
+      "activate-tracking": (e) => {
         e.preventDefault();
-        e.stopPropagation();
+        this.showView("tracking");
+        this.startTracking();
+      },
+    };
+
+    Object.entries(events).forEach(([id, handler]) => document.getElementById(id)?.addEventListener("click", handler));
+  }
+
+  setupDropZone() {
+    const dropZone = document.getElementById("config-drop-zone");
+    if (!dropZone) return;
+
+    // Prevent default drag behaviors
+    ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, this.preventDefaults, false);
+      document.body.addEventListener(eventName, this.preventDefaults, false);
+    });
+
+    // Highlight drop zone when item is dragged over it
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.add("drag-over"), false);
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.remove("drag-over"), false);
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener("drop", (e) => this.handleDrop(e), false);
+
+    // Handle click to open file dialog
+    dropZone.addEventListener("click", () => this.openFileDialog(), false);
+  }
+
+  preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  async handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+
+    if (files.length === 0) return;
+
+    const file = files[0];
+    if (!file.name.endsWith(".json")) {
+      state.setStatus("Please drop a JSON configuration file", true);
+      return;
     }
 
-    async handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
+    await this.loadConfigFromFile(file);
+  }
 
-        if (files.length === 0) return;
-
-        const file = files[0];
-        if (!file.name.endsWith('.json')) {
-            state.setStatus("Please drop a JSON configuration file", true);
-            return;
-        }
-
+  openFileDialog() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
         await this.loadConfigFromFile(file);
+      }
+    };
+    input.click();
+  }
+
+  validateConfigStructure(configData) {
+    if (!configData?.["excel-projects"]) {
+      throw new Error("Invalid config format - missing excel-projects structure");
+    }
+  }
+
+  async loadConfigFromFile(file) {
+    try {
+      console.log("Loading config from:", file.name);
+      state.setStatus("Loading configuration file...");
+
+      const text = await file.text();
+      const configData = JSON.parse(text);
+      this.validateConfigStructure(configData);
+
+      this.orchestrator.configManager.setConfig(configData);
+
+      try {
+        await this.reloadMappingModules();
+      } catch (moduleError) {
+        console.warn("Mapping modules reload failed (continuing):", moduleError.message);
+      }
+
+      if (this.orchestrator) {
+        await this.orchestrator.reloadConfig();
+        // reloadConfig() handles the success status message
+      } else {
+        state.setStatus(`Configuration loaded from ${file.name}`);
+      }
+    } catch (error) {
+      console.error("Config load failed:", error);
+      state.setStatus(`Failed to load config: ${error.message}`, true);
+    }
+  }
+
+  showView(viewName) {
+    ["config-div", "tracking-div"].forEach((id) =>
+      document.getElementById(id)?.classList.toggle("hidden", !id.startsWith(viewName))
+    );
+    ["load-config", "activate-tracking"].forEach((id) =>
+      document.getElementById(id)?.classList.toggle("ms-Button--primary", id.includes(viewName))
+    );
+    state.setView(viewName);
+  }
+
+  async reloadMappingModules() {
+    const standardMappings = this.orchestrator.configManager.getStandardMappings();
+
+    if (!standardMappings?.length) {
+      console.log("No standard mappings found - skipping module reload");
+      return;
     }
 
-    openFileDialog() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await this.loadConfigFromFile(file);
-            }
-        };
-        input.click();
+    const container = document.getElementById("mapping-configs-container");
+    if (!container) {
+      throw new Error("Mapping configs container not found");
     }
 
-    validateConfigStructure(configData) {
-        if (!configData?.["excel-projects"]) {
-            throw new Error("Invalid config format - missing excel-projects structure");
-        }
-    }
+    container.innerHTML = "";
+    this.mappingModules = [];
+    this.loadedMappings.clear();
 
-    async loadConfigFromFile(file) {
-        try {
-            console.log('Loading config from:', file.name);
-            state.setStatus("Loading configuration file...");
-            
-            const text = await file.text();
-            const configData = JSON.parse(text);
-            this.validateConfigStructure(configData);
-            
-            this.orchestrator.configManager.setConfig(configData);
-            
-            try {
-                await this.reloadMappingModules();
-            } catch (moduleError) {
-                console.warn('Mapping modules reload failed (continuing):', moduleError.message);
-            }
-            
-            if (this.orchestrator) {
-                await this.orchestrator.reloadConfig();
-                // reloadConfig() handles the success status message
-            } else {
-                state.setStatus(`Configuration loaded from ${file.name}`);
-            }
-        } catch (error) {
-            console.error('Config load failed:', error);
-            state.setStatus(`Failed to load config: ${error.message}`, true);
-        }
-    }
+    this.mappingModules = standardMappings.map((config, index) => {
+      const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
+        this.onMappingLoaded(moduleIndex, mappings, result)
+      );
+      module.init(container);
+      return module;
+    });
 
-    showView(viewName) {
-        ['config-div', 'tracking-div'].forEach(id => 
-            document.getElementById(id)?.classList.toggle('hidden', !id.startsWith(viewName)));
-        ['load-config', 'activate-tracking'].forEach(id => 
-            document.getElementById(id)?.classList.toggle('ms-Button--primary', id.includes(viewName)));
-        state.setView(viewName);
-    }
+    this.updateGlobalStatus();
+    console.log(`Reloaded ${standardMappings.length} mapping modules`);
+  }
 
-    async reloadMappingModules() {
-        const standardMappings = this.orchestrator.configManager.getStandardMappings();
-        
-        if (!standardMappings?.length) {
-            console.log('No standard mappings found - skipping module reload');
-            return;
-        }
-        
-        const container = document.getElementById('mapping-configs-container');
-        if (!container) {
-            throw new Error('Mapping configs container not found');
-        }
-        
-        container.innerHTML = '';
-        this.mappingModules = [];
-        this.loadedMappings.clear();
-        
-        this.mappingModules = standardMappings.map((config, index) => {
-            const module = new MappingConfigModule(config, index, 
-                (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result));
-            module.init(container);
-            return module;
-        });
-        
-        this.updateGlobalStatus();
-        console.log(`Reloaded ${standardMappings.length} mapping modules`);
-    }
+  onMappingLoaded(moduleIndex, mappings, result) {
+    this.loadedMappings.set(moduleIndex, { mappings, result });
+    this.updateGlobalStatus();
+    this.updateJsonDump();
+  }
 
-    onMappingLoaded(moduleIndex, mappings, result) {
-        this.loadedMappings.set(moduleIndex, { mappings, result });
-        this.updateGlobalStatus();
-        this.updateJsonDump();
-    }
+  // Minimal JSON dump functionality
+  updateJsonDump() {
+    const content = document.getElementById("metadata-content");
+    if (!content || this.loadedMappings.size === 0) return;
 
-    // Minimal JSON dump functionality
-    updateJsonDump() {
-        const content = document.getElementById('metadata-content');
-        if (!content || this.loadedMappings.size === 0) return;
+    const data = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => ({
+      sourceIndex: index + 1,
+      forwardMappings: Object.keys(mappings.forward).length,
+      reverseMappings: Object.keys(mappings.reverse).length,
+      metadata: result.metadata,
+      mappings: mappings,
+    }));
 
-        const data = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => ({
-            sourceIndex: index + 1,
-            forwardMappings: Object.keys(mappings.forward).length,
-            reverseMappings: Object.keys(mappings.reverse).length,
-            metadata: result.metadata,
-            mappings: mappings
-        }));
-
-        content.innerHTML = `
+    content.innerHTML = `
             <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
                 <strong>Raw Data:</strong>
                 <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
             </div>`;
+  }
+
+  updateGlobalStatus() {
+    const { size: loaded } = this.loadedMappings;
+    const total = this.mappingModules.length;
+
+    const message =
+      loaded === 0
+        ? "Ready to load mapping configurations..."
+        : loaded === total
+          ? `All ${total} mapping sources loaded`
+          : `${loaded}/${total} mapping sources loaded`;
+
+    state.setStatus(message);
+  }
+
+  async startTracking() {
+    const config = state.get("config.data");
+    if (!config?.column_map || !Object.keys(config.column_map).length)
+      return state.setStatus("Error: Load config first", true);
+
+    // Combine mappings if needed
+    if (this.loadedMappings.size > 0) {
+      const combined = Array.from(this.loadedMappings.entries()).reduce(
+        (acc, [index, { mappings, result }]) => {
+          Object.assign(acc.forward, mappings.forward);
+          Object.assign(acc.reverse, mappings.reverse);
+          acc.metadata.sources.push({
+            index: index + 1,
+            config: this.mappingModules[index].getConfig(),
+            mappings,
+            metadata: result.metadata,
+          });
+          return acc;
+        },
+        { forward: {}, reverse: {}, metadata: { sources: [] } }
+      );
+
+      state.setMappings(combined.forward, combined.reverse, combined.metadata);
     }
 
-    updateGlobalStatus() {
-        const { size: loaded } = this.loadedMappings;
-        const total = this.mappingModules.length;
-        
-        const message = loaded === 0 ? "Ready to load mapping configurations..." :
-                    loaded === total ? `All ${total} mapping sources loaded` :
-                    `${loaded}/${total} mapping sources loaded`;
-        
-        state.setStatus(message);
+    const mappings = state.get("mappings");
+    const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
+    const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
+    if (!hasForward && !hasReverse) return state.setStatus("Error: Load mappings first", true);
+
+    try {
+      await this.tracker.start(config, mappings);
+
+      const forwardCount = Object.keys(mappings.forward || {}).length;
+      const reverseCount = Object.keys(mappings.reverse || {}).length;
+      const sourcesCount = mappings.metadata?.sources?.length || 0;
+
+      let mode = hasForward ? "with mappings" : "reverse-only";
+      if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
+
+      state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
+      this.showView("tracking");
+    } catch (error) {
+      state.setStatus(`Error: ${error.message}`, true);
+    }
+  }
+
+  updateStatus(message, isError = false) {
+    const statusElement = document.getElementById("main-status-message");
+    if (statusElement) {
+      statusElement.textContent = message;
+      statusElement.style.color = isError ? "#D83B01" : "";
+    }
+  }
+
+  setupServerStatus() {
+    // Extract backend URL from existing services
+    const backendUrl = this.getBackendUrl();
+    state.set("server.host", backendUrl);
+
+    // Set up LED click handler
+    const led = document.getElementById("server-status-led");
+    if (led) {
+      led.addEventListener("click", () => this.checkServerStatus());
     }
 
-    async startTracking() {
-        const config = state.get('config.data');
-        if (!config?.column_map || !Object.keys(config.column_map).length) 
-            return state.setStatus("Error: Load config first", true);
+    // Initial status check
+    this.checkServerStatus();
+  }
 
-        // Combine mappings if needed
-        if (this.loadedMappings.size > 0) {
-            const combined = Array.from(this.loadedMappings.entries()).reduce((acc, [index, { mappings, result }]) => {
-                Object.assign(acc.forward, mappings.forward);
-                Object.assign(acc.reverse, mappings.reverse);
-                acc.metadata.sources.push({
-                    index: index + 1,
-                    config: this.mappingModules[index].getConfig(),
-                    mappings, metadata: result.metadata
-                });
-                return acc;
-            }, { forward: {}, reverse: {}, metadata: { sources: [] } });
-            
-            state.setMappings(combined.forward, combined.reverse, combined.metadata);
-        }
-
-        const mappings = state.get('mappings');
-        const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
-        const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-        if (!hasForward && !hasReverse) return state.setStatus("Error: Load mappings first", true);
-
-        try {
-            await this.tracker.start(config, mappings);
-            
-            const forwardCount = Object.keys(mappings.forward || {}).length;
-            const reverseCount = Object.keys(mappings.reverse || {}).length;
-            const sourcesCount = mappings.metadata?.sources?.length || 0;
-            
-            let mode = hasForward ? "with mappings" : "reverse-only";
-            if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
-            
-            state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
-            this.showView('tracking');
-        } catch (error) {
-            state.setStatus(`Error: ${error.message}`, true);
-        }
+  getBackendUrl() {
+    // Extract from existing services - check for aiPromptRenewer first
+    if (this.orchestrator?.aiPromptRenewer?.backendUrl) {
+      return this.orchestrator.aiPromptRenewer.backendUrl;
     }
+    
+    // Fallback: extract from hardcoded URL patterns in existing code
+    // This matches the pattern used in normalizer.router.js and aiPromptRenewer.js
+    return "http://127.0.0.1:8000";
+  }
 
+  async checkServerStatus() {
+    const host = state.get("server.host");
+    if (!host) return;
 
-    updateStatus(message, isError = false) {
-        const statusElement = document.getElementById('main-status-message');
-        if (statusElement) {
-            statusElement.textContent = message;
-            statusElement.style.color = isError ? '#D83B01' : '';
-        }
+    try {
+      const response = await fetch(`${host}/test-connection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(5000),
+      });
+
+      const isOnline = response.ok;
+      state.update({
+        "server.online": isOnline,
+        "server.host": host,
+      });
+    } catch (error) {
+      state.update({
+        "server.online": false,
+        "server.host": host,
+      });
     }
+  }
 
-    // Public API
-    getAllLoadedMappings() { return this.loadedMappings; }
-    getMappingModules() { return this.mappingModules; }
+  updateServerLED(isOnline, host) {
+    const led = document.getElementById("server-status-led");
+    if (!led) return;
+
+    led.className = `status-led ${isOnline ? "online" : "offline"}`;
+
+    const status = isOnline ? "Online" : "Offline";
+    const hostDisplay = host || "Unknown";
+    const bindingInfo =
+      host && host.includes("127.0.0.1") ? "accessible locally only" : "accessible from network (0.0.0.0)";
+
+    led.title = `Server: ${hostDisplay} - Status: ${status}\nBinding: ${bindingInfo}\nClick to refresh`;
+  }
+
+  // Public API
+  getAllLoadedMappings() {
+    return this.loadedMappings;
+  }
+  getMappingModules() {
+    return this.mappingModules;
+  }
 }

@@ -154,6 +154,25 @@
     font-size: 14px;
 }
 
+/* Server Status LED */
+.status-led {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ccc;
+    margin-left: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.status-led.online {
+    background-color: #5cb85c;
+}
+
+.status-led.offline {
+    background-color: #d9534f;
+}
+
 /* Utilities */
 .hidden {
     display: none;
