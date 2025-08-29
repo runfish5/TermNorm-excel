@@ -82,19 +82,36 @@ export function processMappings(data, sourceColumn, targetColumn) {
     };
 }
 
-// Simplified token matcher update
+// Simplified token matcher update with timeout and error handling
 async function updateTokenMatcher(terms) {
-    const response = await fetch('http://127.0.0.1:8000/update-matcher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ terms })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
-    if (!response.ok) {
-        throw new Error(`Token matcher failed: ${response.statusText}`);
+    try {
+        const response = await fetch('http://127.0.0.1:8000/update-matcher', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ terms }),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            throw new Error(`Token matcher failed: ${response.statusText}`);
+        }
+        
+        return response.json();
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+            throw new Error('Backend server timeout - ensure server is running on port 8000');
+        } else if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+            throw new Error('Backend server not accessible - ensure server is running on port 8000');
+        }
+        throw error;
     }
-    
-    return response.json();
 }
 
 // Main function - much simpler
@@ -108,17 +125,30 @@ export async function loadAndProcessMappings(customParams = null) {
         const data = await excel.loadWorksheetData(params);
         const result = processMappings(data, params.sourceColumn, params.targetColumn);
         
-        // Update matcher and state
-        await updateTokenMatcher(Object.keys(result.reverse));
+        // Try to update matcher, but don't fail if server unavailable
+        try {
+            await updateTokenMatcher(Object.keys(result.reverse));
+        } catch (error) {
+            console.warn('Token matcher update failed:', error.message);
+            // Add server connectivity warning to result metadata
+            if (result.metadata) {
+                result.metadata.serverWarning = error.message;
+            }
+        }
+        
         state.mergeMappings(result.forward, result.reverse, result.metadata);
         
-        // Simple status message
-        const { validMappings, issues } = result.metadata;
-        const statusMsg = issues 
+        // Simple status message with server warning if applicable
+        const { validMappings, issues, serverWarning } = result.metadata;
+        let statusMsg = issues 
             ? `Loaded ${validMappings} mappings (${issues.length} issues)`
             : `Loaded ${validMappings} mappings`;
         
-        state.setStatus(statusMsg);
+        if (serverWarning) {
+            statusMsg += ` - Server unavailable`;
+        }
+        
+        state.setStatus(statusMsg, !!serverWarning);
         if (issues) console.warn('Issues:', issues);
         
         return result;
