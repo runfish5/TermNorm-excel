@@ -87,7 +87,8 @@ async function updateTokenMatcher(terms) {
   const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/update-matcher", {
+    const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
+    const response = await fetch(`${serverHost}/update-matcher`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ terms }),
