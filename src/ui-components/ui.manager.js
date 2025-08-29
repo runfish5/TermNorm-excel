@@ -172,8 +172,10 @@ export class UIManager {
             const response = await fetch(directUrl, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json, text/plain, */*'
-                }
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                },
+                credentials: 'include' // Include cookies for authentication
             });
             
             if (!response.ok) {
@@ -230,23 +232,45 @@ export class UIManager {
 
     convertToDirectUrl(shareUrl) {
         try {
-            // Handle different OneDrive URL formats
+            // Since we're running in Excel Online context, user is already authenticated
+            // Try multiple URL patterns that work with background authentication
+            
             if (shareUrl.includes('1drv.ms')) {
-                // Modern 1drv.ms format: https://1drv.ms/x/c/fileId/itemPath?e=hash
+                // Parse the 1drv.ms URL: https://1drv.ms/x/c/cid/itemPath?e=authkey
                 const urlObj = new URL(shareUrl);
-                const pathParts = urlObj.pathname.split('/');
+                const pathParts = urlObj.pathname.split('/').filter(part => part);
                 
-                if (pathParts.length >= 4) {
-                    const fileId = pathParts[3]; // Extract file ID from path
-                    const itemPath = pathParts.slice(4).join('/');
+                if (pathParts.length >= 3) {
+                    const cid = pathParts[2]; // Consumer ID
+                    const itemPath = pathParts.slice(3).join('/');
+                    const authKey = urlObj.searchParams.get('e');
                     
-                    // Convert to direct download URL using OneDrive public API
-                    return `https://api.onedrive.com/v1.0/shares/u!${btoa(shareUrl).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')}/root/content`;
+                    // Try multiple formats that work with authenticated context
+                    const attempts = [
+                        // Direct onedrive.live.com format with download parameter
+                        `https://onedrive.live.com/download?cid=${cid}&resid=${cid}%21${itemPath.replace(/[^a-zA-Z0-9]/g, '')}&authkey=${authKey || ''}`,
+                        
+                        // Alternative onedrive.live.com format
+                        `https://onedrive.live.com/download.aspx?cid=${cid}&resid=${itemPath}&authkey=${authKey || ''}`,
+                        
+                        // Convert to onedrive.live.com view URL with download parameter
+                        shareUrl.replace('1drv.ms', 'onedrive.live.com').replace('/s/', '/download?'),
+                        
+                        // Simple download parameter addition (may work with session auth)
+                        shareUrl + '&download=1'
+                    ];
+                    
+                    // Return the first attempt - we'll try others as fallbacks in the fetch logic
+                    return attempts[0];
                 }
             } else if (shareUrl.includes('sharepoint.com') || shareUrl.includes('my.sharepoint.com')) {
                 // SharePoint format - convert to download URL
                 const downloadUrl = shareUrl.replace(/\?.*$/, '') + '?download=1';
                 return downloadUrl;
+            } else if (shareUrl.includes('onedrive.live.com')) {
+                // Already in onedrive.live.com format, just ensure download parameter
+                const separator = shareUrl.includes('?') ? '&' : '?';
+                return shareUrl + separator + 'download=1';
             }
             
             // Fallback: try appending download parameter
