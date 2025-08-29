@@ -34,7 +34,8 @@ export class UIManager {
                 e.preventDefault();
                 this.showView('tracking');
                 this.startTracking();
-            }
+            },
+            'load-onedrive-config': () => this.loadOneDriveConfig()
         };
         
         Object.entries(events).forEach(([id, handler]) => 
@@ -145,6 +146,47 @@ export class UIManager {
         } catch (error) {
             state.setStatus(`Error: ${error.message}`, true);
         }
+    }
+
+    async loadOneDriveConfig() {
+        const urlInput = document.getElementById('onedrive-url-input');
+        if (!urlInput?.value) {
+            state.setStatus("Please enter a OneDrive URL", true);
+            return;
+        }
+
+        const url = urlInput.value.trim();
+        if (!url.includes('1drv.ms') && !url.includes('sharepoint.com')) {
+            state.setStatus("Invalid OneDrive URL format", true);
+            return;
+        }
+
+        try {
+            state.setStatus("Loading configuration from OneDrive...");
+            
+            // Convert sharing URL to direct API access URL if needed
+            const directUrl = this.convertToDirectUrl(url);
+            
+            const response = await fetch(directUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const configData = await response.json();
+            
+            // Process the loaded config similar to local configs
+            this.configManager.setConfig(configData);
+            await this.reloadMappingModules();
+            
+            state.setStatus("OneDrive configuration loaded successfully");
+        } catch (error) {
+            console.error('OneDrive config load error:', error);
+            state.setStatus(`Failed to load OneDrive config: ${error.message}`, true);
+        }
+    }
+
+    convertToDirectUrl(shareUrl) {
+        // Basic conversion - in production, you'd need more robust URL parsing
+        // For now, assume user provides appropriate format or implement URL conversion logic
+        return shareUrl;
     }
 
     updateStatus(message, isError = false) {

@@ -24,7 +24,7 @@
             <button id="activate-tracking" class="ms-Button nav-btn">Tracking Results</button>
             <div class="nav-header">
                 <img width="20" height="20" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
-                <h1 class="ms-font-l">TermNorm</h1>
+                <h1 class="ms-font-l">TermNorm<span id="cloud-indicator" class="hidden"> 🌐 cloud</span></h1>
             </div>
         </div>
         
@@ -38,6 +38,16 @@
             <section class="ms-welcome__section">
                 <h3>Mapping Source Configurations</h3>
 
+                <!-- OneDrive File URL Input (Cloud only) -->
+                <div id="onedrive-url-section" class="hidden">
+                    <div class="ms-Grid-row" style="margin-bottom: 15px;">
+                        <div class="ms-Grid-col ms-sm12">
+                            <label class="ms-Label">OneDrive File URL (for shared configurations):</label>
+                            <input type="text" id="onedrive-url-input" class="ms-TextField-field" placeholder="https://1drv.ms/x/..." style="width: 100%; margin-top: 5px;" />
+                            <button id="load-onedrive-config" class="ms-Button ms-Button--primary" style="margin-top: 5px;">Load from OneDrive</button>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Container for multiple mapping configurations -->
                 <div id="mapping-configs-container">
