@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
@@ -22,6 +23,34 @@ if not API_KEY:
     raise ValueError("TERMNORM_API_KEY environment variable must be set! Example: set TERMNORM_API_KEY=your_secret_key")
 
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
+
+def get_local_ip():
+    """Get the local IP address of this machine"""
+    import socket
+    try:
+        # Connect to a remote address to determine local IP
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+
+def detect_server_mode():
+    """Detect if server is running in network mode based on environment and common patterns"""
+    # Check if uvicorn was started with --host 0.0.0.0 (common network binding)
+    # This is a best-effort detection since we can't directly access uvicorn's bind config
+    
+    # Check environment variables that might indicate network mode
+    host_env = os.getenv("UVICORN_HOST", "").lower()
+    if host_env in ["0.0.0.0", "network"]:
+        return True
+    
+    # Check if process arguments contain network indicators (rough heuristic)
+    args_str = " ".join(sys.argv).lower()
+    if "--host 0.0.0.0" in args_str or "--host=0.0.0.0" in args_str:
+        return True
+        
+    return False
 
 # API Key middleware
 @app.middleware("http")
@@ -65,7 +94,25 @@ def read_root():
 
 @app.post("/test-connection")
 async def test_connection():
-    return {"status": "OK", "provider": LLM_PROVIDER}
+    # Determine if server is running in network mode
+    is_network_mode = detect_server_mode()
+    
+    if is_network_mode:
+        # Server is network-accessible
+        connection_type = "Network API"
+        local_ip = get_local_ip()
+        connection_url = f"http://{local_ip}:8000"
+    else:
+        # Server is local-only
+        connection_type = "Local API"
+        connection_url = "http://localhost:8000"
+    
+    return {
+        "status": "OK", 
+        "provider": LLM_PROVIDER,
+        "connection_type": connection_type,
+        "connection_url": connection_url
+    }
 
 # Option 2: Allow extra fields (most flexible)
 class ActivityLogEntry(BaseModel):
