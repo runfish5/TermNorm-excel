@@ -145,7 +145,6 @@ export class CloudConfigPickerUI {
             }
 
             const pickerOptions = {
-                clientId: 'TermNorm-Excel-AddIn', // You may need to register this
                 action: 'download',
                 multiSelect: false,
                 openInNewWindow: true,
