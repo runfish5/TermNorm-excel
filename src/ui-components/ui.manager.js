@@ -164,57 +164,68 @@ export class UIManager {
         try {
             state.setStatus("Loading configuration from OneDrive...");
             
-            // Convert sharing URL to direct API access URL if needed
-            const directUrl = this.convertToDirectUrl(url);
+            // Try multiple URL conversion approaches
+            const urlAttempts = this.getAllUrlAttempts(url);
             console.log('Original URL:', url);
-            console.log('Converted URL:', directUrl);
+            console.log('Trying', urlAttempts.length, 'different URL formats...');
             
-            const response = await fetch(directUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json, text/plain, */*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                },
-                credentials: 'include' // Include cookies for authentication
-            });
+            let lastError = null;
             
-            if (!response.ok) {
-                let errorMessage = `HTTP ${response.status}`;
-                if (response.status === 404) {
-                    errorMessage = "File not found or not publicly accessible";
-                } else if (response.status === 403) {
-                    errorMessage = "Access denied - check file sharing permissions";
-                } else if (response.status === 0 || response.status === 502) {
-                    errorMessage = "CORS error - file may need different sharing settings";
-                }
-                throw new Error(errorMessage);
-            }
-            
-            let configData;
-            const contentType = response.headers.get('content-type');
-            
-            if (contentType && contentType.includes('application/json')) {
-                configData = await response.json();
-            } else {
-                // Try to parse as text first, then as JSON
-                const textData = await response.text();
+            for (let i = 0; i < urlAttempts.length; i++) {
+                const attemptUrl = urlAttempts[i];
+                console.log(`Attempt ${i + 1}/${urlAttempts.length}:`, attemptUrl);
+                
                 try {
-                    configData = JSON.parse(textData);
-                } catch (parseError) {
-                    throw new Error("File is not valid JSON format");
+                    const response = await fetch(attemptUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json, text/plain, */*',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        },
+                        credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                        console.log(`Success with attempt ${i + 1}!`);
+                        
+                        let configData;
+                        const contentType = response.headers.get('content-type');
+                        
+                        if (contentType && contentType.includes('application/json')) {
+                            configData = await response.json();
+                        } else {
+                            const textData = await response.text();
+                            try {
+                                configData = JSON.parse(textData);
+                            } catch (parseError) {
+                                throw new Error("File is not valid JSON format");
+                            }
+                        }
+                        
+                        if (!configData || typeof configData !== 'object') {
+                            throw new Error("Invalid configuration format");
+                        }
+                        
+                        this.configManager.setConfig(configData);
+                        await this.reloadMappingModules();
+                        state.setStatus("OneDrive configuration loaded successfully");
+                        return; // Success!
+                    } else {
+                        console.log(`Attempt ${i + 1} failed: HTTP ${response.status}`);
+                        lastError = new Error(`HTTP ${response.status}`);
+                    }
+                } catch (fetchError) {
+                    console.log(`Attempt ${i + 1} failed:`, fetchError.message);
+                    lastError = fetchError;
                 }
             }
             
-            // Validate that we got a valid config object
-            if (!configData || typeof configData !== 'object') {
-                throw new Error("Invalid configuration format");
+            // If we get here, all attempts failed
+            let errorMessage = lastError?.message || "All URL conversion attempts failed";
+            if (errorMessage.includes('Failed to fetch')) {
+                errorMessage = "Network/CORS error - file may not be publicly accessible";
             }
-            
-            // Process the loaded config similar to local configs
-            this.configManager.setConfig(configData);
-            await this.reloadMappingModules();
-            
-            state.setStatus("OneDrive configuration loaded successfully");
+            throw new Error(errorMessage);
         } catch (error) {
             console.error('OneDrive config load error:', error);
             
@@ -230,58 +241,58 @@ export class UIManager {
         }
     }
 
-    convertToDirectUrl(shareUrl) {
-        try {
-            // Since we're running in Excel Online context, user is already authenticated
-            // Try multiple URL patterns that work with background authentication
-            
-            if (shareUrl.includes('1drv.ms')) {
-                // Parse the 1drv.ms URL: https://1drv.ms/x/c/cid/itemPath?e=authkey
+    getAllUrlAttempts(shareUrl) {
+        const attempts = [];
+        
+        if (shareUrl.includes('1drv.ms')) {
+            try {
                 const urlObj = new URL(shareUrl);
                 const pathParts = urlObj.pathname.split('/').filter(part => part);
                 
                 if (pathParts.length >= 3) {
-                    const cid = pathParts[2]; // Consumer ID
+                    const cid = pathParts[2];
                     const itemPath = pathParts.slice(3).join('/');
                     const authKey = urlObj.searchParams.get('e');
                     
-                    // Try multiple formats that work with authenticated context
-                    const attempts = [
-                        // Direct onedrive.live.com format with download parameter
+                    // Multiple URL format attempts
+                    attempts.push(
+                        // Simple download parameter (often works with session auth)
+                        shareUrl + '&download=1',
+                        
+                        // Convert 1drv.ms to onedrive.live.com
+                        shareUrl.replace('1drv.ms', 'onedrive.live.com') + '&download=1',
+                        
+                        // Direct onedrive.live.com download format
                         `https://onedrive.live.com/download?cid=${cid}&resid=${cid}%21${itemPath.replace(/[^a-zA-Z0-9]/g, '')}&authkey=${authKey || ''}`,
                         
-                        // Alternative onedrive.live.com format
+                        // Alternative download.aspx format
                         `https://onedrive.live.com/download.aspx?cid=${cid}&resid=${itemPath}&authkey=${authKey || ''}`,
                         
-                        // Convert to onedrive.live.com view URL with download parameter
-                        shareUrl.replace('1drv.ms', 'onedrive.live.com').replace('/s/', '/download?'),
-                        
-                        // Simple download parameter addition (may work with session auth)
-                        shareUrl + '&download=1'
-                    ];
-                    
-                    // Return the first attempt - we'll try others as fallbacks in the fetch logic
-                    return attempts[0];
+                        // Try the original URL (sometimes works directly)
+                        shareUrl
+                    );
                 }
-            } else if (shareUrl.includes('sharepoint.com') || shareUrl.includes('my.sharepoint.com')) {
-                // SharePoint format - convert to download URL
-                const downloadUrl = shareUrl.replace(/\?.*$/, '') + '?download=1';
-                return downloadUrl;
-            } else if (shareUrl.includes('onedrive.live.com')) {
-                // Already in onedrive.live.com format, just ensure download parameter
-                const separator = shareUrl.includes('?') ? '&' : '?';
-                return shareUrl + separator + 'download=1';
+            } catch (error) {
+                console.error('URL parsing error:', error);
             }
-            
-            // Fallback: try appending download parameter
-            const separator = shareUrl.includes('?') ? '&' : '?';
-            return shareUrl + separator + 'download=1';
-            
-        } catch (error) {
-            console.error('URL conversion error:', error);
-            // Return original URL as fallback
-            return shareUrl;
         }
+        
+        // If no specific attempts or as fallback, add basic attempts
+        if (attempts.length === 0) {
+            attempts.push(
+                shareUrl + (shareUrl.includes('?') ? '&' : '?') + 'download=1',
+                shareUrl
+            );
+        }
+        
+        return attempts;
+    }
+
+    convertToDirectUrl(shareUrl) {
+        // This method is now deprecated in favor of getAllUrlAttempts()
+        // but kept for compatibility
+        const attempts = this.getAllUrlAttempts(shareUrl);
+        return attempts[0] || shareUrl;
     }
 
     updateStatus(message, isError = false) {
