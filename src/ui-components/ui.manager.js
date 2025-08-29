@@ -108,8 +108,8 @@ export class UIManager {
             const configData = JSON.parse(text);
             
             // Validate basic config structure
-            if (!configData.column_map && !configData.standard_mappings) {
-                throw new Error("Invalid config format - missing column_map or standard_mappings");
+            if (!configData?.["excel-projects"]) {
+                throw new Error("Invalid config format - missing excel-projects structure");
             }
             
             this.orchestrator.configManager.setConfig(configData);
@@ -123,7 +123,7 @@ export class UIManager {
             state.setStatus(`Configuration loaded from ${file.name}`);
         } catch (error) {
             console.error('Config load error:', error);
-            // state.setStatus(`Failed to load config: ${error.message}`, true);
+            state.setStatus(`Failed to load config: ${error.message}`, true);
         }
     }
 
