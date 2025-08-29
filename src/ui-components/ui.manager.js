@@ -102,27 +102,45 @@ export class UIManager {
 
     async loadConfigFromFile(file) {
         try {
+            console.log('[DRAG-DROP] Starting config load from file:', file.name);
             state.setStatus("Loading configuration file...");
             
             const text = await file.text();
             const configData = JSON.parse(text);
+            console.log('[DRAG-DROP] Parsed config data:', { 
+                hasExcelProjects: !!configData?.["excel-projects"],
+                projectKeys: configData?.["excel-projects"] ? Object.keys(configData["excel-projects"]) : []
+            });
             
             // Validate basic config structure
             if (!configData?.["excel-projects"]) {
                 throw new Error("Invalid config format - missing excel-projects structure");
             }
             
+            console.log('[DRAG-DROP] Setting config on orchestrator...');
             this.orchestrator.configManager.setConfig(configData);
-            await this.reloadMappingModules();
+            
+            console.log('[DRAG-DROP] Reloading mapping modules...');
+            try {
+                await this.reloadMappingModules();
+                console.log('[DRAG-DROP] Mapping modules reloaded successfully');
+            } catch (moduleError) {
+                console.warn('[DRAG-DROP] Mapping modules reload failed (continuing):', moduleError.message);
+                // Continue with reloadConfig even if mapping modules fail
+            }
             
             // Trigger orchestrator's reloadConfig for cloud environment support
             if (this.orchestrator) {
+                console.log('[DRAG-DROP] Calling orchestrator.reloadConfig()...');
                 await this.orchestrator.reloadConfig();
+                console.log('[DRAG-DROP] orchestrator.reloadConfig() completed successfully');
+                // reloadConfig() handles the success status message
+            } else {
+                console.log('[DRAG-DROP] No orchestrator - setting basic success status...');
+                state.setStatus(`Configuration loaded from ${file.name}`);
             }
-            
-            state.setStatus(`Configuration loaded from ${file.name}`);
         } catch (error) {
-            console.error('Config load error:', error);
+            console.error('[DRAG-DROP] Config load error:', error);
             state.setStatus(`Failed to load config: ${error.message}`, true);
         }
     }
@@ -136,21 +154,42 @@ export class UIManager {
     }
 
     async reloadMappingModules() {
-        const standardMappings = this.orchestrator.configManager.getStandardMappings();
-        if (!standardMappings?.length) return;
-        const container = document.getElementById('mapping-configs-container');
-        if (!container) return console.error('Mapping configs container not found');
-        
-        container.innerHTML = '';
-        this.mappingModules = [];
-        this.loadedMappings.clear();
-        this.mappingModules = standardMappings.map((config, index) => {
-            const module = new MappingConfigModule(config, index, 
-                (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result));
-            module.init(container);
-            return module;
-        });
-        this.updateGlobalStatus();
+        try {
+            console.log('[UI-MANAGER] Getting standard mappings...');
+            const standardMappings = this.orchestrator.configManager.getStandardMappings();
+            console.log('[UI-MANAGER] Standard mappings count:', standardMappings?.length || 0);
+            
+            if (!standardMappings?.length) {
+                console.log('[UI-MANAGER] No standard mappings found - skipping module reload');
+                return;
+            }
+            
+            const container = document.getElementById('mapping-configs-container');
+            if (!container) {
+                const error = 'Mapping configs container not found';
+                console.error('[UI-MANAGER]', error);
+                throw new Error(error);
+            }
+            
+            console.log('[UI-MANAGER] Clearing existing modules and creating new ones...');
+            container.innerHTML = '';
+            this.mappingModules = [];
+            this.loadedMappings.clear();
+            
+            this.mappingModules = standardMappings.map((config, index) => {
+                console.log('[UI-MANAGER] Creating module', index + 1, 'for config:', config?.mapping_reference);
+                const module = new MappingConfigModule(config, index, 
+                    (moduleIndex, mappings, result) => this.onMappingLoaded(moduleIndex, mappings, result));
+                module.init(container);
+                return module;
+            });
+            
+            this.updateGlobalStatus();
+            console.log('[UI-MANAGER] Mapping modules reload completed');
+        } catch (error) {
+            console.error('[UI-MANAGER] reloadMappingModules failed:', error);
+            throw error;
+        }
     }
 
     onMappingLoaded(moduleIndex, mappings, result) {

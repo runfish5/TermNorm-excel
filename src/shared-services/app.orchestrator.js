@@ -36,18 +36,23 @@ export class AppOrchestrator {
 
     async reloadConfig() {
         try {
+            console.log('[ORCHESTRATOR] Starting reloadConfig...');
             await this.configManager.loadConfig();
+            console.log('[ORCHESTRATOR] configManager.loadConfig() completed');
+            
             // Store config in state for direct UI access
             const config = this.configManager.getConfig();
             state.setConfig(config);
+            console.log('[ORCHESTRATOR] Config stored in state:', !!config);
             
             if (!this.configLoaded) await this.ui.reloadMappingModules();
 
             // Show confirmation with excel-projects count
             const excelProjectsCount = this.configManager.getExcelProjectsCount();
+            console.log('[ORCHESTRATOR] Excel projects count:', excelProjectsCount);
             state.setStatus(`Config reloaded - Found ${excelProjectsCount} excel-project(s)`);
         } catch (error) {
-            console.error('Reload config error:', error);
+            console.error('[ORCHESTRATOR] Reload config error:', error);
             
             // Enhanced error handling with specific key hints
             let errorMessage = `Config failed: ${error.message}`;
@@ -60,6 +65,8 @@ export class AppOrchestrator {
                     const projectCount = this.configManager.getExcelProjectsCount();
                     const availableKeys = this.configManager.getExcelProjectsKeys();
                     
+                    console.log('[ORCHESTRATOR] Workbook not found - Current:', workbookName, 'Available:', availableKeys);
+                    
                     errorMessage += `\n\nLooking for key "${workbookName}" in "excel-projects" dictionary of app.config.json`;
                     errorMessage += `\nFound ${projectCount} excel-project(s): [${availableKeys.join(', ')}]`;
                     errorMessage += `\nAlternatively, add a "*" key as fallback for any workbook`;
@@ -70,7 +77,9 @@ export class AppOrchestrator {
             errorMessage += `\n\nConfig location:\nC:\\Users\\{YOURS}\\OfficeAddinApps\\TermNorm-excel\\config\\app.config.json`;
             errorMessage += `\n\nFor Help visit:\nhttps://github.com/runfish5/TermNorm-excel`;
             
+            console.log('[ORCHESTRATOR] Setting error status:', errorMessage);
             state.setStatus(errorMessage, true);
+            throw error; // Re-throw to prevent success message override
         }
     }
 
