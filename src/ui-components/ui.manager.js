@@ -3,14 +3,12 @@ import { MappingConfigModule } from './mapping-config-module.js';
 import { CandidateRankingUI } from './CandidateRankingUI.js';
 import { state } from '../shared-services/state.manager.js';
 import { LiveTracker } from '../services/normalizer.main.js';
-import { ConfigManager } from '../shared-services/config.manager.js';
 
 export class UIManager {
     constructor(orchestrator = null) {
         this.mappingModules = [];
         this.loadedMappings = new Map();
         this.tracker = new LiveTracker();
-        this.configManager = new ConfigManager();
         this.orchestrator = orchestrator;
     }
 
@@ -114,7 +112,7 @@ export class UIManager {
                 throw new Error("Invalid config format - missing column_map or standard_mappings");
             }
             
-            this.configManager.setConfig(configData);
+            this.orchestrator.configManager.setConfig(configData);
             await this.reloadMappingModules();
             
             // Trigger orchestrator's reloadConfig for cloud environment support
@@ -138,7 +136,7 @@ export class UIManager {
     }
 
     async reloadMappingModules() {
-        const standardMappings = this.configManager.getStandardMappings();
+        const standardMappings = this.orchestrator.configManager.getStandardMappings();
         if (!standardMappings?.length) return;
         const container = document.getElementById('mapping-configs-container');
         if (!container) return console.error('Mapping configs container not found');
