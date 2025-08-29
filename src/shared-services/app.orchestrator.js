@@ -57,7 +57,11 @@ export class AppOrchestrator {
                 const workbookMatch = error.message.match(/workbook: (.+)/);
                 if (workbookMatch) {
                     const workbookName = workbookMatch[1];
+                    const projectCount = this.configManager.getExcelProjectsCount();
+                    const availableKeys = this.configManager.getExcelProjectsKeys();
+                    
                     errorMessage += `\n\nLooking for key "${workbookName}" in "excel-projects" dictionary of app.config.json`;
+                    errorMessage += `\nFound ${projectCount} excel-project(s): [${availableKeys.join(', ')}]`;
                     errorMessage += `\nAlternatively, add a "*" key as fallback for any workbook`;
                 }
             }
