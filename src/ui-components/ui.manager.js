@@ -125,7 +125,7 @@ export class UIManager {
             state.setStatus(`Configuration loaded from ${file.name}`);
         } catch (error) {
             console.error('Config load error:', error);
-            state.setStatus(`Failed to load config: ${error.message}`, true);
+            // state.setStatus(`Failed to load config: ${error.message}`, true);
         }
     }
 
