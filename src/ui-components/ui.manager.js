@@ -164,7 +164,18 @@ export class UIManager {
         try {
             state.setStatus("Loading configuration from OneDrive...");
             
-            // Try multiple URL conversion approaches
+            // First, try using Office.js context for OneDrive access (if available)
+            if (typeof Office !== 'undefined' && Office.context && Office.context.auth) {
+                try {
+                    console.log('Attempting Office.js authentication approach...');
+                    const result = await this.tryOfficeAuth(url);
+                    if (result) return result;
+                } catch (authError) {
+                    console.log('Office.js auth failed:', authError.message);
+                }
+            }
+            
+            // Fallback to direct URL approaches
             const urlAttempts = this.getAllUrlAttempts(url);
             console.log('Original URL:', url);
             console.log('Trying', urlAttempts.length, 'different URL formats...');
@@ -176,20 +187,19 @@ export class UIManager {
                 console.log(`Attempt ${i + 1}/${urlAttempts.length}:`, attemptUrl);
                 
                 try {
-                    // Try different fetch modes for different URLs
+                    // Use standard CORS mode for all attempts - no-cors can't read response
                     let fetchOptions = {
                         method: 'GET',
-                        credentials: 'include'
+                        credentials: 'include',
+                        headers: {
+                            'Accept': 'application/json, text/plain, */*'
+                        }
                     };
                     
-                    // For certain attempts, try no-cors mode to bypass CORS issues
-                    if (i >= 2) { // For attempts after the first two
-                        fetchOptions.mode = 'no-cors';
-                        console.log(`Using no-cors mode for attempt ${i + 1}`);
-                    } else {
-                        fetchOptions.headers = {
-                            'Accept': 'application/json, text/plain, */*'
-                        };
+                    // For later attempts, try without credentials to see if that helps
+                    if (i >= 4) {
+                        fetchOptions.credentials = 'omit';
+                        console.log(`Using credentials: 'omit' for attempt ${i + 1}`);
                     }
                     
                     const response = await fetch(attemptUrl, fetchOptions);
@@ -202,44 +212,37 @@ export class UIManager {
                         url: response.url
                     });
                     
-                    if (response.ok || (fetchOptions.mode === 'no-cors' && response.type === 'opaque')) {
+                    if (response.ok) {
                         console.log(`Processing response from attempt ${i + 1}...`);
                         
                         try {
                             let configData;
+                            const contentType = response.headers.get('content-type');
+                            console.log('Content-Type:', contentType);
                             
-                            if (fetchOptions.mode === 'no-cors') {
-                                // no-cors mode doesn't allow reading response, so we need a different approach
-                                console.log('no-cors response received, but cannot read content');
-                                throw new Error('no-cors response cannot be read');
+                            if (contentType && contentType.includes('application/json')) {
+                                configData = await response.json();
                             } else {
-                                const contentType = response.headers.get('content-type');
-                                console.log('Content-Type:', contentType);
+                                const textData = await response.text();
+                                console.log('Response text length:', textData.length);
+                                console.log('Response text preview:', textData.substring(0, 200));
                                 
-                                if (contentType && contentType.includes('application/json')) {
-                                    configData = await response.json();
-                                } else {
-                                    const textData = await response.text();
-                                    console.log('Response text length:', textData.length);
-                                    console.log('Response text preview:', textData.substring(0, 200));
-                                    
-                                    try {
-                                        configData = JSON.parse(textData);
-                                    } catch (parseError) {
-                                        throw new Error("File is not valid JSON format");
-                                    }
+                                try {
+                                    configData = JSON.parse(textData);
+                                } catch (parseError) {
+                                    throw new Error("File is not valid JSON format");
                                 }
-                                
-                                if (!configData || typeof configData !== 'object') {
-                                    throw new Error("Invalid configuration format");
-                                }
-                                
-                                console.log('Successfully parsed config data');
-                                this.configManager.setConfig(configData);
-                                await this.reloadMappingModules();
-                                state.setStatus("OneDrive configuration loaded successfully");
-                                return; // Success!
                             }
+                            
+                            if (!configData || typeof configData !== 'object') {
+                                throw new Error("Invalid configuration format");
+                            }
+                            
+                            console.log('Successfully parsed config data');
+                            this.configManager.setConfig(configData);
+                            await this.reloadMappingModules();
+                            state.setStatus("OneDrive configuration loaded successfully");
+                            return; // Success!
                         } catch (processError) {
                             console.log(`Error processing response from attempt ${i + 1}:`, processError.message);
                             lastError = processError;
@@ -273,6 +276,47 @@ export class UIManager {
             
             state.setStatus(`Failed to load OneDrive config: ${userMessage}`, true);
         }
+    }
+
+    async tryOfficeAuth(shareUrl) {
+        // This is an experimental approach using Office.js authentication context
+        try {
+            console.log('Trying Office.js authentication context...');
+            
+            // Get an access token from Office.js (if supported)
+            const token = await new Promise((resolve, reject) => {
+                Office.context.auth.getAccessToken({ allowSignInPrompt: true }, (result) => {
+                    if (result.status === Office.AsyncResultStatus.Succeeded) {
+                        resolve(result.value);
+                    } else {
+                        reject(new Error(result.error.message));
+                    }
+                });
+            });
+            
+            if (token) {
+                console.log('Got Office.js token, trying authenticated request...');
+                const response = await fetch(shareUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json, text/plain, */*'
+                    }
+                });
+                
+                if (response.ok) {
+                    const configData = await response.json();
+                    this.configManager.setConfig(configData);
+                    await this.reloadMappingModules();
+                    state.setStatus("OneDrive configuration loaded successfully");
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.log('Office.js auth approach failed:', error.message);
+        }
+        
+        return false; // Failed
     }
 
     getAllUrlAttempts(shareUrl) {
