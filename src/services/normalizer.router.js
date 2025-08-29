@@ -80,10 +80,10 @@ export class NormalizerRouter {
         body: JSON.stringify({ query: val }),
       });
 
-      if (!response.ok) return null;
-
-      if (response.status === 401) {
-        state.setStatus("API key required or invalid", true);
+      if (!response.ok) {
+        if (response.status === 401) {
+          state.setStatus("API key invalid - check your key", true);
+        }
         return null;
       }
 
