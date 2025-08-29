@@ -166,11 +166,47 @@ export class UIManager {
             
             // Convert sharing URL to direct API access URL if needed
             const directUrl = this.convertToDirectUrl(url);
+            console.log('Original URL:', url);
+            console.log('Converted URL:', directUrl);
             
-            const response = await fetch(directUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const response = await fetch(directUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            });
             
-            const configData = await response.json();
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}`;
+                if (response.status === 404) {
+                    errorMessage = "File not found or not publicly accessible";
+                } else if (response.status === 403) {
+                    errorMessage = "Access denied - check file sharing permissions";
+                } else if (response.status === 0 || response.status === 502) {
+                    errorMessage = "CORS error - file may need different sharing settings";
+                }
+                throw new Error(errorMessage);
+            }
+            
+            let configData;
+            const contentType = response.headers.get('content-type');
+            
+            if (contentType && contentType.includes('application/json')) {
+                configData = await response.json();
+            } else {
+                // Try to parse as text first, then as JSON
+                const textData = await response.text();
+                try {
+                    configData = JSON.parse(textData);
+                } catch (parseError) {
+                    throw new Error("File is not valid JSON format");
+                }
+            }
+            
+            // Validate that we got a valid config object
+            if (!configData || typeof configData !== 'object') {
+                throw new Error("Invalid configuration format");
+            }
             
             // Process the loaded config similar to local configs
             this.configManager.setConfig(configData);
@@ -179,14 +215,49 @@ export class UIManager {
             state.setStatus("OneDrive configuration loaded successfully");
         } catch (error) {
             console.error('OneDrive config load error:', error);
-            state.setStatus(`Failed to load OneDrive config: ${error.message}`, true);
+            
+            // Provide more specific error messages
+            let userMessage = error.message;
+            if (error.message.includes('Failed to fetch')) {
+                userMessage = "Network error - check URL and internet connection";
+            } else if (error.message.includes('JSON')) {
+                userMessage = "File format error - ensure it's a valid JSON configuration";
+            }
+            
+            state.setStatus(`Failed to load OneDrive config: ${userMessage}`, true);
         }
     }
 
     convertToDirectUrl(shareUrl) {
-        // Basic conversion - in production, you'd need more robust URL parsing
-        // For now, assume user provides appropriate format or implement URL conversion logic
-        return shareUrl;
+        try {
+            // Handle different OneDrive URL formats
+            if (shareUrl.includes('1drv.ms')) {
+                // Modern 1drv.ms format: https://1drv.ms/x/c/fileId/itemPath?e=hash
+                const urlObj = new URL(shareUrl);
+                const pathParts = urlObj.pathname.split('/');
+                
+                if (pathParts.length >= 4) {
+                    const fileId = pathParts[3]; // Extract file ID from path
+                    const itemPath = pathParts.slice(4).join('/');
+                    
+                    // Convert to direct download URL using OneDrive public API
+                    return `https://api.onedrive.com/v1.0/shares/u!${btoa(shareUrl).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')}/root/content`;
+                }
+            } else if (shareUrl.includes('sharepoint.com') || shareUrl.includes('my.sharepoint.com')) {
+                // SharePoint format - convert to download URL
+                const downloadUrl = shareUrl.replace(/\?.*$/, '') + '?download=1';
+                return downloadUrl;
+            }
+            
+            // Fallback: try appending download parameter
+            const separator = shareUrl.includes('?') ? '&' : '?';
+            return shareUrl + separator + 'download=1';
+            
+        } catch (error) {
+            console.error('URL conversion error:', error);
+            // Return original URL as fallback
+            return shareUrl;
+        }
     }
 
     updateStatus(message, isError = false) {
