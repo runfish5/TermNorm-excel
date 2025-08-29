@@ -317,6 +317,13 @@ export class UIManager {
           const ip = e.candidate.candidate.match(/\d+\.\d+\.\d+\.\d+/)?.[0];
           if (ip && ip !== "127.0.0.1") {
             this.localIP = ip;
+            console.log("Detected local IP:", ip);
+
+            // Update server host if in network mode
+            if (state.get("server.networkMode")) {
+              const newUrl = this.getBackendUrl();
+              state.set("server.host", newUrl);
+            }
           }
         }
       };
@@ -387,9 +394,17 @@ export class UIManager {
     const status = isOnline ? "Online" : "Offline";
     const hostDisplay = host || "Unknown";
     const isNetworkMode = state.get("server.networkMode");
-    const bindingInfo = isNetworkMode ? "accessible from network" : "accessible locally only";
 
-    led.title = `Server: ${hostDisplay} - Status: ${status}\nMode: ${bindingInfo}\nClick to refresh`;
+    let modeDescription, accessDescription;
+    if (isNetworkMode) {
+      modeDescription = "Network Mode";
+      accessDescription = "Other devices can connect";
+    } else {
+      modeDescription = "Local Mode";
+      accessDescription = "Same machine only";
+    }
+
+    led.title = `Server: ${hostDisplay}\nStatus: ${status}\n${modeDescription} - ${accessDescription}\nClick to refresh`;
   }
 
   // Public API
