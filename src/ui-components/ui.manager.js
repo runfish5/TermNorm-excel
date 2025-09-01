@@ -242,14 +242,6 @@ export class UIManager {
       led.addEventListener("click", () => this.checkServerStatus());
     }
 
-    // Set up network mode toggle handler
-    const toggle = document.getElementById("network-mode-toggle");
-    if (toggle) {
-      toggle.addEventListener("change", (e) => {
-        state.set("server.networkMode", e.target.checked);
-        this.checkServerStatus();
-      });
-    }
 
     // Set up API key input handler
     const apiKeyInput = document.getElementById("api-key-input");
