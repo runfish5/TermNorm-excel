@@ -4,5 +4,13 @@
   ],
   "extends": [
     "plugin:office-addins/recommended"
-  ]
+  ],
+  "env": {
+    "browser": true,
+    "es2020": true
+  },
+  "globals": {
+    "Office": "readonly",
+    "Excel": "readonly"
+  }
 }

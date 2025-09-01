@@ -77,12 +77,23 @@ export class LiveTracker {
 
       // Process all cells that need mapping
       const tasks = [];
-      for (let r = 0; r < range.rowCount; r++) {
-        for (let c = 0; c < range.columnCount; c++) {
-          const row = range.rowIndex + r;
-          const col = range.columnIndex + c;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const rowCount = range.rowCount;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const columnCount = range.columnCount;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const rowIndex = range.rowIndex;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const columnIndex = range.columnIndex;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const values = range.values;
+
+      for (let r = 0; r < rowCount; r++) {
+        for (let c = 0; c < columnCount; c++) {
+          const row = rowIndex + r;
+          const col = columnIndex + c;
           const targetCol = this.columnMap.get(col);
-          const value = range.values[r][c];
+          const value = values[r][c];
 
           if (row > 0 && targetCol && value) {
             const cellKey = `${row}:${col}`;
