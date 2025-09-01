@@ -87,7 +87,7 @@ export class LiveTracker {
           if (row > 0 && targetCol && value) {
             const cellKey = `${row}:${col}`;
             const oldValue = this.cellValues.get(cellKey);
-            
+
             // Only process if value actually changed
             if (oldValue !== value) {
               this.cellValues.set(cellKey, value);
