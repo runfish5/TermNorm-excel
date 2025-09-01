@@ -114,7 +114,7 @@ export class NormalizerRouter {
         candidates: data.data.ranked_candidates,
         total_time: data.data.total_time,
       };
-      
+
       // Cache the result for deduplication
       this.recentQueries.set(val, { timestamp: now, result });
       return result;

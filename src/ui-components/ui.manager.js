@@ -2,13 +2,11 @@
 import { MappingConfigModule } from "./mapping-config-module.js";
 import { CandidateRankingUI } from "./CandidateRankingUI.js";
 import { state } from "../shared-services/state.manager.js";
-import { LiveTracker } from "../services/normalizer.main.js";
 
 export class UIManager {
   constructor(orchestrator = null) {
     this.mappingModules = [];
     this.loadedMappings = new Map();
-    this.tracker = new LiveTracker();
     this.orchestrator = orchestrator;
   }
 
@@ -219,50 +217,10 @@ export class UIManager {
   }
 
   async startTracking() {
-    const config = state.get("config.data");
-    if (!config?.column_map || !Object.keys(config.column_map).length)
-      return state.setStatus("Error: Load config first", true);
-
-    // Combine mappings if needed
-    if (this.loadedMappings.size > 0) {
-      const combined = Array.from(this.loadedMappings.entries()).reduce(
-        (acc, [index, { mappings, result }]) => {
-          Object.assign(acc.forward, mappings.forward);
-          Object.assign(acc.reverse, mappings.reverse);
-          acc.metadata.sources.push({
-            index: index + 1,
-            config: this.mappingModules[index].getConfig(),
-            mappings,
-            metadata: result.metadata,
-          });
-          return acc;
-        },
-        { forward: {}, reverse: {}, metadata: { sources: [] } }
-      );
-
-      state.setMappings(combined.forward, combined.reverse, combined.metadata);
+    if (!this.orchestrator) {
+      return state.setStatus("Error: No orchestrator available", true);
     }
-
-    const mappings = state.get("mappings");
-    const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
-    const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-    if (!hasForward && !hasReverse) return state.setStatus("Error: Load mappings first", true);
-
-    try {
-      await this.tracker.start(config, mappings);
-
-      const forwardCount = Object.keys(mappings.forward || {}).length;
-      const reverseCount = Object.keys(mappings.reverse || {}).length;
-      const sourcesCount = mappings.metadata?.sources?.length || 0;
-
-      let mode = hasForward ? "with mappings" : "reverse-only";
-      if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
-
-      state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
-      this.showView("tracking");
-    } catch (error) {
-      state.setStatus(`Error: ${error.message}`, true);
-    }
+    await this.orchestrator.startTracking();
   }
 
   updateStatus(message, isError = false) {
@@ -305,7 +263,6 @@ export class UIManager {
     this.checkServerStatus();
   }
 
-
   async checkServerStatus() {
     const host = state.get("server.host");
     if (!host) return;
@@ -328,13 +285,13 @@ export class UIManager {
       const isOnline = testResponse.ok;
       let serverInfo = {};
       let connectionValidation = { basic: isOnline, protected: false, error: null };
-      
+
       if (isOnline) {
         const data = await testResponse.json();
         serverInfo = {
           connectionType: data.connection_type || "Unknown API",
           connectionUrl: data.connection_url || host,
-          environment: data.environment || "unknown"
+          environment: data.environment || "unknown",
         };
 
         // Test a protected endpoint to validate full functionality
@@ -394,7 +351,7 @@ export class UIManager {
 
     const status = isOnline ? "Online" : "Offline";
     const serverInfo = state.get("server.info") || {};
-    
+
     let tooltipText;
     if (isOnline && serverInfo.connectionType && serverInfo.connectionUrl) {
       tooltipText = `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`;
@@ -410,7 +367,7 @@ export class UIManager {
     if (!cloudIndicator) return;
 
     const isCloudAPI = serverInfo?.connectionType === "Cloud API";
-    
+
     if (isCloudAPI) {
       cloudIndicator.classList.remove("hidden");
     } else {

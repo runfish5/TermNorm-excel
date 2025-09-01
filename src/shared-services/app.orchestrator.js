@@ -75,6 +75,57 @@ export class AppOrchestrator {
     }
   }
 
+  async startTracking() {
+    const config = state.get("config.data");
+    if (!config?.column_map || !Object.keys(config.column_map).length) {
+      return state.setStatus("Error: Load config first", true);
+    }
+
+    // Combine mappings if needed (moved from UIManager)
+    const loadedMappings = this.ui.getAllLoadedMappings();
+    if (loadedMappings.size > 0) {
+      const combined = Array.from(loadedMappings.entries()).reduce(
+        (acc, [index, { mappings, result }]) => {
+          Object.assign(acc.forward, mappings.forward);
+          Object.assign(acc.reverse, mappings.reverse);
+          acc.metadata.sources.push({
+            index: index + 1,
+            config: this.ui.getMappingModules()[index].getConfig(),
+            mappings,
+            metadata: result.metadata,
+          });
+          return acc;
+        },
+        { forward: {}, reverse: {}, metadata: { sources: [] } }
+      );
+
+      state.setMappings(combined.forward, combined.reverse, combined.metadata);
+    }
+
+    const mappings = state.get("mappings");
+    const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
+    const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
+    if (!hasForward && !hasReverse) {
+      return state.setStatus("Error: Load mappings first", true);
+    }
+
+    try {
+      await this.tracker.start(config, mappings);
+
+      const forwardCount = Object.keys(mappings.forward || {}).length;
+      const reverseCount = Object.keys(mappings.reverse || {}).length;
+      const sourcesCount = mappings.metadata?.sources?.length || 0;
+
+      let mode = hasForward ? "with mappings" : "reverse-only";
+      if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
+
+      state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
+      this.ui.showView("tracking");
+    } catch (error) {
+      state.setStatus(`Error: ${error.message}`, true);
+    }
+  }
+
   async renewPrompt() {
     const config = this.configManager.getConfig();
     if (!config) {
