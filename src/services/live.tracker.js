@@ -1,4 +1,4 @@
-// ./services/normalizer.main.js
+// ./services/live.tracker.js
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
 import { NormalizerRouter } from "./normalizer.router.js";
