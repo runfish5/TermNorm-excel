@@ -201,12 +201,9 @@ export class MappingConfigModule {
       };
 
       const result = await loadAndProcessMappings(customParams);
-      // this.mappings = {
-      //     forward: result.forward || {},
-      //     reverse: result.reverse || {},
-      //     metadata: result.metadata || null
-      // };
-      state.mergeMappings(result.forward || {}, result.reverse || {}, result.metadata || null);
+      
+      // Set state once - mapping-config-module owns this responsibility
+      state.setMappings(result.forward || {}, result.reverse || {}, result.metadata || null);
       this.mappings = state.getMappings();
 
       this.handleMappingSuccess(result);
@@ -222,17 +219,24 @@ export class MappingConfigModule {
     }
   }
   handleMappingSuccess(result) {
-    const forward = Object.keys(this.mappings.forward).length;
-    const reverse = Object.keys(this.mappings.reverse).length;
-    const targetOnly = reverse - forward;
+    const { validMappings, issues, serverWarning } = result.metadata || {};
 
-    let message = `${forward} mappings loaded`;
-    if (targetOnly > 0) message += `, ${targetOnly} target-only`;
-    if (result.metadata?.issues) message += ` (${result.metadata.issues.length} issues)`;
+    // Create status message
+    let message = issues?.length 
+      ? `✓ ${validMappings} mappings (${issues.length} issues)`
+      : `✓ ${validMappings} mappings loaded`;
 
+    if (serverWarning) {
+      message += " - Server unavailable";
+    }
+
+    // Update local UI status
     this.updateStatus(message, false, "success");
 
-    // Add this line to show the filename
+    // Update global status 
+    state.setStatus(message);
+
+    // Show filename
     const filename = this.externalFile?.name || "Current Excel file";
     document.getElementById(`${this.elementId}-filename-display`).textContent = ` - ${filename}`;
   }

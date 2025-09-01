@@ -136,21 +136,7 @@ export async function loadAndProcessMappings(customParams = null) {
       }
     }
 
-    state.mergeMappings(result.forward, result.reverse, result.metadata);
-
-    // Simple status message with server warning if applicable
-    const { validMappings, issues, serverWarning } = result.metadata;
-    let statusMsg = issues
-      ? `Loaded ${validMappings} mappings (${issues.length} issues)`
-      : `Loaded ${validMappings} mappings`;
-
-    if (serverWarning) {
-      statusMsg += ` - Server unavailable`;
-    }
-
-    state.setStatus(statusMsg, !!serverWarning);
-    if (issues) console.warn("Issues:", issues);
-
+    // Return result - let caller handle state management
     return result;
   } catch (error) {
     state.setStatus(`Failed: ${error.message}`, true);
