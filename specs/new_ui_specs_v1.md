@@ -1,197 +1,151 @@
-# TermNorm UI Component Specifications v1
+# Themed Hybrid UI Component
 
 ## Core Purpose
-Create innovative UI components that enhance the TermNorm Excel Add-in's terminology normalization workflows while maintaining seamless Office.js integration and Microsoft Fabric UI design consistency.
+Create a uniquely themed UI component that combines multiple existing UI elements into one elegant solution.
 
 ## Output Requirements
-- **File Name Pattern**: `termnorm_ui_[component_type]_[iteration_number].html`
-- **Integration Files**: 
-  - `[component_type]_[iteration_number].js` (JavaScript functionality)
-  - `[component_type]_[iteration_number].css` (Component-specific styles)
-- **Template Structure**:
+- **File Name**: `taskpane[iteration_number].html`
+- **Template BluePrint**:
 ```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TermNorm - [Component Name]</title>
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
-    <link href="[component_type]_[iteration_number].css" rel="stylesheet" type="text/css" />
-</head>
-<body class="ms-font-m ms-Fabric">
-    <!-- TermNorm-specific component implementation -->
-    <script src="[component_type]_[iteration_number].js"></script>
-</body>
+<html>
+  <body>
+
+    <!-- GLOBAL HEADER (App Shell / Navigation Bar) -->
+    <header id="nav-bar">
+      [App Navigation Buttons]   <!-- "Ribbon Bar" / "Navigation Strip" -->
+      [App Logo + Title]         <!-- "Branding Area" -->
+    </header>
+
+    <!-- GLOBAL STATUS BAR -->
+    <div id="status-bar">
+      [SYS-STATUS Label + Message]   <!-- "System Status Line" -->
+      [Server Status LED]            <!-- "Health Indicator" / "Connectivity Icon" -->
+      [Network Mode Toggle]          <!-- "Mode Switch" -->
+    </div>
+
+    <!-- MAIN BODY (View Switch Area / Workspace) -->
+    <main id="app-body">
+
+      <!-- CONFIG VIEW (Workspace Panel: Config) -->
+      <section id="config-view">
+        [API Key Input]               <!-- "Credential Field" -->
+        [Drop Zone for Config File]   <!-- "File Import Area" -->
+        [Mapping Config Modules]      <!-- "Config Panels" -->
+        [Global Actions]              <!-- "Action Bar" -->
+        [Metadata Details Toggle]     <!-- "Details Panel" -->
+      </section>
+
+      <!-- TRACKING VIEW (Workspace Panel: Tracking) -->
+      <section id="tracking-view">
+
+        [Toggle: History vs Candidate Ranked]   <!-- "View Switch / Tab Strip" -->
+
+        [Activity Feed Table]                   <!-- "Log View" / "Event Console" -->
+
+        [Candidate Ranking Section]             <!-- "Ranking Table" / "Decision Pane" -->
+
+      </section>
+
+    </main>
+
+    <!-- SHARED COMPONENTS (Hidden Templates / Overlays) -->
+    <div id="shared-templates">
+      [Feedback Message Template]    <!-- "Toast / Notification" -->
+      [Loading Spinner Template]     <!-- "Busy Indicator" -->
+    </div>
+
+  </body>
 </html>
+
 ```
 
-## TermNorm Component Categories
+## Design Dimensions
 
-### Core Workflow Components
-**Purpose**: Enhance primary terminology normalization tasks
+### Theme Development Guide
+**Primary Theme Selection**: Choose one distinctive visual/conceptual theme
+- **Nature Themes**: Ocean depths, forest canopies, desert landscapes, arctic tundra
+- **Era Themes**: Art deco, cyberpunk, steampunk, minimalist modern, brutalist
+- **Conceptual Themes**: Data visualization, musical harmony, geometric abstraction, organic flow
+- **Emotional Themes**: Serene calm, energetic dynamism, professional authority, playful creativity
 
-#### 1. **Term Validation Dashboard**
-- **Function**: Real-time term consistency checking across worksheets
-- **Integration**: Excel API for range scanning, StateManager for validation status
-- **UI Elements**: Progress indicators, validation results grid, confidence meters
-- **User Workflow**: Scan → Validate → Highlight inconsistencies → Suggest corrections
+**Theme Implementation Strategy**:
+- **Color Psychology**: Use colors that reinforce your theme's emotional impact
+- **Typography Selection**: Choose fonts that embody your theme's personality
+- **Visual Metaphors**: Incorporate theme-related imagery, shapes, or patterns
+- **Interaction Patterns**: Design hover, click, and transition effects that match your theme
 
-#### 2. **Smart Mapping Configurator**
-- **Function**: Visual configuration of term mapping relationships
-- **Integration**: Drag-drop JSON config, MappingProcessor integration
-- **UI Elements**: Interactive mapping trees, relationship visualizers, bulk import tools
-- **User Workflow**: Upload config → Visual mapping → Validation → Activation
+### Combination Strategies
+**Multi-Component Integration**: Select 2-4 UI components to combine
+- **Input + Display**: Search bar + results grid, form + preview panel
+- **Navigation + Content**: Sidebar menu + content area, tabs + panels
+- **Control + Feedback**: Slider controls + visual output, buttons + status indicators
+- **Data + Visualization**: Table + chart, timeline + details panel
 
-#### 3. **Live Normalization Monitor**
-- **Function**: Real-time tracking of normalization activities with enhanced visuals
-- **Integration**: LiveTracker service, ActivityLogger integration
-- **UI Elements**: Activity streams, performance metrics, error handling displays
-- **User Workflow**: Monitor changes → Review suggestions → Accept/Reject → Track results
-
-### Advanced Analytics Components
-**Purpose**: Provide insights into terminology usage and normalization effectiveness
-
-#### 4. **Terminology Analytics Hub**
-- **Function**: Statistical analysis of term usage patterns and normalization success
-- **Integration**: Excel data analysis, historical activity tracking
-- **UI Elements**: Charts, heatmaps, trend analysis, comparative metrics
-- **User Workflow**: Generate reports → Analyze patterns → Export insights
-
-#### 5. **Quality Assurance Center**
-- **Function**: Comprehensive quality control for normalization processes
-- **Integration**: NormalizerRouter validation, confidence scoring systems
-- **UI Elements**: Quality scorecards, exception handling, audit trails
-- **User Workflow**: Quality scan → Review exceptions → Approve/Reject → Generate reports
-
-### User Experience Enhancement Components
-**Purpose**: Improve usability and workflow efficiency
-
-#### 6. **Contextual Help Assistant**
-- **Function**: Intelligent help system that provides contextual guidance
-- **Integration**: StateManager for context awareness, dynamic content loading
-- **UI Elements**: Floating help panels, interactive tutorials, progress tracking
-- **User Workflow**: Detect user context → Provide relevant help → Track completion
-
-#### 7. **Bulk Operations Controller**
-- **Function**: Efficient handling of large-scale terminology operations
-- **Integration**: Excel API batch processing, background task management
-- **UI Elements**: Operation queues, progress tracking, batch result summaries
-- **User Workflow**: Select operations → Configure batch → Execute → Review results
-
-## Technical Implementation Requirements
-
-### Office.js Integration Standards
-- **Excel API Usage**: Efficient use of `Excel.run()` patterns for worksheet operations
-- **Taskpane Optimization**: Design for 320px minimum width, responsive up to 600px
-- **Performance**: Maximum 100ms response time for UI interactions
-- **Error Handling**: Graceful degradation for Office.js API failures
-- **Cross-Platform**: Compatible with Excel Online, Desktop, and Mobile
-
-### StateManager Integration Patterns
-```javascript
-// Required integration pattern
-import { state } from "../shared-services/state.manager.js";
-
-class YourComponent {
-  constructor() {
-    // Subscribe to relevant state changes
-    state.subscribe("terminology", (data) => this.handleTerminologyUpdate(data));
-    state.subscribe("ui", (ui) => this.handleUIStateChange(ui));
-  }
-  
-  updateState(newData) {
-    state.update("componentName", newData);
-  }
-}
-```
-
-### UIManager Integration Requirements
-- **Event Registration**: Components must register events with UIManager
-- **Lifecycle Management**: Support init(), show(), hide(), destroy() methods
-- **Error Communication**: Use StateManager for error state communication
-- **Navigation Integration**: Support TermNorm's view-switching patterns
-
-### Fabric UI Design Standards
-- **Color Palette**: Use Office theme colors (`#0078d7`, `#005a9e`, etc.)
-- **Typography**: Fabric UI font classes (`ms-font-m`, `ms-font-l`, etc.)
-- **Spacing**: Consistent with existing TermNorm components (10px, 20px grid)
-- **Controls**: Leverage Fabric UI button and input classes
-- **Icons**: Use Office Fabric icon font when available
+**Integration Approaches**:
+- **Nested Integration**: One component contains others (card containing form + preview)
+- **Adjacent Integration**: Components sit side-by-side with shared styling
+- **Layered Integration**: Components overlap or stack with z-index relationships
+- **Flow Integration**: Components connect in a logical user workflow sequence
 
 ## Quality Standards
 
-### TermNorm Workflow Integration
-- **Seamless Integration**: Components should feel like natural extensions of TermNorm
-- **Data Flow**: Proper integration with existing data processing pipeline
-- **Configuration Consistency**: Support existing configuration management patterns
-- **Activity Logging**: All user actions should integrate with activity logging system
+### Thematically Distinctive
+- Every visual element should reinforce your chosen theme
+- Color choices, typography, spacing, and imagery should create a cohesive aesthetic
+- The theme should be immediately recognizable and memorable
+- Avoid generic or bland design choices that could work with any theme
 
-### Excel Add-in Performance
-- **Startup Time**: Components should initialize within 500ms
-- **Memory Usage**: Efficient memory management for long-running sessions
-- **Excel Responsiveness**: Must not block Excel UI during operations
-- **Background Processing**: Support for non-blocking background operations
+### Functionally Integrated
+- Combined components should work together seamlessly
+- User interactions should flow naturally between different component areas
+- Data or state changes in one component should meaningfully affect others
+- The combination should solve a real user problem more effectively than separate components
 
-### User Experience Excellence
-- **Intuitive Navigation**: Clear, logical user flows aligned with TermNorm patterns
-- **Feedback Systems**: Immediate visual feedback for all user actions
-- **Error Recovery**: Clear error messages with actionable recovery steps
-- **Accessibility**: Full keyboard navigation and screen reader support
+### Practically Superior
+- The hybrid component should outperform using separate components
+- Loading performance should be optimized for the combined functionality
+- User workflow should be more efficient with the integrated approach
+- Responsive design should work smoothly across device sizes
 
-### Code Quality Requirements
-- **Modular Architecture**: Components should be self-contained and reusable
-- **Documentation**: Comprehensive inline documentation and usage examples
-- **Testing Integration**: Components should support automated testing patterns
-- **Maintenance**: Clean, readable code following TermNorm conventions
+### Technically Excellent
+- Clean, semantic HTML structure
+- Efficient CSS with logical organization and reusable patterns
+- Smooth animations and transitions that enhance rather than distract
+- Accessible design with proper ARIA labels and keyboard navigation
+- Cross-browser compatibility considerations
 
-## Component Innovation Dimensions
+## Iteration Evolution
 
-### Visual Design Innovation
-- **Microsoft Office Aesthetics**: Push the boundaries while maintaining Office design language
-- **Data Visualization**: Creative approaches to terminology data presentation
-- **Interactive Elements**: Engaging micro-interactions that enhance workflow efficiency
-- **Responsive Design**: Adaptive layouts that work across different taskpane sizes
-
-### Functional Innovation
-- **Workflow Optimization**: Novel approaches to streamlining terminology normalization
-- **Intelligence Integration**: Smart features that learn from user behavior
-- **Collaboration Features**: Components that support team-based terminology management
-- **Integration Creativity**: Innovative ways to leverage Excel's capabilities
-
-### Technical Innovation
-- **Performance Optimization**: Creative solutions for Excel API efficiency
-- **State Management**: Novel patterns for complex state coordination
-- **Real-time Features**: Advanced real-time synchronization capabilities
-- **Extensibility**: Components designed for easy extension and customization
-
-## Iteration Evolution Strategy
-
-### Progressive Enhancement Levels
-1. **Foundation Iteration**: Solid core functionality with basic UI
-2. **Enhanced Iteration**: Advanced interactions and improved visual design
-3. **Sophisticated Iteration**: Complex features with innovative UX patterns
-4. **Cutting-edge Iteration**: Experimental features pushing Excel Add-in boundaries
+### Progressive Sophistication
+- **Early Iterations**: Focus on solid theme establishment and basic component integration
+- **Middle Iterations**: Add sophisticated interactions, micro-animations, and advanced styling
+- **Later Iterations**: Explore cutting-edge CSS features, complex state management, innovative UX patterns
 
 ### Creative Exploration Paths
-- **User Experience Depth**: Explore micro-interactions and advanced UX patterns
-- **Visual Sophistication**: Advanced styling and animation within Office constraints
-- **Functional Complexity**: Multi-component interactions and workflow orchestration
-- **Technical Mastery**: Advanced Office.js API usage and performance optimization
+- **Theme Depth**: Push your chosen theme to more sophisticated or unexpected places
+- **Component Complexity**: Combine more components or add more complex interactions
+- **Technical Innovation**: Experiment with newer CSS features, creative layouts, advanced animations
+- **User Experience**: Focus on perfecting the user journey and reducing cognitive load
 
-## Success Criteria
+## Ultra-Thinking Directive
 
-### Component Assessment
-- **Integration Score**: How seamlessly the component integrates with TermNorm ecosystem
-- **User Value**: Tangible improvement to terminology normalization workflows
-- **Technical Excellence**: Clean, performant, maintainable code
-- **Innovation Factor**: Novel approaches that advance the state of Excel Add-in UX
+### Innovation Requirements
+Each iteration must introduce something genuinely new:
+- **Unique Theme Application**: Apply your theme in ways not seen in previous iterations
+- **Novel Component Combinations**: Try component pairings that haven't been explored
+- **Creative Technical Solutions**: Use CSS or HTML in innovative, standards-compliant ways
+- **Enhanced User Experience**: Solve usability challenges in fresh, intuitive ways
 
-### Ecosystem Impact
-- **Workflow Completeness**: How the component fills gaps in current TermNorm capabilities  
-- **User Experience Cohesion**: Consistency with existing TermNorm UX patterns
-- **Technical Architecture**: Clean integration without increasing technical debt
-- **Scalability Contribution**: How the component supports TermNorm's growth and evolution
+### Quality Amplification
+- **Visual Impact**: Each iteration should be immediately impressive and memorable
+- **Functional Elegance**: The component combination should feel inevitable and perfectly suited
+- **Technical Craft**: Code quality should demonstrate mastery and attention to detail
+- **User Delight**: Interactions should feel smooth, responsive, and satisfying
 
-Remember: Your goal is to create UI components that not only meet functional requirements but also demonstrate mastery of Excel Add-in development while pushing the boundaries of what's possible within the Office ecosystem. Each component should be a showcase of both technical excellence and user experience innovation.
+### Creative Pushing Boundaries
+- Don't settle for obvious solutions - explore unexpected approaches
+- Combine themes or create theme variations that add depth and interest
+- Experiment with cutting-edge CSS features while maintaining broad compatibility
+- Think about how your component could inspire or influence other designers
+
+Remember: Your goal is to create UI components that are so well-designed and distinctive that they could serve as inspiration for other developers, demonstrate advanced frontend skills, and solve real-world interface challenges in elegant, themed ways.
