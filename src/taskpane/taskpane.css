@@ -10,7 +10,7 @@
 .content {
     width: 100%;
     padding: 10px;
-    margin-top: 47px;
+    margin-top: calc(32px + var(--status-bar-height, 47px));
 }
 
 /* Navigation */
