@@ -1,10 +1,9 @@
 // shared-services/config.manager.js
-import configData from "../../config/app.config.json";
 import { state } from "./state.manager.js";
 
 export class ConfigManager {
   constructor() {
-    this.rawConfigData = null;
+    // Stateless - all config stored in StateManager
   }
 
   async loadConfig() {
@@ -16,10 +15,20 @@ export class ConfigManager {
         return wb.name;
       });
 
-      const currentConfigData = this.rawConfigData || configData;
+      // Try to load config file at runtime
+      let currentConfigData = state.get("config.raw");
+      if (!currentConfigData) {
+        try {
+          const configModule = await import("../../config/app.config.json");
+          currentConfigData = configModule.default || configModule;
+          state.set("config.raw", currentConfigData);
+        } catch (importError) {
+          // File doesn't exist or import failed - this is OK, drag-drop will be required
+        }
+      }
 
       if (!currentConfigData?.["excel-projects"]) {
-        throw new Error("Configuration file not found or invalid structure");
+        throw new Error("Configuration file not found - please drag and drop a config file");
       }
 
       const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
@@ -62,12 +71,12 @@ export class ConfigManager {
 
   // Set config data (used by drag-and-drop)
   setConfig(configData) {
-    this.rawConfigData = configData;
+    state.set("config.raw", configData);
   }
 
   // Get excel-projects info for error messages
   getExcelProjectsInfo() {
-    const currentConfigData = this.rawConfigData || configData;
+    const currentConfigData = state.get("config.raw");
     const excelProjects = currentConfigData?.["excel-projects"];
     return excelProjects
       ? {
