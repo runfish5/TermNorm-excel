@@ -82,10 +82,23 @@
 
         </div>
         
-        <!-- 2nd main view -->
-        <div id="tracking-div" class="hidden content">
-            <div id="live-activity-section" class="activity-section"></div>
-        </div>
+        <!-- TRACKING VIEW (Workspace Panel: Tracking) -->
+        <section id="tracking-view" class="hidden content">
+
+            <div class="activity-toggle">
+                <input type="radio" id="activity-history" name="activity-mode" value="history" />
+                <label for="activity-history" class="ms-font-s">History</label>
+                <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
+                <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
+            </div>
+
+            <div id="activity-feed" class="activity-feed" style="display:none"></div>
+
+            <div id="candidate-ranking-section" class="activity-feed">
+                <div class="placeholder-text">Rankings appear here during processing</div>
+            </div>
+
+        </section>
     </main>
 </body>
 </html>

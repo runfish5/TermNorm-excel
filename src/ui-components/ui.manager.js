@@ -138,7 +138,7 @@ export class UIManager {
   }
 
   showView(viewName) {
-    ["config-div", "tracking-div"].forEach((id) =>
+    ["config-div", "tracking-view"].forEach((id) =>
       document.getElementById(id)?.classList.toggle("hidden", !id.startsWith(viewName))
     );
     ["load-config", "activate-tracking"].forEach((id) =>

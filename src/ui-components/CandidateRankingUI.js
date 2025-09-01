@@ -7,36 +7,28 @@ export class ActivityDisplay {
   static currentContext = null;
 
   static init() {
-    this.container = document.getElementById("live-activity-section");
+    this.container = document.getElementById("tracking-view");
     if (!this.container) return console.error("ActivityDisplay: Container not found");
 
-    this.container.innerHTML = `
-            <div class="activity-toggle">
-                <input type="radio" id="activity-history" name="activity-mode" value="history" />
-                <label for="activity-history" class="ms-font-s">History</label>
-                <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
-                <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
-            </div>
-            <div id="activity-feed" class="activity-feed" style="display:none"></div>
-            <div id="candidate-ranked" class="activity-feed">
-                <div class="placeholder-text">Rankings appear here during processing</div>
-            </div>
-            <style>
-                .candidate-table tr { cursor: move; transition: background 0.2s; }
-                .candidate-table tr:hover { background: #f3f2f1; }
-                .candidate-table tr.dragging { opacity: 0.5; }
-                .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
-                .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
-                .drag-handle:hover { color: #0078d4; }
-                .drag-handle:active { cursor: grabbing; }
-            </style>
-        `;
+    // Add CSS styles for drag and drop functionality
+    const style = document.createElement("style");
+    style.textContent = `
+        .candidate-table tr { cursor: move; transition: background 0.2s; }
+        .candidate-table tr:hover { background: #f3f2f1; }
+        .candidate-table tr.dragging { opacity: 0.5; }
+        .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
+        .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
+        .drag-handle:hover { color: #0078d4; }
+        .drag-handle:active { cursor: grabbing; }
+    `;
+    document.head.appendChild(style);
 
+    // Set up toggle event listener
     this.container.addEventListener("change", (e) => {
       if (e.target.name === "activity-mode") {
         const isHistory = e.target.value === "history";
         this.container.querySelector("#activity-feed").style.display = isHistory ? "block" : "none";
-        this.container.querySelector("#candidate-ranked").style.display = isHistory ? "none" : "block";
+        this.container.querySelector("#candidate-ranking-section").style.display = isHistory ? "none" : "block";
       }
     });
 
@@ -66,7 +58,7 @@ export class ActivityDisplay {
       ),
     ];
 
-    const rankedContainer = this.container.querySelector("#candidate-ranked");
+    const rankedContainer = this.container.querySelector("#candidate-ranking-section");
     rankedContainer.innerHTML = `
             <div class="candidate-entry">
                 <div class="candidate-header">Input: "${value}"</div>
@@ -174,7 +166,7 @@ export class ActivityDisplay {
   static clearCandidates() {
     this.candidatesData = [];
     this.currentContext = null;
-    this.container.querySelector("#candidate-ranked").innerHTML =
+    this.container.querySelector("#candidate-ranking-section").innerHTML =
       '<div class="placeholder-text">Rankings appear here during processing</div>';
   }
 
