@@ -34,12 +34,12 @@ This is a **TermNorm Excel Add-in** - a data normalization tool that uses AI to 
 - **Technology**: Vanilla JavaScript with Office.js API, Webpack bundling
 - **Deployment**: Runs as sideloaded add-in in Excel desktop/web via Office Add-ins Development Kit
 - **Entry Point**: `src/taskpane/taskpane.js` initializes when Excel loads the add-in
-- **Core Service**: `LiveTracker` (in `normalizer.main.js`) monitors Excel cell changes in real-time
+- **Core Service**: `LiveTracker` (in `live.tracker.js`) monitors Excel cell changes in real-time
 - **Architecture Pattern**: Orchestrator pattern with separate managers for config, state, and UI
 
 **Key Components**:
 - `AppOrchestrator` - Main application controller, owns LiveTracker and coordinates business logic
-- `LiveTracker` - Real-time Excel cell monitoring and processing engine (in `normalizer.main.js`)
+- `LiveTracker` - Real-time Excel cell monitoring and processing engine (in `live.tracker.js`)
 - `NormalizerRouter` - Routes normalization requests to appropriate processors (fuzzy, API, cached)
 - `ConfigManager` - Handles configuration loading from `config/app.config.json`
 - `UIManager` - Manages task pane UI state, components, and delegates business actions to orchestrator
