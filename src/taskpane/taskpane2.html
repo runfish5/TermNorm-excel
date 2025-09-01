@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TermNorm TEST</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+        body {
+            background: red !important;
+            color: white !important;
+            font-size: 20px !important;
+        }
+        
+        .test-indicator {
+            background: yellow !important;
+            color: black !important;
+            padding: 20px !important;
+            text-align: center !important;
+            font-weight: bold !important;
+            margin: 20px !important;
+        }
+    </style>
+</head>
+<body class="ms-font-m ms-welcome ms-Fabric">
+    <div class="test-indicator">
+        ✅ TASKPANE2.HTML LOADED SUCCESSFULLY ✅
+    </div>
+    
+    <section id="sideload-msg" class="ms-welcome__main">
+        <h2 class="ms-font-xl">TEST VERSION - Please sideload your add-in to see app body.</h2>
+    </section>
+    
+    <main id="app-body" class="ms-welcome__main">
+        <div style="background: blue; color: white; padding: 20px; margin: 10px;">
+            <h1>🧪 TEST MODE - ITERATION 2 🧪</h1>
+            <p>If you can see this, the TEST_ITERATION mechanism is working!</p>
+        </div>
+        
+        <div id="config-div" class="content">
+            <h3>Simplified Test Interface</h3>
+            <button id="load-config" style="background: green; color: white; padding: 10px;">Load Config (TEST)</button>
+            <button id="activate-tracking" style="background: purple; color: white; padding: 10px;">Tracking (TEST)</button>
+        </div>
+        
+        <div id="tracking-view" class="hidden content">
+            <p>Test tracking view</p>
+        </div>
+    </main>
+</body>
+</html>
