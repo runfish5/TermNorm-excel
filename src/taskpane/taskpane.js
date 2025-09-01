@@ -2,8 +2,6 @@
 import { AppOrchestrator } from "../shared-services/app.orchestrator.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 
-/* global document, Office */
-
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
     document.getElementById("sideload-msg").textContent = "This add-in requires Microsoft Excel";

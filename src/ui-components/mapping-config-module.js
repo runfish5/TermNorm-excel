@@ -201,7 +201,7 @@ export class MappingConfigModule {
       };
 
       const result = await loadAndProcessMappings(customParams);
-      
+
       // Set state once - mapping-config-module owns this responsibility
       state.setMappings(result.forward || {}, result.reverse || {}, result.metadata || null);
       this.mappings = state.getMappings();
@@ -222,7 +222,7 @@ export class MappingConfigModule {
     const { validMappings, issues, serverWarning } = result.metadata || {};
 
     // Create status message
-    let message = issues?.length 
+    let message = issues?.length
       ? `✓ ${validMappings} mappings (${issues.length} issues)`
       : `✓ ${validMappings} mappings loaded`;
 
@@ -233,7 +233,7 @@ export class MappingConfigModule {
     // Update local UI status
     this.updateStatus(message, false, "success");
 
-    // Update global status 
+    // Update global status
     state.setStatus(message);
 
     // Show filename
