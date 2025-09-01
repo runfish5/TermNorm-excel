@@ -1,96 +1,54 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Development Commands
 
-**Excel Add-in Development**:
-- `npm run start` - Launch add-in in Excel desktop (primary development method)
-- `npm run start:desktop` - Launch add-in in Excel desktop (explicit)
-- `npm run start:web` - Launch add-in in Excel on the web
-- `npm run stop` - Stop debugging add-in
-- `npm run dev-server` - Start development server only (port 3000)
+**Excel Add-in**:
+- `npm run start` - Launch add-in in Excel desktop
+- `npm run start:web` - Launch add-in in Excel web
 - `npm run build` - Build for production
-- `npm run build:dev` - Build for development
 - `npm run lint` - Run ESLint checks
-- `npm run lint:fix` - Fix ESLint issues
-- `npm run prettier` - Format code with Prettier
-- `npm run validate` - Validate manifest.xml
-- `npm run watch` - Watch mode for development
-- `npm run signin` - Sign in to M365 account for development
-- `npm run signout` - Sign out of M365 account
 
 **Backend API**:
-- Navigate to `backend-api/` directory
-- `python main.py` - Start FastAPI server (typically port 8000)
-- Backend requires Python virtual environment with dependencies from `requirements.txt`
-- Uses FastAPI with LLM providers for term normalization
+- `python main.py` - Start FastAPI server (port 8000)
 
-## Architecture Overview
+## Architecture
 
-This is a **TermNorm Excel Add-in** - a data normalization tool that uses AI to standardize terminology in Excel worksheets. The add-in is triggered and controlled from within Excel itself. It consists of two main parts:
+**TermNorm Excel Add-in** - AI-powered terminology standardization in Excel worksheets.
 
-### Excel Add-in (JavaScript)
-- **Technology**: Vanilla JavaScript with Office.js API, Webpack bundling
-- **Deployment**: Runs as sideloaded add-in in Excel desktop/web via Office Add-ins Development Kit
-- **Entry Point**: `src/taskpane/taskpane.js` initializes when Excel loads the add-in
-- **Core Service**: `LiveTracker` (in `live.tracker.js`) monitors Excel cell changes in real-time
-- **Architecture Pattern**: Orchestrator pattern with separate managers for config, state, and UI
+### Core Components
+- `AppOrchestrator` - Business logic coordinator, owns LiveTracker
+- `LiveTracker` - Real-time Excel cell monitoring (live.tracker.js)
+- `NormalizerRouter` - Processing strategy (cached/API/fuzzy matching)
+- `ConfigManager` - Loads config/app.config.json
+- `UIManager` - UI events, delegates to AppOrchestrator
+- `StateManager` - Centralized state management
 
-**Key Components**:
-- `AppOrchestrator` - Main application controller, owns LiveTracker and coordinates business logic
-- `LiveTracker` - Real-time Excel cell monitoring and processing engine (in `live.tracker.js`)
-- `NormalizerRouter` - Routes normalization requests to appropriate processors (fuzzy, API, cached)
-- `ConfigManager` - Handles configuration loading from `config/app.config.json`
-- `UIManager` - Manages task pane UI state, components, and delegates business actions to orchestrator
-- `ActivityFeed` - Real-time activity logging and user feedback
-
-### Backend (Python FastAPI)
-- **Technology**: FastAPI with LLM integration (Groq/other providers)
-- **Main Router**: `main.py` aggregates multiple API endpoint routers
-- **Key Services**: 
-  - Term matching and research (`research_and_rank/`)
-  - Pattern analysis (`pattern_analyzer.py`)
-  - LLM-powered term generation (`llm_term_generator_api.py`)
+### Backend (FastAPI)
+- `python main.py` - Aggregates API endpoints
+- LLM integration for term matching and generation
 
 ### Data Flow
-1. User opens Excel and loads the TermNorm add-in via task pane
-2. `taskpane.js` initializes `AppOrchestrator`, which initializes `UIManager`
-3. User configures column mappings and starts tracking via UI button
-4. `UIManager` delegates tracking start to `AppOrchestrator.startTracking()`
-5. `AppOrchestrator` owns `LiveTracker` which monitors Excel cell changes via Office.js event handlers
-6. Cell value changes trigger `NormalizerRouter` which tries: cached → API → fuzzy matching
-7. AI/LLM processes terms and returns standardized candidates with confidence scores
-8. Results populate target columns with confidence-based color coding
-9. User can review and select from candidate suggestions via `CandidateRankingUI`
+1. Load config → Load mappings → Start tracking
+2. Cell edit → `LiveTracker` → `NormalizerRouter` → Backend API
+3. Results → Excel cells with color coding → Activity logging
 
 ## Configuration
 
-- **App Config**: `config/app.config.json` defines column mappings and standard mappings
-- **Project Mappings**: `config/project_mappings/` contains Excel-specific configurations
-- **Manifest**: `manifest.xml` defines Office Add-in metadata and permissions
+- `config/app.config.json` - Column mappings and standard mappings
+- `manifest.xml` - Office Add-in metadata
 
-## Key Architecture Patterns
+## Architecture Improvements
 
-- **Orchestrator Pattern**: `AppOrchestrator` coordinates business logic and owns core services like `LiveTracker`
-- **Observer Pattern**: Excel change events trigger normalization pipeline via Office.js event handlers
-- **Strategy Pattern**: `NormalizerRouter` selects appropriate normalization approach (cached/API/fuzzy)
-- **Delegation Pattern**: `UIManager` handles UI events but delegates business logic to `AppOrchestrator`
-- **State Management**: Centralized state via `state.manager.js` for UI consistency
-- **Modular Services**: Clean separation between Excel integration, AI processing, and UI management
+**Phase 1**: Fixed duplicate LiveTracker - only `AppOrchestrator` owns it
+**Phase 2**: Removed unused template files, renamed `normalizer.main.js` → `live.tracker.js`  
+**Phase 3**: Made `loadAndProcessMappings()` pure function
+**Phase 4**: Made ConfigManager stateless - removed static import, uses StateManager for all config storage
 
-## Recent Architecture Improvements
+## Project-Specific Patterns
 
-**Eliminated Duplicate LiveTracker Issue**:
-- Previously: Both `UIManager` and `AppOrchestrator` created separate `LiveTracker` instances
-- Now: Only `AppOrchestrator` owns the `LiveTracker`, `UIManager` delegates tracking actions
-- Result: Clearer responsibility chain and single source of truth for tracking lifecycle
-
-## Development Notes
-
-- Add-in runs in Excel's web runtime environment with security restrictions
-- Development requires Excel with Office Add-ins Development Kit extension in VS Code
-- Uses HTTPS development server (port 3000) with Office dev certificates
-- Backend API needs CORS configuration for localhost:3000
-- Configuration files use absolute Windows paths for Excel file references
-- Activity logging captures all normalization operations to `backend-api/logs/activity.jsonl`
+**Global Debug Objects**: `window.app` and `window.state` exposed in taskpane.js and app.orchestrator.js
+**Office.js Integration**: Uses `Office.onReady()` and `Excel.run()` patterns throughout
+**Drag-Drop Config**: UIManager handles JSON config file drops with custom validation
+**Details Element UI**: Uses HTML `<details>` with `.open` property manipulation for collapsible sections  
+**Dynamic Import**: Uses `import()` to load `app.config.json` at runtime in config.manager.js
+**Mixed State Management**: Both centralized StateManager and local component state coexist
