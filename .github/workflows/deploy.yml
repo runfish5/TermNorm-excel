@@ -36,8 +36,20 @@ jobs:
     - name: Build project
       run: npm run build
       
-    - name: Copy Jekyll config to dist
-      run: cp _config.yml dist/_config.yml
+    - name: Create redirect index.html
+      run: |
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="0;url=./taskpane.html">
+            <meta charset="UTF-8">
+            <title>TermNorm Add-in</title>
+            <link rel="canonical" href="./taskpane.html">
+        </head>
+        <body>
+            <p>Redirecting to <a href="./taskpane.html">TermNorm Add-in</a>...</p>
+        </body>
+        </html>' > dist/index.html
       
     - name: Setup Pages
       uses: actions/configure-pages@v4
