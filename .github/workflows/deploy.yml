@@ -36,6 +36,9 @@ jobs:
     - name: Build project
       run: npm run build
       
+    - name: Copy Jekyll config to dist
+      run: cp _config.yml dist/_config.yml
+      
     - name: Setup Pages
       uses: actions/configure-pages@v4
       
