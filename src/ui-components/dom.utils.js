@@ -25,15 +25,7 @@ export class DOMUtils {
     }
   }
 
-  // Update element text content
-  updateElementText(id, text) {
-    const element = this.getElement(id);
-    if (element) {
-      element.textContent = text;
-      return true;
-    }
-    return false;
-  }
+  // Element text content (use element.textContent directly)
 
   // Toggle element visibility
   toggleElementVisibility(id, force = undefined) {
@@ -44,33 +36,9 @@ export class DOMUtils {
     return false;
   }
 
-  // Show/hide element
-  showElement(id) {
-    return this.toggleElementVisibility(id, false);
-  }
+  // Show/hide element (use toggleElementVisibility directly)
 
-  hideElement(id) {
-    return this.toggleElementVisibility(id, true);
-  }
-
-  // Add/remove CSS classes
-  addClass(id, className) {
-    const element = this.getElement(id);
-    if (element) {
-      element.classList.add(className);
-      return true;
-    }
-    return false;
-  }
-
-  removeClass(id, className) {
-    const element = this.getElement(id);
-    if (element) {
-      element.classList.remove(className);
-      return true;
-    }
-    return false;
-  }
+  // CSS classes (use toggleClass or element.classList directly for add/remove)
 
   toggleClass(id, className, force = undefined) {
     const element = this.getElement(id);
@@ -80,43 +48,9 @@ export class DOMUtils {
     return false;
   }
 
-  // Set element attributes
-  setAttribute(id, attribute, value) {
-    const element = this.getElement(id);
-    if (element) {
-      element.setAttribute(attribute, value);
-      return true;
-    }
-    return false;
-  }
+  // Element attributes (use element.setAttribute/getAttribute directly)
 
-  // Get element attribute
-  getAttribute(id, attribute) {
-    const element = this.getElement(id);
-    return element ? element.getAttribute(attribute) : null;
-  }
-
-  // Set element styles
-  setStyle(id, property, value) {
-    const element = this.getElement(id);
-    if (element) {
-      element.style[property] = value;
-      return true;
-    }
-    return false;
-  }
-
-  // Set multiple styles at once
-  setStyles(id, styles) {
-    const element = this.getElement(id);
-    if (element && typeof styles === 'object') {
-      Object.entries(styles).forEach(([property, value]) => {
-        element.style[property] = value;
-      });
-      return true;
-    }
-    return false;
-  }
+  // Element styles (use element.style directly or Object.assign for multiple)
 
   // Create element with options
   createElement(tag, options = {}) {
