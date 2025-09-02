@@ -33,9 +33,8 @@ export class AppOrchestrator {
     try {
       await this.configManager.loadConfig();
 
-      // Store config in state for direct UI access
-      const config = this.configManager.getConfig();
-      state.setConfig(config);
+      // Config is already stored in state by configManager.loadConfig()
+      // No need to duplicate the setConfig call
 
       if (!this.configLoaded) await this.ui.reloadMappingModules();
 
@@ -76,26 +75,8 @@ export class AppOrchestrator {
       return state.setStatus("Error: Load config first", true);
     }
 
-    // Combine mappings if needed (moved from UIManager)
-    const loadedMappings = this.ui.getAllLoadedMappings();
-    if (loadedMappings.size > 0) {
-      const combined = Array.from(loadedMappings.entries()).reduce(
-        (acc, [index, { mappings, result }]) => {
-          Object.assign(acc.forward, mappings.forward);
-          Object.assign(acc.reverse, mappings.reverse);
-          acc.metadata.sources.push({
-            index: index + 1,
-            config: this.ui.getMappingModules()[index].getConfig(),
-            mappings,
-            metadata: result.metadata,
-          });
-          return acc;
-        },
-        { forward: {}, reverse: {}, metadata: { sources: [] } }
-      );
-
-      state.setMappings(combined.forward, combined.reverse, combined.metadata);
-    }
+    // Combine all stored mapping sources using state manager
+    state.combineMappingSources();
 
     const mappings = state.get("mappings");
     const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
@@ -122,7 +103,7 @@ export class AppOrchestrator {
   }
 
   async renewPrompt() {
-    const config = this.configManager.getConfig();
+    const config = state.get("config.data");
     if (!config) {
       state.setStatus("Config not loaded", true);
       return;

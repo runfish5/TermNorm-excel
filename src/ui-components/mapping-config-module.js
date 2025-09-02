@@ -202,13 +202,13 @@ export class MappingConfigModule {
 
       const result = await loadAndProcessMappings(customParams);
 
-      // Set state once - mapping-config-module owns this responsibility
-      state.setMappings(result.forward || {}, result.reverse || {}, result.metadata || null);
-      this.mappings = state.getMappings();
+      // Store mapping source for later combination
+      state.addMappingSource(this.index, result, result, this.getConfig());
+      this.mappings = result;
 
       this.handleMappingSuccess(result);
 
-      // Notify parent
+      // Notify parent (for UI updates only)
       if (this.onMappingLoaded) {
         this.onMappingLoaded(this.index, this.mappings, result);
       }
