@@ -94,6 +94,36 @@ export class StateManager {
     });
   }
 
+  // Store individual mapping for combination
+  addMappingSource(index, mappings, result, config) {
+    const sources = this.get("mappings.sources") || {};
+    sources[index] = { mappings, result, config };
+    this.update({ "mappings.sources": sources });
+  }
+
+  // Combine all stored mapping sources
+  combineMappingSources() {
+    const sources = this.get("mappings.sources") || {};
+    if (Object.keys(sources).length === 0) return;
+
+    const combined = Object.entries(sources).reduce(
+      (acc, [index, { mappings, result, config }]) => {
+        Object.assign(acc.forward, mappings.forward);
+        Object.assign(acc.reverse, mappings.reverse);
+        acc.metadata.sources.push({
+          index: parseInt(index) + 1,
+          config,
+          mappings,
+          metadata: result.metadata,
+        });
+        return acc;
+      },
+      { forward: {}, reverse: {}, metadata: { sources: [] } }
+    );
+
+    this.setMappings(combined.forward, combined.reverse, combined.metadata);
+  }
+
   clearMappings() {
     this.update({
       "mappings.forward": {},

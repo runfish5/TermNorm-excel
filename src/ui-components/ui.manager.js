@@ -11,7 +11,6 @@ import { state } from "../shared-services/state.manager.js";
 export class UIManager {
   constructor(orchestrator = null) {
     this.mappingModules = [];
-    this.loadedMappings = new Map();
     this.orchestrator = orchestrator;
 
     // Initialize specialized managers
@@ -162,7 +161,8 @@ export class UIManager {
       const configData = JSON.parse(text);
       this.validateConfigStructure(configData);
 
-      this.orchestrator.configManager.setConfig(configData);
+      // Direct state access instead of configManager chain
+      state.setConfig(configData);
 
       try {
         await this.reloadMappingModules();
@@ -188,7 +188,8 @@ export class UIManager {
   }
 
   async reloadMappingModules() {
-    const standardMappings = this.orchestrator.configManager.getStandardMappings();
+    const config = state.get("config.data");
+    const standardMappings = config?.standard_mappings || [];
 
     if (!standardMappings?.length) {
       console.log("No standard mappings found - skipping module reload");
@@ -219,19 +220,19 @@ export class UIManager {
   }
 
   onMappingLoaded(moduleIndex, mappings, result) {
-    this.loadedMappings.set(moduleIndex, { mappings, result });
     this.updateGlobalStatus();
     this.updateJsonDump();
   }
 
   updateJsonDump() {
     const content = domUtils.getElement("metadata-content");
-    if (!content || this.loadedMappings.size === 0) return;
+    const sources = state.get("mappings.sources") || {};
+    if (!content || Object.keys(sources).length === 0) return;
 
-    const data = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => ({
-      sourceIndex: index + 1,
-      forwardMappings: Object.keys(mappings.forward).length,
-      reverseMappings: Object.keys(mappings.reverse).length,
+    const data = Object.entries(sources).map(([index, { mappings, result }]) => ({
+      sourceIndex: parseInt(index) + 1,
+      forwardMappings: Object.keys(mappings.forward || {}).length,
+      reverseMappings: Object.keys(mappings.reverse || {}).length,
       metadata: result.metadata,
       mappings: mappings,
     }));
@@ -244,7 +245,8 @@ export class UIManager {
   }
 
   updateGlobalStatus() {
-    const { size: loaded } = this.loadedMappings;
+    const sources = state.get("mappings.sources") || {};
+    const loaded = Object.keys(sources).length;
     const total = this.mappingModules.length;
 
     const message =
@@ -272,11 +274,6 @@ export class UIManager {
     }
   }
 
-  // Public API
-  getAllLoadedMappings() {
-    return this.loadedMappings;
-  }
-  getMappingModules() {
-    return this.mappingModules;
-  }
+  // Note: getAllLoadedMappings() and getMappingModules() removed
+  // Mapping data is now managed directly in state manager
 }

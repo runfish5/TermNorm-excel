@@ -3,10 +3,15 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
 import { NormalizerRouter } from "./normalizer.router.js";
 import { logActivity } from "../shared-services/activity.logger.js";
-import { getRelevanceColor, PROCESSING_COLORS } from "../utils/colorUtils.js";
 import { buildColumnMap } from "../utils/columnUtils.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cellUtils.js";
-import { createCellUpdates, createErrorUpdates, createChoiceUpdates, applyCellUpdates, markCellPending } from "../utils/cellProcessor.js";
+import {
+  createCellUpdates,
+  createErrorUpdates,
+  createChoiceUpdates,
+  applyCellUpdates,
+  markCellPending,
+} from "../utils/cellProcessor.js";
 
 export class LiveTracker {
   constructor() {
