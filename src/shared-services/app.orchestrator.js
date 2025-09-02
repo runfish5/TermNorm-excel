@@ -27,11 +27,9 @@ export class AppOrchestrator {
   setupEvents() {
     // Existing events
     document.getElementById("renew-prompt")?.addEventListener("click", () => this.renewPrompt());
-    document.getElementById("load-config")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.ui.showView("config");
-      if (!this.configLoaded) this.reloadConfig();
-    });
+
+    // The navigation is now handled by UIManager through the nav-tab event listeners
+    // No need for separate navigation event handlers here
   }
 
   async reloadConfig() {
@@ -120,7 +118,7 @@ export class AppOrchestrator {
       if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
 
       state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
-      this.ui.showView("tracking");
+      this.ui.showView("results");
     } catch (error) {
       state.setStatus(`Error: ${error.message}`, true);
     }

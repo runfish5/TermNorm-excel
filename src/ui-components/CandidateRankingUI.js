@@ -7,7 +7,7 @@ export class ActivityDisplay {
   static currentContext = null;
 
   static init() {
-    this.container = document.getElementById("tracking-view");
+    this.container = document.getElementById("results-view");
     if (!this.container) return console.error("ActivityDisplay: Container not found");
 
     // Add CSS styles for drag and drop functionality
@@ -27,8 +27,15 @@ export class ActivityDisplay {
     this.container.addEventListener("change", (e) => {
       if (e.target.name === "activity-mode") {
         const isHistory = e.target.value === "history";
-        this.container.querySelector("#activity-feed").style.display = isHistory ? "block" : "none";
-        this.container.querySelector("#candidate-ranking-section").style.display = isHistory ? "none" : "block";
+        const activityFeed = this.container.querySelector("#activity-feed");
+        const candidateSection = this.container.querySelector("#candidate-ranking-section");
+        
+        if (activityFeed) {
+          activityFeed.style.display = isHistory ? "block" : "none";
+        }
+        if (candidateSection) {
+          candidateSection.style.display = isHistory ? "none" : "block";
+        }
       }
     });
 
@@ -59,6 +66,11 @@ export class ActivityDisplay {
     ];
 
     const rankedContainer = this.container.querySelector("#candidate-ranking-section");
+    if (!rankedContainer) {
+      console.error("CandidateRankingUI: candidate-ranking-section not found");
+      return;
+    }
+    
     rankedContainer.innerHTML = `
             <div class="candidate-entry">
                 <div class="candidate-header">Input: "${value}"</div>
@@ -89,7 +101,13 @@ export class ActivityDisplay {
   }
 
   static setupFirstChoice(container) {
-    container.querySelector("#apply-first").onclick = async () => {
+    const applyButton = container.querySelector("#apply-first");
+    if (!applyButton) {
+      console.error("CandidateRankingUI: apply-first button not found");
+      return;
+    }
+    
+    applyButton.onclick = async () => {
       const first = this.candidatesData[0];
       if (!first || !this.currentContext) return;
 
@@ -114,7 +132,12 @@ export class ActivityDisplay {
       feedback = document.createElement("div");
       feedback.className = "feedback";
       feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
-      container.querySelector("table").before(feedback);
+      const table = container.querySelector("table");
+      if (table) {
+        table.before(feedback);
+      } else {
+        container.appendChild(feedback);
+      }
     }
     feedback.innerHTML = message;
     return feedback;
@@ -122,6 +145,11 @@ export class ActivityDisplay {
 
   static setupDragDrop(container) {
     const tbody = container.querySelector("tbody");
+    if (!tbody) {
+      console.error("CandidateRankingUI: tbody not found in container");
+      return;
+    }
+    
     let dragIndex = null;
 
     tbody.ondragstart = (e) => {
@@ -155,7 +183,8 @@ export class ActivityDisplay {
         const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
         this.candidatesData.splice(targetIndex, 0, draggedItem);
 
-        const input = container.querySelector(".candidate-header").textContent.match(/Input: "([^"]+)"/)?.[1];
+        const headerElement = container.querySelector(".candidate-header");
+        const input = headerElement?.textContent.match(/Input: "([^"]+)"/)?.[1];
         const mockResult = { candidates: this.candidatesData };
         this.addCandidate(input, mockResult, this.currentContext);
       }
@@ -166,8 +195,10 @@ export class ActivityDisplay {
   static clearCandidates() {
     this.candidatesData = [];
     this.currentContext = null;
-    this.container.querySelector("#candidate-ranking-section").innerHTML =
-      '<div class="placeholder-text">Rankings appear here during processing</div>';
+    const candidateSection = this.container?.querySelector("#candidate-ranking-section");
+    if (candidateSection) {
+      candidateSection.innerHTML = '<div class="placeholder-text">Rankings appear here during processing</div>';
+    }
   }
 
   static add = this.addCandidate;

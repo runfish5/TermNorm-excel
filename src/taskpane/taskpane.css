@@ -27,6 +27,62 @@
     z-index: 1000;
 }
 
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border: 1px solid #d1d1d1;
+    background: #f8f8f8;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.nav-tab:hover {
+    background: #e8e8e8;
+    border-color: #b8b8b8;
+}
+
+.nav-tab.active,
+.nav-tab.ms-Button--primary {
+    background: #0078d7;
+    color: white;
+    border-color: #106ebe;
+}
+
+.nav-tab.active:hover,
+.nav-tab.ms-Button--primary:hover {
+    background: #005a9e;
+}
+
+.tab-icon {
+    margin-right: 4px;
+    font-size: 14px;
+}
+
+.tab-label {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* History tab is icon-only, smaller */
+#history-tab {
+    padding: 4px 6px;
+}
+
+#history-tab .tab-icon {
+    margin-right: 0;
+    font-size: 14px;
+}
+
 .nav-btn {
     padding: 2px 12px;
 }
@@ -200,6 +256,138 @@
     border: 1px solid #ccc;
     border-radius: 2px;
     font-size: 13px;
+}
+
+/* View Sections */
+.view-section {
+    transition: opacity 0.3s ease;
+}
+
+.view-section.hidden {
+    display: none;
+}
+
+/* History Controls */
+.history-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+#history-filter {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+/* Settings Groups */
+.settings-group {
+    margin-bottom: 15px;
+    border: 1px solid #e1e1e1;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+.settings-group-header {
+    padding: 12px 15px;
+    cursor: pointer;
+    background: #f0f0f0;
+    border-bottom: 1px solid #e1e1e1;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    border-radius: 6px 6px 0 0;
+}
+
+.settings-group[open] .settings-group-header {
+    border-bottom: 1px solid #e1e1e1;
+    border-radius: 6px 6px 0 0;
+}
+
+.settings-group-header:hover {
+    background: #e8e8e8;
+}
+
+.settings-group-content {
+    padding: 15px;
+}
+
+.server-config {
+    margin-top: 10px;
+}
+
+.server-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+#server-url-input {
+    width: 200px;
+    padding: 4px 8px;
+    margin-left: 8px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 13px;
+}
+
+.processing-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.processing-options label {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.processing-options input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.theme-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+#settings-theme-selector {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+/* Activity toggle enhancements */
+.activity-toggle {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.activity-toggle label {
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.activity-toggle input[type="radio"] {
+    margin-right: 5px;
 }
 
 /* Utilities */

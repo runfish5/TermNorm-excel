@@ -15,7 +15,7 @@ export class UIManager {
     this.setupDropZone();
     this.setupServerStatus();
     CandidateRankingUI.init();
-    this.showView("config");
+    this.showView("setup");
     state.subscribe("ui", (ui) => this.updateStatus(ui.statusMessage, ui.isError));
     state.subscribe("server", (server) => {
       this.updateServerLED(server.online, server.host);
@@ -25,22 +25,65 @@ export class UIManager {
   }
 
   setupEvents() {
+    // Navigation tab events
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        const viewName = tab.getAttribute('data-view');
+        this.showView(viewName);
+      });
+    });
+
+    // Existing events
     const events = {
       "show-metadata-btn": () => {
         const content = document.getElementById("metadata-content");
         const isHidden = content?.classList.toggle("hidden");
-        const label = document.querySelector("#show-metadata-btn .ms-Button-label");
-        if (label) label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
+        const button = document.getElementById("show-metadata-btn");
+        if (button) {
+          const label = button.querySelector(".ms-Button-label");
+          if (label) {
+            label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
+          } else {
+            // If no label element exists, update the button text directly
+            button.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
+          }
+        }
       },
-      "setup-map-tracking": () => this.startTracking(),
-      "activate-tracking": (e) => {
-        e.preventDefault();
-        this.showView("tracking");
+      "setup-map-tracking": () => {
+        this.showView("results");
         this.startTracking();
       },
+      "clear-history-btn": () => this.clearHistory(),
     };
 
     Object.entries(events).forEach(([id, handler]) => document.getElementById(id)?.addEventListener("click", handler));
+
+    // Settings events
+    const settingsThemeSelector = document.getElementById('settings-theme-selector');
+    if (settingsThemeSelector) {
+      // Sync with main theme selector
+      const mainThemeSelector = document.getElementById('theme-selector');
+      if (mainThemeSelector) {
+        settingsThemeSelector.value = mainThemeSelector.value;
+      }
+
+      settingsThemeSelector.addEventListener('change', (e) => {
+        if (mainThemeSelector) {
+          mainThemeSelector.value = e.target.value;
+          localStorage.setItem('theme', e.target.value);
+          location.reload();
+        }
+      });
+    }
+
+    // History filter events
+    const historyFilter = document.getElementById('history-filter');
+    if (historyFilter) {
+      historyFilter.addEventListener('change', (e) => {
+        this.filterHistory(e.target.value);
+      });
+    }
   }
 
   setupDropZone() {
@@ -138,12 +181,24 @@ export class UIManager {
   }
 
   showView(viewName) {
-    ["config-div", "tracking-view"].forEach((id) =>
-      document.getElementById(id)?.classList.toggle("hidden", !id.startsWith(viewName))
-    );
-    ["load-config", "activate-tracking"].forEach((id) =>
-      document.getElementById(id)?.classList.toggle("ms-Button--primary", id.includes(viewName))
-    );
+    // Hide all views
+    ["setup-view", "results-view", "history-view", "settings-view"].forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.classList.toggle("hidden", !id.startsWith(viewName));
+      }
+    });
+
+    // Update tab active states
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+      const tabView = tab.getAttribute('data-view');
+      if (tabView === viewName) {
+        tab.classList.add('ms-Button--primary');
+      } else {
+        tab.classList.remove('ms-Button--primary');
+      }
+    });
+
     state.setView(viewName);
   }
 
@@ -223,6 +278,42 @@ export class UIManager {
     await this.orchestrator.startTracking();
   }
 
+  clearHistory() {
+    const activityFeed = document.getElementById("activity-feed");
+    if (activityFeed) {
+      activityFeed.innerHTML = '<div class="placeholder-text">Activity history cleared</div>';
+      state.setStatus("History cleared");
+    }
+  }
+
+  filterHistory(filterType) {
+    const activityFeed = document.getElementById("activity-feed");
+    if (!activityFeed) return;
+
+    const entries = activityFeed.querySelectorAll('.activity-entry');
+    entries.forEach(entry => {
+      const entryType = entry.getAttribute('data-type') || 'info';
+      let show = false;
+
+      switch (filterType) {
+        case 'all':
+          show = true;
+          break;
+        case 'success':
+          show = entryType === 'success';
+          break;
+        case 'error':
+          show = entryType === 'error';
+          break;
+        case 'processing':
+          show = entryType === 'processing';
+          break;
+      }
+
+      entry.style.display = show ? 'block' : 'none';
+    });
+  }
+
   updateStatus(message, isError = false) {
     const statusElement = document.getElementById("main-status-message");
     if (statusElement) {
@@ -243,11 +334,19 @@ export class UIManager {
     }
 
 
-    // Set up API key input handler
+    // Set up API key input handler (now in settings view)
     const apiKeyInput = document.getElementById("api-key-input");
     if (apiKeyInput) {
       apiKeyInput.addEventListener("input", (e) => {
         state.set("server.apiKey", e.target.value.trim());
+      });
+    }
+
+    // Set up server URL input handler
+    const serverUrlInput = document.getElementById("server-url-input");
+    if (serverUrlInput) {
+      serverUrlInput.addEventListener("input", (e) => {
+        state.set("server.host", e.target.value.trim());
       });
     }
 
