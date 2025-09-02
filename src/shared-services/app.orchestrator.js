@@ -25,11 +25,8 @@ export class AppOrchestrator {
   }
 
   setupEvents() {
-    // Existing events
-    document.getElementById("renew-prompt")?.addEventListener("click", () => this.renewPrompt());
-
-    // The navigation is now handled by UIManager through the nav-tab event listeners
-    // No need for separate navigation event handlers here
+    // All button events are now handled by UIManager
+    // UIManager will delegate back to orchestrator methods as needed
   }
 
   async reloadConfig() {

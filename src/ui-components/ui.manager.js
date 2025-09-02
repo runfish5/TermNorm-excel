@@ -1,6 +1,11 @@
 // ui-components/ui.manager.js
 import { MappingConfigModule } from "./mapping-config-module.js";
 import { CandidateRankingUI } from "./CandidateRankingUI.js";
+import { NavigationManager } from "./navigation.manager.js";
+import { ThemeManager } from "./theme.manager.js";
+import { ServerStatusManager } from "./server-status.manager.js";
+import { HistoryManager } from "./history.manager.js";
+import { domUtils } from "./dom.utils.js";
 import { state } from "../shared-services/state.manager.js";
 
 export class UIManager {
@@ -8,81 +13,83 @@ export class UIManager {
     this.mappingModules = [];
     this.loadedMappings = new Map();
     this.orchestrator = orchestrator;
+
+    // Initialize specialized managers
+    this.navigation = new NavigationManager();
+    this.theme = new ThemeManager();
+    this.serverStatus = new ServerStatusManager(orchestrator);
+    this.history = new HistoryManager();
   }
 
   init() {
-    this.setupEvents();
+    // Initialize all managers
+    this.navigation.init();
+    this.theme.init();
+    this.serverStatus.init();
+    this.history.init();
+
+    // Initialize UI components
     this.setupDropZone();
-    this.setupServerStatus();
     CandidateRankingUI.init();
-    this.showView("setup");
+
+    // Set up remaining events
+    this.setupEvents();
+
+    // Subscribe to UI state changes
     state.subscribe("ui", (ui) => this.updateStatus(ui.statusMessage, ui.isError));
-    state.subscribe("server", (server) => {
-      this.updateServerLED(server.online, server.host);
-      this.updateCloudIndicator(server.info);
-    });
+
     return this;
   }
 
   setupEvents() {
-    // Navigation tab events
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
+    // Handle specific UI actions not covered by managers
+    document.addEventListener('click', (e) => {
+      // Look for elements with data-action attribute OR specific button IDs
+      const target = e.target.closest('[data-action], #show-metadata-btn, #setup-map-tracking, #renew-prompt');
+      if (target) {
         e.preventDefault();
-        const viewName = tab.getAttribute('data-view');
-        this.showView(viewName);
-      });
+        const action = target.getAttribute('data-action') || target.id;
+        this.handleAction(action, target);
+      }
     });
+  }
 
-    // Existing events
-    const events = {
-      "show-metadata-btn": () => {
-        const content = document.getElementById("metadata-content");
-        const isHidden = content?.classList.toggle("hidden");
-        const button = document.getElementById("show-metadata-btn");
-        if (button) {
-          const label = button.querySelector(".ms-Button-label");
-          if (label) {
-            label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
-          } else {
-            // If no label element exists, update the button text directly
-            button.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
-          }
-        }
-      },
-      "setup-map-tracking": () => {
-        this.showView("results");
+  handleAction(action, target) {
+    const actions = {
+      'show-metadata-btn': () => this.toggleMetadata(target),
+      'setup-map-tracking': () => {
+        this.navigation.showView("results");
         this.startTracking();
       },
-      "clear-history-btn": () => this.clearHistory(),
+      'renew-prompt': () => {
+        if (this.orchestrator) {
+          this.orchestrator.renewPrompt();
+        } else {
+          console.warn('No orchestrator available for renewPrompt');
+        }
+      },
     };
 
-    Object.entries(events).forEach(([id, handler]) => document.getElementById(id)?.addEventListener("click", handler));
-
-    // Settings events
-    const settingsThemeSelector = document.getElementById('settings-theme-selector');
-    if (settingsThemeSelector) {
-      // Sync with main theme selector
-      const mainThemeSelector = document.getElementById('theme-selector');
-      if (mainThemeSelector) {
-        settingsThemeSelector.value = mainThemeSelector.value;
-      }
-
-      settingsThemeSelector.addEventListener('change', (e) => {
-        if (mainThemeSelector) {
-          mainThemeSelector.value = e.target.value;
-          localStorage.setItem('theme', e.target.value);
-          location.reload();
-        }
-      });
+    const handler = actions[action];
+    if (handler) {
+      handler();
+    } else {
+      console.warn(`No handler found for action: ${action}`);
     }
+  }
 
-    // History filter events
-    const historyFilter = document.getElementById('history-filter');
-    if (historyFilter) {
-      historyFilter.addEventListener('change', (e) => {
-        this.filterHistory(e.target.value);
-      });
+  toggleMetadata(button) {
+    const isHidden = domUtils.toggleElementVisibility("metadata-content");
+    
+    if (button) {
+      const label = button.querySelector(".ms-Button-label");
+      const newText = isHidden ? "Show Processing Details" : "Hide Processing Details";
+      
+      if (label) {
+        label.textContent = newText;
+      } else {
+        button.textContent = newText;
+      }
     }
   }
 
@@ -180,26 +187,9 @@ export class UIManager {
     }
   }
 
+  // Delegate to navigation manager
   showView(viewName) {
-    // Hide all views
-    ["setup-view", "results-view", "history-view", "settings-view"].forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.classList.toggle("hidden", !id.startsWith(viewName));
-      }
-    });
-
-    // Update tab active states
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-      const tabView = tab.getAttribute('data-view');
-      if (tabView === viewName) {
-        tab.classList.add('ms-Button--primary');
-      } else {
-        tab.classList.remove('ms-Button--primary');
-      }
-    });
-
-    state.setView(viewName);
+    this.navigation.showView(viewName);
   }
 
   async reloadMappingModules() {
@@ -210,15 +200,17 @@ export class UIManager {
       return;
     }
 
-    const container = document.getElementById("mapping-configs-container");
+    const container = domUtils.getElement("mapping-configs-container");
     if (!container) {
       throw new Error("Mapping configs container not found");
     }
 
+    // Reset state
     container.innerHTML = "";
     this.mappingModules = [];
     this.loadedMappings.clear();
 
+    // Create new modules
     this.mappingModules = standardMappings.map((config, index) => {
       const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
         this.onMappingLoaded(moduleIndex, mappings, result)
@@ -237,9 +229,8 @@ export class UIManager {
     this.updateJsonDump();
   }
 
-  // Minimal JSON dump functionality
   updateJsonDump() {
-    const content = document.getElementById("metadata-content");
+    const content = domUtils.getElement("metadata-content");
     if (!content || this.loadedMappings.size === 0) return;
 
     const data = Array.from(this.loadedMappings.entries()).map(([index, { mappings, result }]) => ({
@@ -251,10 +242,10 @@ export class UIManager {
     }));
 
     content.innerHTML = `
-            <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
-                <strong>Raw Data:</strong>
-                <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
-            </div>`;
+      <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
+        <strong>Raw Data:</strong>
+        <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
+      </div>`;
   }
 
   updateGlobalStatus() {
@@ -278,191 +269,11 @@ export class UIManager {
     await this.orchestrator.startTracking();
   }
 
-  clearHistory() {
-    const activityFeed = document.getElementById("activity-feed");
-    if (activityFeed) {
-      activityFeed.innerHTML = '<div class="placeholder-text">Activity history cleared</div>';
-      state.setStatus("History cleared");
-    }
-  }
-
-  filterHistory(filterType) {
-    const activityFeed = document.getElementById("activity-feed");
-    if (!activityFeed) return;
-
-    const entries = activityFeed.querySelectorAll('.activity-entry');
-    entries.forEach(entry => {
-      const entryType = entry.getAttribute('data-type') || 'info';
-      let show = false;
-
-      switch (filterType) {
-        case 'all':
-          show = true;
-          break;
-        case 'success':
-          show = entryType === 'success';
-          break;
-        case 'error':
-          show = entryType === 'error';
-          break;
-        case 'processing':
-          show = entryType === 'processing';
-          break;
-      }
-
-      entry.style.display = show ? 'block' : 'none';
-    });
-  }
-
   updateStatus(message, isError = false) {
-    const statusElement = document.getElementById("main-status-message");
+    const statusElement = domUtils.getElement("main-status-message");
     if (statusElement) {
       statusElement.textContent = message;
       statusElement.style.color = isError ? "#D83B01" : "";
-    }
-  }
-
-  setupServerStatus() {
-    // Set initial server host from existing service configuration
-    const backendUrl = this.orchestrator?.aiPromptRenewer?.backendUrl || "http://127.0.0.1:8000";
-    state.set("server.host", backendUrl);
-
-    // Set up LED click handler
-    const led = document.getElementById("server-status-led");
-    if (led) {
-      led.addEventListener("click", () => this.checkServerStatus());
-    }
-
-
-    // Set up API key input handler (now in settings view)
-    const apiKeyInput = document.getElementById("api-key-input");
-    if (apiKeyInput) {
-      apiKeyInput.addEventListener("input", (e) => {
-        state.set("server.apiKey", e.target.value.trim());
-      });
-    }
-
-    // Set up server URL input handler
-    const serverUrlInput = document.getElementById("server-url-input");
-    if (serverUrlInput) {
-      serverUrlInput.addEventListener("input", (e) => {
-        state.set("server.host", e.target.value.trim());
-      });
-    }
-
-    // Initial status check
-    this.checkServerStatus();
-  }
-
-  async checkServerStatus() {
-    const host = state.get("server.host");
-    if (!host) return;
-
-    try {
-      const apiKey = state.get("server.apiKey");
-      const headers = { "Content-Type": "application/json" };
-      if (apiKey) {
-        headers["X-API-Key"] = apiKey;
-      }
-
-      // Test basic connection first
-      const testResponse = await fetch(`${host}/test-connection`, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify({}),
-        signal: AbortSignal.timeout(5000),
-      });
-
-      const isOnline = testResponse.ok;
-      let serverInfo = {};
-      let connectionValidation = { basic: isOnline, protected: false, error: null };
-
-      if (isOnline) {
-        const data = await testResponse.json();
-        serverInfo = {
-          connectionType: data.connection_type || "Unknown API",
-          connectionUrl: data.connection_url || host,
-          environment: data.environment || "unknown",
-        };
-
-        // Test a protected endpoint to validate full functionality
-        if (apiKey) {
-          try {
-            const protectedResponse = await fetch(`${host}/analyze-patterns`, {
-              method: "POST",
-              headers: headers,
-              body: JSON.stringify({ patterns: ["test"] }),
-              signal: AbortSignal.timeout(3000),
-            });
-            connectionValidation.protected = protectedResponse.ok;
-            if (!protectedResponse.ok) {
-              if (protectedResponse.status === 401) {
-                connectionValidation.error = "API key invalid";
-              } else if (protectedResponse.status === 503) {
-                connectionValidation.error = "API service unavailable - check API key";
-              }
-            }
-          } catch (protectedError) {
-            connectionValidation.error = "Protected endpoints unreachable";
-          }
-        }
-      }
-
-      state.update({
-        "server.online": isOnline,
-        "server.host": host,
-        "server.info": serverInfo,
-        "server.validation": connectionValidation,
-      });
-
-      // Show specific error messages
-      if (!isOnline) {
-        state.setStatus("Server connection failed", true);
-      } else if (apiKey && !connectionValidation.protected) {
-        state.setStatus(connectionValidation.error || "API endpoints not accessible", true);
-      } else if (!testResponse.ok && testResponse.status === 401) {
-        state.setStatus("API key required or invalid", true);
-      }
-    } catch (error) {
-      state.update({
-        "server.online": false,
-        "server.host": host,
-        "server.info": {},
-        "server.validation": { basic: false, protected: false, error: error.message },
-      });
-      state.setStatus(`Connection error: ${error.message}`, true);
-    }
-  }
-
-  updateServerLED(isOnline, host) {
-    const led = document.getElementById("server-status-led");
-    if (!led) return;
-
-    led.className = `status-led ${isOnline ? "online" : "offline"}`;
-
-    const status = isOnline ? "Online" : "Offline";
-    const serverInfo = state.get("server.info") || {};
-
-    let tooltipText;
-    if (isOnline && serverInfo.connectionType && serverInfo.connectionUrl) {
-      tooltipText = `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`;
-    } else {
-      tooltipText = `Server: ${host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
-    }
-
-    led.title = tooltipText;
-  }
-
-  updateCloudIndicator(serverInfo) {
-    const cloudIndicator = document.getElementById("cloud-indicator");
-    if (!cloudIndicator) return;
-
-    const isCloudAPI = serverInfo?.connectionType === "Cloud API";
-
-    if (isCloudAPI) {
-      cloudIndicator.classList.remove("hidden");
-    } else {
-      cloudIndicator.classList.add("hidden");
     }
   }
 
