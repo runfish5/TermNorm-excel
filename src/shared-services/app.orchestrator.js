@@ -1,5 +1,4 @@
 // shared-services/app.orchestrator.js
-import { ConfigManager } from "./config.manager.js";
 import { LiveTracker } from "../services/live.tracker.js";
 import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
 import { UIManager } from "../ui-components/ui.manager.js";
@@ -7,7 +6,6 @@ import { state } from "./state.manager.js";
 
 export class AppOrchestrator {
   constructor() {
-    this.configManager = new ConfigManager();
     this.tracker = new LiveTracker();
     this.ui = new UIManager(this);
     this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
@@ -31,15 +29,54 @@ export class AppOrchestrator {
 
   async reloadConfig() {
     try {
-      await this.configManager.loadConfig();
+      // Direct config loading without ConfigManager
+      const workbook = await Excel.run(async (context) => {
+        const wb = context.workbook;
+        wb.load("name");
+        await context.sync();
+        return wb.name;
+      });
 
-      // Config is already stored in state by configManager.loadConfig()
-      // No need to duplicate the setConfig call
+      // Try to load config file at runtime
+      let currentConfigData = state.get("config.raw");
+      if (!currentConfigData) {
+        try {
+          const configModule = await import("../../config/app.config.json");
+          currentConfigData = configModule.default || configModule;
+          state.set("config.raw", currentConfigData);
+        } catch (importError) {
+          // File doesn't exist or import failed - this is OK, drag-drop will be required
+        }
+      }
+
+      if (!currentConfigData?.["excel-projects"]) {
+        throw new Error("Configuration file not found - please drag and drop a config file");
+      }
+
+      const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
+
+      if (
+        !config?.standard_mappings ||
+        !Array.isArray(config.standard_mappings) ||
+        config.standard_mappings.length === 0
+      ) {
+        throw new Error(`No valid configuration found for workbook: ${workbook}`);
+      }
+
+      // Validate that all mappings have required fields
+      for (let i = 0; i < config.standard_mappings.length; i++) {
+        const mapping = config.standard_mappings[i];
+        if (!mapping?.mapping_reference) {
+          throw new Error(`Mapping ${i + 1} is missing mapping_reference`);
+        }
+      }
+
+      const enhancedConfig = { ...config, workbook };
+      state.setConfig(enhancedConfig);
 
       if (!this.configLoaded) await this.ui.reloadMappingModules();
 
-      // Show confirmation with excel-projects count
-      const config = state.get("config.data");
+      // Show confirmation with standard mappings count
       const standardMappings = config?.standard_mappings || [];
       state.setStatus(`Config reloaded - Found ${standardMappings.length} standard mapping(s)`);
     } catch (error) {
