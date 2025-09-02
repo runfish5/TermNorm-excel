@@ -42,53 +42,48 @@ export class UIManager {
   }
 
   setupEvents() {
-    // Handle specific UI actions not covered by managers
-    document.addEventListener('click', (e) => {
-      // Look for elements with data-action attribute OR specific button IDs
-      const target = e.target.closest('[data-action], #show-metadata-btn, #setup-map-tracking, #renew-prompt');
-      if (target) {
-        e.preventDefault();
-        const action = target.getAttribute('data-action') || target.id;
-        this.handleAction(action, target);
-      }
-    });
+    // Direct event binding for specific actions
+    this.bindDirectHandler('#show-metadata-btn', () => this.toggleMetadata());
+    this.bindDirectHandler('#setup-map-tracking', () => this.startMappingTracking());
+    this.bindDirectHandler('#renew-prompt', () => this.renewPrompt());
   }
 
-  handleAction(action, target) {
-    const actions = {
-      'show-metadata-btn': () => this.toggleMetadata(target),
-      'setup-map-tracking': () => {
-        this.navigation.showView("results");
-        this.startTracking();
-      },
-      'renew-prompt': () => {
-        if (this.orchestrator) {
-          this.orchestrator.renewPrompt();
-        } else {
-          console.warn('No orchestrator available for renewPrompt');
-        }
-      },
-    };
-
-    const handler = actions[action];
-    if (handler) {
-      handler();
-    } else {
-      console.warn(`No handler found for action: ${action}`);
+  bindDirectHandler(selector, handler) {
+    const element = document.querySelector(selector);
+    if (element) {
+      element.addEventListener('click', (e) => {
+        e.preventDefault();
+        handler(element);
+      });
     }
   }
 
-  toggleMetadata(button) {
+  startMappingTracking() {
+    this.navigation.showView("results");
+    this.startTracking();
+  }
+
+  renewPrompt() {
+    if (this.orchestrator) {
+      this.orchestrator.renewPrompt();
+    } else {
+      console.warn('No orchestrator available for renewPrompt');
+    }
+  }
+
+  toggleMetadata(button = null) {
+    // Use button from parameter or find it directly
+    const btn = button || document.getElementById('show-metadata-btn');
     const isHidden = domUtils.toggleElementVisibility("metadata-content");
     
-    if (button) {
-      const label = button.querySelector(".ms-Button-label");
+    if (btn) {
+      const label = btn.querySelector(".ms-Button-label");
       const newText = isHidden ? "Show Processing Details" : "Hide Processing Details";
       
       if (label) {
         label.textContent = newText;
       } else {
-        button.textContent = newText;
+        btn.textContent = newText;
       }
     }
   }

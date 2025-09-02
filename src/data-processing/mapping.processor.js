@@ -1,6 +1,8 @@
 // data-processing/mapping.processor.js
 import { ExcelIntegration } from "../services/excel-integration.js";
 import { state } from "../shared-services/state.manager.js";
+import { findColumnIndex } from "../utils/columnUtils.js";
+import { formatConnectionError } from "../utils/errorUtils.js";
 
 // Combined parameter extraction and validation
 function getValidatedParams(customParams) {
@@ -22,9 +24,9 @@ function getValidatedParams(customParams) {
   return params;
 }
 
-// Simplified column finder
+// Use imported utility function
 function findColumn(headers, columnName) {
-  return columnName ? headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase()) : -1;
+  return findColumnIndex(headers, columnName);
 }
 
 // Streamlined mapping processor
@@ -87,7 +89,9 @@ async function updateTokenMatcher(terms) {
   const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
   try {
+    // Get server config once
     const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
+    
     const response = await fetch(`${serverHost}/update-matcher`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,13 +108,7 @@ async function updateTokenMatcher(terms) {
     return response.json();
   } catch (error) {
     clearTimeout(timeoutId);
-
-    if (error.name === "AbortError") {
-      throw new Error("Backend server timeout - ensure server is running on port 8000");
-    } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
-      throw new Error("Backend server not accessible - ensure server is running on port 8000");
-    }
-    throw error;
+    throw new Error(formatConnectionError(error));
   }
 }
 

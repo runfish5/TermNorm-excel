@@ -3,6 +3,10 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
 import { NormalizerRouter } from "./normalizer.router.js";
 import { logActivity } from "../shared-services/activity.logger.js";
+import { getRelevanceColor, PROCESSING_COLORS } from "../utils/colorUtils.js";
+import { buildColumnMap } from "../utils/columnUtils.js";
+import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cellUtils.js";
+import { createCellUpdates, createErrorUpdates, createChoiceUpdates, applyCellUpdates, markCellPending } from "../utils/cellProcessor.js";
 
 export class LiveTracker {
   constructor() {
@@ -35,36 +39,11 @@ export class LiveTracker {
       headers.load("values");
       await ctx.sync();
 
-      const headerNames = headers.values[0].map((h) =>
-        String(h || "")
-          .trim()
-          .toLowerCase()
-      );
-      const result = new Map();
-      const missing = [];
-
-      Object.entries(colMap).forEach(([src, tgt]) => {
-        const srcIdx = headerNames.indexOf(src.toLowerCase());
-        const tgtIdx = headerNames.indexOf(tgt.toLowerCase());
-
-        if (srcIdx === -1) missing.push(src);
-        else if (tgtIdx === -1) missing.push(tgt);
-        else result.set(srcIdx, tgtIdx);
-      });
-
-      if (missing.length) throw new Error(`Missing columns: ${missing.join(", ")}`);
-      return result;
+      const headerNames = headers.values[0].map((h) => String(h || "").trim());
+      return buildColumnMap(headerNames, colMap);
     });
   }
 
-  getRelevanceColor(score) {
-    const s = score > 1 ? score / 100 : score;
-    if (s >= 0.9) return "#C6EFCE";
-    if (s >= 0.8) return "#FFEB9C";
-    if (s >= 0.6) return "#FFD1A9";
-    if (s >= 0.2) return "#FFC7CE";
-    return "#E1E1E1";
-  }
 
   handleChange = async (e) => {
     if (!this.active) return;
@@ -96,14 +75,14 @@ export class LiveTracker {
           const value = values[r][c];
 
           if (row > 0 && targetCol && value) {
-            const cellKey = `${row}:${col}`;
-            const oldValue = this.cellValues.get(cellKey);
+            const cellKey = createCellKey(row, col);
+            const cleanValue = cleanCellValue(value);
 
             // Only process if value actually changed
-            if (oldValue !== value) {
-              this.cellValues.set(cellKey, value);
-              ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = "#FFFB9D";
-              tasks.push(() => this.processCell(ws, row, col, targetCol, value));
+            if (hasValueChanged(this.cellValues, cellKey, cleanValue)) {
+              this.cellValues.set(cellKey, cleanValue);
+              markCellPending(ws, row, col);
+              tasks.push(() => this.processCell(ws, row, col, targetCol, cleanValue));
             }
           }
         }
@@ -127,50 +106,46 @@ export class LiveTracker {
         });
       }
 
-      const target = result?.target || "No matches found";
-      const confidence = result?.confidence || 0;
-      const method = result?.method || (result ? "match" : "no_match");
-
-      // Update cells
-      const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-      const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-
-      tgtCell.values = [[target]];
-      tgtCell.format.fill.color = this.getRelevanceColor(confidence);
-      srcCell.format.fill.clear();
+      // Create cell updates using pure function
+      const updates = createCellUpdates(value, result, row, col, targetCol);
+      
+      // Apply updates to Excel
+      await applyCellUpdates(ws, updates);
 
       // Log activity
-      ActivityFeed.add(value, target, method, confidence);
-      logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
+      ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
+      logActivity(updates.value, updates.target, updates.method, updates.confidence, 
+                 updates.metadata.total_time, updates.metadata.llm_provider);
     } catch (error) {
       this.handleCellError(ws, row, col, targetCol, value, error);
     }
   }
 
-  handleCellError(ws, row, col, targetCol, value, error) {
-    const errorMsg = `Error: ${error.message}`;
-    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+  async handleCellError(ws, row, col, targetCol, value, error) {
+    // Create error updates using pure function
+    const updates = createErrorUpdates(value, error, row, col, targetCol);
+    
+    // Apply updates to Excel
+    await applyCellUpdates(ws, updates);
 
-    tgtCell.values = [[errorMsg]];
-    tgtCell.format.fill.color = "#FFC7CE";
-    srcCell.format.fill.color = "#FFC7CE";
-
-    ActivityFeed.add(value, errorMsg, "error", 0);
-    logActivity(value, errorMsg, "error", 0, 0, undefined);
+    // Log activity
+    ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
+    logActivity(updates.value, updates.target, updates.method, updates.confidence, 
+               updates.metadata.total_time, updates.metadata.llm_provider);
   }
 
   applyChoice = async (ws, row, col, targetCol, value, choice) => {
     await Excel.run(async (ctx) => {
-      const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
-      const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
+      // Create choice updates using pure function
+      const updates = createChoiceUpdates(value, choice, row, col, targetCol);
+      
+      // Apply updates to Excel
+      await applyCellUpdates(ctx.workbook.worksheets.getActiveWorksheet(), updates);
 
-      tgtCell.values = [[choice.candidate]];
-      tgtCell.format.fill.color = this.getRelevanceColor(choice.relevance_score);
-      srcCell.format.fill.clear();
-
-      ActivityFeed.add(value, choice.candidate, "UserChoice", choice.relevance_score);
-      logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
+      // Log activity
+      ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
+      logActivity(updates.value, updates.target, updates.method, updates.confidence, 
+                 updates.metadata.total_time, updates.metadata.llm_provider);
 
       await ctx.sync();
     });

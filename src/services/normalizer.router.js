@@ -1,6 +1,7 @@
 // services/normalizer.router.js
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { state } from "../shared-services/state.manager.js";
+import { formatApiError, formatConnectionError } from "../utils/errorUtils.js";
 
 export class NormalizerRouter {
   constructor(forward, reverse, config) {
@@ -8,6 +9,10 @@ export class NormalizerRouter {
     this.reverse = reverse;
     this.config = config;
     this.recentQueries = new Map(); // Track recent API queries
+    
+    // Cache frequently accessed state values
+    this.serverHost = state.get("server.host") || "http://127.0.0.1:8000";
+    this.apiKey = state.get("server.apiKey");
   }
 
   async process(value) {
@@ -66,15 +71,12 @@ export class NormalizerRouter {
 
       state.setStatus("Starting mapping process...");
 
-      const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
-      const apiKey = state.get("server.apiKey");
-
       const headers = { "Content-Type": "application/json" };
-      if (apiKey) {
-        headers["X-API-Key"] = apiKey;
+      if (this.apiKey) {
+        headers["X-API-Key"] = this.apiKey;
       }
 
-      const apiEndpoint = `${serverHost}/research-and-match`;
+      const apiEndpoint = `${this.serverHost}/research-and-match`;
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: headers,
@@ -85,7 +87,7 @@ export class NormalizerRouter {
         // Get provider info from the main endpoint for context
         let providerInfo = "Unknown Provider";
         try {
-          const infoResponse = await fetch(`${serverHost}/`, {
+          const infoResponse = await fetch(`${this.serverHost}/`, {
             method: "GET",
             headers: { "Content-Type": "application/json" }
           });
@@ -97,14 +99,9 @@ export class NormalizerRouter {
           // Ignore errors when fetching provider info
         }
 
-        if (response.status === 401) {
-          state.setStatus("❌ API key invalid - check your key", true);
-          console.error(`[${providerInfo}] API Key Error: 401 Unauthorized - Endpoint: ${apiEndpoint}`);
-        } else {
-          const errorMsg = `❌ API Error: ${response.status} ${response.statusText} (${providerInfo})`;
-          state.setStatus(errorMsg, true);
-          console.error(`[${providerInfo}] API Error: ${response.status} ${response.statusText} - Endpoint: ${apiEndpoint}`);
-        }
+        const { message, logMessage } = formatApiError(response.status, response.statusText, providerInfo, apiEndpoint);
+        state.setStatus(message, true);
+        console.error(logMessage);
         return null;
       }
 
@@ -140,7 +137,8 @@ export class NormalizerRouter {
       return result;
     } catch (error) {
       console.error("Token match error:", error);
-      state.setStatus(`❌ Connection failed: ${error.message}`, true);
+      const errorMessage = formatConnectionError(error);
+      state.setStatus(errorMessage, true);
       return null;
     }
   }
