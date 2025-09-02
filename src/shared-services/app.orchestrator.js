@@ -39,8 +39,9 @@ export class AppOrchestrator {
       if (!this.configLoaded) await this.ui.reloadMappingModules();
 
       // Show confirmation with excel-projects count
-      const { count } = this.configManager.getExcelProjectsInfo();
-      state.setStatus(`Config reloaded - Found ${count} excel-project(s)`);
+      const config = state.get("config.data");
+      const standardMappings = config?.standard_mappings || [];
+      state.setStatus(`Config reloaded - Found ${standardMappings.length} standard mapping(s)`);
     } catch (error) {
       console.error("Config reload failed:", error);
 
@@ -52,10 +53,12 @@ export class AppOrchestrator {
         const workbookMatch = error.message.match(/workbook: (.+)/);
         if (workbookMatch) {
           const workbookName = workbookMatch[1];
-          const { count, keys } = this.configManager.getExcelProjectsInfo();
+          const configData = state.get("config.raw");
+          const excelProjects = configData?.["excel-projects"] || {};
+          const keys = Object.keys(excelProjects);
 
           errorMessage += `\n\nLooking for key "${workbookName}" in "excel-projects" dictionary of app.config.json`;
-          errorMessage += `\nFound ${count} excel-project(s): [${keys.join(", ")}]`;
+          errorMessage += `\nFound ${keys.length} excel-project(s): [${keys.join(", ")}]`;
           errorMessage += `\nAlternatively, add a "*" key as fallback for any workbook`;
         }
       }
