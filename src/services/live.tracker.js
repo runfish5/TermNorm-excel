@@ -141,7 +141,7 @@ export class LiveTracker {
 
       // Log activity
       ActivityFeed.add(value, target, method, confidence);
-      logActivity(value, target, method, confidence, result?.total_time || 0);
+      logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
     } catch (error) {
       this.handleCellError(ws, row, col, targetCol, value, error);
     }
@@ -157,7 +157,7 @@ export class LiveTracker {
     srcCell.format.fill.color = "#FFC7CE";
 
     ActivityFeed.add(value, errorMsg, "error", 0);
-    logActivity(value, errorMsg, "error", 0, 0);
+    logActivity(value, errorMsg, "error", 0, 0, undefined);
   }
 
   applyChoice = async (ws, row, col, targetCol, value, choice) => {
@@ -170,7 +170,7 @@ export class LiveTracker {
       srcCell.format.fill.clear();
 
       ActivityFeed.add(value, choice.candidate, "UserChoice", choice.relevance_score);
-      logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0);
+      logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 
       await ctx.sync();
     });
