@@ -10,54 +10,112 @@ Create a uniquely themed UI component that combines multiple existing UI element
 <html>
   <body>
 
-    <!-- GLOBAL HEADER (App Shell / Navigation Bar) -->
-    <header id="nav-bar">
-      [App Navigation Buttons]   <!-- "Ribbon Bar" / "Navigation Strip" -->
-      [App Logo + Title]         <!-- "Branding Area" -->
+    <!-- HEADER PANEL (Always Visible) -->
+    <header id="header-panel">
+      [Server Status Indicator]      <!-- "Health LED + Quick Diagnostics" -->
+      [Current Project Name]         <!-- "Active Configuration Display" -->
+      [Global Actions]               <!-- "Start Tracking Button" -->
     </header>
 
-    <!-- GLOBAL STATUS BAR -->
-    <div id="status-bar">
-      [SYS-STATUS Label + Message]   <!-- "System Status Line" -->
-      [Server Status LED]            <!-- "Health Indicator" / "Connectivity Icon" -->
-      [Network Mode Toggle]          <!-- "Mode Switch" -->
-    </div>
+    <!-- DYNAMIC CONTENT AREA (State-Based Views) -->
+    <main id="content-area">
 
-    <!-- MAIN BODY (View Switch Area / Workspace) -->
-    <main id="app-body">
+      <!-- TASK-ORIENTED TABS (Contextual Navigation) -->
+      <nav id="view-tabs">
+        [Setup Tab]                  <!-- "Configuration & Mapping Setup" -->
+        [Results Tab]                <!-- "Primary View - Candidate Rankings" -->
+        [History Icon]               <!-- "Compact History Access" -->
+        [Settings Tab]               <!-- "API Keys & Advanced Config" -->
+      </nav>
 
-      <!-- CONFIG VIEW (Workspace Panel: Config) -->
-      <section id="config-view">
-        [API Key Input]               <!-- "Credential Field" -->
-        [Drop Zone for Config File]   <!-- "File Import Area" -->
-        [Mapping Config Modules]      <!-- "Config Panels" -->
-        [Global Actions]              <!-- "Action Bar" -->
-        [Metadata Details Toggle]     <!-- "Details Panel" -->
+      <!-- SETUP VIEW (Progressive Configuration Flow) -->
+      <section id="setup-view">
+        [Config Upload Zone]         <!-- "File Drop Area + Progress" -->
+        [Mapping Files Section]     <!-- "Sequential Mapping Setup" -->
+        [Activation Controls]       <!-- "Validation + Start Process" -->
+        [Progress Indicators]       <!-- "Clear Step-by-Step Status" -->
       </section>
 
-      <!-- TRACKING VIEW (Workspace Panel: Tracking) -->
-      <section id="tracking-view">
+      <!-- RESULTS VIEW (Primary Working Area - 95% Usage) -->
+      <section id="results-view">
+        [Candidate Rankings Table]   <!-- "Main Decision Interface" -->
+        [Quick Actions Bar]         <!-- "Apply/Reject/Modify Controls" -->
+        [Context Details Panel]     <!-- "Cell Info + Suggestions" -->
+      </section>
 
-        [Toggle: History vs Candidate Ranked]   <!-- "View Switch / Tab Strip" -->
+      <!-- HISTORY VIEW (Compact Activity Log) -->
+      <section id="history-view">
+        [Activity Feed]             <!-- "Chronological Process Log" -->
+        [Filter Controls]           <!-- "Date/Type/Status Filters" -->
+      </section>
 
-        [Activity Feed Table]                   <!-- "Log View" / "Event Console" -->
-
-        [Candidate Ranking Section]             <!-- "Ranking Table" / "Decision Pane" -->
-
+      <!-- SETTINGS VIEW (Grouped Configuration) -->
+      <section id="settings-view">
+        [API Configuration Group]   <!-- "Expandable API Settings" -->
+        [Processing Options Group]  <!-- "Advanced Processing Config" -->
+        [Display Preferences Group] <!-- "UI Theme + Display Options" -->
+        [Theme Select Menu]         <!-- "Visual Theme Selector" -->
       </section>
 
     </main>
 
-    <!-- SHARED COMPONENTS (Hidden Templates / Overlays) -->
-    <div id="shared-templates">
-      [Feedback Message Template]    <!-- "Toast / Notification" -->
-      [Loading Spinner Template]     <!-- "Busy Indicator" -->
+    <!-- FOOTER PANEL (Always Visible) -->
+    <footer id="footer-panel">
+      [Status Messages]            <!-- "Real-time Notifications" -->
+      [Quick Log Access]           <!-- "Troubleshooting Link" -->
+    </footer>
+
+    <!-- CONTEXT-SENSITIVE OVERLAYS -->
+    <div id="overlay-templates">
+      [Loading States]             <!-- "Processing Indicators" -->
+      [Error Dialogs]              <!-- "Contextual Error Messages" -->
+      [Quick Help Tooltips]       <!-- "Progressive Disclosure Help" -->
     </div>
 
   </body>
 </html>
 
 ```
+
+
+## **Primary Architecture: Progressive Disclosure with State-Based Views**
+
+
+### **Main Structure:**
+1. **Header Panel** (Always Visible)
+   - Server status indicator with quick diagnostics
+   - Current project/configuration name
+   - Global actions (Start tracking)
+
+2. **Dynamic Content Area** with 4 main views:
+   - **Setup View** (Configuration & Mapping)
+      - Config file upload → Mapping files → Activation
+      - Clear progress indicators
+      - Validation feedback at each step
+   - **History View** (history)
+   - **Results View** (Candidate rankings)
+   - **Settings View** (API keys, advanced config)
+      - Grouped by function (API, Processing, Display)
+      - Expandable advanced options
+      - Theme select menu
+
+
+3. **Footer Panel** (Always Visible)
+   - Status messages and notifications
+   - Quick access to logs/troubleshooting
+
+### **Best UI Pattern: Task-Oriented Tabs**
+- Users need see only results
+- Use a icon for history so that tab is very small
+- Excel taskpanes are narrow
+
+
+### **Key UI Architecture Principles:**
+- **Context-aware**: Show relevant controls based on current state
+- **Progressive disclosure**: Hide complexity until needed
+- **Status-driven**: UI adapts to whether system is idle, processing, or showing results
+- **Quick actions**: "Rankings View" is shown 95% of time, and tasks accessible in 1-2 clicks
+
 
 ## Design Dimensions
 
