@@ -12,6 +12,73 @@
     <link href="../ui-components/ActivityFeedUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/CandidateRankingUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/mapping-config-modules.css" rel="stylesheet" type="text/css" />
+    
+    <style>
+        /* Ocean Depths Theme */
+        .theme-ocean {
+            background: #0a0f1c !important;
+            color: #e1f5fe !important;
+        }
+        .theme-ocean .nav-bar {
+            background: linear-gradient(135deg, #1a2332, #2d4a5a) !important;
+            border-bottom: 2px solid #00e5ff !important;
+        }
+        .theme-ocean .nav-btn {
+            background: #203040 !important;
+            color: #00e5ff !important;
+            border: 1px solid #1de9b6 !important;
+        }
+        .theme-ocean .nav-btn:hover {
+            background: #2d4a5a !important;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+        }
+        .theme-ocean .status-bar {
+            background: #1a2332 !important;
+            border-bottom: 1px solid #64ffda !important;
+        }
+        .theme-ocean .status-led {
+            background: #1de9b6 !important;
+            box-shadow: 0 0 10px #1de9b6 !important;
+        }
+        .theme-ocean #theme-selector {
+            background: #203040 !important;
+            border: 1px solid #1de9b6 !important;
+            color: #e1f5fe !important;
+        }
+
+        /* Art Deco Theme */
+        .theme-artdeco {
+            background: #1C1C1C !important;
+            color: #F5F5DC !important;
+        }
+        .theme-artdeco .nav-bar {
+            background: linear-gradient(135deg, #722F37, #5C252A) !important;
+            border-bottom: 3px solid #D4AF37 !important;
+        }
+        .theme-artdeco .nav-btn {
+            background: linear-gradient(135deg, #D4AF37, #B8860B) !important;
+            color: #1C1C1C !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+        }
+        .theme-artdeco .nav-btn:hover {
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.5) !important;
+            transform: translateY(-2px) !important;
+        }
+        .theme-artdeco .status-bar {
+            background: #36454F !important;
+            border-bottom: 1px solid #D4AF37 !important;
+        }
+        .theme-artdeco .status-led {
+            background: #D4AF37 !important;
+            box-shadow: 0 0 10px #D4AF37 !important;
+        }
+        .theme-artdeco #theme-selector {
+            background: #36454F !important;
+            border: 2px solid #D4AF37 !important;
+            color: #D4AF37 !important;
+        }
+    </style>
 </head>
 <body class="ms-font-m ms-welcome ms-Fabric">
     <section id="sideload-msg" class="ms-welcome__main">
@@ -22,11 +89,10 @@
         <div class="nav-bar">
             <button id="load-config" class="ms-Button nav-btn">Load Config</button>
             <button id="activate-tracking" class="ms-Button nav-btn">Tracking Results</button>
-            <select id="ui-theme-selector" class="ms-font-s" style="margin-left: 10px;">
-                <option value="1">Default</option>
-                <option value="2">Test Red</option>
-                <option value="3">Ocean Depths</option>
-                <option value="4">Art Deco</option>
+            <select id="theme-selector" class="ms-font-s" style="margin-left: 10px;">
+                <option value="default">Default</option>
+                <option value="ocean">Ocean Depths</option>
+                <option value="artdeco">Art Deco</option>
             </select>
             <div class="nav-header">
                 <img width="20" height="20" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />

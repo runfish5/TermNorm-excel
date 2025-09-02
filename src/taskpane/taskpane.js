@@ -2,8 +2,8 @@
 import { AppOrchestrator } from "../shared-services/app.orchestrator.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 
-// Dynamic UI theme selection
-const TEST_ITERATION = parseInt(localStorage.getItem('ui-theme') || '1');
+// Simple theme system
+const theme = localStorage.getItem('theme') || 'default';
 
 // Function to update content margin based on status bar height
 function updateContentMargin() {
@@ -20,53 +20,8 @@ Office.onReady(async (info) => {
     return;
   }
 
-  // TEST_ITERATION: Load alternative HTML content if > 1
-  if (TEST_ITERATION > 1) {
-    console.log(`🔄 TEST_ITERATION=${TEST_ITERATION}, loading taskpane${TEST_ITERATION}.html`);
-    try {
-      // Try both relative and absolute paths
-      const possiblePaths = [
-        `./taskpane${TEST_ITERATION}.html`,
-        `/taskpane${TEST_ITERATION}.html`,
-        `taskpane${TEST_ITERATION}.html`
-      ];
-      
-      for (const path of possiblePaths) {
-        try {
-          console.log(`📡 Trying path: ${path}`);
-          const response = await fetch(path);
-          if (response.ok) {
-            const htmlContent = await response.text();
-            console.log(`✅ Successfully loaded from: ${path}`);
-            
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlContent, 'text/html');
-            
-            // Apply styles and replace body
-            const styleElements = doc.querySelectorAll('style');
-            styleElements.forEach(style => {
-              document.head.appendChild(style.cloneNode(true));
-            });
-            
-            const newBody = doc.body;
-            if (newBody) {
-              document.body.innerHTML = newBody.innerHTML;
-              document.body.className = newBody.className;
-            }
-            
-            console.log(`🎉 TEST_ITERATION content loaded successfully!`);
-            break;
-          } else {
-            console.log(`❌ ${path} returned status: ${response.status}`);
-          }
-        } catch (pathError) {
-          console.log(`❌ ${path} failed:`, pathError.message);
-        }
-      }
-    } catch (error) {
-      console.error(`💥 TEST_ITERATION failed:`, error);
-    }
-  }
+  // Apply theme
+  document.body.className = `ms-font-m ms-welcome ms-Fabric theme-${theme}`;
 
   ActivityFeed.init();
 
@@ -75,11 +30,11 @@ Office.onReady(async (info) => {
   document.getElementById("app-body").style.display = "flex";
 
   // Set up theme selector
-  const themeSelector = document.getElementById('ui-theme-selector');
+  const themeSelector = document.getElementById('theme-selector');
   if (themeSelector) {
-    themeSelector.value = TEST_ITERATION.toString();
+    themeSelector.value = theme;
     themeSelector.onchange = (e) => {
-      localStorage.setItem('ui-theme', e.target.value);
+      localStorage.setItem('theme', e.target.value);
       location.reload();
     };
   }
