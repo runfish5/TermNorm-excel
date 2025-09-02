@@ -1,5 +1,5 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
-from research_and_rank.llm_providers import llm_call
+from research_and_rank.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
 
@@ -93,6 +93,7 @@ Evaluate semantic alignment with core concept "{core_concept}" first, then speci
             "total_matches": len(candidates),
             "research_performed": True,
             "ranked_candidates": candidates,
+            "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         }
     
     print(f"[WARNING] Unexpected results format: {type(corrected)}")
@@ -101,4 +102,5 @@ Evaluate semantic alignment with core concept "{core_concept}" first, then speci
         "total_matches": 0,
         "research_performed": True,
         "ranked_candidates": [],
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
     }

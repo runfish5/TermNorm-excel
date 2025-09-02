@@ -3,7 +3,7 @@ import { state } from "./state.manager.js";
 
 const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-export function logActivity(source, target, method, confidence, total_time) {
+export function logActivity(source, target, method, confidence, total_time, llm_provider) {
   const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
   fetch(`${serverHost}/log-activity`, {
     method: "POST",
@@ -15,6 +15,7 @@ export function logActivity(source, target, method, confidence, total_time) {
       method,
       confidence,
       total_time,
+      llm_provider,
       session_id: sessionId,
     }),
   }).catch((err) => console.warn("Log failed:", err));

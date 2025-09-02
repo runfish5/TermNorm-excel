@@ -100,19 +100,22 @@ export class NormalizerRouter {
         return null;
       }
 
-      const best = data.data.ranked_candidates[0];
+      // Simplify data access by extracting the nested data object
+      const responseData = data.data;
+      const best = responseData.ranked_candidates[0];
       if (!best) {
         state.setStatus("ranked_candidates has wrong schema or empty", true);
         return null;
       }
 
-      state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${data.data.total_time} s`);
+      state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
       const result = {
         target: best.candidate,
         method: "ProfileRank",
         confidence: best.relevance_score,
-        candidates: data.data.ranked_candidates,
-        total_time: data.data.total_time,
+        candidates: responseData.ranked_candidates,
+        total_time: responseData.total_time,
+        llm_provider: responseData.llm_provider,
       };
 
       // Cache the result for deduplication
