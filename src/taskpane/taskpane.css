@@ -51,14 +51,12 @@
     border-color: #b8b8b8;
 }
 
-.nav-tab.active,
 .nav-tab.ms-Button--primary {
     background: #0078d7;
     color: white;
     border-color: #106ebe;
 }
 
-.nav-tab.active:hover,
 .nav-tab.ms-Button--primary:hover {
     background: #005a9e;
 }
@@ -73,14 +71,13 @@
     font-weight: 500;
 }
 
-/* History tab is icon-only, smaller */
+/* History tab is icon-only, more compact */
 #history-tab {
     padding: 4px 6px;
 }
 
 #history-tab .tab-icon {
     margin-right: 0;
-    font-size: 14px;
 }
 
 .nav-btn {
@@ -236,26 +233,29 @@
     cursor: pointer;
 }
 
-/* API Key Section */
-.api-key-section {
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
+/* Form Input Sections */
+.api-key-section,
+.server-config {
+    margin-bottom: 10px;
 }
 
-.api-key-label {
+.api-key-label,
+.server-label,
+.theme-label {
     font-size: 13px;
     font-weight: 500;
 }
 
-#api-key-input {
+#api-key-input,
+#server-url-input,
+#history-filter,
+#settings-theme-selector {
     width: 200px;
     padding: 4px 8px;
     margin-left: 8px;
     border: 1px solid #ccc;
     border-radius: 2px;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* View Sections */
@@ -276,13 +276,6 @@
     padding: 10px;
     background-color: #f8f9fa;
     border-radius: 4px;
-}
-
-#history-filter {
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    font-size: 12px;
 }
 
 /* Settings Groups */
@@ -321,20 +314,6 @@
     margin-top: 10px;
 }
 
-.server-label {
-    font-size: 13px;
-    font-weight: 500;
-}
-
-#server-url-input {
-    width: 200px;
-    padding: 4px 8px;
-    margin-left: 8px;
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    font-size: 13px;
-}
-
 .processing-options {
     display: flex;
     flex-direction: column;
@@ -356,18 +335,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-}
-
-.theme-label {
-    font-size: 13px;
-    font-weight: 500;
-}
-
-#settings-theme-selector {
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    font-size: 12px;
 }
 
 /* Activity toggle enhancements */
