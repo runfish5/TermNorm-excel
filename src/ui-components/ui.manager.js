@@ -204,7 +204,6 @@ export class UIManager {
     // Reset state
     container.innerHTML = "";
     this.mappingModules = [];
-    this.loadedMappings.clear();
 
     // Create new modules
     this.mappingModules = standardMappings.map((config, index) => {
