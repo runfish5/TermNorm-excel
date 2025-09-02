@@ -7,15 +7,17 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict
-from research_and_rank.llm_providers import LLM_PROVIDER, LLM_MODEL
 from typing import Optional
+
+# Load .env file BEFORE importing modules that read environment variables
+load_dotenv()
+
+from research_and_rank.llm_providers import LLM_PROVIDER, LLM_MODEL
 # Import the endpoint routers
 from llm_term_generator_api import router as llm_term_generator_api_router
 from pattern_analyzer import router as pattern_analyzer_router
 from research_and_rank.TokenLookupMatcher import router as token_matcher_router
 from research_and_rank.research_and_rank_candidates import router as research_and_rank_candidates_router
-
-load_dotenv()
 
 # Get API key from environment variable - no fallback for security
 API_KEY = os.getenv("TERMNORM_API_KEY")
