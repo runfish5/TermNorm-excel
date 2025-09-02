@@ -2,8 +2,8 @@
 import { AppOrchestrator } from "../shared-services/app.orchestrator.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 
-// TEST_ITERATION mechanism - change this number to switch HTML files
-const TEST_ITERATION = 2; // Change to switch to taskpane2.html, taskpane3.html, etc.
+// Dynamic UI theme selection
+const TEST_ITERATION = parseInt(localStorage.getItem('ui-theme') || '1');
 
 // Function to update content margin based on status bar height
 function updateContentMargin() {
@@ -73,6 +73,16 @@ Office.onReady(async (info) => {
   // Hide loading, show app
   document.getElementById("sideload-msg").style.display = "none";
   document.getElementById("app-body").style.display = "flex";
+
+  // Set up theme selector
+  const themeSelector = document.getElementById('ui-theme-selector');
+  if (themeSelector) {
+    themeSelector.value = TEST_ITERATION.toString();
+    themeSelector.onchange = (e) => {
+      localStorage.setItem('ui-theme', e.target.value);
+      location.reload();
+    };
+  }
 
   try {
     const app = new AppOrchestrator();
