@@ -44,17 +44,21 @@
 **Phase 3**: Made `loadAndProcessMappings()` pure function
 **Phase 4**: Made ConfigManager stateless - removed static import, uses StateManager for all config storage
 
-## UI Theme Testing System
+## Simple Theme System
 
-**WARNING**: Use `taskpane.html` (default theme) for all normal development work. Other themes are experimental testing variants only.
+**CSS-based themes** with single HTML file approach:
 
 **Available Themes**:
-- `taskpane.html` - Default professional UI (use for development)
-- `taskpane2.html` - Art Deco theme (testing only)
-- `taskpane3.html` - Ocean Depths + Cyberpunk theme (testing only)  
-- `taskpane4.html` - Art Deco + Geometric theme (testing only)
+- `default` - Standard professional UI (use for development)
+- `ocean` - Ocean depths theme with blue/cyan colors
+- `artdeco` - Art deco theme with gold/burgundy colors
 
-**Testing Instructions**: Use dropdown in nav-bar to switch themes, or change `TEST_ITERATION` in taskpane.js
+**Implementation**: 
+- Single `taskpane.html` with embedded CSS theme classes
+- Simple JavaScript: `document.body.className = 'theme-${theme}'`
+- Dropdown selector stores selection in localStorage
+
+**Usage**: Select theme from dropdown in nav-bar, page reloads with new theme
 
 ## Project-Specific Patterns
 

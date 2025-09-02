@@ -65,10 +65,6 @@ module.exports = async (env, options) => {
             to: "assets/[name][ext][query]",
           },
           {
-            from: "src/taskpane/taskpane*.html",
-            to: "[name][ext]",
-          },
-          {
             from: "manifest*.xml",
             to: "[name]" + "[ext]",
             transform(content) {
