@@ -74,19 +74,36 @@ export class NormalizerRouter {
         headers["X-API-Key"] = apiKey;
       }
 
-      const response = await fetch(`${serverHost}/research-and-match`, {
+      const apiEndpoint = `${serverHost}/research-and-match`;
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: headers,
         body: JSON.stringify({ query: val }),
       });
 
       if (!response.ok) {
+        // Get provider info from the main endpoint for context
+        let providerInfo = "Unknown Provider";
+        try {
+          const infoResponse = await fetch(`${serverHost}/`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+          });
+          if (infoResponse.ok) {
+            const info = await infoResponse.json();
+            providerInfo = info.llm || "Unknown Provider";
+          }
+        } catch (e) {
+          // Ignore errors when fetching provider info
+        }
+
         if (response.status === 401) {
           state.setStatus("❌ API key invalid - check your key", true);
-          console.error("API Key Error: 401 Unauthorized");
+          console.error(`[${providerInfo}] API Key Error: 401 Unauthorized - Endpoint: ${apiEndpoint}`);
         } else {
-          state.setStatus(`❌ API Error: ${response.status} ${response.statusText}`, true);
-          console.error(`API Error: ${response.status} ${response.statusText}`);
+          const errorMsg = `❌ API Error: ${response.status} ${response.statusText} (${providerInfo})`;
+          state.setStatus(errorMsg, true);
+          console.error(`[${providerInfo}] API Error: ${response.status} ${response.statusText} - Endpoint: ${apiEndpoint}`);
         }
         return null;
       }
