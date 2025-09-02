@@ -161,7 +161,7 @@ export class UIManager {
       const configData = JSON.parse(text);
       this.validateConfigStructure(configData);
 
-      // Direct state access instead of configManager chain
+      // Direct state access - no need for configManager chain
       state.setConfig(configData);
 
       try {
@@ -170,12 +170,10 @@ export class UIManager {
         console.warn("Mapping modules reload failed (continuing):", moduleError.message);
       }
 
-      if (this.orchestrator) {
-        await this.orchestrator.reloadConfig();
-        // reloadConfig() handles the success status message
-      } else {
-        state.setStatus(`Configuration loaded from ${file.name}`);
-      }
+      // No need to call orchestrator.reloadConfig() - config is already loaded
+      const config = state.get("config.data");
+      const standardMappings = config?.standard_mappings || [];
+      state.setStatus(`Configuration loaded from ${file.name} - Found ${standardMappings.length} standard mapping(s)`);
     } catch (error) {
       console.error("Config load failed:", error);
       state.setStatus(`Failed to load config: ${error.message}`, true);
@@ -219,6 +217,7 @@ export class UIManager {
   }
 
   onMappingLoaded(moduleIndex, mappings, result) {
+    // Mapping data is now managed directly in state - just update UI
     this.updateGlobalStatus();
     this.updateJsonDump();
   }
@@ -273,6 +272,5 @@ export class UIManager {
     }
   }
 
-  // Note: getAllLoadedMappings() and getMappingModules() removed
-  // Mapping data is now managed directly in state manager
+  // Removed redundant mapping APIs - use state.get("mappings") directly
 }
