@@ -4,49 +4,690 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TermNorm TEST</title>
+    <title>TermNorm - Art Deco</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
     <style>
-        body {
-            background: red !important;
-            color: white !important;
-            font-size: 20px !important;
+        /* Art Deco Color Palette & Variables */
+        :root {
+            --deco-gold: #D4AF37;
+            --deco-gold-light: #F4E3A2;
+            --deco-gold-dark: #B8860B;
+            --deco-burgundy: #722F37;
+            --deco-burgundy-dark: #5C252A;
+            --deco-cream: #F5F5DC;
+            --deco-ivory: #FFFDD0;
+            --deco-black: #1C1C1C;
+            --deco-charcoal: #36454F;
+            --deco-bronze: #CD7F32;
+            --gradient-gold: linear-gradient(135deg, var(--deco-gold), var(--deco-bronze), var(--deco-gold-dark));
+            --gradient-burgundy: linear-gradient(135deg, var(--deco-burgundy), var(--deco-burgundy-dark), #8B2635);
+            --shadow-gold: 0 4px 15px rgba(212, 175, 55, 0.3);
+            --shadow-deep: 0 8px 25px rgba(0, 0, 0, 0.4);
         }
-        
-        .test-indicator {
-            background: yellow !important;
-            color: black !important;
-            padding: 20px !important;
-            text-align: center !important;
-            font-weight: bold !important;
-            margin: 20px !important;
+
+        /* Base Typography */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--deco-black);
+            color: var(--deco-cream);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Art Deco Background Pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(114, 47, 55, 0.1) 0%, transparent 50%),
+                linear-gradient(45deg, transparent 30%, rgba(212, 175, 55, 0.05) 31%, rgba(212, 175, 55, 0.05) 33%, transparent 34%);
+            background-size: 200px 200px, 300px 300px, 40px 40px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            background: var(--gradient-burgundy);
+            border-bottom: 3px solid var(--deco-gold);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+            box-shadow: var(--shadow-deep);
+        }
+
+        .nav-bar::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient-gold);
+        }
+
+        .nav-btn {
+            background: var(--gradient-gold) !important;
+            color: var(--deco-black) !important;
+            border: none !important;
+            padding: 12px 20px !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            border-radius: 0 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: var(--shadow-gold) !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .nav-btn:hover::before {
+            left: 100%;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.5) !important;
+        }
+
+        .nav-header {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-header h1 {
+            color: var(--deco-gold);
+            font-size: 24px;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+        }
+
+        #ui-theme-selector {
+            background: var(--deco-charcoal) !important;
+            color: var(--deco-gold) !important;
+            border: 2px solid var(--deco-gold) !important;
+            padding: 8px 12px !important;
+            font-family: 'Montserrat', sans-serif !important;
+            border-radius: 0 !important;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--deco-charcoal);
+            border-bottom: 1px solid var(--deco-gold);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 300;
+            position: relative;
+        }
+
+        .status-bar::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--gradient-gold);
+        }
+
+        .status-label {
+            color: var(--deco-gold);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #main-status-message {
+            color: var(--deco-cream);
+            font-style: italic;
+        }
+
+        .status-led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--deco-gold);
+            box-shadow: 0 0 10px var(--deco-gold);
+            animation: pulse-gold 2s infinite;
+            margin-left: auto;
+        }
+
+        @keyframes pulse-gold {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content Areas */
+        .content {
+            padding: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .ms-welcome__section {
+            background: rgba(54, 69, 79, 0.3);
+            padding: 30px;
+            margin: 20px 0;
+            border: 2px solid var(--deco-gold);
+            position: relative;
+            backdrop-filter: blur(5px);
+        }
+
+        .ms-welcome__section::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: var(--gradient-gold);
+            z-index: -1;
+            border-radius: 2px;
+        }
+
+        .ms-welcome__section h3 {
+            color: var(--deco-gold);
+            font-size: 28px;
+            margin-bottom: 25px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            position: relative;
+        }
+
+        .ms-welcome__section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: var(--gradient-gold);
+        }
+
+        /* API Key Section */
+        .api-key-section {
+            margin: 25px 0;
+            background: rgba(28, 28, 28, 0.8);
+            padding: 20px;
+            border-left: 4px solid var(--deco-gold);
+        }
+
+        .api-key-label {
+            color: var(--deco-gold);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        #api-key-input {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--deco-charcoal);
+            border: 2px solid var(--deco-bronze);
+            color: var(--deco-cream);
+            font-family: 'Montserrat', sans-serif;
+            border-radius: 0;
+            transition: all 0.3s ease;
+        }
+
+        #api-key-input:focus {
+            outline: none;
+            border-color: var(--deco-gold);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            background: linear-gradient(135deg, rgba(114, 47, 55, 0.3), rgba(54, 69, 79, 0.3));
+            border: 3px dashed var(--deco-gold);
+            padding: 40px 20px;
+            text-align: center;
+            margin: 30px 0;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .drop-zone:hover {
+            background: linear-gradient(135deg, rgba(114, 47, 55, 0.5), rgba(54, 69, 79, 0.5));
+            border-color: var(--deco-gold-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-gold);
+        }
+
+        .drop-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            filter: sepia(1) hue-rotate(35deg) saturate(3) brightness(1.2);
+        }
+
+        .drop-zone p {
+            color: var(--deco-gold);
+            font-size: 18px;
+            font-weight: 500;
+            margin: 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .drop-zone small {
+            color: var(--deco-cream);
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        /* Buttons */
+        button {
+            background: var(--gradient-gold);
+            color: var(--deco-black);
+            border: none;
+            padding: 15px 25px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-gold);
+        }
+
+        button:active {
+            transform: translateY(-1px);
+        }
+
+        .bidirectional-option {
+            background: var(--gradient-burgundy);
+            color: var(--deco-gold);
+            border: 2px solid var(--deco-gold);
+        }
+
+        /* Tracking View */
+        .activity-toggle {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(54, 69, 79, 0.5);
+            border-left: 4px solid var(--deco-gold);
+            justify-content: center;
+        }
+
+        .activity-toggle input[type="radio"] {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--deco-gold);
+            border-radius: 50%;
+            margin-right: 8px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .activity-toggle input[type="radio"]:checked::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--deco-gold);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px var(--deco-gold);
+        }
+
+        .activity-toggle label {
+            color: var(--deco-cream);
+            cursor: pointer;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: color 0.3s ease;
+        }
+
+        .activity-toggle input[type="radio"]:checked + label {
+            color: var(--deco-gold);
+        }
+
+        .activity-feed {
+            background: rgba(28, 28, 28, 0.8);
+            border: 2px solid var(--deco-bronze);
+            padding: 25px;
+            margin: 20px 0;
+            min-height: 200px;
+            position: relative;
+        }
+
+        .activity-feed::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-gold);
+        }
+
+        .placeholder-text {
+            color: var(--deco-cream);
+            font-style: italic;
+            text-align: center;
+            padding: 50px 20px;
+            opacity: 0.7;
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+
+        /* Global Actions Area */
+        .global-actions {
+            margin: 30px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(114, 47, 55, 0.2);
+            border-top: 2px solid var(--deco-gold);
+            border-bottom: 2px solid var(--deco-gold);
+        }
+
+        /* Metadata Section */
+        .hidden {
+            display: none;
+        }
+
+        #metadata-content {
+            background: rgba(28, 28, 28, 0.9);
+            border: 2px solid var(--deco-gold);
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #metadata-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-gold);
+        }
+
+        #metadata-display {
+            color: var(--deco-cream);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-bar {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .nav-header {
+                margin-left: 0;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+            
+            .ms-welcome__section {
+                padding: 20px 15px;
+            }
+            
+            .global-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* Art Deco Geometric Decorations */
+        .geometric-border {
+            position: relative;
+        }
+
+        .geometric-border::before,
+        .geometric-border::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--deco-gold);
+        }
+
+        .geometric-border::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .geometric-border::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* Sideload Message Styling */
+        #sideload-msg {
+            background: var(--gradient-burgundy);
+            color: var(--deco-cream);
+            padding: 40px;
+            text-align: center;
+            border: 3px solid var(--deco-gold);
+            margin: 20px;
+        }
+
+        #sideload-msg h2 {
+            color: var(--deco-gold);
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Loading Animation */
+        @keyframes art-deco-loading {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .loading-spinner {
+            animation: art-deco-loading 2s linear infinite;
+        }
+
+        /* Success/Error States */
+        .success {
+            border-color: var(--deco-gold) !important;
+            background: rgba(212, 175, 55, 0.1) !important;
+        }
+
+        .error {
+            border-color: #CD5C5C !important;
+            background: rgba(205, 92, 92, 0.1) !important;
         }
     </style>
 </head>
 <body class="ms-font-m ms-welcome ms-Fabric">
-    <div class="test-indicator">
-        ✅ TASKPANE2.HTML LOADED SUCCESSFULLY ✅
-    </div>
-    
     <section id="sideload-msg" class="ms-welcome__main">
-        <h2 class="ms-font-xl">TEST VERSION - Please sideload your add-in to see app body.</h2>
+        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing" style="color: var(--deco-gold);">sideload</a> your add-in to see app body.</h2>
     </section>
     
     <main id="app-body" class="ms-welcome__main">
-        <div style="background: blue; color: white; padding: 20px; margin: 10px;">
-            <h1>🧪 TEST MODE - ITERATION 2 🧪</h1>
-            <p>If you can see this, the TEST_ITERATION mechanism is working!</p>
+        <div class="nav-bar">
+            <button id="load-config" class="ms-Button nav-btn">Load Config</button>
+            <button id="activate-tracking" class="ms-Button nav-btn">Tracking Results</button>
+            <select id="ui-theme-selector" class="ms-font-s" style="margin-left: 10px;">
+                <option value="1">Default</option>
+                <option value="2">Test Red</option>
+                <option value="3">Ocean Depths</option>
+                <option value="4" selected>Art Deco</option>
+            </select>
+            <div class="nav-header">
+                <img width="20" height="20" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" style="filter: sepia(1) hue-rotate(35deg) saturate(3) brightness(1.2);" />
+                <h1 class="ms-font-l">TermNorm</h1>
+            </div>
         </div>
         
+        <div class="status-bar">
+            <span class="ms-font-s status-label">SYS-STATUS:</span>
+            <div id="main-status-message" class="ms-font-s">Ready to load configuration...</div>
+            <div id="server-status-led" class="status-led" title="Server: Checking..."></div>
+        </div>
+
+        <!-- 1st main view -->
         <div id="config-div" class="content">
-            <h3>Simplified Test Interface</h3>
-            <button id="load-config" style="background: green; color: white; padding: 10px;">Load Config (TEST)</button>
-            <button id="activate-tracking" style="background: purple; color: white; padding: 10px;">Tracking (TEST)</button>
+            <section class="ms-welcome__section geometric-border">
+                <h3>Mapping Source Configurations</h3>
+
+                <!-- API Key Section -->
+                <div class="api-key-section">
+                    <label class="api-key-label">
+                        API Key: <input type="password" id="api-key-input" placeholder="Enter your API key">
+                    </label>
+                </div>
+
+                <!-- Drag and Drop Zone for app.config.json -->
+                <div id="config-drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <div class="drop-icon">📄</div>
+                        <p>Drop app.config.json here to load configuration</p>
+                        <small>Or drag and drop your configuration file</small>
+                    </div>
+                </div>
+                
+                <!-- Container for multiple mapping configurations -->
+                <div id="mapping-configs-container">
+                </div>
+                
+                <!-- Global Actions -->
+                <div class="global-actions">
+                </div>
+            </section>            
+
+            <div style="display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
+                
+                <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
+                <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
+                <img width="40" height="40" src="../../assets/Runfish_Logo1.5greenyCube.png" alt="x" title="x" 
+                    style="margin-left: 10px; filter: sepia(1) hue-rotate(35deg) saturate(2) brightness(1.1);" />
+            </div>
+            <div id="metadata-content" class="ms-welcome__section hidden">
+                <h3 class="ms-font-l">Processing Details</h3>
+                <div id="metadata-display" class="ms-font-s"></div>
+            </div>
+
         </div>
         
-        <div id="tracking-view" class="hidden content">
-            <p>Test tracking view</p>
-        </div>
+        <!-- TRACKING VIEW (Workspace Panel: Tracking) -->
+        <section id="tracking-view" class="hidden content">
+
+            <div class="activity-toggle">
+                <input type="radio" id="activity-history" name="activity-mode" value="history" />
+                <label for="activity-history" class="ms-font-s">History</label>
+                <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
+                <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
+            </div>
+
+            <div id="activity-feed" class="activity-feed" style="display:none"></div>
+
+            <div id="candidate-ranking-section" class="activity-feed">
+                <div class="placeholder-text">Rankings appear here during processing</div>
+            </div>
+
+        </section>
     </main>
 </body>
 </html>
