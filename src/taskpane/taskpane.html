@@ -23,14 +23,22 @@
             background: linear-gradient(135deg, #1a2332, #2d4a5a) !important;
             border-bottom: 2px solid #00e5ff !important;
         }
-        .theme-ocean .nav-btn {
+        .theme-ocean .nav-btn,
+        .theme-ocean .nav-tab {
             background: #203040 !important;
             color: #00e5ff !important;
             border: 1px solid #1de9b6 !important;
         }
-        .theme-ocean .nav-btn:hover {
+        .theme-ocean .nav-btn:hover,
+        .theme-ocean .nav-tab:hover {
             background: #2d4a5a !important;
             box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+        }
+        .theme-ocean .nav-tab.active,
+        .theme-ocean .nav-tab.ms-Button--primary {
+            background: #1de9b6 !important;
+            color: #0a0f1c !important;
+            border-color: #00e5ff !important;
         }
         .theme-ocean .status-bar {
             background: #1a2332 !important;
@@ -55,15 +63,23 @@
             background: linear-gradient(135deg, #722F37, #5C252A) !important;
             border-bottom: 3px solid #D4AF37 !important;
         }
-        .theme-artdeco .nav-btn {
+        .theme-artdeco .nav-btn,
+        .theme-artdeco .nav-tab {
             background: linear-gradient(135deg, #D4AF37, #B8860B) !important;
             color: #1C1C1C !important;
             font-weight: 600 !important;
             text-transform: uppercase !important;
         }
-        .theme-artdeco .nav-btn:hover {
+        .theme-artdeco .nav-btn:hover,
+        .theme-artdeco .nav-tab:hover {
             box-shadow: 0 4px 15px rgba(212, 175, 55, 0.5) !important;
             transform: translateY(-2px) !important;
+        }
+        .theme-artdeco .nav-tab.active,
+        .theme-artdeco .nav-tab.ms-Button--primary {
+            background: linear-gradient(135deg, #B8860B, #8B6914) !important;
+            color: #F5F5DC !important;
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.8) !important;
         }
         .theme-artdeco .status-bar {
             background: #36454F !important;
@@ -87,13 +103,31 @@
     
     <main id="app-body" class="ms-welcome__main">
         <div class="nav-bar">
-            <button id="load-config" class="ms-Button nav-btn">Load Config</button>
-            <button id="activate-tracking" class="ms-Button nav-btn">Tracking Results</button>
-            <select id="theme-selector" class="ms-font-s" style="margin-left: 10px;">
+            <!-- TASK-ORIENTED TABS (Contextual Navigation) -->
+            <nav id="view-tabs" class="nav-tabs">
+                <button id="setup-tab" class="nav-tab ms-Button nav-btn" data-view="setup">
+                    <span class="tab-icon">⚙️</span>
+                    <span class="tab-label">Setup</span>
+                </button>
+                <button id="results-tab" class="nav-tab ms-Button nav-btn" data-view="results">
+                    <span class="tab-icon">📊</span>
+                    <span class="tab-label">Results</span>
+                </button>
+                <button id="history-tab" class="nav-tab ms-Button nav-btn" data-view="history">
+                    <span class="tab-icon">📜</span>
+                </button>
+                <button id="settings-tab" class="nav-tab ms-Button nav-btn" data-view="settings">
+                    <span class="tab-icon">⚙️</span>
+                    <span class="tab-label">Settings</span>
+                </button>
+            </nav>
+            
+            <select id="theme-selector" class="ms-font-s" style="margin-left: auto; margin-right: 10px;">
                 <option value="default">Default</option>
                 <option value="ocean">Ocean Depths</option>
                 <option value="artdeco">Art Deco</option>
             </select>
+            
             <div class="nav-header">
                 <img width="20" height="20" src="../../assets/logo-filled.png" alt="Contoso" title="Contoso" />
                 <h1 class="ms-font-l">TermNorm</h1>
@@ -106,17 +140,10 @@
             <div id="server-status-led" class="status-led" title="Server: Checking..."></div>
         </div>
 
-        <!-- 1st main view -->
-        <div id="config-div" class="content">
-            <section class="ms-welcome__section">
-                <h3>Mapping Source Configurations</h3>
-
-                <!-- API Key Section -->
-                <div class="api-key-section">
-                    <label class="api-key-label">
-                        API Key: <input type="password" id="api-key-input" placeholder="Enter your API key">
-                    </label>
-                </div>
+        <!-- SETUP VIEW (Progressive Configuration Flow) -->
+        <section id="setup-view" class="content view-section">
+            <div class="ms-welcome__section">
+                <h3>Configuration & Mapping Setup</h3>
 
                 <!-- Drag and Drop Zone for app.config.json -->
                 <div id="config-drop-zone" class="drop-zone">
@@ -134,11 +161,10 @@
                 <!-- Global Actions -->
                 <div class="global-actions">
                 </div>
-            </section>            
+            </div>            
 
             <div style="display: flex; align-items: center; gap: 10px;">
                 <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
-                
                 <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
                 <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
                 <img width="40" height="40" src="../../assets/Runfish_Logo1.5greenyCube.png" alt="x" title="x" 
@@ -148,25 +174,101 @@
                 <h3 class="ms-font-l">Processing Details</h3>
                 <div id="metadata-display" class="ms-font-s"></div>
             </div>
-
-        </div>
+        </section>
         
-        <!-- TRACKING VIEW (Workspace Panel: Tracking) -->
-        <section id="tracking-view" class="hidden content">
+        <!-- RESULTS VIEW (Primary Working Area - 95% Usage) -->
+        <section id="results-view" class="hidden content view-section">
+            <div class="ms-welcome__section">
+                <h3>Candidate Rankings & Processing Results</h3>
+                
+                <div class="activity-toggle">
+                    <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
+                    <label for="activity-ranked" class="ms-font-s">Candidate Rankings</label>
+                    <input type="radio" id="activity-live" name="activity-mode" value="live" />
+                    <label for="activity-live" class="ms-font-s">Live Processing</label>
+                </div>
 
-            <div class="activity-toggle">
-                <input type="radio" id="activity-history" name="activity-mode" value="history" />
-                <label for="activity-history" class="ms-font-s">History</label>
-                <input type="radio" id="activity-ranked" name="activity-mode" value="ranked" checked />
-                <label for="activity-ranked" class="ms-font-s">Candidate Ranked</label>
+                <div id="candidate-ranking-section" class="activity-feed">
+                    <div class="placeholder-text">Rankings appear here during processing</div>
+                </div>
             </div>
+        </section>
 
-            <div id="activity-feed" class="activity-feed" style="display:none"></div>
-
-            <div id="candidate-ranking-section" class="activity-feed">
-                <div class="placeholder-text">Rankings appear here during processing</div>
+        <!-- HISTORY VIEW (Compact Activity Log) -->
+        <section id="history-view" class="hidden content view-section">
+            <div class="ms-welcome__section">
+                <h3>Activity History & Processing Log</h3>
+                
+                <div class="history-controls">
+                    <button id="clear-history-btn" class="ms-Button--default">Clear History</button>
+                    <select id="history-filter" class="ms-font-s">
+                        <option value="all">All Activities</option>
+                        <option value="success">Successful</option>
+                        <option value="error">Errors Only</option>
+                        <option value="processing">Processing</option>
+                    </select>
+                </div>
+                
+                <div id="activity-feed" class="activity-feed">
+                    <div class="placeholder-text">Activity history will appear here</div>
+                </div>
             </div>
+        </section>
 
+        <!-- SETTINGS VIEW (Grouped Configuration) -->
+        <section id="settings-view" class="hidden content view-section">
+            <div class="ms-welcome__section">
+                <h3>Settings & Configuration</h3>
+                
+                <!-- API Configuration Group -->
+                <details class="settings-group" open>
+                    <summary class="settings-group-header">API Configuration</summary>
+                    <div class="settings-group-content">
+                        <div class="api-key-section">
+                            <label class="api-key-label">
+                                API Key: <input type="password" id="api-key-input" placeholder="Enter your API key">
+                            </label>
+                        </div>
+                        <div class="server-config">
+                            <label class="server-label">
+                                Server URL: <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Processing Options Group -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">Processing Options</summary>
+                    <div class="settings-group-content">
+                        <div class="processing-options">
+                            <label>
+                                <input type="checkbox" id="auto-apply-suggestions" checked>
+                                Auto-apply high confidence suggestions
+                            </label>
+                            <label>
+                                <input type="checkbox" id="fuzzy-matching" checked>
+                                Enable fuzzy matching fallback
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Display Preferences Group -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">Display Preferences</summary>
+                    <div class="settings-group-content">
+                        <div class="theme-section">
+                            <label class="theme-label">Theme:</label>
+                            <select id="settings-theme-selector" class="ms-font-s">
+                                <option value="default">Default</option>
+                                <option value="ocean">Ocean Depths</option>
+                                <option value="artdeco">Art Deco</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+            </div>
         </section>
     </main>
 </body>
