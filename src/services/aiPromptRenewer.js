@@ -113,8 +113,7 @@ export class aiPromptRenewer {
     const btn = document.getElementById("renew-prompt");
     if (btn) {
       btn.textContent = generating ? "Cancel Generation🤖" : "Renew Prompt🤖";
-      btn.style.backgroundColor = generating ? "#d83b01" : "";
-      btn.style.color = generating ? "white" : "";
+      btn.classList.toggle("generating", generating);
     }
   }
 

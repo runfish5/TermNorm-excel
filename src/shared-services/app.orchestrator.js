@@ -2,7 +2,6 @@
 import { LiveTracker } from "../services/live.tracker.js";
 import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
 import { MappingConfigModule } from "../ui-components/mapping-config-module.js";
-import { domUtils } from "../ui-components/dom.utils.js";
 import { state } from "./state.manager.js";
 
 export class AppOrchestrator {
@@ -145,7 +144,7 @@ export class AppOrchestrator {
       return;
     }
 
-    const container = domUtils.getElement("mapping-configs-container");
+    const container = document.getElementById("mapping-configs-container");
     if (!container) {
       throw new Error("Mapping configs container not found");
     }
@@ -174,7 +173,7 @@ export class AppOrchestrator {
   }
 
   updateJsonDump() {
-    const content = domUtils.getElement("metadata-content");
+    const content = document.getElementById("metadata-content");
     const sources = state.get("mappings.sources") || {};
     if (!content || Object.keys(sources).length === 0) return;
 

@@ -1,5 +1,5 @@
 // ui-components/mapping-config-module.js
-import { ExcelIntegration } from "../services/excel-integration.js";
+import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
 import { state } from "../shared-services/state.manager.js";
 export class MappingConfigModule {
@@ -7,8 +7,9 @@ export class MappingConfigModule {
     this.mappingConfig = mappingConfig;
     this.index = index;
     this.onMappingLoaded = onMappingLoaded;
-    this.excelIntegration = new ExcelIntegration();
     this.externalFile = null;
+    this.cachedWorkbook = null;
+    this.cachedFileName = null;
     this.elementId = `mapping-config-${index}`;
     this.mappings = { forward: {}, reverse: {}, metadata: null };
   }
@@ -149,8 +150,8 @@ export class MappingConfigModule {
     }
     try {
       const sheets = isExternal
-        ? await this.excelIntegration.getExternalWorksheetNames(this.externalFile)
-        : await this.excelIntegration.getCurrentWorksheetNames();
+        ? await this.getExternalWorksheetNames(this.externalFile)
+        : await this.getCurrentWorksheetNames();
 
       this.setDropdown(sheets);
       this.updateStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ""}`);
@@ -263,5 +264,31 @@ export class MappingConfigModule {
   }
   getMappings() {
     return this.mappings;
+  }
+  
+  // Inlined Excel integration methods
+  async getCurrentWorksheetNames() {
+    return await Excel.run(async (context) => {
+      const worksheets = context.workbook.worksheets;
+      worksheets.load("items/name");
+      await context.sync();
+      return worksheets.items.map((ws) => ws.name);
+    });
+  }
+  
+  async getExternalWorksheetNames(file) {
+    const workbook = await this.loadExternalWorkbook(file);
+    return workbook.SheetNames;
+  }
+  
+  async loadExternalWorkbook(file) {
+    if (this.cachedWorkbook && this.cachedFileName === file.name) {
+      return this.cachedWorkbook;
+    }
+    
+    const buffer = await file.arrayBuffer();
+    this.cachedWorkbook = XLSX.read(buffer, { type: "array" });
+    this.cachedFileName = file.name;
+    return this.cachedWorkbook;
   }
 }

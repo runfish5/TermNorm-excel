@@ -1,6 +1,5 @@
 // utils/cellProcessor.js
 import { getRelevanceColor, PROCESSING_COLORS } from "./colorUtils.js";
-import { formatErrorMessage } from "./errorUtils.js";
 
 /**
  * Pure function to create cell update operations
@@ -41,7 +40,7 @@ export function createCellUpdates(value, result, row, col, targetCol) {
  * @returns {Object} Error cell update operations
  */
 export function createErrorUpdates(value, error, row, col, targetCol) {
-  const errorMsg = formatErrorMessage(error);
+  const errorMsg = error instanceof Error ? error.message : String(error);
   
   return {
     value,
