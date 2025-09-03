@@ -49,7 +49,7 @@ export class NavigationManager {
     });
 
     // Update global state
-    state.setView(viewName);
+    state.set("ui.currentView", viewName);
 
     // Emit navigation event for other components
     this.emit('viewChanged', { view: viewName, previousView: this.currentView });
