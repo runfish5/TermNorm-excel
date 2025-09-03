@@ -52,6 +52,22 @@ Office.onReady(async (info) => {
     await app.init();
     window.app = app; // For debugging
     window.showView = showView; // Make showView globally available
+    
+    // Add debug functions for testing
+    window.testStatus = (message, isError = false) => {
+      console.log("Testing status system:", message);
+      state.setStatus(message, isError);
+    };
+    
+    window.testLoadConfig = async () => {
+      console.log("Testing config load with fake file...");
+      const fakeFile = new File(['{"excel-projects": {"*": {"standard_mappings": []}}}'], 'test.json', {type: 'application/json'});
+      await loadConfigFromFile(fakeFile);
+    };
+
+    // Detect Excel environment (Desktop vs Online)
+    window.isExcelOnline = Office.context.platform === Office.PlatformType.OfficeOnline;
+    console.log("Excel environment:", window.isExcelOnline ? "Online" : "Desktop");
 
     // Set up config drag/drop AFTER app is fully initialized
     setupConfigDropZone();
@@ -155,25 +171,172 @@ function setupConfigDropZone() {
   // Handle click to open file dialog  
   dropZone.addEventListener("click", () => {
     console.log("Drop zone clicked, opening file dialog...");
-    try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json";
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          console.log("File selected via dialog:", file.name);
-          await loadConfigFromFile(file);
-        }
-      };
-      input.click();
-    } catch (error) {
-      console.error("Error opening file dialog:", error);
-      state.setStatus(`File dialog error: ${error.message}`, true);
+    console.log("Excel environment:", window.isExcelOnline ? "Online" : "Desktop");
+    
+    if (window.isExcelOnline) {
+      // Use Office.js Dialog API for Excel Online
+      openConfigDialog();
+    } else {
+      // Use direct FileReader for Desktop Excel
+      openDirectFileDialog();
     }
   });
   
   console.log("Config drop zone setup completed!");
+}
+
+// Office.js Dialog API approach for Excel Online
+function openConfigDialog() {
+  console.log("Opening Office.js Dialog for file upload...");
+  state.setStatus("Opening file upload dialog...");
+  
+  const dialogUrl = `${window.location.origin}/dialogs/config-upload.html`;
+  console.log("Dialog URL:", dialogUrl);
+  
+  Office.context.ui.displayDialogAsync(
+    dialogUrl,
+    { height: 60, width: 50 },
+    (result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        console.log("Dialog opened successfully");
+        const dialog = result.value;
+        
+        // Handle messages from dialog
+        dialog.addEventHandler(Office.EventType.DialogMessageReceived, (args) => {
+          console.log("Message received from dialog:", args.message);
+          
+          try {
+            const response = JSON.parse(args.message);
+            
+            if (response.success) {
+              console.log("Config data received from dialog");
+              state.setStatus(`Processing ${response.fileName}...`);
+              processConfigDataFromDialog(response.configData, response.fileName);
+            } else {
+              console.error("Dialog reported error:", response.error);
+              state.setStatus(response.error, true);
+            }
+            
+            // Close dialog
+            dialog.close();
+            
+          } catch (error) {
+            console.error("Error parsing dialog message:", error);
+            state.setStatus("Error processing file upload", true);
+            dialog.close();
+          }
+        });
+        
+        // Handle dialog events
+        dialog.addEventHandler(Office.EventType.DialogEventReceived, (args) => {
+          console.log("Dialog event:", args.error);
+          if (args.error === 12006) { // Dialog closed by user
+            state.setStatus("File upload cancelled");
+          } else {
+            state.setStatus("Dialog error occurred", true);
+          }
+        });
+        
+      } else {
+        console.error("Failed to open dialog:", result.error);
+        state.setStatus("Failed to open file upload dialog", true);
+      }
+    }
+  );
+}
+
+// Direct FileReader approach for Desktop Excel
+function openDirectFileDialog() {
+  console.log("Using direct file input for Desktop Excel...");
+  state.setStatus("Opening file dialog...");
+  
+  try {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    
+    input.onchange = async (e) => {
+      console.log("File input onchange event fired!");
+      const file = e.target.files[0];
+      
+      if (file) {
+        console.log("File selected via dialog:", file.name);
+        state.setStatus(`Processing ${file.name}...`);
+        await loadConfigFromFile(file);
+      } else {
+        console.log("No file selected");
+        state.setStatus("No file selected", true);
+      }
+    };
+    
+    input.click();
+    console.log("File dialog triggered");
+    
+  } catch (error) {
+    console.error("Error opening file dialog:", error);
+    state.setStatus(`File dialog error: ${error.message}`, true);
+  }
+}
+
+// Process config data received from dialog
+async function processConfigDataFromDialog(configData, fileName) {
+  console.log("=== Processing config data from dialog ===");
+  console.log("Config data:", configData);
+  console.log("File name:", fileName);
+  
+  try {
+    // Store raw config data (same as loadConfigFromFile)
+    console.log("Storing raw config data in state...");
+    state.set("config.raw", configData);
+    console.log("Raw config stored");
+    
+    // Check app availability
+    if (!window.app) {
+      throw new Error("App not initialized - please try again in a moment");
+    }
+    console.log("App is available, proceeding with reload...");
+
+    // Reload mapping modules if available
+    if (window.app.reloadMappingModules) {
+      try {
+        console.log("Reloading mapping modules...");
+        await window.app.reloadMappingModules();
+        console.log("Mapping modules reloaded successfully");
+      } catch (moduleError) {
+        console.warn("Mapping modules reload failed (continuing):", moduleError.message);
+      }
+    }
+
+    // Trigger proper config reload
+    if (window.app.reloadConfig) {
+      console.log("Triggering config reload...");
+      await window.app.reloadConfig();
+      console.log("Config reload completed successfully");
+      // reloadConfig() handles the success status message
+    } else {
+      console.log("No reloadConfig method available, showing basic success message");
+      state.setStatus(`Configuration loaded from ${fileName}`);
+    }
+    
+    console.log("=== Config processing completed successfully ===");
+    
+  } catch (error) {
+    console.error("=== Config processing failed ===");
+    console.error("Error details:", error);
+    
+    let errorMessage = `Failed to process config: ${error.message}`;
+    
+    // Add helpful context for common issues
+    if (error.message.includes("App not initialized")) {
+      errorMessage += "\n\nTip: Wait a moment for the add-in to fully load, then try again.";
+    }
+    
+    if (error.message.includes("No valid configuration found")) {
+      errorMessage += "\n\nCheck that your workbook name matches a key in the config file.";
+    }
+    
+    state.setStatus(errorMessage, true);
+  }
 }
 
 // Load config from dropped/selected file
