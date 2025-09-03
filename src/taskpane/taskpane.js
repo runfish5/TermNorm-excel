@@ -4,15 +4,14 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
 
-// Simple theme system
-const theme = localStorage.getItem('theme') || 'default';
+// No theme system - using default only
 
 // Function to update content margin based on status bar height
 function updateContentMargin() {
-  const statusBar = document.querySelector('.status-bar');
+  const statusBar = document.querySelector(".status-bar");
   if (statusBar) {
     const statusBarHeight = statusBar.offsetHeight;
-    document.documentElement.style.setProperty('--status-bar-height', `${statusBarHeight}px`);
+    document.documentElement.style.setProperty("--status-bar-height", `${statusBarHeight}px`);
   }
 }
 
@@ -22,8 +21,8 @@ Office.onReady(async (info) => {
     return;
   }
 
-  // Apply theme
-  document.body.className = `ms-font-m ms-welcome ms-Fabric theme-${theme}`;
+  // Apply default styling only
+  document.body.className = `ms-font-m ms-welcome ms-Fabric`;
 
   ActivityFeed.init();
 
@@ -31,20 +30,12 @@ Office.onReady(async (info) => {
   document.getElementById("sideload-msg").style.display = "none";
   document.getElementById("app-body").style.display = "flex";
 
-  // Set up theme selector
-  const themeSelector = document.getElementById('theme-selector');
-  if (themeSelector) {
-    themeSelector.value = theme;
-    themeSelector.onchange = (e) => {
-      localStorage.setItem('theme', e.target.value);
-      location.reload();
-    };
-  }
+  // No theme selector functionality needed - default only
 
-  // Set up config drag/drop
-  setupConfigDropZone();
+  // Set up ultra-simple drag/drop
+  setupSimpleDragDrop();
 
-  // Set up direct event bindings  
+  // Set up direct event bindings
   setupDirectEventBindings();
 
   // Initialize server status
@@ -64,109 +55,143 @@ Office.onReady(async (info) => {
         statusElement.style.color = ui.isError ? "#D83B01" : "";
       }
     });
-    
+
     // Initial margin update
     updateContentMargin();
-    
+
     // Update margin when status content changes
     const observer = new MutationObserver(updateContentMargin);
-    const statusMessage = document.getElementById('main-status-message');
+    const statusMessage = document.getElementById("main-status-message");
     if (statusMessage) {
-      observer.observe(statusMessage, { 
-        childList: true, 
-        subtree: true, 
-        characterData: true 
+      observer.observe(statusMessage, {
+        childList: true,
+        subtree: true,
+        characterData: true,
       });
     }
-    
+
     // Update margin on window resize
-    window.addEventListener('resize', updateContentMargin);
-    
+    window.addEventListener("resize", updateContentMargin);
   } catch (error) {
     console.error("Failed to initialize:", error);
     alert(`Initialization failed: ${error.message}`);
   }
 });
 
-// Config drag/drop functionality
-function setupConfigDropZone() {
-  const dropZone = document.getElementById("config-drop-zone");
+// Ultra-simple vanilla drag/drop - works in both local and cloud Excel
+function setupSimpleDragDrop() {
+  const dropZone = document.getElementById("drop-zone");
   if (!dropZone) return;
 
-  // Prevent default behaviors
+  // Prevent default browser behavior
   ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
-    document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+    dropZone.addEventListener(eventName, preventDefaults, false);
+    document.body.addEventListener(eventName, preventDefaults, false);
   });
 
-  // Visual feedback
+  // Highlight drop zone when item is dragged over it
   ["dragenter", "dragover"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.add("drag-over"), false);
+    dropZone.addEventListener(eventName, highlight, false);
   });
+
   ["dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.remove("drag-over"), false);
+    dropZone.addEventListener(eventName, unhighlight, false);
   });
 
-  // Handle file drop
-  dropZone.addEventListener("drop", async (e) => {
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith(".json")) {
-        await loadConfigFromFile(file);
-      } else {
-        state.setStatus("Please drop a JSON configuration file", true);
-      }
-    }
-  });
+  // Handle dropped files
+  dropZone.addEventListener("drop", handleDrop, false);
 
-  // Handle click to open file dialog  
-  dropZone.addEventListener("click", () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (file) await loadConfigFromFile(file);
-    };
-    input.click();
-  });
+  // Handle click to open file dialog
+  dropZone.addEventListener("click", openFileDialog, false);
 }
 
-// Load config from dropped/selected file
-async function loadConfigFromFile(file) {
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function highlight(e) {
+  document.getElementById("drop-zone").classList.add("highlight");
+}
+
+function unhighlight(e) {
+  document.getElementById("drop-zone").classList.remove("highlight");
+}
+
+function handleDrop(e) {
+  const files = e.dataTransfer.files;
+  [...files].forEach(processFile);
+}
+
+function openFileDialog() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+  };
+  input.click();
+}
+
+function processFile(file) {
+  console.log("Processing file:", file.name);
+
+  if (!file.name.endsWith(".json")) {
+    state.setStatus("Please drop a JSON configuration file", true);
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function (e) {
+    // File content is in e.target.result
+    try {
+      const configData = JSON.parse(e.target.result);
+      loadConfigData(configData, file.name);
+    } catch (error) {
+      console.error("JSON parse error:", error);
+      state.setStatus(`Invalid JSON file: ${error.message}`, true);
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+// Load config data (simplified)
+async function loadConfigData(configData, fileName) {
   try {
     state.setStatus("Loading configuration file...");
-    const text = await file.text();
-    const configData = JSON.parse(text);
-    
+
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
 
     state.set("config.raw", configData);
-    
-    // Get workbook and find config  
+
+    // Get workbook and find config
     const workbook = await Excel.run(async (context) => {
       const wb = context.workbook;
       wb.load("name");
       await context.sync();
       return wb.name;
     });
-    
+
     const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
     if (!config?.standard_mappings?.length) {
       throw new Error(`No valid configuration found for workbook: ${workbook}`);
     }
 
     state.setConfig({ ...config, workbook });
-    
+
     // Reload mapping modules if orchestrator is available
     if (window.app?.reloadMappingModules) {
       await window.app.reloadMappingModules();
     }
 
-    state.setStatus(`Configuration loaded from ${file.name} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    state.setStatus(
+      `Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`
+    );
   } catch (error) {
     console.error("Config load failed:", error);
     state.setStatus(`Failed to load config: ${error.message}`, true);
@@ -176,28 +201,28 @@ async function loadConfigFromFile(file) {
 // Direct event binding without manager layers
 function setupDirectEventBindings() {
   // Toggle metadata button
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#show-metadata-btn')) {
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#show-metadata-btn")) {
       e.preventDefault();
       const content = document.getElementById("metadata-content");
-      const btn = e.target.closest('#show-metadata-btn');
+      const btn = e.target.closest("#show-metadata-btn");
       if (content && btn) {
         const isHidden = content.classList.toggle("hidden");
         const label = btn.querySelector(".ms-Button-label") || btn;
         label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
       }
     }
-    
+
     // Start tracking button
-    if (e.target.closest('#setup-map-tracking')) {
+    if (e.target.closest("#setup-map-tracking")) {
       e.preventDefault();
       if (window.app?.startTracking) {
         window.app.startTracking();
       }
     }
-    
-    // Renew prompt button  
-    if (e.target.closest('#renew-prompt')) {
+
+    // Renew prompt button
+    if (e.target.closest("#renew-prompt")) {
       e.preventDefault();
       if (window.app?.renewPrompt) {
         window.app.renewPrompt();
@@ -205,10 +230,10 @@ function setupDirectEventBindings() {
     }
 
     // Navigation tabs
-    const tab = e.target.closest('.nav-tab');
+    const tab = e.target.closest(".nav-tab");
     if (tab) {
       e.preventDefault();
-      const viewName = tab.getAttribute('data-view');
+      const viewName = tab.getAttribute("data-view");
       showView(viewName);
     }
   });
@@ -218,11 +243,11 @@ function setupDirectEventBindings() {
 function showView(viewName) {
   const views = ["setup-view", "results-view", "history-view", "settings-view"];
   const viewElement = `${viewName}-view`;
-  
+
   if (!views.includes(viewElement)) return;
 
   // Hide all views and show selected
-  views.forEach(id => {
+  views.forEach((id) => {
     const element = document.getElementById(id);
     if (element) {
       element.classList.toggle("hidden", !id.startsWith(viewName));
@@ -230,9 +255,9 @@ function showView(viewName) {
   });
 
   // Update tab states
-  document.querySelectorAll('.nav-tab').forEach(tab => {
-    const isActive = tab.getAttribute('data-view') === viewName;
-    tab.classList.toggle('ms-Button--primary', isActive);
+  document.querySelectorAll(".nav-tab").forEach((tab) => {
+    const isActive = tab.getAttribute("data-view") === viewName;
+    tab.classList.toggle("ms-Button--primary", isActive);
   });
 
   // Update state
@@ -247,32 +272,32 @@ function initializeServerStatus() {
 
   // Set up server input handlers
   setupServerEventHandlers();
-  
+
   // Initial server status check
   checkServerStatus();
 }
 
 function setupServerEventHandlers() {
   // LED click to refresh status
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#server-status-led')) {
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#server-status-led")) {
       e.preventDefault();
       checkServerStatus();
     }
   });
 
   // API key input
-  const apiKeyInput = document.getElementById('api-key-input');
+  const apiKeyInput = document.getElementById("api-key-input");
   if (apiKeyInput) {
-    apiKeyInput.addEventListener('input', (e) => {
+    apiKeyInput.addEventListener("input", (e) => {
       state.set("server.apiKey", e.target.value.trim());
     });
   }
 
-  // Server URL input  
-  const serverUrlInput = document.getElementById('server-url-input');
+  // Server URL input
+  const serverUrlInput = document.getElementById("server-url-input");
   if (serverUrlInput) {
-    serverUrlInput.addEventListener('input', (e) => {
+    serverUrlInput.addEventListener("input", (e) => {
       state.set("server.host", e.target.value.trim());
     });
   }
@@ -291,10 +316,10 @@ function setupServerEventHandlers() {
 let isCheckingServer = false;
 async function checkServerStatus() {
   if (isCheckingServer) return;
-  
+
   isCheckingServer = true;
   const host = ServerConfig.getHost();
-  
+
   if (!host) {
     isCheckingServer = false;
     return;
@@ -332,9 +357,9 @@ async function checkServerStatus() {
             body: JSON.stringify({ patterns: ["test"] }),
             signal: AbortSignal.timeout(3000),
           });
-          
+
           connectionValidation.protected = protectedResponse.ok;
-          
+
           if (!protectedResponse.ok) {
             if (protectedResponse.status === 401) {
               connectionValidation.error = "API key invalid";
@@ -364,7 +389,6 @@ async function checkServerStatus() {
     } else if (!testResponse.ok && testResponse.status === 401) {
       state.setStatus("API key required or invalid", true);
     }
-    
   } catch (error) {
     state.update({
       "server.online": false,
@@ -383,13 +407,14 @@ function updateServerLED(isOnline, host) {
   if (!led) return;
 
   led.className = `status-led ${isOnline ? "online" : "offline"}`;
-  
+
   const status = isOnline ? "Online" : "Offline";
   const serverInfo = state.get("server.info") || {};
-  
-  const tooltipText = isOnline && serverInfo.connectionType && serverInfo.connectionUrl
-    ? `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`
-    : `Server: ${host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
+
+  const tooltipText =
+    isOnline && serverInfo.connectionType && serverInfo.connectionUrl
+      ? `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`
+      : `Server: ${host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
 
   led.title = tooltipText;
 }
