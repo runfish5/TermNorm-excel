@@ -1,12 +1,11 @@
 // ./services/aiPromptRenewer.js
-import { state } from "../shared-services/state.manager.js";
+import { ServerConfig } from "../utils/serverConfig.js";
 
 export class aiPromptRenewer {
   constructor(showStatus) {
     this.showStatus = showStatus;
     this.isGenerating = false;
     this.abortController = null;
-    this.backendUrl = "http://127.0.0.1:8000"; // Keep as fallback
   }
 
   async renewPrompt(mappings, config, statusId = "prompt-status") {
@@ -45,13 +44,8 @@ export class aiPromptRenewer {
   }
 
   async _callBackend(mappings) {
-    const serverHost = state.get("server.host") || this.backendUrl;
-    const apiKey = state.get("server.apiKey");
-
-    const headers = { "Content-Type": "application/json" };
-    if (apiKey) {
-      headers["X-API-Key"] = apiKey;
-    }
+    const serverHost = ServerConfig.getHost();
+    const headers = ServerConfig.getHeaders();
 
     await fetch(`${serverHost}/test-connection`, { method: "POST" });
 

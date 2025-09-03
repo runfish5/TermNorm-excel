@@ -3,6 +3,7 @@ import { ExcelIntegration } from "../services/excel-integration.js";
 import { state } from "../shared-services/state.manager.js";
 import { findColumnIndex } from "../utils/columnUtils.js";
 import { formatConnectionError } from "../utils/errorUtils.js";
+import { ServerConfig } from "../utils/serverConfig.js";
 
 // Combined parameter extraction and validation
 function getValidatedParams(customParams) {
@@ -89,12 +90,9 @@ async function updateTokenMatcher(terms) {
   const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
   try {
-    // Get server config once
-    const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
-    
-    const response = await fetch(`${serverHost}/update-matcher`, {
+    const response = await fetch(`${ServerConfig.getHost()}/update-matcher`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: ServerConfig.getHeaders(),
       body: JSON.stringify({ terms }),
       signal: controller.signal,
     });

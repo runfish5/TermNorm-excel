@@ -1,5 +1,6 @@
 // ui-components/server-status.manager.js
 import { state } from "../shared-services/state.manager.js";
+import { ServerConfig } from "../utils/serverConfig.js";
 
 export class ServerStatusManager {
   constructor(orchestrator = null) {
@@ -16,7 +17,7 @@ export class ServerStatusManager {
 
   setupInitialConfig() {
     // Set initial server host from existing service configuration
-    const backendUrl = this.orchestrator?.aiPromptRenewer?.backendUrl || "http://127.0.0.1:8000";
+    const backendUrl = ServerConfig.getHost();
     state.set("server.host", backendUrl);
   }
 
@@ -56,7 +57,7 @@ export class ServerStatusManager {
     if (this.isChecking) return; // Prevent multiple simultaneous checks
     
     this.isChecking = true;
-    const host = state.get("server.host");
+    const host = ServerConfig.getHost();
     
     if (!host) {
       this.isChecking = false;
@@ -64,11 +65,7 @@ export class ServerStatusManager {
     }
 
     try {
-      const apiKey = state.get("server.apiKey");
-      const headers = { "Content-Type": "application/json" };
-      if (apiKey) {
-        headers["X-API-Key"] = apiKey;
-      }
+      const headers = ServerConfig.getHeaders();
 
       // Test basic connection first
       const testResponse = await fetch(`${host}/test-connection`, {
@@ -91,7 +88,7 @@ export class ServerStatusManager {
         };
 
         // Test a protected endpoint to validate full functionality
-        if (apiKey) {
+        if (ServerConfig.getApiKey()) {
           try {
             const protectedResponse = await fetch(`${host}/analyze-patterns`, {
               method: "POST",
@@ -126,7 +123,7 @@ export class ServerStatusManager {
       // Show specific error messages
       if (!isOnline) {
         state.setStatus("Server connection failed", true);
-      } else if (apiKey && !connectionValidation.protected) {
+      } else if (ServerConfig.getApiKey() && !connectionValidation.protected) {
         state.setStatus(connectionValidation.error || "API endpoints not accessible", true);
       } else if (!testResponse.ok && testResponse.status === 401) {
         state.setStatus("API key required or invalid", true);

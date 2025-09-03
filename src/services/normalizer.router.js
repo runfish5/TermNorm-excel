@@ -1,6 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from "./normalizer.fuzzy.js";
-import { state } from "../shared-services/state.manager.js";
+import { ServerConfig } from "../utils/serverConfig.js";
 import { formatApiError, formatConnectionError } from "../utils/errorUtils.js";
 
 export class NormalizerRouter {
@@ -9,10 +9,6 @@ export class NormalizerRouter {
     this.reverse = reverse;
     this.config = config;
     this.recentQueries = new Map(); // Track recent API queries
-    
-    // Cache frequently accessed state values
-    this.serverHost = state.get("server.host") || "http://127.0.0.1:8000";
-    this.apiKey = state.get("server.apiKey");
   }
 
   async process(value) {
@@ -71,12 +67,8 @@ export class NormalizerRouter {
 
       state.setStatus("Starting mapping process...");
 
-      const headers = { "Content-Type": "application/json" };
-      if (this.apiKey) {
-        headers["X-API-Key"] = this.apiKey;
-      }
-
-      const apiEndpoint = `${this.serverHost}/research-and-match`;
+      const headers = ServerConfig.getHeaders();
+      const apiEndpoint = `${ServerConfig.getHost()}/research-and-match`;
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: headers,
@@ -87,7 +79,7 @@ export class NormalizerRouter {
         // Get provider info from the main endpoint for context
         let providerInfo = "Unknown Provider";
         try {
-          const infoResponse = await fetch(`${this.serverHost}/`, {
+          const infoResponse = await fetch(`${ServerConfig.getHost()}/`, {
             method: "GET",
             headers: { "Content-Type": "application/json" }
           });
