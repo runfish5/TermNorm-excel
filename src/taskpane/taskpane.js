@@ -125,7 +125,7 @@ function handleDrop(e) {
 
 function openFileDialog() {
   // Immediate feedback that dialog was clicked
-  state.setStatus("Step 1: Opening file dialog...");
+  state.setStatus("Opening file dialog...");
 
   const input = document.createElement("input");
   input.type = "file";
@@ -133,11 +133,10 @@ function openFileDialog() {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      state.setStatus(`Step 2: File selected - ${file.name} (${file.size} bytes)`);
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait 1.5 seconds
+      state.setStatus(`File selected: ${file.name} - Processing...`);
       await processFile(file);
     } else {
-      state.setStatus("Step 2: No file selected", true);
+      state.setStatus("No file selected", true);
     }
   };
   input.click();
@@ -145,17 +144,13 @@ function openFileDialog() {
 
 async function processFile(file) {
   try {
-    state.setStatus("Step 3: Starting file validation...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    // Validate file type
     if (!file.name.endsWith(".json")) {
       state.setStatus("ERROR: Please select a JSON configuration file", true);
       return;
     }
 
-    state.setStatus("Step 4: File is JSON - starting file read...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    state.setStatus("Reading and parsing file...");
     const reader = new FileReader();
 
     // Add error handlers for FileReader
@@ -169,14 +164,8 @@ async function processFile(file) {
 
     reader.onload = async function (e) {
       try {
-        state.setStatus("Step 5: File read complete - parsing JSON...");
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
         const configData = JSON.parse(e.target.result);
-
-        state.setStatus("Step 6: JSON parsed successfully - starting config load...");
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
+        state.setStatus("JSON parsed - loading configuration...");
         await loadConfigData(configData, file.name);
       } catch (error) {
         state.setStatus(`ERROR: Invalid JSON file - ${error.message}`, true);
@@ -189,25 +178,18 @@ async function processFile(file) {
   }
 }
 
-// Load config data (with step-by-step debugging)
+// Load config data (simplified with better success path handling)
 async function loadConfigData(configData, fileName) {
   try {
-    state.setStatus("Step 7: Validating config structure...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    // Validate config structure
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
 
-    state.setStatus("Step 8: Config structure valid - storing raw data...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    state.setStatus("Config structure valid - getting workbook name...");
     state.set("config.raw", configData);
 
-    state.setStatus("Step 9: Getting Excel workbook name...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Get workbook and find config
+    // Get workbook name
     let workbook;
     try {
       workbook = await Excel.run(async (context) => {
@@ -216,41 +198,37 @@ async function loadConfigData(configData, fileName) {
         await context.sync();
         return wb.name;
       });
-
-      state.setStatus(`Step 10: Workbook name retrieved: "${workbook}"`);
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Longer delay to see workbook name
+      state.setStatus(`Workbook name: "${workbook}" - looking for config...`);
     } catch (excelError) {
       throw new Error(`Failed to get Excel workbook name: ${excelError.message}`);
     }
 
-    state.setStatus("Step 11: Looking for workbook config...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    // Find matching config
     const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
     if (!config?.standard_mappings?.length) {
-      // Show available workbooks for debugging
       const availableWorkbooks = Object.keys(configData["excel-projects"]).join(", ");
       throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
     }
 
-    state.setStatus("Step 12: Config found - setting up...");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    state.setStatus("Config found - applying settings...");
     state.setConfig({ ...config, workbook });
 
-    // Reload mapping modules if orchestrator is available
+    // Reload mapping modules with proper error handling
     if (window.app?.reloadMappingModules) {
-      state.setStatus("Step 13: Reloading mapping modules...");
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      await window.app.reloadMappingModules();
+      try {
+        state.setStatus("Reloading mapping modules...");
+        await window.app.reloadMappingModules();
+        state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+      } catch (moduleError) {
+        state.setStatus(`WARNING: Config loaded but module reload failed: ${moduleError.message}`, true);
+      }
+    } else {
+      state.setStatus(`INFO: Config loaded from ${fileName} but window.app.reloadMappingModules not available`);
     }
 
-    state.setStatus(
-      `SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`
-    );
   } catch (error) {
     state.setStatus(`FAILED: ${error.message}`, true);
-    // Also try direct DOM update in case state.setStatus isn't working
+    // Also try direct DOM update as backup
     const statusElement = document.getElementById("main-status-message");
     if (statusElement) {
       statusElement.textContent = `FAILED: ${error.message}`;
