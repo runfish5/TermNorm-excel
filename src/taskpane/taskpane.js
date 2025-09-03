@@ -41,9 +41,6 @@ Office.onReady(async (info) => {
     };
   }
 
-  // Set up config drag/drop
-  setupConfigDropZone();
-
   // Set up direct event bindings  
   setupDirectEventBindings();
 
@@ -55,6 +52,9 @@ Office.onReady(async (info) => {
     await app.init();
     window.app = app; // For debugging
     window.showView = showView; // Make showView globally available
+
+    // Set up config drag/drop AFTER app is fully initialized
+    setupConfigDropZone();
 
     // Set up status display
     state.subscribe("ui", (ui) => {
@@ -90,84 +90,170 @@ Office.onReady(async (info) => {
 
 // Config drag/drop functionality
 function setupConfigDropZone() {
+  console.log("Setting up config drop zone...");
   const dropZone = document.getElementById("config-drop-zone");
-  if (!dropZone) return;
+  if (!dropZone) {
+    console.error("Drop zone element 'config-drop-zone' not found!");
+    return;
+  }
+  
+  console.log("Drop zone element found, setting up event listeners...");
 
   // Prevent default behaviors
   ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+    dropZone.addEventListener(eventName, (e) => { 
+      console.log(`Drop zone event: ${eventName}`);
+      e.preventDefault(); 
+      e.stopPropagation(); 
+    }, false);
     document.body.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
   });
 
   // Visual feedback
   ["dragenter", "dragover"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.add("drag-over"), false);
+    dropZone.addEventListener(eventName, () => {
+      console.log(`Adding drag-over class on ${eventName}`);
+      dropZone.classList.add("drag-over");
+    }, false);
   });
   ["dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.remove("drag-over"), false);
+    dropZone.addEventListener(eventName, () => {
+      console.log(`Removing drag-over class on ${eventName}`);
+      dropZone.classList.remove("drag-over");
+    }, false);
   });
 
   // Handle file drop
   dropZone.addEventListener("drop", async (e) => {
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith(".json")) {
-        await loadConfigFromFile(file);
+    console.log("File drop event triggered!");
+    try {
+      console.log("DataTransfer object:", e.dataTransfer);
+      console.log("Files length:", e.dataTransfer.files.length);
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        console.log("Dropped file:", file.name, "Size:", file.size, "Type:", file.type);
+        
+        if (file.name.endsWith(".json")) {
+          console.log("JSON file detected, loading...");
+          await loadConfigFromFile(file);
+        } else {
+          console.log("Non-JSON file dropped");
+          state.setStatus("Please drop a JSON configuration file", true);
+        }
       } else {
-        state.setStatus("Please drop a JSON configuration file", true);
+        console.log("No files in drop event");
+        state.setStatus("No file detected in drop", true);
       }
+    } catch (error) {
+      console.error("Error in drop handler:", error);
+      state.setStatus(`Drop error: ${error.message}`, true);
     }
   });
 
   // Handle click to open file dialog  
   dropZone.addEventListener("click", () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (file) await loadConfigFromFile(file);
-    };
-    input.click();
+    console.log("Drop zone clicked, opening file dialog...");
+    try {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          console.log("File selected via dialog:", file.name);
+          await loadConfigFromFile(file);
+        }
+      };
+      input.click();
+    } catch (error) {
+      console.error("Error opening file dialog:", error);
+      state.setStatus(`File dialog error: ${error.message}`, true);
+    }
   });
+  
+  console.log("Config drop zone setup completed!");
 }
 
 // Load config from dropped/selected file
 async function loadConfigFromFile(file) {
+  console.log("=== Starting loadConfigFromFile ===");
+  console.log("File:", file.name, "Size:", file.size);
+  console.log("window.app available:", !!window.app);
+  
   try {
-    console.log("Loading config from:", file.name);
     state.setStatus("Loading configuration file...");
     
+    // Step 1: Read and parse file
+    console.log("Reading file content...");
     const text = await file.text();
-    const configData = JSON.parse(text);
+    console.log("File content length:", text.length);
     
+    console.log("Parsing JSON...");
+    const configData = JSON.parse(text);
+    console.log("Config data parsed successfully");
+    
+    // Step 2: Validate structure
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
+    console.log("Config structure validated");
 
-    // Store raw config data (like the working ConfigManager.setConfig)
+    // Step 3: Store raw config data
+    console.log("Storing raw config data in state...");
     state.set("config.raw", configData);
+    console.log("Raw config stored");
     
-    // Reload mapping modules if orchestrator is available
-    if (window.app?.reloadMappingModules) {
+    // Step 4: Check app availability
+    if (!window.app) {
+      throw new Error("App not initialized - please try again in a moment");
+    }
+    console.log("App is available, proceeding with reload...");
+
+    // Step 5: Reload mapping modules if available
+    if (window.app.reloadMappingModules) {
       try {
+        console.log("Reloading mapping modules...");
         await window.app.reloadMappingModules();
+        console.log("Mapping modules reloaded successfully");
       } catch (moduleError) {
         console.warn("Mapping modules reload failed (continuing):", moduleError.message);
+        // Don't fail the whole process for this
       }
+    } else {
+      console.log("No reloadMappingModules method available");
     }
 
-    // Trigger proper config reload (like the working flow)
-    if (window.app?.reloadConfig) {
+    // Step 6: Trigger proper config reload
+    if (window.app.reloadConfig) {
+      console.log("Triggering config reload...");
       await window.app.reloadConfig();
+      console.log("Config reload completed successfully");
       // reloadConfig() handles the success status message
     } else {
+      console.log("No reloadConfig method available, showing basic success message");
       state.setStatus(`Configuration loaded from ${file.name}`);
     }
+    
+    console.log("=== loadConfigFromFile completed successfully ===");
   } catch (error) {
-    console.error("Config load failed:", error);
-    state.setStatus(`Failed to load config: ${error.message}`, true);
+    console.error("=== Config load failed ===");
+    console.error("Error details:", error);
+    console.error("Error stack:", error.stack);
+    
+    let errorMessage = `Failed to load config: ${error.message}`;
+    
+    // Add helpful context for common cloud issues
+    if (error.message.includes("App not initialized")) {
+      errorMessage += "\n\nTip: Wait a moment for the add-in to fully load, then try again.";
+    }
+    
+    if (error.message.includes("No valid configuration found")) {
+      errorMessage += "\n\nCheck that your workbook name matches a key in the config file.";
+    }
+    
+    state.setStatus(errorMessage, true);
   }
 }
 
