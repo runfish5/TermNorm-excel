@@ -74,10 +74,6 @@ export class StateManager {
     });
   }
 
-  setView(view) {
-    this.set("ui.currentView", view);
-  }
-
   setConfig(config) {
     this.update({
       "config.data": config,
@@ -106,20 +102,18 @@ export class StateManager {
     const sources = this.get("mappings.sources") || {};
     if (Object.keys(sources).length === 0) return;
 
-    const combined = Object.entries(sources).reduce(
-      (acc, [index, { mappings, result, config }]) => {
-        Object.assign(acc.forward, mappings.forward);
-        Object.assign(acc.reverse, mappings.reverse);
-        acc.metadata.sources.push({
-          index: parseInt(index) + 1,
-          config,
-          mappings,
-          metadata: result.metadata,
-        });
-        return acc;
-      },
-      { forward: {}, reverse: {}, metadata: { sources: [] } }
-    );
+    const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
+    
+    Object.entries(sources).forEach(([index, { mappings, result, config }]) => {
+      Object.assign(combined.forward, mappings.forward);
+      Object.assign(combined.reverse, mappings.reverse);
+      combined.metadata.sources.push({
+        index: parseInt(index) + 1,
+        config,
+        mappings,
+        metadata: result.metadata,
+      });
+    });
 
     this.setMappings(combined.forward, combined.reverse, combined.metadata);
   }
@@ -133,22 +127,6 @@ export class StateManager {
     });
   }
 
-  // Enhanced getters for direct UI access
-  getConfig() {
-    return this.get("config.data");
-  }
-
-  getMappings() {
-    return this.get("mappings");
-  }
-
-  isConfigLoaded() {
-    return this.get("config.loaded");
-  }
-
-  areMappingsLoaded() {
-    return this.get("mappings.loaded");
-  }
 
   // Debug helper
   getFullState() {

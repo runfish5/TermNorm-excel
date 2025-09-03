@@ -203,7 +203,7 @@ export class MappingConfigModule {
       const result = await loadAndProcessMappings(customParams);
 
       // Store mapping source for later combination
-      state.addMappingSource(this.index, result, result, this.getConfig());
+      state.addMappingSource(this.index, result, result, this.mappingConfig);
       this.mappings = result;
 
       this.handleMappingSuccess(result);
@@ -263,8 +263,5 @@ export class MappingConfigModule {
   }
   getMappings() {
     return this.mappings;
-  }
-  getConfig() {
-    return this.mappingConfig;
   }
 }

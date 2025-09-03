@@ -2,6 +2,7 @@
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 import { formatApiError, formatConnectionError } from "../utils/errorUtils.js";
+import { state } from "../shared-services/state.manager.js";
 
 export class NormalizerRouter {
   constructor(forward, reverse, config) {
@@ -76,22 +77,7 @@ export class NormalizerRouter {
       });
 
       if (!response.ok) {
-        // Get provider info from the main endpoint for context
-        let providerInfo = "Unknown Provider";
-        try {
-          const infoResponse = await fetch(`${ServerConfig.getHost()}/`, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" }
-          });
-          if (infoResponse.ok) {
-            const info = await infoResponse.json();
-            providerInfo = info.llm || "Unknown Provider";
-          }
-        } catch (e) {
-          // Ignore errors when fetching provider info
-        }
-
-        const { message, logMessage } = formatApiError(response.status, response.statusText, providerInfo, apiEndpoint);
+        const { message, logMessage } = formatApiError(response.status, response.statusText, "API", apiEndpoint);
         state.setStatus(message, true);
         console.error(logMessage);
         return null;

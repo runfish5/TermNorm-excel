@@ -43,7 +43,7 @@ export class UIManager {
   setupEvents() {
     // Direct event binding for specific actions
     this.bindDirectHandler('#show-metadata-btn', () => this.toggleMetadata());
-    this.bindDirectHandler('#setup-map-tracking', () => this.startMappingTracking());
+    this.bindDirectHandler('#setup-map-tracking', () => this.startTracking());
     this.bindDirectHandler('#renew-prompt', () => this.renewPrompt());
   }
 
@@ -57,10 +57,6 @@ export class UIManager {
     }
   }
 
-  startMappingTracking() {
-    this.navigation.showView("results");
-    this.startTracking();
-  }
 
   renewPrompt() {
     if (this.orchestrator) {
@@ -261,6 +257,7 @@ export class UIManager {
     if (!this.orchestrator) {
       return state.setStatus("Error: No orchestrator available", true);
     }
+    this.navigation.showView("results");
     await this.orchestrator.startTracking();
   }
 
