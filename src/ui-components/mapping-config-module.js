@@ -75,47 +75,106 @@ export class MappingConfigModule {
     return element;
   }
   init(container) {
+    state.setStatus(`LOG: Module ${this.index + 1} init() - starting createElement()...`);
     const element = this.createElement();
+    
+    if (!element) {
+      state.setStatus(`LOG: Module ${this.index + 1} ERROR - createElement() returned null/undefined`, true);
+      return null;
+    }
+    
+    state.setStatus(`LOG: Module ${this.index + 1} createElement() success - element ID: ${element.id}, class: ${element.className}`);
+    
+    if (!container) {
+      state.setStatus(`LOG: Module ${this.index + 1} ERROR - container is null/undefined`, true);
+      return null;
+    }
+    
+    state.setStatus(`LOG: Module ${this.index + 1} appending to container - current children: ${container.children.length}`);
     container.appendChild(element);
+    state.setStatus(`LOG: Module ${this.index + 1} appendChild() done - new children count: ${container.children.length}`);
+    
+    state.setStatus(`LOG: Module ${this.index + 1} starting setupEvents()...`);
     this.setupEvents();
+    state.setStatus(`LOG: Module ${this.index + 1} setupEvents() completed`);
+    
+    state.setStatus(`LOG: Module ${this.index + 1} starting loadInitialData()...`);
     this.loadInitialData();
+    state.setStatus(`LOG: Module ${this.index + 1} loadInitialData() completed`);
+    
+    state.setStatus(`LOG: Module ${this.index + 1} init() fully completed - returning element`);
     return element;
   }
   setupEvents() {
+    state.setStatus(`LOG: Module ${this.index + 1} setupEvents() - checking elements...`);
+    
     // File source radios
-    document.getElementById(`${this.elementId}-current-file`)?.addEventListener("change", () => {
-      document.getElementById(`${this.elementId}-external-file-section`)?.classList.add("hidden");
-      this.loadSheets(false);
-    });
+    const currentFileRadio = document.getElementById(`${this.elementId}-current-file`);
+    const externalFileRadio = document.getElementById(`${this.elementId}-external-file`);
+    const browseButton = document.getElementById(`${this.elementId}-browse-button`);
+    const filePickerInput = document.getElementById(`${this.elementId}-file-picker-input`);
+    const loadMappingButton = document.getElementById(`${this.elementId}-load-mapping`);
+    
+    state.setStatus(`LOG: Module ${this.index + 1} elements - current-file: ${!!currentFileRadio}, external-file: ${!!externalFileRadio}, browse: ${!!browseButton}, picker: ${!!filePickerInput}, load-btn: ${!!loadMappingButton}`);
+    
+    try {
+      if (currentFileRadio) {
+        currentFileRadio.addEventListener("change", () => {
+          state.setStatus(`LOG: Module ${this.index + 1} current-file radio changed`);
+          document.getElementById(`${this.elementId}-external-file-section`)?.classList.add("hidden");
+          this.loadSheets(false);
+        });
+        state.setStatus(`LOG: Module ${this.index + 1} current-file listener added`);
+      }
 
-    document.getElementById(`${this.elementId}-external-file`)?.addEventListener("change", () => {
-      document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
-      if (this.externalFile) this.loadSheets(true);
-      else this.setDropdown(["Select external file first..."], true);
-    });
+      if (externalFileRadio) {
+        externalFileRadio.addEventListener("change", () => {
+          state.setStatus(`LOG: Module ${this.index + 1} external-file radio changed`);
+          document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
+          if (this.externalFile) this.loadSheets(true);
+          else this.setDropdown(["Select external file first..."], true);
+        });
+        state.setStatus(`LOG: Module ${this.index + 1} external-file listener added`);
+      }
 
-    // File picker
-    document.getElementById(`${this.elementId}-browse-button`)?.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.getElementById(`${this.elementId}-file-picker-input`)?.click();
-    });
+      if (browseButton) {
+        browseButton.addEventListener("click", (e) => {
+          state.setStatus(`LOG: Module ${this.index + 1} browse button clicked`);
+          e.preventDefault();
+          document.getElementById(`${this.elementId}-file-picker-input`)?.click();
+        });
+        state.setStatus(`LOG: Module ${this.index + 1} browse button listener added`);
+      }
 
-    document.getElementById(`${this.elementId}-file-picker-input`)?.addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      if (filePickerInput) {
+        filePickerInput.addEventListener("change", (e) => {
+          const file = e.target.files?.[0];
+          state.setStatus(`LOG: Module ${this.index + 1} file picker changed - file: ${file?.name || 'none'}`);
+          if (!file) return;
 
-      this.externalFile = file;
-      document.getElementById(`${this.elementId}-file-path-display`).value = file.name;
-      document.getElementById(`${this.elementId}-external-file`).checked = true;
-      document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
+          this.externalFile = file;
+          document.getElementById(`${this.elementId}-file-path-display`).value = file.name;
+          document.getElementById(`${this.elementId}-external-file`).checked = true;
+          document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
 
-      this.updateStatus(`Reading ${file.name}...`);
-      this.loadSheets(true);
-    });
-    // Load mapping button
-    document.getElementById(`${this.elementId}-load-mapping`)?.addEventListener("click", () => {
-      this.loadMappings();
-    });
+          this.updateStatus(`Reading ${file.name}...`);
+          this.loadSheets(true);
+        });
+        state.setStatus(`LOG: Module ${this.index + 1} file picker listener added`);
+      }
+      
+      if (loadMappingButton) {
+        loadMappingButton.addEventListener("click", () => {
+          state.setStatus(`LOG: Module ${this.index + 1} load mapping button clicked`);
+          this.loadMappings();
+        });
+        state.setStatus(`LOG: Module ${this.index + 1} load mapping button listener added`);
+      }
+      
+      state.setStatus(`LOG: Module ${this.index + 1} setupEvents() completed successfully`);
+    } catch (eventError) {
+      state.setStatus(`LOG: Module ${this.index + 1} ERROR in setupEvents(): ${eventError.message}`, true);
+    }
   }
   loadInitialData() {
     // Pre-fill form with config data

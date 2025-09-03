@@ -139,42 +139,68 @@ export class AppOrchestrator {
     const config = state.get("config.data");
     const standardMappings = config?.standard_mappings || [];
 
-    state.setStatus(`Checking standard mappings in config...`);
+    state.setStatus(`LOG: reloadMappingModules() started - checking config...`);
     if (!standardMappings?.length) {
-      state.setStatus("No standard mappings found - skipping module reload");
+      state.setStatus("LOG: No standard mappings found - skipping module reload");
       return;
     }
 
-    state.setStatus(`Found ${standardMappings.length} standard mapping(s) - looking for container...`);
+    state.setStatus(`LOG: Found ${standardMappings.length} mappings - looking for container...`);
     const container = document.getElementById("mapping-configs-container");
     if (!container) {
-      state.setStatus("ERROR: mapping-configs-container element not found in DOM", true);
+      state.setStatus("LOG: ERROR - mapping-configs-container element not found in DOM", true);
       throw new Error("Mapping configs container not found");
     }
 
-    state.setStatus(`Container found - clearing existing modules...`);
+    const beforeChildCount = container.children.length;
+    state.setStatus(`LOG: Container found - children before clear: ${beforeChildCount}`);
+    
     // Reset state
     container.innerHTML = "";
     this.mappingModules = [];
+    
+    const afterClearCount = container.children.length;
+    state.setStatus(`LOG: Container cleared - children after clear: ${afterClearCount}`);
 
-    state.setStatus(`Creating ${standardMappings.length} new mapping modules...`);
+    state.setStatus(`LOG: Starting creation of ${standardMappings.length} modules...`);
+    
     // Create new modules
     this.mappingModules = standardMappings.map((config, index) => {
-      state.setStatus(`Creating module ${index + 1}: ${config.mapping_reference || 'Unknown reference'}`);
+      state.setStatus(`LOG: Creating module ${index + 1} - ref: ${config.mapping_reference || 'Unknown'}`);
+      
       const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
         this.onMappingLoaded(moduleIndex, mappings, result)
       );
+      
+      const beforeInitCount = container.children.length;
+      state.setStatus(`LOG: Before init() - container children: ${beforeInitCount}`);
+      
       try {
-        module.init(container);
-        state.setStatus(`Module ${index + 1} initialized successfully`);
+        const initResult = module.init(container);
+        const afterInitCount = container.children.length;
+        state.setStatus(`LOG: Module ${index + 1} init() completed - children: ${beforeInitCount} -> ${afterInitCount}`);
+        
+        if (initResult && initResult.id) {
+          state.setStatus(`LOG: Module ${index + 1} element created with ID: ${initResult.id}`);
+        } else {
+          state.setStatus(`LOG: Module ${index + 1} init() returned: ${typeof initResult}`);
+        }
       } catch (initError) {
-        state.setStatus(`ERROR: Failed to initialize module ${index + 1}: ${initError.message}`, true);
+        state.setStatus(`LOG: ERROR - Module ${index + 1} init failed: ${initError.message}`, true);
       }
+      
       return module;
     });
 
+    const finalChildCount = container.children.length;
+    state.setStatus(`LOG: All modules created - final container children: ${finalChildCount}`);
+    
+    // Log container HTML state for debugging
+    const containerHTML = container.innerHTML.substring(0, 200);
+    state.setStatus(`LOG: Container HTML preview: ${containerHTML}${container.innerHTML.length > 200 ? '...' : ''}`);
+
     this.updateGlobalStatus();
-    state.setStatus(`Mapping modules reload completed - ${standardMappings.length} modules active`);
+    state.setStatus(`LOG: Mapping modules reload completed - ${standardMappings.length} modules active`);
   }
 
   onMappingLoaded(moduleIndex, mappings, result) {
