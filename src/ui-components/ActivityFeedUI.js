@@ -7,8 +7,8 @@ export const ActivityFeed = {
   init(containerId = "activity-feed") {
     this.container = document.getElementById(containerId);
     if (!this.container) {
-      console.error(`ActivityFeed: Container '${containerId}' not found`);
-      return;
+      console.warn(`ActivityFeed: Container '${containerId}' not found - will try lazy init`);
+      return false;
     }
 
     // Create table structure
@@ -27,7 +27,8 @@ export const ActivityFeed = {
             </table>
         `;
 
-    this.tableBody = this.container.querySelector("tbody");
+    this.tableBody = this.container?.querySelector("tbody");
+    return true;
 
     // Setup clear button
     const clearBtn = document.getElementById("clear-activity");
@@ -40,36 +41,47 @@ export const ActivityFeed = {
   },
 
   add(source, target, method, confidence) {
+    // Lazy initialization - try to initialize if not already done
     if (!this.tableBody) {
-      console.error("ActivityFeed: Not initialized");
-      return;
+      const initSuccess = this.init();
+      if (!initSuccess || !this.tableBody) {
+        console.warn("ActivityFeed: Cannot initialize - skipping add");
+        return;
+      }
     }
 
-    // Remove placeholder
-    const placeholder = this.tableBody.querySelector(".placeholder-row");
-    if (placeholder) placeholder.remove();
+    try {
+      // Remove placeholder (with null safety)
+      const placeholder = this.tableBody?.querySelector(".placeholder-row");
+      if (placeholder) placeholder.remove();
 
-    // Create new row
-    const row = document.createElement("tr");
-    row.className = `activity-row ${method}`;
-    row.innerHTML = `
-            <td class="time">${new Date().toLocaleTimeString()}</td>
-            <td class="source">${source}</td>
-            <td class="target">${target}</td>
-            <td class="method">${method.toUpperCase()}</td>
-            <td class="confidence">${method !== "error" ? Math.round(confidence * 100) + "%" : "-"}</td>
-        `;
+      // Create new row
+      const row = document.createElement("tr");
+      row.className = `activity-row ${method}`;
+      row.innerHTML = `
+              <td class="time">${new Date().toLocaleTimeString()}</td>
+              <td class="source">${source || '-'}</td>
+              <td class="target">${target || '-'}</td>
+              <td class="method">${method ? method.toUpperCase() : '-'}</td>
+              <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
+          `;
 
-    // Add to top
-    this.tableBody.insertBefore(row, this.tableBody.firstChild);
+      // Add to top (with null safety)
+      if (this.tableBody) {
+        this.tableBody.insertBefore(row, this.tableBody.firstChild);
 
-    // Limit entries
-    const rows = this.tableBody.querySelectorAll(".activity-row");
-    if (rows.length > this.maxEntries) {
-      rows[rows.length - 1].remove();
+        // Limit entries
+        const rows = this.tableBody.querySelectorAll(".activity-row");
+        if (rows.length > this.maxEntries) {
+          rows[rows.length - 1].remove();
+        }
+      }
+
+      console.log(`ActivityFeed: Added ${source} → ${target}`);
+    } catch (error) {
+      console.error("ActivityFeed.add() error:", error);
+      // Don't re-throw - just log and continue
     }
-
-    console.log(`ActivityFeed: Added ${source} → ${target}`);
   },
 
   clear() {
