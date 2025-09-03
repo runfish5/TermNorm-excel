@@ -8,7 +8,10 @@ export class ActivityDisplay {
 
   static init() {
     this.container = document.getElementById("results-view");
-    if (!this.container) return console.error("ActivityDisplay: Container not found");
+    if (!this.container) {
+      console.warn("ActivityDisplay: Container 'results-view' not found - will try lazy init");
+      return false;
+    }
 
     // Add CSS styles for drag and drop functionality
     const style = document.createElement("style");
@@ -27,8 +30,8 @@ export class ActivityDisplay {
     this.container.addEventListener("change", (e) => {
       if (e.target.name === "activity-mode") {
         const isHistory = e.target.value === "history";
-        const activityFeed = this.container.querySelector("#activity-feed");
-        const candidateSection = this.container.querySelector("#candidate-ranking-section");
+        const activityFeed = this.container?.querySelector("#activity-feed");
+        const candidateSection = this.container?.querySelector("#candidate-ranking-section");
         
         if (activityFeed) {
           activityFeed.style.display = isHistory ? "block" : "none";
@@ -40,36 +43,47 @@ export class ActivityDisplay {
     });
 
     ActivityFeed.init("activity-feed");
+    return true;
   }
 
   static addCandidate(value, result, context) {
     const candidates = result?.candidates;
     if (!candidates) return;
 
-    this.candidatesData = [...candidates];
-    this.currentContext = context;
-
-    // Column customization
-    const hiddenColumns = ["abc"]; // Add columns to hide here
-    const columnNames = {
-      core_concept_score: "Core Score",
-      spec_score: "Sp. Score",
-      key_match_factors: "Match Factors",
-      spec_gaps: "Gaps",
-    };
-
-    // Get all unique keys from candidates, excluding private properties and hidden ones
-    const columns = [
-      ...new Set(
-        candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
-      ),
-    ];
-
-    const rankedContainer = this.container.querySelector("#candidate-ranking-section");
-    if (!rankedContainer) {
-      console.error("CandidateRankingUI: candidate-ranking-section not found");
-      return;
+    // Lazy initialization - try to initialize if not already done
+    if (!this.container) {
+      const initSuccess = this.init();
+      if (!initSuccess || !this.container) {
+        console.warn("ActivityDisplay: Cannot initialize - skipping addCandidate");
+        return;
+      }
     }
+
+    try {
+      this.candidatesData = [...candidates];
+      this.currentContext = context;
+
+      // Column customization
+      const hiddenColumns = ["abc"]; // Add columns to hide here
+      const columnNames = {
+        core_concept_score: "Core Score",
+        spec_score: "Sp. Score",
+        key_match_factors: "Match Factors",
+        spec_gaps: "Gaps",
+      };
+
+      // Get all unique keys from candidates, excluding private properties and hidden ones
+      const columns = [
+        ...new Set(
+          candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
+        ),
+      ];
+
+      const rankedContainer = this.container?.querySelector("#candidate-ranking-section");
+      if (!rankedContainer) {
+        console.warn("CandidateRankingUI: candidate-ranking-section not found");
+        return;
+      }
     
     rankedContainer.innerHTML = `
             <div class="candidate-entry">
@@ -96,12 +110,16 @@ export class ActivityDisplay {
             </div>
         `;
 
-    this.setupDragDrop(rankedContainer);
-    this.setupFirstChoice(rankedContainer);
+      this.setupDragDrop(rankedContainer);
+      this.setupFirstChoice(rankedContainer);
+    } catch (error) {
+      console.error("ActivityDisplay.addCandidate() error:", error);
+      // Don't re-throw - just log and continue
+    }
   }
 
   static setupFirstChoice(container) {
-    const applyButton = container.querySelector("#apply-first");
+    const applyButton = container?.querySelector("#apply-first");
     if (!applyButton) {
       console.error("CandidateRankingUI: apply-first button not found");
       return;
@@ -127,16 +145,16 @@ export class ActivityDisplay {
   }
 
   static showFeedback(container, message, bg) {
-    let feedback = container.querySelector(".feedback");
+    let feedback = container?.querySelector(".feedback");
     if (!feedback) {
       feedback = document.createElement("div");
       feedback.className = "feedback";
       feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
-      const table = container.querySelector("table");
+      const table = container?.querySelector("table");
       if (table) {
         table.before(feedback);
       } else {
-        container.appendChild(feedback);
+        container?.appendChild(feedback);
       }
     }
     feedback.innerHTML = message;
@@ -144,7 +162,7 @@ export class ActivityDisplay {
   }
 
   static setupDragDrop(container) {
-    const tbody = container.querySelector("tbody");
+    const tbody = container?.querySelector("tbody");
     if (!tbody) {
       console.error("CandidateRankingUI: tbody not found in container");
       return;
@@ -183,7 +201,7 @@ export class ActivityDisplay {
         const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
         this.candidatesData.splice(targetIndex, 0, draggedItem);
 
-        const headerElement = container.querySelector(".candidate-header");
+        const headerElement = container?.querySelector(".candidate-header");
         const input = headerElement?.textContent.match(/Input: "([^"]+)"/)?.[1];
         const mockResult = { candidates: this.candidatesData };
         this.addCandidate(input, mockResult, this.currentContext);

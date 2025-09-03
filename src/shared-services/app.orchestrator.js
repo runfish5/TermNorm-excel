@@ -1,35 +1,29 @@
 // shared-services/app.orchestrator.js
 import { LiveTracker } from "../services/live.tracker.js";
 import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
-import { UIManager } from "../ui-components/ui.manager.js";
+import { MappingConfigModule } from "../ui-components/mapping-config-module.js";
+import { domUtils } from "../ui-components/dom.utils.js";
 import { state } from "./state.manager.js";
 
 export class AppOrchestrator {
   constructor() {
     this.tracker = new LiveTracker();
-    this.ui = new UIManager(this);
     this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
     this.configLoaded = false;
+    this.mappingModules = [];
 
     // Add this line for easy debugging
     window.state = state;
   }
 
   async init() {
-    this.ui.init();
-    this.setupEvents();
     await this.reloadConfig();
     this.configLoaded = true;
   }
 
-  setupEvents() {
-    // All button events are now handled by UIManager
-    // UIManager will delegate back to orchestrator methods as needed
-  }
-
   async reloadConfig() {
     try {
-      // Direct config loading without ConfigManager
+      // Get current workbook name
       const workbook = await Excel.run(async (context) => {
         const wb = context.workbook;
         wb.load("name");
@@ -37,16 +31,12 @@ export class AppOrchestrator {
         return wb.name;
       });
 
-      // Try to load config file at runtime
+      // Try to load config file
       let currentConfigData = state.get("config.raw");
       if (!currentConfigData) {
-        try {
-          const configModule = await import("../../config/app.config.json");
-          currentConfigData = configModule.default || configModule;
-          state.set("config.raw", currentConfigData);
-        } catch (importError) {
-          // File doesn't exist or import failed - this is OK, drag-drop will be required
-        }
+        const configModule = await import("../../config/app.config.json");
+        currentConfigData = configModule.default || configModule;
+        state.set("config.raw", currentConfigData);
       }
 
       if (!currentConfigData?.["excel-projects"]) {
@@ -54,37 +44,16 @@ export class AppOrchestrator {
       }
 
       const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
-
-      if (
-        !config?.standard_mappings ||
-        !Array.isArray(config.standard_mappings) ||
-        config.standard_mappings.length === 0
-      ) {
+      if (!config?.standard_mappings?.length) {
         throw new Error(`No valid configuration found for workbook: ${workbook}`);
       }
 
-      // Validate that all mappings have required fields
-      for (let i = 0; i < config.standard_mappings.length; i++) {
-        const mapping = config.standard_mappings[i];
-        if (!mapping?.mapping_reference) {
-          throw new Error(`Mapping ${i + 1} is missing mapping_reference`);
-        }
-      }
+      state.setConfig({ ...config, workbook });
+      if (!this.configLoaded) await this.reloadMappingModules();
 
-      const enhancedConfig = { ...config, workbook };
-      state.setConfig(enhancedConfig);
-
-      if (!this.configLoaded) await this.ui.reloadMappingModules();
-
-      // Show confirmation with standard mappings count
-      const standardMappings = config?.standard_mappings || [];
-      state.setStatus(`Config reloaded - Found ${standardMappings.length} standard mapping(s)`);
+      state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
     } catch (error) {
-      console.error("Config reload failed:", error);
-
       let errorMessage = `Config failed: ${error.message}`;
-      
-      // Add workbook key hint if relevant
       if (error.message.includes("No valid configuration found for workbook:")) {
         const configData = state.get("config.raw");
         const keys = Object.keys(configData?.["excel-projects"] || {});
@@ -92,9 +61,8 @@ export class AppOrchestrator {
           errorMessage += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
         }
       }
-
       state.setStatus(errorMessage, true);
-      throw error; // Re-throw to prevent success message override
+      throw error;
     }
   }
 
@@ -104,10 +72,9 @@ export class AppOrchestrator {
       return state.setStatus("Error: Load config first", true);
     }
 
-    // Combine all stored mapping sources using state manager
     state.combineMappingSources();
-
     const mappings = state.get("mappings");
+    
     const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
     const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
     if (!hasForward && !hasReverse) {
@@ -121,11 +88,14 @@ export class AppOrchestrator {
       const reverseCount = Object.keys(mappings.reverse || {}).length;
       const sourcesCount = mappings.metadata?.sources?.length || 0;
 
-      let mode = hasForward ? "with mappings" : "reverse-only";
-      if (sourcesCount > 1) mode += ` (${sourcesCount} sources)`;
-
-      state.setStatus(`Tracking active ${mode} - ${forwardCount} forward, ${reverseCount} reverse`);
-      this.ui.showView("results");
+      const mode = forwardCount > 0 ? "with mappings" : "reverse-only";
+      const suffix = sourcesCount > 1 ? ` (${sourcesCount} sources)` : "";
+      
+      state.setStatus(`Tracking active ${mode}${suffix} - ${forwardCount} forward, ${reverseCount} reverse`);
+      // Show results view - will be handled by taskpane.js showView function
+      if (window.showView) {
+        window.showView("results");
+      }
     } catch (error) {
       state.setStatus(`Error: ${error.message}`, true);
     }
@@ -164,5 +134,77 @@ export class AppOrchestrator {
       }
       if (label) label.textContent = originalText;
     }
+  }
+
+  async reloadMappingModules() {
+    const config = state.get("config.data");
+    const standardMappings = config?.standard_mappings || [];
+
+    if (!standardMappings?.length) {
+      console.log("No standard mappings found - skipping module reload");
+      return;
+    }
+
+    const container = domUtils.getElement("mapping-configs-container");
+    if (!container) {
+      throw new Error("Mapping configs container not found");
+    }
+
+    // Reset state
+    container.innerHTML = "";
+    this.mappingModules = [];
+
+    // Create new modules
+    this.mappingModules = standardMappings.map((config, index) => {
+      const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
+        this.onMappingLoaded(moduleIndex, mappings, result)
+      );
+      module.init(container);
+      return module;
+    });
+
+    this.updateGlobalStatus();
+    console.log(`Reloaded ${standardMappings.length} mapping modules`);
+  }
+
+  onMappingLoaded(moduleIndex, mappings, result) {
+    // Mapping data is now managed directly in state - just update UI
+    this.updateGlobalStatus();
+    this.updateJsonDump();
+  }
+
+  updateJsonDump() {
+    const content = domUtils.getElement("metadata-content");
+    const sources = state.get("mappings.sources") || {};
+    if (!content || Object.keys(sources).length === 0) return;
+
+    const data = Object.entries(sources).map(([index, { mappings, result }]) => ({
+      sourceIndex: parseInt(index) + 1,
+      forwardMappings: Object.keys(mappings.forward || {}).length,
+      reverseMappings: Object.keys(mappings.reverse || {}).length,
+      metadata: result.metadata,
+      mappings: mappings,
+    }));
+
+    content.innerHTML = `
+      <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
+        <strong>Raw Data:</strong>
+        <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
+      </div>`;
+  }
+
+  updateGlobalStatus() {
+    const sources = state.get("mappings.sources") || {};
+    const loaded = Object.keys(sources).length;
+    const total = this.mappingModules.length;
+
+    const message =
+      loaded === 0
+        ? "Ready to load mapping configurations..."
+        : loaded === total
+          ? `All ${total} mapping sources loaded`
+          : `${loaded}/${total} mapping sources loaded`;
+
+    state.setStatus(message);
   }
 }
