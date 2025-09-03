@@ -143,14 +143,16 @@ function openFileDialog() {
 }
 
 async function processFile(file) {
+  state.setStatus(`PROCESSFILE: Starting to process file: ${file.name}`);
   try {
     // Validate file type
+    state.setStatus(`PROCESSFILE: Validating file type for: ${file.name}`);
     if (!file.name.endsWith(".json")) {
       state.setStatus("ERROR: Please select a JSON configuration file", true);
       return;
     }
 
-    state.setStatus("Reading and parsing file...");
+    state.setStatus("PROCESSFILE: File type valid - creating FileReader...");
     const reader = new FileReader();
 
     // Add error handlers for FileReader
@@ -164,14 +166,16 @@ async function processFile(file) {
 
     reader.onload = async function (e) {
       try {
+        state.setStatus("PROCESSFILE: FileReader onload triggered - parsing JSON...");
         const configData = JSON.parse(e.target.result);
-        state.setStatus("JSON parsed - loading configuration...");
+        state.setStatus("PROCESSFILE: JSON parsed successfully - calling loadConfigData...");
         await loadConfigData(configData, file.name);
       } catch (error) {
         state.setStatus(`ERROR: Invalid JSON file - ${error.message}`, true);
       }
     };
 
+    state.setStatus("PROCESSFILE: Calling reader.readAsText() to start reading...");
     reader.readAsText(file);
   } catch (error) {
     state.setStatus(`ERROR: File processing failed - ${error.message}`, true);
