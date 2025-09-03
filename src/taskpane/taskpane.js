@@ -222,7 +222,7 @@ async function loadConfigData(configData, fileName) {
     
     if (!config?.standard_mappings?.length) {
       state.setStatus(`STEP 7-ERROR: No config found for "${workbook}"`, true);
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
+      throw new Error(`3No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
     }
 
     state.setStatus(`STEP 8: Config found! Has ${config.standard_mappings.length} mappings - applying settings...`);

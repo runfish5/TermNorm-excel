@@ -44,7 +44,7 @@ export class AppOrchestrator {
 
       const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
       if (!config?.standard_mappings?.length) {
-        throw new Error(`No valid configuration found for workbook: ${workbook}`);
+        throw new Error(`1No valid configuration found for workbook: ${workbook}`);
       }
 
       state.setConfig({ ...config, workbook });
@@ -53,7 +53,7 @@ export class AppOrchestrator {
       state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
     } catch (error) {
       let errorMessage = `Config failed: ${error.message}`;
-      if (error.message.includes("No valid configuration found for workbook:")) {
+      if (error.message.includes("2No valid configuration found for workbook:")) {
         const configData = state.get("config.raw");
         const keys = Object.keys(configData?.["excel-projects"] || {});
         if (keys.length > 0) {
