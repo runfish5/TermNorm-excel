@@ -180,37 +180,48 @@ async function processFile(file) {
 
 // Load config data (simplified with better success path handling)
 async function loadConfigData(configData, fileName) {
+  state.setStatus("ENTRY: loadConfigData() called - starting processing...");
   try {
     // Validate config structure
+    state.setStatus("STEP 1: Validating config structure...");
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
 
-    state.setStatus("Config structure valid - getting workbook name...");
+    state.setStatus("STEP 2: Config structure valid - setting raw config...");
     state.set("config.raw", configData);
+    
+    state.setStatus("STEP 3: Getting current Excel workbook name...");
 
     // Get workbook name
     let workbook;
     try {
+      state.setStatus("STEP 4: Calling Excel.run() to get workbook name...");
       workbook = await Excel.run(async (context) => {
         const wb = context.workbook;
         wb.load("name");
         await context.sync();
         return wb.name;
       });
-      state.setStatus(`Workbook name: "${workbook}" - looking for config...`);
+      state.setStatus(`STEP 5: Got workbook name: "${workbook}" - looking for matching config...`);
     } catch (excelError) {
+      state.setStatus(`ERROR: Excel.run() failed: ${excelError.message}`, true);
       throw new Error(`Failed to get Excel workbook name: ${excelError.message}`);
     }
 
     // Find matching config
+    state.setStatus("STEP 6: Searching for matching config...");
     const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
+    
+    const availableWorkbooks = Object.keys(configData["excel-projects"]).join(", ");
+    state.setStatus(`STEP 7: Available configs: ${availableWorkbooks}`);
+    
     if (!config?.standard_mappings?.length) {
-      const availableWorkbooks = Object.keys(configData["excel-projects"]).join(", ");
+      state.setStatus(`STEP 7-ERROR: No config found for "${workbook}"`, true);
       throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
     }
 
-    state.setStatus("Config found - applying settings...");
+    state.setStatus(`STEP 8: Config found! Has ${config.standard_mappings.length} mappings - applying settings...`);
     state.setConfig({ ...config, workbook });
     
     // Verify UI container exists before proceeding
