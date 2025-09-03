@@ -46,8 +46,9 @@
 **Phase 5**: Eliminated UIManager (277 lines) - moved functionality to taskpane.js and orchestrator  
 **Phase 6**: Eliminated NavigationManager (74 lines) - inlined view switching to taskpane.js  
 **Phase 7**: Eliminated ServerStatusManager (192 lines) - inlined server functionality to taskpane.js  
+**Phase 8**: Aggressive compaction (196 lines) - eliminated DOMUtils, ErrorUtils, ExcelIntegration, ActivityLogger utility files
 
-**Total Eliminated**: ~666 lines across manager pattern files, simplified to direct event binding
+**Total Eliminated**: ~862 lines across manager pattern and utility files, simplified to direct operations
 
 ## Simple Theme System
 
@@ -77,10 +78,11 @@
 **Dynamic Import**: Uses `import()` to load `app.config.json` at runtime via AppOrchestrator  
 **Centralized State**: StateManager handles all configuration and server state, components subscribe to changes
 
-## File Structure (20 files, ~2,554 lines)
+## File Structure (16 files, ~2,358 lines)
 
 **Entry Point**: `taskpane/taskpane.js` (403 lines) - Office.js initialization, direct event binding  
 **Core Services**: `shared-services/` - AppOrchestrator (210 lines), StateManager (137 lines)  
-**Cell Processing**: `services/` - LiveTracker (165 lines), NormalizerRouter (123 lines)  
-**UI Components**: `ui-components/` - CandidateRankingUI (226 lines), ActivityFeedUI (100 lines)  
-**Utilities**: `utils/` - Pure functions for cell processing, Excel operations, server config
+**Cell Processing**: `services/` - LiveTracker (184 lines), NormalizerRouter (115 lines), AI Renewer (120 lines)  
+**UI Components**: `ui-components/` - CandidateRankingUI (226 lines), ActivityFeedUI (100 lines), MappingConfigModule (294 lines)  
+**Data Processing**: `data-processing/` - Mapping Processor (169 lines)  
+**Utilities**: `utils/` - Pure functions for cell processing, column operations, server config
