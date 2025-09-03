@@ -231,28 +231,38 @@ async function loadConfigData(configData, fileName) {
     // Verify UI container exists before proceeding
     const container = document.getElementById("mapping-configs-container");
     if (!container) {
-      state.setStatus("ERROR: mapping-configs-container not found in DOM - check if we're in setup view", true);
+      state.setStatus("LOG: ERROR - mapping-configs-container not found in DOM - check if we're in setup view", true);
       return;
     }
-    state.setStatus("UI container verified - proceeding with module reload...");
+    
+    state.setStatus(`LOG: UI container verified - style display: ${container.style.display}, visibility: ${container.style.visibility}, offsetParent: ${!!container.offsetParent}`);
 
     // Reload mapping modules with detailed status logging
-    state.setStatus(`Checking window.app availability...`);
+    state.setStatus(`LOG: Checking window.app availability...`);
     if (window.app) {
-      state.setStatus(`window.app found - checking reloadMappingModules method...`);
+      state.setStatus(`LOG: window.app found - type: ${typeof window.app}, checking reloadMappingModules method...`);
       if (window.app.reloadMappingModules) {
+        state.setStatus(`LOG: reloadMappingModules method found - type: ${typeof window.app.reloadMappingModules}`);
         try {
-          state.setStatus("Starting mapping module reload...");
+          state.setStatus("LOG: Starting mapping module reload...");
           await window.app.reloadMappingModules();
+          
+          // Verify container state after reload
+          const finalChildCount = container.children.length;
+          const visibleChildren = Array.from(container.children).filter(child => 
+            child.offsetParent !== null && window.getComputedStyle(child).display !== 'none'
+          ).length;
+          
+          state.setStatus(`LOG: Module reload completed - total children: ${finalChildCount}, visible: ${visibleChildren}`);
           state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
         } catch (moduleError) {
-          state.setStatus(`ERROR: Module reload failed - ${moduleError.message}`, true);
+          state.setStatus(`LOG: ERROR - Module reload failed: ${moduleError.message}`, true);
         }
       } else {
-        state.setStatus(`ERROR: window.app.reloadMappingModules method not found`, true);
+        state.setStatus(`LOG: ERROR - window.app.reloadMappingModules method not found`, true);
       }
     } else {
-      state.setStatus(`ERROR: window.app not available - app not initialized properly`, true);
+      state.setStatus(`LOG: ERROR - window.app not available - app not initialized properly`, true);
     }
 
   } catch (error) {
