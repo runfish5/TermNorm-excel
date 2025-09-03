@@ -1,13 +1,12 @@
 // ./utils/activity.logger.js
-import { state } from "./state.manager.js";
+import { ServerConfig } from "../utils/serverConfig.js";
 
 const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export function logActivity(source, target, method, confidence, total_time, llm_provider) {
-  const serverHost = state.get("server.host") || "http://127.0.0.1:8000";
-  fetch(`${serverHost}/log-activity`, {
+  fetch(`${ServerConfig.getHost()}/log-activity`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ServerConfig.getHeaders(),
     body: JSON.stringify({
       timestamp: new Date().toISOString(),
       source,
