@@ -1,7 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { ServerConfig } from "../utils/serverConfig.js";
-import { formatApiError, formatConnectionError } from "../utils/errorUtils.js";
 import { state } from "../shared-services/state.manager.js";
 
 export class NormalizerRouter {
@@ -9,7 +8,6 @@ export class NormalizerRouter {
     this.forward = forward;
     this.reverse = reverse;
     this.config = config;
-    this.recentQueries = new Map(); // Track recent API queries
   }
 
   async process(value) {
@@ -56,16 +54,6 @@ export class NormalizerRouter {
 
   async findTokenMatch(val) {
     try {
-      // Deduplication: check if same query made recently
-      const now = Date.now();
-      if (this.recentQueries.has(val)) {
-        const lastQuery = this.recentQueries.get(val);
-        if (now - lastQuery.timestamp < 2000) {
-          console.log(`[DEDUPE] Using recent result for: ${val}`);
-          return lastQuery.result; // Return cached result
-        }
-      }
-
       state.setStatus("Starting mapping process...");
 
       const headers = ServerConfig.getHeaders();
@@ -77,7 +65,10 @@ export class NormalizerRouter {
       });
 
       if (!response.ok) {
-        const { message, logMessage } = formatApiError(response.status, response.statusText, "API", apiEndpoint);
+        const isAuthError = response.status === 401;
+        const message = isAuthError ? "❌ API key invalid - check your key" : `❌ API Error: ${response.status} ${response.statusText} (API)`;
+        const logMessage = `[API] ${isAuthError ? 'API Key Error: 401 Unauthorized' : `API Error: ${response.status} ${response.statusText}`} - Endpoint: ${apiEndpoint}`;
+        
         state.setStatus(message, true);
         console.error(logMessage);
         return null;
@@ -101,7 +92,7 @@ export class NormalizerRouter {
       }
 
       state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
-      const result = {
+      return {
         target: best.candidate,
         method: "ProfileRank",
         confidence: best.relevance_score,
@@ -109,13 +100,15 @@ export class NormalizerRouter {
         total_time: responseData.total_time,
         llm_provider: responseData.llm_provider,
       };
-
-      // Cache the result for deduplication
-      this.recentQueries.set(val, { timestamp: now, result });
-      return result;
     } catch (error) {
       console.error("Token match error:", error);
-      const errorMessage = formatConnectionError(error);
+      let errorMessage = "❌ Connection failed: " + error.message;
+      if (error.name === "AbortError") {
+        errorMessage = "Backend server timeout - ensure server is running on port 8000";
+      } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
+        errorMessage = "Backend server not accessible - ensure server is running on port 8000";
+      }
+      
       state.setStatus(errorMessage, true);
       return null;
     }

@@ -1,8 +1,7 @@
 // data-processing/mapping.processor.js
-import { ExcelIntegration } from "../services/excel-integration.js";
+import * as XLSX from "xlsx";
 import { state } from "../shared-services/state.manager.js";
 import { findColumnIndex } from "../utils/columnUtils.js";
-import { formatConnectionError } from "../utils/errorUtils.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 
 // Combined parameter extraction and validation
@@ -106,8 +105,41 @@ async function updateTokenMatcher(terms) {
     return response.json();
   } catch (error) {
     clearTimeout(timeoutId);
-    throw new Error(formatConnectionError(error));
+    let errorMessage = "❌ Connection failed: " + error.message;
+    if (error.name === "AbortError") {
+      errorMessage = "Backend server timeout - ensure server is running on port 8000";
+    } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
+      errorMessage = "Backend server not accessible - ensure server is running on port 8000";
+    }
+    throw new Error(errorMessage);
   }
+}
+
+// Excel data loading functions (inlined from excel-integration.js)
+async function loadCurrentWorksheetData(sheetName) {
+  return await Excel.run(async (context) => {
+    const range = context.workbook.worksheets.getItem(sheetName).getUsedRange(true);
+    range.load("values");
+    await context.sync();
+    return range.values;
+  });
+}
+
+async function loadExternalWorksheetData(file, sheetName) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  
+  if (!workbook.SheetNames.includes(sheetName)) {
+    throw new Error(`Sheet "${sheetName}" not found in ${file.name}`);
+  }
+  
+  return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
+}
+
+async function loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
+  return useCurrentFile
+    ? await loadCurrentWorksheetData(sheetName)
+    : await loadExternalWorksheetData(externalFile, sheetName);
 }
 
 // Main function - much simpler
@@ -117,8 +149,7 @@ export async function loadAndProcessMappings(customParams = null) {
 
     // Get params, load data, process mappings
     const params = getValidatedParams(customParams);
-    const excel = new ExcelIntegration();
-    const data = await excel.loadWorksheetData(params);
+    const data = await loadWorksheetData(params);
     const result = processMappings(data, params.sourceColumn, params.targetColumn);
 
     // Try to update matcher, but don't fail if server unavailable
