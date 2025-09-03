@@ -212,18 +212,32 @@ async function loadConfigData(configData, fileName) {
 
     state.setStatus("Config found - applying settings...");
     state.setConfig({ ...config, workbook });
+    
+    // Verify UI container exists before proceeding
+    const container = document.getElementById("mapping-configs-container");
+    if (!container) {
+      state.setStatus("ERROR: mapping-configs-container not found in DOM - check if we're in setup view", true);
+      return;
+    }
+    state.setStatus("UI container verified - proceeding with module reload...");
 
-    // Reload mapping modules with proper error handling
-    if (window.app?.reloadMappingModules) {
-      try {
-        state.setStatus("Reloading mapping modules...");
-        await window.app.reloadMappingModules();
-        state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
-      } catch (moduleError) {
-        state.setStatus(`WARNING: Config loaded but module reload failed: ${moduleError.message}`, true);
+    // Reload mapping modules with detailed status logging
+    state.setStatus(`Checking window.app availability...`);
+    if (window.app) {
+      state.setStatus(`window.app found - checking reloadMappingModules method...`);
+      if (window.app.reloadMappingModules) {
+        try {
+          state.setStatus("Starting mapping module reload...");
+          await window.app.reloadMappingModules();
+          state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+        } catch (moduleError) {
+          state.setStatus(`ERROR: Module reload failed - ${moduleError.message}`, true);
+        }
+      } else {
+        state.setStatus(`ERROR: window.app.reloadMappingModules method not found`, true);
       }
     } else {
-      state.setStatus(`INFO: Config loaded from ${fileName} but window.app.reloadMappingModules not available`);
+      state.setStatus(`ERROR: window.app not available - app not initialized properly`, true);
     }
 
   } catch (error) {

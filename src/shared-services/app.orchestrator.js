@@ -139,31 +139,42 @@ export class AppOrchestrator {
     const config = state.get("config.data");
     const standardMappings = config?.standard_mappings || [];
 
+    state.setStatus(`Checking standard mappings in config...`);
     if (!standardMappings?.length) {
-      console.log("No standard mappings found - skipping module reload");
+      state.setStatus("No standard mappings found - skipping module reload");
       return;
     }
 
+    state.setStatus(`Found ${standardMappings.length} standard mapping(s) - looking for container...`);
     const container = document.getElementById("mapping-configs-container");
     if (!container) {
+      state.setStatus("ERROR: mapping-configs-container element not found in DOM", true);
       throw new Error("Mapping configs container not found");
     }
 
+    state.setStatus(`Container found - clearing existing modules...`);
     // Reset state
     container.innerHTML = "";
     this.mappingModules = [];
 
+    state.setStatus(`Creating ${standardMappings.length} new mapping modules...`);
     // Create new modules
     this.mappingModules = standardMappings.map((config, index) => {
+      state.setStatus(`Creating module ${index + 1}: ${config.mapping_reference || 'Unknown reference'}`);
       const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
         this.onMappingLoaded(moduleIndex, mappings, result)
       );
-      module.init(container);
+      try {
+        module.init(container);
+        state.setStatus(`Module ${index + 1} initialized successfully`);
+      } catch (initError) {
+        state.setStatus(`ERROR: Failed to initialize module ${index + 1}: ${initError.message}`, true);
+      }
       return module;
     });
 
     this.updateGlobalStatus();
-    console.log(`Reloaded ${standardMappings.length} mapping modules`);
+    state.setStatus(`Mapping modules reload completed - ${standardMappings.length} modules active`);
   }
 
   onMappingLoaded(moduleIndex, mappings, result) {
