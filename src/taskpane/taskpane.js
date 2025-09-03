@@ -136,7 +136,9 @@ function setupConfigDropZone() {
 // Load config from dropped/selected file
 async function loadConfigFromFile(file) {
   try {
+    console.log("Loading config from:", file.name);
     state.setStatus("Loading configuration file...");
+    
     const text = await file.text();
     const configData = JSON.parse(text);
     
@@ -144,29 +146,25 @@ async function loadConfigFromFile(file) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
 
+    // Store raw config data (like the working ConfigManager.setConfig)
     state.set("config.raw", configData);
-    
-    // Get workbook and find config  
-    const workbook = await Excel.run(async (context) => {
-      const wb = context.workbook;
-      wb.load("name");
-      await context.sync();
-      return wb.name;
-    });
-    
-    const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
-    if (!config?.standard_mappings?.length) {
-      throw new Error(`No valid configuration found for workbook: ${workbook}`);
-    }
-
-    state.setConfig({ ...config, workbook });
     
     // Reload mapping modules if orchestrator is available
     if (window.app?.reloadMappingModules) {
-      await window.app.reloadMappingModules();
+      try {
+        await window.app.reloadMappingModules();
+      } catch (moduleError) {
+        console.warn("Mapping modules reload failed (continuing):", moduleError.message);
+      }
     }
 
-    state.setStatus(`Configuration loaded from ${file.name} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    // Trigger proper config reload (like the working flow)
+    if (window.app?.reloadConfig) {
+      await window.app.reloadConfig();
+      // reloadConfig() handles the success status message
+    } else {
+      state.setStatus(`Configuration loaded from ${file.name}`);
+    }
   } catch (error) {
     console.error("Config load failed:", error);
     state.setStatus(`Failed to load config: ${error.message}`, true);
