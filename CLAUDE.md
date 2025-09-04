@@ -41,11 +41,9 @@
 ## Project-Specific Patterns
 
 **Flattened Architecture**: Eliminated manager pattern in favor of direct event binding and component self-management  
-**Defensive Programming**: All querySelector calls use optional chaining (`?.querySelector`) with null safety  
-**Lazy Initialization**: UI components reinitialize containers if null, handles init order issues  
 **Global Debug Objects**: `window.app` and `window.state` exposed in taskpane.js and app.orchestrator.js  
 **Office.js Integration**: Uses `Office.onReady()` and `Excel.run()` patterns throughout  
-**Drag-Drop Config**: taskpane.js handles JSON config file drops with StateManager integration  
+**Drag-Drop Config**: taskpane.js handles JSON config file drops
 **Details Element UI**: Uses HTML `<details>` with `.open` property manipulation for collapsible sections  
 **Dynamic Import**: Uses `import()` to load `app.config.json` at runtime via AppOrchestrator  
 **Centralized State**: StateManager handles all configuration and server state, components subscribe to changes

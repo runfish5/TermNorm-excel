@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\taskpane/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\shared-services/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\taskpane/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\backend-api/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\services/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\shared-services/**)",
+      "Read(/C:\\Users\\dsacc\\OfficeAddinApps\\TermNorm-excel\\src\\taskpane/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
