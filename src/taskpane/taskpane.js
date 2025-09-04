@@ -256,13 +256,8 @@ function setupDirectEventBindings() {
     });
   }
 
-  // Start tracking button with enhanced state management
+  // Start tracking button
   const trackingBtn = document.getElementById("setup-map-tracking");
-  console.log("🔵 BUTTON_SETUP: Activate Tracking button -", {
-    buttonExists: !!trackingBtn,
-    buttonId: trackingBtn?.id,
-    buttonClasses: trackingBtn?.className,
-  });
 
   // Button state management functions
   function updateTrackingButtonState() {
@@ -276,7 +271,6 @@ function setupDirectEventBindings() {
     }
 
     const validation = window.app.validateTrackingReadiness();
-    console.log("🔵 BUTTON_UPDATE: Validation result -", validation);
 
     if (validation.ready) {
       trackingBtn.disabled = false;
@@ -297,29 +291,14 @@ function setupDirectEventBindings() {
     }
   }
 
-  // Enhanced button click handler for Excel Online compatibility
+  // Button click handler
   async function handleTrackingButtonClick(event) {
-    console.log("🔵 BUTTON_CLICK: Event triggered -", {
-      type: event.type,
-      disabled: trackingBtn.disabled,
-      ariaDisabled: trackingBtn.getAttribute("aria-disabled"),
-      pointerEvents: trackingBtn.style.pointerEvents,
-    });
-
     // Prevent if button is disabled
     if (trackingBtn.disabled || trackingBtn.getAttribute("aria-disabled") === "true") {
-      console.log("🟡 BUTTON_CLICK: Button is disabled, ignoring click");
       event.preventDefault();
       event.stopPropagation();
       return;
     }
-
-    console.log("🔵 BUTTON_CLICK: Activate Tracking clicked");
-    console.log("🔵 BUTTON_CLICK: App availability -", {
-      windowAppExists: !!window.app,
-      hasStartTracking: !!window.app?.startTracking,
-      hasValidation: !!window.app?.validateTrackingReadiness,
-    });
 
     // Set loading state
     trackingBtn.disabled = true;
@@ -329,33 +308,20 @@ function setupDirectEventBindings() {
 
     try {
       if (window.app?.startTracking) {
-        console.log("🔵 BUTTON_CLICK: Calling window.app.startTracking()");
         await window.app.startTracking();
       } else {
-        console.log("🔴 BUTTON_CLICK: FAILED - window.app.startTracking not available");
-        console.log("🔴 BUTTON_CLICK: Attempting failsafe app initialization");
-
-        // Failsafe: try to reinitialize app if it's missing
-        try {
-          if (!window.app) {
-            const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
-            const app = new AppOrchestrator();
-            await app.init();
-            window.app = app;
-            console.log("🟢 BUTTON_CLICK: Failsafe app initialization successful");
-
-            // Retry tracking activation
-            await window.app.startTracking();
-          } else {
-            throw new Error("window.app exists but startTracking method is missing");
-          }
-        } catch (failsafeError) {
-          console.log("🔴 BUTTON_CLICK: Failsafe failed:", failsafeError);
-          state.setStatus("Application initialization failed - please refresh the page", true);
+        // Simple failsafe: try to reinitialize app if missing
+        if (!window.app) {
+          const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
+          const app = new AppOrchestrator();
+          await app.init();
+          window.app = app;
+          await window.app.startTracking();
+        } else {
+          throw new Error("window.app exists but startTracking method is missing");
         }
       }
     } catch (error) {
-      console.log("🔴 BUTTON_CLICK: Error during activation:", error);
       state.setStatus(`Activation failed: ${error.message}`, true);
     } finally {
       // Restore button state
@@ -364,42 +330,14 @@ function setupDirectEventBindings() {
   }
 
   if (trackingBtn) {
-    // Add multiple event listeners for Excel Online compatibility
-    console.log("🔵 BUTTON_SETUP: Adding redundant event listeners for Excel Online compatibility");
-
     trackingBtn.addEventListener("click", handleTrackingButtonClick);
-    trackingBtn.addEventListener("mouseup", handleTrackingButtonClick);
-    trackingBtn.addEventListener("touchend", handleTrackingButtonClick);
-
-    // Add focus event to trigger hover behavior needed in Excel Online
-    trackingBtn.addEventListener("mouseenter", () => {
-      console.log("🔵 BUTTON_HOVER: Mouse enter - triggering focus for Excel Online");
-      trackingBtn.focus();
-    });
-
+    
     // Initial button state update
     updateTrackingButtonState();
 
     // Update button state when mappings change
     state.subscribe("mappings", updateTrackingButtonState);
     state.subscribe("config", updateTrackingButtonState);
-
-    // Periodic check for app availability (especially important for Office 365)
-    const appCheckInterval = setInterval(() => {
-      if (window.app?.validateTrackingReadiness) {
-        updateTrackingButtonState();
-      } else {
-        console.log("🔵 BUTTON_PERIODIC: window.app not yet available");
-      }
-    }, 1000);
-
-    // Clear interval after 30 seconds to avoid indefinite polling
-    setTimeout(() => {
-      clearInterval(appCheckInterval);
-      console.log("🔵 BUTTON_PERIODIC: Stopped periodic app check");
-    }, 30000);
-  } else {
-    console.log("🔴 BUTTON_SETUP: FAILED - Activate Tracking button not found in DOM");
   }
 
   // Renew prompt button

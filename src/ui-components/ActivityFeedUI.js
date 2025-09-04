@@ -96,5 +96,5 @@ export const ActivityFeed = {
       this.tableBody.innerHTML =
         '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking to see live mappings.</td></tr>';
     }
-  },
+  }
 };
