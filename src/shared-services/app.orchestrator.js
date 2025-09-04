@@ -99,8 +99,7 @@ export class AppOrchestrator {
     } else {
       validation.issues.push(`✅ ${sourceCount} mapping table(s) loaded`);
 
-      // Check if sources contain valid mappings
-      state.combineMappingSources();
+      // Check if combined mappings exist (they should be auto-combined when sources are added)
       const mappings = state.get("mappings");
       const forwardCount = mappings?.forward ? Object.keys(mappings.forward).length : 0;
       const reverseCount = mappings?.reverse ? Object.keys(mappings.reverse).length : 0;
@@ -303,8 +302,8 @@ export class AppOrchestrator {
       loaded === 0
         ? "Ready to load mapping configurations..."
         : loaded === total
-        ? `All ${total} mapping sources loaded`
-        : `${loaded}/${total} mapping sources loaded`;
+          ? `All ${total} mapping sources loaded`
+          : `${loaded}/${total} mapping sources loaded`;
 
     state.setStatus(message);
   }
