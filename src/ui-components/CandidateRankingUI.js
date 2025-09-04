@@ -32,7 +32,7 @@ export class ActivityDisplay {
         const isHistory = e.target.value === "history";
         const activityFeed = this.container?.querySelector("#activity-feed");
         const candidateSection = this.container?.querySelector("#candidate-ranking-section");
-        
+
         if (activityFeed) {
           activityFeed.style.display = isHistory ? "block" : "none";
         }
@@ -84,8 +84,8 @@ export class ActivityDisplay {
         console.warn("CandidateRankingUI: candidate-ranking-section not found");
         return;
       }
-    
-    rankedContainer.innerHTML = `
+
+      rankedContainer.innerHTML = `
             <div class="candidate-entry">
                 <div class="candidate-header">Input: "${value}"</div>
                 <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
@@ -93,14 +93,18 @@ export class ActivityDisplay {
                     <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
                 </div>
                 <table class="candidate-table">
-                    <thead><tr><th>🔀</th>${columns.map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`).join("")}</tr></thead>
+                    <thead><tr><th>🔀</th>${columns
+                      .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
+                      .join("")}</tr></thead>
                     <tbody>
                         ${this.candidatesData
                           .map(
                             (c, i) => `
                             <tr draggable="true" data-index="${i}">
                                 <td class="drag-handle">⋮⋮</td>
-                                ${columns.map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}
+                                ${columns
+                                  .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
+                                  .join("")}
                             </tr>
                         `
                           )
@@ -124,7 +128,7 @@ export class ActivityDisplay {
       console.error("CandidateRankingUI: apply-first button not found");
       return;
     }
-    
+
     applyButton.onclick = async () => {
       const first = this.candidatesData[0];
       if (!first || !this.currentContext) return;
@@ -133,7 +137,9 @@ export class ActivityDisplay {
 
       try {
         await this.currentContext.applyChoice(first);
-        feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${first.core_concept_score || first.spec_score || first.relevance_score || "N/A"}`;
+        feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${
+          first.core_concept_score || first.spec_score || first.relevance_score || "N/A"
+        }`;
         feedback.style.background = "#d4edda";
         setTimeout(() => feedback.remove(), 3000);
       } catch (error) {
@@ -167,7 +173,7 @@ export class ActivityDisplay {
       console.error("CandidateRankingUI: tbody not found in container");
       return;
     }
-    
+
     let dragIndex = null;
 
     tbody.ondragstart = (e) => {

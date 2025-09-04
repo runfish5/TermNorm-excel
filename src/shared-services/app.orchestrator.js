@@ -10,42 +10,9 @@ export class AppOrchestrator {
     this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
     this.configLoaded = false;
     this.mappingModules = [];
-    this.isOffice365 = this._detectOffice365();
 
     // Add this line for easy debugging
     window.state = state;
-
-    // Ensure this instance stays available in Office 365
-    if (this.isOffice365) {
-      this._enhanceOffice365Stability();
-    }
-  }
-
-  _detectOffice365() {
-    return (
-      typeof window !== "undefined" &&
-      (window.location.hostname.includes("excel.officeapps.live.com") ||
-        window.location.hostname.includes("office.com") ||
-        window.location.hostname.includes("officeapps-df.live.com") ||
-        Office.context?.host?.includes("ExcelWebApp") ||
-        Office.context?.platform === Office.PlatformType.OfficeOnline)
-    );
-  }
-
-  _enhanceOffice365Stability() {
-    // Prevent garbage collection in Office 365 by keeping strong references
-    if (!window._termnormAppInstances) {
-      window._termnormAppInstances = [];
-    }
-    window._termnormAppInstances.push(this);
-
-    // Add periodic availability check for Office 365
-    this._office365HealthCheck = setInterval(() => {
-      if (window.app !== this) {
-        console.warn("TermNorm: window.app reference lost in Office 365, restoring...");
-        window.app = this;
-      }
-    }, 5000);
   }
 
   async init() {
@@ -106,7 +73,7 @@ export class AppOrchestrator {
 
     state.combineMappingSources();
     const mappings = state.get("mappings");
-    
+
     const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
     const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
     if (!hasForward && !hasReverse) {
@@ -122,7 +89,7 @@ export class AppOrchestrator {
 
       const mode = forwardCount > 0 ? "with mappings" : "reverse-only";
       const suffix = sourcesCount > 1 ? ` (${sourcesCount} sources)` : "";
-      
+
       state.setStatus(`Tracking active ${mode}${suffix} - ${forwardCount} forward, ${reverseCount} reverse`);
       // Show results view - will be handled by taskpane.js showView function
       if (window.showView) {
@@ -172,71 +139,36 @@ export class AppOrchestrator {
     const config = state.get("config.data");
     const standardMappings = config?.standard_mappings || [];
 
-    state.setStatus(`LOG: reloadMappingModules() started - checking config...`);
     if (!standardMappings?.length) {
-      state.setStatus("LOG: No standard mappings found - skipping module reload");
       return;
     }
 
-    state.setStatus(`LOG: Found ${standardMappings.length} mappings - looking for container...`);
     const container = document.getElementById("mapping-configs-container");
     if (!container) {
-      state.setStatus("LOG: ERROR - mapping-configs-container element not found in DOM", true);
       throw new Error("Mapping configs container not found");
     }
 
-    const beforeChildCount = container.children.length;
-    state.setStatus(`LOG: Container found - children before clear: ${beforeChildCount}`);
-    
     // Reset state
     container.innerHTML = "";
     this.mappingModules = [];
-    
-    const afterClearCount = container.children.length;
-    state.setStatus(`LOG: Container cleared - children after clear: ${afterClearCount}`);
 
-    state.setStatus(`LOG: Starting creation of ${standardMappings.length} modules...`);
-    
     // Create new modules
     this.mappingModules = standardMappings.map((config, index) => {
-      state.setStatus(`LOG: Creating module ${index + 1} - ref: ${config.mapping_reference || 'Unknown'}`);
-      
-      const module = new MappingConfigModule(config, index, (moduleIndex, mappings, result) =>
-        this.onMappingLoaded(moduleIndex, mappings, result)
-      );
-      
-      const beforeInitCount = container.children.length;
-      state.setStatus(`LOG: Before init() - container children: ${beforeInitCount}`);
-      
+      const module = new MappingConfigModule(config, index, () => this.onMappingLoaded());
+
       try {
-        const initResult = module.init(container);
-        const afterInitCount = container.children.length;
-        state.setStatus(`LOG: Module ${index + 1} init() completed - children: ${beforeInitCount} -> ${afterInitCount}`);
-        
-        if (initResult && initResult.id) {
-          state.setStatus(`LOG: Module ${index + 1} element created with ID: ${initResult.id}`);
-        } else {
-          state.setStatus(`LOG: Module ${index + 1} init() returned: ${typeof initResult}`);
-        }
+        module.init(container);
       } catch (initError) {
-        state.setStatus(`LOG: ERROR - Module ${index + 1} init failed: ${initError.message}`, true);
+        state.setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
       }
-      
+
       return module;
     });
 
-    const finalChildCount = container.children.length;
-    state.setStatus(`LOG: All modules created - final container children: ${finalChildCount}`);
-    
-    // Log container HTML state for debugging
-    const containerHTML = container.innerHTML.substring(0, 200);
-    state.setStatus(`LOG: Container HTML preview: ${containerHTML}${container.innerHTML.length > 200 ? '...' : ''}`);
-
     this.updateGlobalStatus();
-    state.setStatus(`LOG: Mapping modules reload completed - ${standardMappings.length} modules active`);
   }
 
-  onMappingLoaded(moduleIndex, mappings, result) {
+  onMappingLoaded() {
     // Mapping data is now managed directly in state - just update UI
     this.updateGlobalStatus();
     this.updateJsonDump();
@@ -275,21 +207,5 @@ export class AppOrchestrator {
           : `${loaded}/${total} mapping sources loaded`;
 
     state.setStatus(message);
-  }
-
-  // Cleanup method for Office 365 health check
-  destroy() {
-    if (this._office365HealthCheck) {
-      clearInterval(this._office365HealthCheck);
-      this._office365HealthCheck = null;
-    }
-
-    // Remove from instances array
-    if (window._termnormAppInstances) {
-      const index = window._termnormAppInstances.indexOf(this);
-      if (index > -1) {
-        window._termnormAppInstances.splice(index, 1);
-      }
-    }
   }
 }

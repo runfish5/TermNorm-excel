@@ -128,11 +128,11 @@ async function loadCurrentWorksheetData(sheetName) {
 async function loadExternalWorksheetData(file, sheetName) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
-  
+
   if (!workbook.SheetNames.includes(sheetName)) {
     throw new Error(`Sheet "${sheetName}" not found in ${file.name}`);
   }
-  
+
   return XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null });
 }
 

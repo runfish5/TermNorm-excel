@@ -8,9 +8,7 @@
  */
 export function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
-  return headers.findIndex(h => 
-    h?.toString().trim().toLowerCase() === columnName.toLowerCase()
-  );
+  return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
 
 /**
@@ -21,13 +19,13 @@ export function findColumnIndex(headers, columnName) {
  */
 export function validateColumns(headers, columnConfig) {
   const missing = [];
-  
-  Object.entries(columnConfig).forEach(([key, columnName]) => {
+
+  Object.entries(columnConfig).forEach(([, columnName]) => {
     if (columnName && findColumnIndex(headers, columnName) === -1) {
       missing.push(columnName);
     }
   });
-  
+
   if (missing.length > 0) {
     throw new Error(`Missing columns: ${missing.join(", ")}`);
   }
@@ -35,7 +33,7 @@ export function validateColumns(headers, columnConfig) {
 
 /**
  * Build column mapping from configuration
- * @param {Array} headers - Array of header names  
+ * @param {Array} headers - Array of header names
  * @param {Object} columnMap - Column mapping configuration
  * @returns {Map} Map of source column index to target column index
  */

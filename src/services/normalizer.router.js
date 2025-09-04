@@ -66,9 +66,13 @@ export class NormalizerRouter {
 
       if (!response.ok) {
         const isAuthError = response.status === 401;
-        const message = isAuthError ? "❌ API key invalid - check your key" : `❌ API Error: ${response.status} ${response.statusText} (API)`;
-        const logMessage = `[API] ${isAuthError ? 'API Key Error: 401 Unauthorized' : `API Error: ${response.status} ${response.statusText}`} - Endpoint: ${apiEndpoint}`;
-        
+        const message = isAuthError
+          ? "❌ API key invalid - check your key"
+          : `❌ API Error: ${response.status} ${response.statusText} (API)`;
+        const logMessage = `[API] ${
+          isAuthError ? "API Key Error: 401 Unauthorized" : `API Error: ${response.status} ${response.statusText}`
+        } - Endpoint: ${apiEndpoint}`;
+
         state.setStatus(message, true);
         console.error(logMessage);
         return null;
@@ -108,7 +112,7 @@ export class NormalizerRouter {
       } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
         errorMessage = "Backend server not accessible - ensure server is running on port 8000";
       }
-      
+
       state.setStatus(errorMessage, true);
       return null;
     }

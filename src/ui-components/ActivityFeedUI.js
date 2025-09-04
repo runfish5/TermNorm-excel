@@ -28,7 +28,6 @@ export const ActivityFeed = {
         `;
 
     this.tableBody = this.container?.querySelector("tbody");
-    return true;
 
     // Setup clear button
     const clearBtn = document.getElementById("clear-activity");
@@ -38,6 +37,7 @@ export const ActivityFeed = {
 
     this.showPlaceholder();
     console.log("ActivityFeed initialized");
+    return true;
   },
 
   add(source, target, method, confidence) {
@@ -60,9 +60,9 @@ export const ActivityFeed = {
       row.className = `activity-row ${method}`;
       row.innerHTML = `
               <td class="time">${new Date().toLocaleTimeString()}</td>
-              <td class="source">${source || '-'}</td>
-              <td class="target">${target || '-'}</td>
-              <td class="method">${method ? method.toUpperCase() : '-'}</td>
+              <td class="source">${source || "-"}</td>
+              <td class="target">${target || "-"}</td>
+              <td class="method">${method ? method.toUpperCase() : "-"}</td>
               <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
           `;
 
