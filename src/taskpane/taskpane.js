@@ -32,10 +32,13 @@ Office.onReady(async (info) => {
 
   // No theme selector functionality needed - default only
 
-  // Set up direct event bindings (safe before app init)
+  // Set up ultra-simple drag/drop
+  setupSimpleDragDrop();
+
+  // Set up direct event bindings
   setupDirectEventBindings();
 
-  // Initialize server status (safe before app init)
+  // Initialize server status
   initializeServerStatus();
 
   try {
@@ -43,9 +46,6 @@ Office.onReady(async (info) => {
     await app.init();
     window.app = app; // For debugging
     window.showView = showView; // Make showView globally available
-    
-    // Set up drag/drop AFTER app is fully initialized to prevent race conditions
-    setupSimpleDragDrop();
 
     // Set up status display
     state.subscribe("ui", (ui) => {
@@ -262,19 +262,37 @@ async function loadConfigData(configData, fileName) {
     
     state.setStatus(`LOG: UI container verified - style display: ${container.style.display}, visibility: ${container.style.visibility}, offsetParent: ${!!container.offsetParent}`);
 
-    // Reload mapping modules - app is guaranteed to be ready due to initialization order
-    state.setStatus("LOG: Starting mapping module reload...");
+    // Reload mapping modules with retry logic for Office 365
+    state.setStatus(`LOG: Checking window.app availability with retry logic...`);
     
-    if (!window.app) {
-      throw new Error("Application not initialized - this should not happen due to initialization order");
+    let app = window.app;
+    let retryCount = 0;
+    const maxRetries = 5;
+    const retryDelay = 200; // ms
+    
+    // Retry logic for app availability (Office 365 timing issues)
+    while (!app && retryCount < maxRetries) {
+      state.setStatus(`LOG: window.app not ready, retry ${retryCount + 1}/${maxRetries}...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      app = window.app;
+      retryCount++;
     }
     
-    if (!window.app.reloadMappingModules) {
-      throw new Error("Mapping module functionality not available");
+    if (!app) {
+      throw new Error("Application not initialized - please refresh the add-in and try again");
     }
+    
+    state.setStatus(`LOG: window.app found after ${retryCount} retries - type: ${typeof app}`);
+    
+    if (!app.reloadMappingModules) {
+      throw new Error("Mapping module functionality not available - please refresh the add-in");
+    }
+    
+    state.setStatus(`LOG: reloadMappingModules method found - type: ${typeof app.reloadMappingModules}`);
     
     try {
-      await window.app.reloadMappingModules();
+      state.setStatus("LOG: Starting mapping module reload...");
+      await app.reloadMappingModules();
       
       // Get fresh reference to container after potential view switch
       const finalContainer = document.getElementById("mapping-configs-container");
@@ -284,8 +302,11 @@ async function loadConfigData(configData, fileName) {
       
       // Verify container state after reload
       const finalChildCount = finalContainer.children.length;
+      const visibleChildren = Array.from(finalContainer.children).filter(child => 
+        child.offsetParent !== null && window.getComputedStyle(child).display !== 'none'
+      ).length;
       
-      state.setStatus(`LOG: Module reload completed - container children: ${finalChildCount}`);
+      state.setStatus(`LOG: Module reload completed - total children: ${finalChildCount}, visible: ${visibleChildren}`);
       
       if (finalChildCount === 0) {
         throw new Error("Module reload completed but no UI elements were created");
