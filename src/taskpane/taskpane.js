@@ -272,66 +272,101 @@ function setupDirectEventBindings() {
 
     if (validation.ready) {
       trackingBtn.disabled = false;
+      trackingBtn.removeAttribute("aria-disabled");
+      trackingBtn.style.pointerEvents = "auto";
+      trackingBtn.style.cursor = "pointer";
       trackingBtn.textContent = "Activate Tracking";
       trackingBtn.title = "Ready to start tracking: " + validation.summary;
       trackingBtn.className = "ms-Button bidirectional-option";
     } else {
       trackingBtn.disabled = true;
+      trackingBtn.setAttribute("aria-disabled", "true");
+      trackingBtn.style.pointerEvents = "auto"; // Still allow events for better debugging
+      trackingBtn.style.cursor = "not-allowed";
       trackingBtn.textContent = "Not Ready";
       trackingBtn.title = "Issues to resolve: " + validation.summary;
       trackingBtn.className = "ms-Button bidirectional-option ms-Button--disabled";
     }
   }
 
-  if (trackingBtn) {
-    trackingBtn.addEventListener("click", async () => {
-      if (trackingBtn.disabled) return;
+  // Enhanced button click handler for Excel Online compatibility
+  async function handleTrackingButtonClick(event) {
+    console.log("🔵 BUTTON_CLICK: Event triggered -", {
+      type: event.type,
+      disabled: trackingBtn.disabled,
+      ariaDisabled: trackingBtn.getAttribute("aria-disabled"),
+      pointerEvents: trackingBtn.style.pointerEvents,
+    });
 
-      console.log("🔵 BUTTON_CLICK: Activate Tracking clicked");
-      console.log("🔵 BUTTON_CLICK: App availability -", {
-        windowAppExists: !!window.app,
-        hasStartTracking: !!window.app?.startTracking,
-        hasValidation: !!window.app?.validateTrackingReadiness,
-      });
+    // Prevent if button is disabled
+    if (trackingBtn.disabled || trackingBtn.getAttribute("aria-disabled") === "true") {
+      console.log("🟡 BUTTON_CLICK: Button is disabled, ignoring click");
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
 
-      // Set loading state
-      trackingBtn.disabled = true;
-      trackingBtn.textContent = "Activating...";
+    console.log("🔵 BUTTON_CLICK: Activate Tracking clicked");
+    console.log("🔵 BUTTON_CLICK: App availability -", {
+      windowAppExists: !!window.app,
+      hasStartTracking: !!window.app?.startTracking,
+      hasValidation: !!window.app?.validateTrackingReadiness,
+    });
 
-      try {
-        if (window.app?.startTracking) {
-          console.log("🔵 BUTTON_CLICK: Calling window.app.startTracking()");
-          await window.app.startTracking();
-        } else {
-          console.log("🔴 BUTTON_CLICK: FAILED - window.app.startTracking not available");
-          console.log("🔴 BUTTON_CLICK: Attempting failsafe app initialization");
+    // Set loading state
+    trackingBtn.disabled = true;
+    trackingBtn.setAttribute("aria-disabled", "true");
+    trackingBtn.style.cursor = "not-allowed";
+    trackingBtn.textContent = "Activating...";
 
-          // Failsafe: try to reinitialize app if it's missing
-          try {
-            if (!window.app) {
-              const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
-              const app = new AppOrchestrator();
-              await app.init();
-              window.app = app;
-              console.log("🟢 BUTTON_CLICK: Failsafe app initialization successful");
+    try {
+      if (window.app?.startTracking) {
+        console.log("🔵 BUTTON_CLICK: Calling window.app.startTracking()");
+        await window.app.startTracking();
+      } else {
+        console.log("🔴 BUTTON_CLICK: FAILED - window.app.startTracking not available");
+        console.log("🔴 BUTTON_CLICK: Attempting failsafe app initialization");
 
-              // Retry tracking activation
-              await window.app.startTracking();
-            } else {
-              throw new Error("window.app exists but startTracking method is missing");
-            }
-          } catch (failsafeError) {
-            console.log("🔴 BUTTON_CLICK: Failsafe failed:", failsafeError);
-            state.setStatus("Application initialization failed - please refresh the page", true);
+        // Failsafe: try to reinitialize app if it's missing
+        try {
+          if (!window.app) {
+            const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
+            const app = new AppOrchestrator();
+            await app.init();
+            window.app = app;
+            console.log("🟢 BUTTON_CLICK: Failsafe app initialization successful");
+
+            // Retry tracking activation
+            await window.app.startTracking();
+          } else {
+            throw new Error("window.app exists but startTracking method is missing");
           }
+        } catch (failsafeError) {
+          console.log("🔴 BUTTON_CLICK: Failsafe failed:", failsafeError);
+          state.setStatus("Application initialization failed - please refresh the page", true);
         }
-      } catch (error) {
-        console.log("🔴 BUTTON_CLICK: Error during activation:", error);
-        state.setStatus(`Activation failed: ${error.message}`, true);
-      } finally {
-        // Restore button state
-        setTimeout(updateTrackingButtonState, 100);
       }
+    } catch (error) {
+      console.log("🔴 BUTTON_CLICK: Error during activation:", error);
+      state.setStatus(`Activation failed: ${error.message}`, true);
+    } finally {
+      // Restore button state
+      setTimeout(updateTrackingButtonState, 100);
+    }
+  }
+
+  if (trackingBtn) {
+    // Add multiple event listeners for Excel Online compatibility
+    console.log("🔵 BUTTON_SETUP: Adding redundant event listeners for Excel Online compatibility");
+
+    trackingBtn.addEventListener("click", handleTrackingButtonClick);
+    trackingBtn.addEventListener("mouseup", handleTrackingButtonClick);
+    trackingBtn.addEventListener("touchend", handleTrackingButtonClick);
+
+    // Add focus event to trigger hover behavior needed in Excel Online
+    trackingBtn.addEventListener("mouseenter", () => {
+      console.log("🔵 BUTTON_HOVER: Mouse enter - triggering focus for Excel Online");
+      trackingBtn.focus();
     });
 
     // Initial button state update

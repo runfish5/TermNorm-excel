@@ -344,6 +344,22 @@
     margin-right: 5px;
 }
 
+/* Button state fixes for Excel Online compatibility */
+.ms-Button {
+    pointer-events: auto !important;
+    cursor: pointer;
+}
+
+.ms-Button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.ms-Button--disabled {
+    pointer-events: auto !important;
+    cursor: not-allowed;
+}
+
 /* Utilities */
 .hidden {
     display: none;
