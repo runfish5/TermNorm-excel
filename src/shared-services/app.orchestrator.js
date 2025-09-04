@@ -71,13 +71,6 @@ export class AppOrchestrator {
     const rawSources = state.get("mappings.sources");
     const sourceCount = rawSources ? Object.keys(rawSources).length : 0;
 
-    console.log("🔵 VALIDATE_TRACKING: Checking readiness -", {
-      hasConfig: !!config,
-      hasColumnMap: !!config?.column_map,
-      columnMapCount: config?.column_map ? Object.keys(config.column_map).length : 0,
-      sourceCount: sourceCount,
-    });
-
     const validation = {
       ready: false,
       issues: [],
@@ -117,53 +110,25 @@ export class AppOrchestrator {
   }
 
   async startTracking() {
-    console.log("🔵 ACTIVATE_TRACKING: Starting activation process");
-
-    // Step 1: Check config
+    // Check config
     const config = state.get("config.data");
-    console.log("🔵 ACTIVATE_TRACKING: Config check -", {
-      configExists: !!config,
-      hasColumnMap: !!config?.column_map,
-      columnMapKeys: config?.column_map ? Object.keys(config.column_map) : [],
-      workbook: config?.workbook,
-    });
 
     if (!config?.column_map || !Object.keys(config.column_map).length) {
-      console.log("🔴 ACTIVATE_TRACKING: FAILED - No valid config");
       const errorMsg = !config
         ? "No configuration loaded - please drag and drop a config file first"
         : "Configuration missing column mappings - check your config file";
       return state.setStatus(`Error: ${errorMsg}`, true);
     }
 
-    // Step 2: Check mapping sources before combining
+    // Check mapping sources before combining
     const rawSources = state.get("mappings.sources");
-    console.log("🔵 ACTIVATE_TRACKING: Raw mapping sources -", {
-      sourcesExist: !!rawSources,
-      sourceCount: rawSources ? Object.keys(rawSources).length : 0,
-      sourceKeys: rawSources ? Object.keys(rawSources) : [],
-    });
-
     state.combineMappingSources();
     const mappings = state.get("mappings");
-    console.log("🔵 ACTIVATE_TRACKING: Combined mappings -", {
-      mappingsExist: !!mappings,
-      forwardCount: mappings?.forward ? Object.keys(mappings.forward).length : 0,
-      reverseCount: mappings?.reverse ? Object.keys(mappings.reverse).length : 0,
-      hasMetadata: !!mappings?.metadata,
-    });
 
     const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
     const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
 
     if (!hasForward && !hasReverse) {
-      console.log("🔴 ACTIVATE_TRACKING: FAILED - No valid mappings after combination");
-      console.log("🔴 ACTIVATE_TRACKING: Debug info -", {
-        mappingsState: mappings,
-        rawSourcesState: rawSources,
-        configState: config,
-      });
-
       const sourceCount = rawSources ? Object.keys(rawSources).length : 0;
       let errorMsg;
       if (sourceCount === 0) {
@@ -174,8 +139,7 @@ export class AppOrchestrator {
       return state.setStatus(`Error: ${errorMsg}`, true);
     }
 
-    // Step 3: Start tracking
-    console.log("🔵 ACTIVATE_TRACKING: Starting tracker with valid data");
+    // Start tracking
     try {
       await this.tracker.start(config, mappings);
 
@@ -186,15 +150,13 @@ export class AppOrchestrator {
       const mode = forwardCount > 0 ? "with mappings" : "reverse-only";
       const suffix = sourcesCount > 1 ? ` (${sourcesCount} sources)` : "";
 
-      console.log("🟢 ACTIVATE_TRACKING: SUCCESS - Tracking started");
       state.setStatus(`Tracking active ${mode}${suffix} - ${forwardCount} forward, ${reverseCount} reverse`);
 
-      // Show results view - will be handled by taskpane.js showView function
+      // Show results view
       if (window.showView) {
         window.showView("results");
       }
     } catch (error) {
-      console.log("🔴 ACTIVATE_TRACKING: FAILED - Tracker start error:", error);
       state.setStatus(`Error: ${error.message}`, true);
     }
   }

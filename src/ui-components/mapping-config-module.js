@@ -12,6 +12,22 @@ export class MappingConfigModule {
     this.cachedFileName = null;
     this.elementId = `mapping-config-${index}`;
     this.mappings = { forward: {}, reverse: {}, metadata: null };
+    
+    // Pre-generate all DOM IDs to reduce repetition
+    this.ids = {
+      filenameDisplay: `${this.elementId}-filename-display`,
+      currentFile: `${this.elementId}-current-file`,
+      externalFile: `${this.elementId}-external-file`,
+      filePathDisplay: `${this.elementId}-file-path-display`,
+      filePickerInput: `${this.elementId}-file-picker-input`,
+      browseButton: `${this.elementId}-browse-button`,
+      worksheetDropdown: `${this.elementId}-worksheet-dropdown`,
+      targetColumn: `${this.elementId}-target-column`,
+      sourceColumn: `${this.elementId}-source-column`,
+      loadMapping: `${this.elementId}-load-mapping`,
+      fileSource: `${this.elementId}-file-source`,
+      externalFileSection: `${this.elementId}-external-file-section`
+    };
   }
   createElement() {
     const element = document.createElement("details");
@@ -19,50 +35,38 @@ export class MappingConfigModule {
     element.className = "ms-welcome__section mapping-config-module";
     element.open = true;
 
-    // Build HTML using proper string concatenation to avoid prettier breaking it
-    const fileNameSpanId = `${this.elementId}-filename-display`;
-    const currentFileId = `${this.elementId}-current-file`;
-    const externalFileId = `${this.elementId}-external-file`;
-    const filePathDisplayId = `${this.elementId}-file-path-display`;
-    const filePickerInputId = `${this.elementId}-file-picker-input`;
-    const browseButtonId = `${this.elementId}-browse-button`;
-    const worksheetDropdownId = `${this.elementId}-worksheet-dropdown`;
-    const targetColumnId = `${this.elementId}-target-column`;
-    const sourceColumnId = `${this.elementId}-source-column`;
-    const loadMappingId = `${this.elementId}-load-mapping`;
-    const fileSourceName = `${this.elementId}-file-source`;
-    const externalFileSectionId = `${this.elementId}-external-file-section`;
+    const { ids } = this;
 
     element.innerHTML = `
             <summary class="ms-font-m">
                 Map Config ${this.index + 1}
-                <span id="${fileNameSpanId}" style="margin-left: 10px; font-style: italic; color: #666;"></span>
+                <span id="${ids.filenameDisplay}" style="margin-left: 10px; font-style: italic; color: #666;"></span>
             </summary>
             <div class="form-section first-form-section">
                 <div class="radio-group">
                     <label>Excel File:</label>
                     <div>
-                        <input type="radio" id="${currentFileId}" name="${fileSourceName}" value="current" checked />
-                        <label for="${currentFileId}" class="ms-font-m">This Excel file</label>
+                        <input type="radio" id="${ids.currentFile}" name="${ids.fileSource}" value="current" checked />
+                        <label for="${ids.currentFile}" class="ms-font-m">This Excel file</label>
                     </div>
                     <div>
-                        <input type="radio" id="${externalFileId}" name="${fileSourceName}" value="external" />
-                        <label for="${externalFileId}" class="ms-font-m">External Excel file</label>
+                        <input type="radio" id="${ids.externalFile}" name="${ids.fileSource}" value="external" />
+                        <label for="${ids.externalFile}" class="ms-font-m">External Excel file</label>
                     </div>
                 </div>
-                <div id="${externalFileSectionId}" class="hidden form-section">
+                <div id="${ids.externalFileSection}" class="hidden form-section">
                     <div class="file-row">
-                        <label for="${filePathDisplayId}" class="ms-font-m">File Path:</label>
-                        <input type="text" id="${filePathDisplayId}" placeholder="No file selected" readonly />
-                        <input type="file" id="${filePickerInputId}" accept=".xlsx,.xls" class="hidden" />
-                        <button id="${browseButtonId}" class="ms-Button">Browse...</button>
+                        <label for="${ids.filePathDisplay}" class="ms-font-m">File Path:</label>
+                        <input type="text" id="${ids.filePathDisplay}" placeholder="No file selected" readonly />
+                        <input type="file" id="${ids.filePickerInput}" accept=".xlsx,.xls" class="hidden" />
+                        <button id="${ids.browseButton}" class="ms-Button">Browse...</button>
                     </div>
                 </div>
             </div>
             
             <div class="form-section">
-                <label for="${worksheetDropdownId}">Worksheet:</label>
-                <select id="${worksheetDropdownId}">
+                <label for="${ids.worksheetDropdown}">Worksheet:</label>
+                <select id="${ids.worksheetDropdown}">
                     <option value="">Select a worksheet...</option>
                 </select>
             </div>
@@ -70,17 +74,17 @@ export class MappingConfigModule {
             <div class="form-section">
                 <div class="columns">
                     <div>
-                        <label for="${targetColumnId}">Reference Column:</label>
-                        <input type="text" id="${targetColumnId}" />
+                        <label for="${ids.targetColumn}">Reference Column:</label>
+                        <input type="text" id="${ids.targetColumn}" />
                     </div>
                     <div>
-                        <label for="${sourceColumnId}">Alias Column:</label>
-                        <input type="text" id="${sourceColumnId}" placeholder="optional" />
+                        <label for="${ids.sourceColumn}">Alias Column:</label>
+                        <input type="text" id="${ids.sourceColumn}" placeholder="optional" />
                     </div>
                 </div>
             </div>
             
-            <button id="${loadMappingId}" class="btn-full form-section">
+            <button id="${ids.loadMapping}" class="btn-full form-section">
                 Load Mapping Table ${this.index + 1}
             </button>
         `;
@@ -104,23 +108,25 @@ export class MappingConfigModule {
     return element;
   }
   setupEvents() {
+    const { ids } = this;
+    
     // File source radios
-    const currentFileRadio = document.getElementById(`${this.elementId}-current-file`);
-    const externalFileRadio = document.getElementById(`${this.elementId}-external-file`);
-    const browseButton = document.getElementById(`${this.elementId}-browse-button`);
-    const filePickerInput = document.getElementById(`${this.elementId}-file-picker-input`);
-    const loadMappingButton = document.getElementById(`${this.elementId}-load-mapping`);
+    const currentFileRadio = document.getElementById(ids.currentFile);
+    const externalFileRadio = document.getElementById(ids.externalFile);
+    const browseButton = document.getElementById(ids.browseButton);
+    const filePickerInput = document.getElementById(ids.filePickerInput);
+    const loadMappingButton = document.getElementById(ids.loadMapping);
 
     if (currentFileRadio) {
       currentFileRadio.addEventListener("change", () => {
-        document.getElementById(`${this.elementId}-external-file-section`)?.classList.add("hidden");
+        document.getElementById(ids.externalFileSection)?.classList.add("hidden");
         this.loadSheets(false);
       });
     }
 
     if (externalFileRadio) {
       externalFileRadio.addEventListener("change", () => {
-        document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
+        document.getElementById(ids.externalFileSection)?.classList.remove("hidden");
         if (this.externalFile) this.loadSheets(true);
         else this.setDropdown(["Select external file first..."], true);
       });
@@ -129,7 +135,7 @@ export class MappingConfigModule {
     if (browseButton) {
       browseButton.addEventListener("click", (e) => {
         e.preventDefault();
-        document.getElementById(`${this.elementId}-file-picker-input`)?.click();
+        document.getElementById(ids.filePickerInput)?.click();
       });
     }
 
@@ -139,9 +145,9 @@ export class MappingConfigModule {
         if (!file) return;
 
         this.externalFile = file;
-        document.getElementById(`${this.elementId}-file-path-display`).value = file.name;
-        document.getElementById(`${this.elementId}-external-file`).checked = true;
-        document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
+        document.getElementById(ids.filePathDisplay).value = file.name;
+        document.getElementById(ids.externalFile).checked = true;
+        document.getElementById(ids.externalFileSection)?.classList.remove("hidden");
 
         this.updateStatus(`Reading ${file.name}...`);
         this.loadSheets(true);
@@ -149,36 +155,30 @@ export class MappingConfigModule {
     }
 
     if (loadMappingButton) {
-      console.log(`🔵 SETUP_EVENTS: Module ${this.index + 1} - Adding click listener to load mapping button`);
       loadMappingButton.addEventListener("click", (e) => {
-        console.log(`🔵 BUTTON_CLICK: Module ${this.index + 1} - Load Mapping Table button clicked`);
         e.preventDefault();
         this.loadMappings();
       });
-    } else {
-      console.log(
-        `🔴 SETUP_EVENTS: Module ${this.index + 1} - Load mapping button NOT FOUND! Element ID: ${
-          this.elementId
-        }-load-mapping`
-      );
     }
   }
   loadInitialData() {
+    const { ids } = this;
+    
     // Pre-fill form with config data
     if (this.mappingConfig.source_column) {
-      document.getElementById(`${this.elementId}-source-column`).value = this.mappingConfig.source_column;
+      document.getElementById(ids.sourceColumn).value = this.mappingConfig.source_column;
     }
     if (this.mappingConfig.target_column) {
-      document.getElementById(`${this.elementId}-target-column`).value = this.mappingConfig.target_column;
+      document.getElementById(ids.targetColumn).value = this.mappingConfig.target_column;
     }
 
     // Determine if external file
     const isExternal = this.isExternalFile();
     if (isExternal) {
-      document.getElementById(`${this.elementId}-external-file`).checked = true;
-      document.getElementById(`${this.elementId}-external-file-section`)?.classList.remove("hidden");
+      document.getElementById(ids.externalFile).checked = true;
+      document.getElementById(ids.externalFileSection)?.classList.remove("hidden");
       const fileName = this.parseFileName(this.mappingConfig.mapping_reference);
-      document.getElementById(`${this.elementId}-file-path-display`).value = fileName;
+      document.getElementById(ids.filePathDisplay).value = fileName;
       this.updateStatus(`Config expects: ${fileName}`);
       this.setDropdown(["Browse for external file first..."], true);
     } else {
@@ -212,7 +212,7 @@ export class MappingConfigModule {
     }
   }
   setDropdown(sheets, disabled = false) {
-    const dropdown = document.getElementById(`${this.elementId}-worksheet-dropdown`);
+    const dropdown = document.getElementById(this.ids.worksheetDropdown);
     if (!dropdown) return;
 
     if (disabled) {
@@ -226,7 +226,7 @@ export class MappingConfigModule {
     }
   }
   selectWorksheet(name) {
-    const dropdown = document.getElementById(`${this.elementId}-worksheet-dropdown`);
+    const dropdown = document.getElementById(this.ids.worksheetDropdown);
     if (!name || !dropdown) return;
 
     const optionExists = Array.from(dropdown.options).some((opt) => opt.value === name);
@@ -236,58 +236,35 @@ export class MappingConfigModule {
     }
   }
   async loadMappings() {
-    console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Starting load process`);
-
+    const { ids } = this;
+    
     try {
       this.updateStatus("Loading...");
 
       const customParams = {
-        useCurrentFile: document.getElementById(`${this.elementId}-current-file`)?.checked || false,
-        sheetName: document.getElementById(`${this.elementId}-worksheet-dropdown`)?.value || "",
-        sourceColumn: document.getElementById(`${this.elementId}-source-column`)?.value || null,
-        targetColumn: document.getElementById(`${this.elementId}-target-column`)?.value || "",
+        useCurrentFile: document.getElementById(ids.currentFile)?.checked || false,
+        sheetName: document.getElementById(ids.worksheetDropdown)?.value || "",
+        sourceColumn: document.getElementById(ids.sourceColumn)?.value || null,
+        targetColumn: document.getElementById(ids.targetColumn)?.value || "",
         externalFile: this.externalFile,
       };
 
-      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Custom params:`, customParams);
-
       const result = await loadAndProcessMappings(customParams);
-      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - loadAndProcessMappings returned:`, {
-        hasForward: !!result?.forward,
-        hasReverse: !!result?.reverse,
-        hasMetadata: !!result?.metadata,
-        forwardCount: result?.forward ? Object.keys(result.forward).length : 0,
-        reverseCount: result?.reverse ? Object.keys(result.reverse).length : 0,
-        resultStructure: Object.keys(result || {}),
-      });
-
+      
       // Store mapping source for later combination
-      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling state.addMappingSource with:`, {
-        index: this.index,
-        mappingsParam: result,
-        resultParam: result,
-        configParam: this.mappingConfig,
-      });
-
-      // The result object contains forward, reverse, and metadata
-      // It IS the mappings object, so we pass it as both mappings and result
       state.addMappingSource(this.index, result, result, this.mappingConfig);
       this.mappings = result;
 
-      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling handleMappingSuccess`);
       this.handleMappingSuccess(result);
 
       // Notify parent (for UI updates only)
       if (this.onMappingLoaded) {
-        console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling onMappingLoaded callback`);
         this.onMappingLoaded(this.index, this.mappings, result);
       }
 
       // Collapse the details element
       document.getElementById(this.elementId).open = false;
-      console.log(`🟢 LOAD_MAPPINGS: Module ${this.index + 1} - Load process completed successfully`);
     } catch (error) {
-      console.log(`🔴 LOAD_MAPPINGS: Module ${this.index + 1} - Error:`, error);
       this.handleMappingError(error);
     }
   }
@@ -311,7 +288,7 @@ export class MappingConfigModule {
 
     // Show filename
     const filename = this.externalFile?.name || "Current Excel file";
-    document.getElementById(`${this.elementId}-filename-display`).textContent = ` - ${filename}`;
+    document.getElementById(this.ids.filenameDisplay).textContent = ` - ${filename}`;
   }
   handleMappingError(error) {
     this.mappings = { forward: {}, reverse: {}, metadata: null };

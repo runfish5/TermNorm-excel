@@ -9,29 +9,15 @@ export class ActivityDisplay {
   static init() {
     this.container = document.getElementById("results-view");
     if (!this.container) {
-      console.warn("ActivityDisplay: Container 'results-view' not found - will try lazy init");
       return false;
     }
-
-    // Add CSS styles for drag and drop functionality
-    const style = document.createElement("style");
-    style.textContent = `
-        .candidate-table tr { cursor: move; transition: background 0.2s; }
-        .candidate-table tr:hover { background: #f3f2f1; }
-        .candidate-table tr.dragging { opacity: 0.5; }
-        .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
-        .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
-        .drag-handle:hover { color: #0078d4; }
-        .drag-handle:active { cursor: grabbing; }
-    `;
-    document.head.appendChild(style);
 
     // Set up toggle event listener
     this.container.addEventListener("change", (e) => {
       if (e.target.name === "activity-mode") {
         const isHistory = e.target.value === "history";
-        const activityFeed = this.container?.querySelector("#activity-feed");
-        const candidateSection = this.container?.querySelector("#candidate-ranking-section");
+        const activityFeed = this.container.querySelector("#activity-feed");
+        const candidateSection = this.container.querySelector("#candidate-ranking-section");
 
         if (activityFeed) {
           activityFeed.style.display = isHistory ? "block" : "none";
@@ -48,84 +34,65 @@ export class ActivityDisplay {
 
   static addCandidate(value, result, context) {
     const candidates = result?.candidates;
-    if (!candidates) return;
+    if (!candidates || !this.container) return;
 
-    // Lazy initialization - try to initialize if not already done
-    if (!this.container) {
-      const initSuccess = this.init();
-      if (!initSuccess || !this.container) {
-        console.warn("ActivityDisplay: Cannot initialize - skipping addCandidate");
-        return;
-      }
+    this.candidatesData = [...candidates];
+    this.currentContext = context;
+
+    // Column customization
+    const hiddenColumns = ["abc"]; // Add columns to hide here
+    const columnNames = {
+      core_concept_score: "Core Score",
+      spec_score: "Sp. Score",
+      key_match_factors: "Match Factors",
+      spec_gaps: "Gaps",
+    };
+
+    // Get all unique keys from candidates, excluding private properties and hidden ones
+    const columns = [
+      ...new Set(
+        candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
+      ),
+    ];
+
+    const rankedContainer = this.container.querySelector("#candidate-ranking-section");
+    if (!rankedContainer) {
+      return;
     }
 
-    try {
-      this.candidatesData = [...candidates];
-      this.currentContext = context;
+    rankedContainer.innerHTML = `
+          <div class="candidate-entry">
+              <div class="candidate-header">Input: "${value}"</div>
+              <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+                  <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
+              </div>
+              <table class="candidate-table">
+                  <thead><tr>${columns
+                    .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
+                    .join("")}</tr></thead>
+                  <tbody>
+                      ${this.candidatesData
+                        .map(
+                          (c, i) => `
+                          <tr data-index="${i}">
+                              ${columns
+                                .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
+                                .join("")}
+                          </tr>
+                      `
+                        )
+                        .join("")}
+                  </tbody>
+              </table>
+          </div>
+      `;
 
-      // Column customization
-      const hiddenColumns = ["abc"]; // Add columns to hide here
-      const columnNames = {
-        core_concept_score: "Core Score",
-        spec_score: "Sp. Score",
-        key_match_factors: "Match Factors",
-        spec_gaps: "Gaps",
-      };
-
-      // Get all unique keys from candidates, excluding private properties and hidden ones
-      const columns = [
-        ...new Set(
-          candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
-        ),
-      ];
-
-      const rankedContainer = this.container?.querySelector("#candidate-ranking-section");
-      if (!rankedContainer) {
-        console.warn("CandidateRankingUI: candidate-ranking-section not found");
-        return;
-      }
-
-      rankedContainer.innerHTML = `
-            <div class="candidate-entry">
-                <div class="candidate-header">Input: "${value}"</div>
-                <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
-                    <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
-                    <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
-                </div>
-                <table class="candidate-table">
-                    <thead><tr><th>🔀</th>${columns
-                      .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
-                      .join("")}</tr></thead>
-                    <tbody>
-                        ${this.candidatesData
-                          .map(
-                            (c, i) => `
-                            <tr draggable="true" data-index="${i}">
-                                <td class="drag-handle">⋮⋮</td>
-                                ${columns
-                                  .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
-                                  .join("")}
-                            </tr>
-                        `
-                          )
-                          .join("")}
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-      this.setupDragDrop(rankedContainer);
-      this.setupFirstChoice(rankedContainer);
-    } catch (error) {
-      console.error("ActivityDisplay.addCandidate() error:", error);
-      // Don't re-throw - just log and continue
-    }
+    this.setupFirstChoice(rankedContainer);
   }
 
   static setupFirstChoice(container) {
-    const applyButton = container?.querySelector("#apply-first");
+    const applyButton = container.querySelector("#apply-first");
     if (!applyButton) {
-      console.error("CandidateRankingUI: apply-first button not found");
       return;
     }
 
@@ -151,75 +118,27 @@ export class ActivityDisplay {
   }
 
   static showFeedback(container, message, bg) {
-    let feedback = container?.querySelector(".feedback");
+    let feedback = container.querySelector(".feedback");
     if (!feedback) {
       feedback = document.createElement("div");
       feedback.className = "feedback";
       feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
-      const table = container?.querySelector("table");
+      const table = container.querySelector("table");
       if (table) {
         table.before(feedback);
       } else {
-        container?.appendChild(feedback);
+        container.appendChild(feedback);
       }
     }
     feedback.innerHTML = message;
     return feedback;
   }
 
-  static setupDragDrop(container) {
-    const tbody = container?.querySelector("tbody");
-    if (!tbody) {
-      console.error("CandidateRankingUI: tbody not found in container");
-      return;
-    }
-
-    let dragIndex = null;
-
-    tbody.ondragstart = (e) => {
-      if (e.target.tagName === "TR") {
-        dragIndex = parseInt(e.target.dataset.index);
-        e.target.classList.add("dragging");
-      }
-    };
-
-    tbody.ondragend = (e) => {
-      if (e.target.tagName === "TR") {
-        e.target.classList.remove("dragging");
-        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
-      }
-    };
-
-    tbody.ondragover = (e) => {
-      e.preventDefault();
-      const targetRow = e.target.closest("tr");
-      if (targetRow && dragIndex !== null) {
-        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
-        targetRow.classList.add("drag-over");
-      }
-    };
-
-    tbody.ondrop = (e) => {
-      e.preventDefault();
-      const targetRow = e.target.closest("tr");
-      if (targetRow && dragIndex !== null) {
-        const targetIndex = parseInt(targetRow.dataset.index);
-        const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
-        this.candidatesData.splice(targetIndex, 0, draggedItem);
-
-        const headerElement = container?.querySelector(".candidate-header");
-        const input = headerElement?.textContent.match(/Input: "([^"]+)"/)?.[1];
-        const mockResult = { candidates: this.candidatesData };
-        this.addCandidate(input, mockResult, this.currentContext);
-      }
-      dragIndex = null;
-    };
-  }
 
   static clearCandidates() {
     this.candidatesData = [];
     this.currentContext = null;
-    const candidateSection = this.container?.querySelector("#candidate-ranking-section");
+    const candidateSection = this.container.querySelector("#candidate-ranking-section");
     if (candidateSection) {
       candidateSection.innerHTML = '<div class="placeholder-text">Rankings appear here during processing</div>';
     }

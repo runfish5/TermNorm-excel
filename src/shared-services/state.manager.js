@@ -92,24 +92,9 @@ export class StateManager {
 
   // Store individual mapping for combination
   addMappingSource(index, mappings, result, config) {
-    console.log(`🔵 STATE_ADD_SOURCE: Adding mapping source ${index} -`, {
-      hasForward: !!mappings?.forward,
-      hasReverse: !!mappings?.reverse,
-      forwardCount: mappings?.forward ? Object.keys(mappings.forward).length : 0,
-      reverseCount: mappings?.reverse ? Object.keys(mappings.reverse).length : 0,
-      hasResult: !!result,
-      hasConfig: !!config,
-    });
-
     const sources = this.get("mappings.sources") || {};
     sources[index] = { mappings, result, config };
     this.update({ "mappings.sources": sources });
-
-    const updatedSources = this.get("mappings.sources") || {};
-    console.log("🟢 STATE_ADD_SOURCE: Source stored -", {
-      totalSources: Object.keys(updatedSources).length,
-      sourceIndexes: Object.keys(updatedSources),
-    });
 
     // Auto-combine mappings when sources are added
     this.combineMappingSources();
@@ -119,22 +104,13 @@ export class StateManager {
   combineMappingSources() {
     // Guard against recursion
     if (this._combiningInProgress) {
-      console.log("🟡 STATE_COMBINE: Already combining, skipping to prevent recursion");
       return;
     }
 
     this._combiningInProgress = true;
-    console.log("🔵 STATE_COMBINE: Starting mapping source combination");
 
     const sources = this.get("mappings.sources") || {};
-    console.log("🔵 STATE_COMBINE: Raw sources -", {
-      sourcesCount: Object.keys(sources).length,
-      sourceIndexes: Object.keys(sources),
-      sources: sources,
-    });
-
     if (Object.keys(sources).length === 0) {
-      console.log("🔴 STATE_COMBINE: FAILED - No mapping sources to combine");
       this._combiningInProgress = false;
       return;
     }
@@ -142,15 +118,6 @@ export class StateManager {
     const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
 
     Object.entries(sources).forEach(([index, { mappings, result, config }]) => {
-      console.log(`🔵 STATE_COMBINE: Processing source ${index} -`, {
-        hasForward: !!mappings?.forward,
-        hasReverse: !!mappings?.reverse,
-        forwardCount: mappings?.forward ? Object.keys(mappings.forward).length : 0,
-        reverseCount: mappings?.reverse ? Object.keys(mappings.reverse).length : 0,
-        hasResult: !!result,
-        hasConfig: !!config,
-      });
-
       if (mappings?.forward) {
         Object.assign(combined.forward, mappings.forward);
       }
@@ -166,14 +133,7 @@ export class StateManager {
       });
     });
 
-    console.log("🔵 STATE_COMBINE: Final combined result -", {
-      forwardCount: Object.keys(combined.forward).length,
-      reverseCount: Object.keys(combined.reverse).length,
-      sourcesCount: combined.metadata.sources.length,
-    });
-
     this.setMappings(combined.forward, combined.reverse, combined.metadata);
-    console.log("🟢 STATE_COMBINE: SUCCESS - Mappings combined and set");
     this._combiningInProgress = false;
   }
 
