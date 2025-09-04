@@ -19,46 +19,50 @@ export class MappingConfigModule {
     element.className = "ms-welcome__section mapping-config-module";
     element.open = true;
 
+    // Build HTML using proper string concatenation to avoid prettier breaking it
+    const fileNameSpanId = `${this.elementId}-filename-display`;
+    const currentFileId = `${this.elementId}-current-file`;
+    const externalFileId = `${this.elementId}-external-file`;
+    const filePathDisplayId = `${this.elementId}-file-path-display`;
+    const filePickerInputId = `${this.elementId}-file-picker-input`;
+    const browseButtonId = `${this.elementId}-browse-button`;
+    const worksheetDropdownId = `${this.elementId}-worksheet-dropdown`;
+    const targetColumnId = `${this.elementId}-target-column`;
+    const sourceColumnId = `${this.elementId}-source-column`;
+    const loadMappingId = `${this.elementId}-load-mapping`;
+    const fileSourceName = `${this.elementId}-file-source`;
+    const externalFileSectionId = `${this.elementId}-external-file-section`;
+
     element.innerHTML = `
             <summary class="ms-font-m">
                 Map Config ${this.index + 1}
-                <span id="${
-                  this.elementId
-                }-filename-display" style="margin-left: 10px; font-style: italic; color: #666;"></span>
+                <span id="${fileNameSpanId}" style="margin-left: 10px; font-style: italic; color: #666;"></span>
             </summary>
             <div class="form-section first-form-section">
                 <div class="radio-group">
                     <label>Excel File:</label>
                     <div>
-                        <input type="radio" id="${this.elementId}-current-file" name="${
-      this.elementId
-    }-file-source" value="current" checked />
-                        <label for="${this.elementId}-current-file" class="ms-font-m">This Excel file</label>
+                        <input type="radio" id="${currentFileId}" name="${fileSourceName}" value="current" checked />
+                        <label for="${currentFileId}" class="ms-font-m">This Excel file</label>
                     </div>
                     <div>
-                        <input type="radio" id="${this.elementId}-external-file" name="${
-      this.elementId
-    }-file-source" value="external" />
-                        <label for="${this.elementId}-external-file" class="ms-font-m">External Excel file</label>
+                        <input type="radio" id="${externalFileId}" name="${fileSourceName}" value="external" />
+                        <label for="${externalFileId}" class="ms-font-m">External Excel file</label>
                     </div>
                 </div>
-                <div id="${this.elementId}-external-file-section" class="hidden form-section">
+                <div id="${externalFileSectionId}" class="hidden form-section">
                     <div class="file-row">
-                        <label for="${this.elementId}-file-path-display" class="ms-font-m">File Path:</label>
-                        <input type="text" id="${
-                          this.elementId
-                        }-file-path-display" placeholder="No file selected" readonly />
-                        <input type="file" id="${
-                          this.elementId
-                        }-file-picker-input" accept=".xlsx,.xls" class="hidden" />
-                        <button id="${this.elementId}-browse-button" class="ms-Button">Browse...</button>
+                        <label for="${filePathDisplayId}" class="ms-font-m">File Path:</label>
+                        <input type="text" id="${filePathDisplayId}" placeholder="No file selected" readonly />
+                        <input type="file" id="${filePickerInputId}" accept=".xlsx,.xls" class="hidden" />
+                        <button id="${browseButtonId}" class="ms-Button">Browse...</button>
                     </div>
                 </div>
             </div>
             
             <div class="form-section">
-                <label for="${this.elementId}-worksheet-dropdown">Worksheet:</label>
-                <select id="${this.elementId}-worksheet-dropdown">
+                <label for="${worksheetDropdownId}">Worksheet:</label>
+                <select id="${worksheetDropdownId}">
                     <option value="">Select a worksheet...</option>
                 </select>
             </div>
@@ -66,20 +70,19 @@ export class MappingConfigModule {
             <div class="form-section">
                 <div class="columns">
                     <div>
-                        <label for="${this.elementId}-target-column">Reference Column:</label>
-                        <input type="text" id="${this.elementId}-target-column" />
+                        <label for="${targetColumnId}">Reference Column:</label>
+                        <input type="text" id="${targetColumnId}" />
                     </div>
                     <div>
-                        <label for="${this.elementId}-source-column">Alias Column:</label>
-                        <input type="text" id="${this.elementId}-source-column" placeholder="optional" />
+                        <label for="${sourceColumnId}">Alias Column:</label>
+                        <input type="text" id="${sourceColumnId}" placeholder="optional" />
                     </div>
                 </div>
             </div>
             
-            <button id="${this.elementId}-load-mapping" class="btn-full form-section">
+            <button id="${loadMappingId}" class="btn-full form-section">
                 Load Mapping Table ${this.index + 1}
             </button>
-            
         `;
 
     return element;
@@ -146,9 +149,18 @@ export class MappingConfigModule {
     }
 
     if (loadMappingButton) {
-      loadMappingButton.addEventListener("click", () => {
+      console.log(`🔵 SETUP_EVENTS: Module ${this.index + 1} - Adding click listener to load mapping button`);
+      loadMappingButton.addEventListener("click", (e) => {
+        console.log(`🔵 BUTTON_CLICK: Module ${this.index + 1} - Load Mapping Table button clicked`);
+        e.preventDefault();
         this.loadMappings();
       });
+    } else {
+      console.log(
+        `🔴 SETUP_EVENTS: Module ${this.index + 1} - Load mapping button NOT FOUND! Element ID: ${
+          this.elementId
+        }-load-mapping`
+      );
     }
   }
   loadInitialData() {
@@ -224,6 +236,8 @@ export class MappingConfigModule {
     }
   }
   async loadMappings() {
+    console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Starting load process`);
+
     try {
       this.updateStatus("Loading...");
 
@@ -235,21 +249,45 @@ export class MappingConfigModule {
         externalFile: this.externalFile,
       };
 
+      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Custom params:`, customParams);
+
       const result = await loadAndProcessMappings(customParams);
+      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - loadAndProcessMappings returned:`, {
+        hasForward: !!result?.forward,
+        hasReverse: !!result?.reverse,
+        hasMetadata: !!result?.metadata,
+        forwardCount: result?.forward ? Object.keys(result.forward).length : 0,
+        reverseCount: result?.reverse ? Object.keys(result.reverse).length : 0,
+        resultStructure: Object.keys(result || {}),
+      });
 
       // Store mapping source for later combination
+      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling state.addMappingSource with:`, {
+        index: this.index,
+        mappingsParam: result,
+        resultParam: result,
+        configParam: this.mappingConfig,
+      });
+
+      // The result object contains forward, reverse, and metadata
+      // It IS the mappings object, so we pass it as both mappings and result
       state.addMappingSource(this.index, result, result, this.mappingConfig);
       this.mappings = result;
 
+      console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling handleMappingSuccess`);
       this.handleMappingSuccess(result);
 
       // Notify parent (for UI updates only)
       if (this.onMappingLoaded) {
+        console.log(`🔵 LOAD_MAPPINGS: Module ${this.index + 1} - Calling onMappingLoaded callback`);
         this.onMappingLoaded(this.index, this.mappings, result);
       }
+
       // Collapse the details element
       document.getElementById(this.elementId).open = false;
+      console.log(`🟢 LOAD_MAPPINGS: Module ${this.index + 1} - Load process completed successfully`);
     } catch (error) {
+      console.log(`🔴 LOAD_MAPPINGS: Module ${this.index + 1} - Error:`, error);
       this.handleMappingError(error);
     }
   }
