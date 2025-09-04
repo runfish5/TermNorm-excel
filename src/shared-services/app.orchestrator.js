@@ -10,9 +10,42 @@ export class AppOrchestrator {
     this.aiPromptRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
     this.configLoaded = false;
     this.mappingModules = [];
+    this.isOffice365 = this._detectOffice365();
 
     // Add this line for easy debugging
     window.state = state;
+
+    // Ensure this instance stays available in Office 365
+    if (this.isOffice365) {
+      this._enhanceOffice365Stability();
+    }
+  }
+
+  _detectOffice365() {
+    return (
+      typeof window !== "undefined" &&
+      (window.location.hostname.includes("excel.officeapps.live.com") ||
+        window.location.hostname.includes("office.com") ||
+        window.location.hostname.includes("officeapps-df.live.com") ||
+        Office.context?.host?.includes("ExcelWebApp") ||
+        Office.context?.platform === Office.PlatformType.OfficeOnline)
+    );
+  }
+
+  _enhanceOffice365Stability() {
+    // Prevent garbage collection in Office 365 by keeping strong references
+    if (!window._termnormAppInstances) {
+      window._termnormAppInstances = [];
+    }
+    window._termnormAppInstances.push(this);
+
+    // Add periodic availability check for Office 365
+    this._office365HealthCheck = setInterval(() => {
+      if (window.app !== this) {
+        console.warn("TermNorm: window.app reference lost in Office 365, restoring...");
+        window.app = this;
+      }
+    }, 5000);
   }
 
   async init() {
@@ -242,5 +275,21 @@ export class AppOrchestrator {
           : `${loaded}/${total} mapping sources loaded`;
 
     state.setStatus(message);
+  }
+
+  // Cleanup method for Office 365 health check
+  destroy() {
+    if (this._office365HealthCheck) {
+      clearInterval(this._office365HealthCheck);
+      this._office365HealthCheck = null;
+    }
+
+    // Remove from instances array
+    if (window._termnormAppInstances) {
+      const index = window._termnormAppInstances.indexOf(this);
+      if (index > -1) {
+        window._termnormAppInstances.splice(index, 1);
+      }
+    }
   }
 }
