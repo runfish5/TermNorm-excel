@@ -248,16 +248,115 @@ function setupDirectEventBindings() {
     });
   }
 
-  // Start tracking button
+  // Start tracking button with enhanced state management
   const trackingBtn = document.getElementById("setup-map-tracking");
+  console.log("🔵 BUTTON_SETUP: Activate Tracking button -", {
+    buttonExists: !!trackingBtn,
+    buttonId: trackingBtn?.id,
+    buttonClasses: trackingBtn?.className,
+  });
+
+  // Button state management functions
+  function updateTrackingButtonState() {
+    if (!trackingBtn) return;
+
+    if (!window.app?.validateTrackingReadiness) {
+      trackingBtn.disabled = true;
+      trackingBtn.textContent = "Application Loading...";
+      trackingBtn.title = "Please wait for application to initialize";
+      return;
+    }
+
+    const validation = window.app.validateTrackingReadiness();
+    console.log("🔵 BUTTON_UPDATE: Validation result -", validation);
+
+    if (validation.ready) {
+      trackingBtn.disabled = false;
+      trackingBtn.textContent = "Activate Tracking";
+      trackingBtn.title = "Ready to start tracking: " + validation.summary;
+      trackingBtn.className = "ms-Button bidirectional-option";
+    } else {
+      trackingBtn.disabled = true;
+      trackingBtn.textContent = "Not Ready";
+      trackingBtn.title = "Issues to resolve: " + validation.summary;
+      trackingBtn.className = "ms-Button bidirectional-option ms-Button--disabled";
+    }
+  }
+
   if (trackingBtn) {
-    trackingBtn.addEventListener("click", () => {
-      if (window.app?.startTracking) {
-        window.app.startTracking();
-      } else {
-        state.setStatus("Application not ready - please refresh", true);
+    trackingBtn.addEventListener("click", async () => {
+      if (trackingBtn.disabled) return;
+
+      console.log("🔵 BUTTON_CLICK: Activate Tracking clicked");
+      console.log("🔵 BUTTON_CLICK: App availability -", {
+        windowAppExists: !!window.app,
+        hasStartTracking: !!window.app?.startTracking,
+        hasValidation: !!window.app?.validateTrackingReadiness,
+      });
+
+      // Set loading state
+      trackingBtn.disabled = true;
+      trackingBtn.textContent = "Activating...";
+
+      try {
+        if (window.app?.startTracking) {
+          console.log("🔵 BUTTON_CLICK: Calling window.app.startTracking()");
+          await window.app.startTracking();
+        } else {
+          console.log("🔴 BUTTON_CLICK: FAILED - window.app.startTracking not available");
+          console.log("🔴 BUTTON_CLICK: Attempting failsafe app initialization");
+
+          // Failsafe: try to reinitialize app if it's missing
+          try {
+            if (!window.app) {
+              const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
+              const app = new AppOrchestrator();
+              await app.init();
+              window.app = app;
+              console.log("🟢 BUTTON_CLICK: Failsafe app initialization successful");
+
+              // Retry tracking activation
+              await window.app.startTracking();
+            } else {
+              throw new Error("window.app exists but startTracking method is missing");
+            }
+          } catch (failsafeError) {
+            console.log("🔴 BUTTON_CLICK: Failsafe failed:", failsafeError);
+            state.setStatus("Application initialization failed - please refresh the page", true);
+          }
+        }
+      } catch (error) {
+        console.log("🔴 BUTTON_CLICK: Error during activation:", error);
+        state.setStatus(`Activation failed: ${error.message}`, true);
+      } finally {
+        // Restore button state
+        setTimeout(updateTrackingButtonState, 100);
       }
     });
+
+    // Initial button state update
+    updateTrackingButtonState();
+
+    // Update button state when mappings change
+    state.subscribe("mappings", updateTrackingButtonState);
+    state.subscribe("config", updateTrackingButtonState);
+
+    // Periodic check for app availability (especially important for Office 365)
+    const appCheckInterval = setInterval(() => {
+      if (window.app?.validateTrackingReadiness) {
+        updateTrackingButtonState();
+      } else {
+        console.log("🔵 BUTTON_PERIODIC: window.app not yet available");
+      }
+    }, 1000);
+
+    // Clear interval after 30 seconds to avoid indefinite polling
+    setTimeout(() => {
+      clearInterval(appCheckInterval);
+      console.log("🔵 BUTTON_PERIODIC: Stopped periodic app check");
+    }, 30000);
+  } else {
+    console.log("🔴 BUTTON_SETUP: FAILED - Activate Tracking button not found in DOM");
   }
 
   // Renew prompt button
