@@ -41,23 +41,23 @@ Office.onReady(async (info) => {
   // Initialize server status
   initializeServerStatus();
 
+  // Set up status display FIRST - ensures it works even if initialization fails
+  state.subscribe("ui", (ui) => {
+    const statusElement = document.getElementById("main-status-message");
+    if (statusElement) {
+      statusElement.textContent = ui.statusMessage;
+      statusElement.style.color = ui.isError ? "#D83B01" : "";
+    } else {
+      // Cloud Excel fallback: log when DOM element is missing
+      console.warn("Status element not found during update:", ui.statusMessage);
+    }
+  });
+
   try {
     const app = new AppOrchestrator();
     await app.init();
     window.app = app; // For debugging
     window.showView = showView; // Make showView globally available
-
-    // Set up status display with cloud Excel DOM safety
-    state.subscribe("ui", (ui) => {
-      const statusElement = document.getElementById("main-status-message");
-      if (statusElement) {
-        statusElement.textContent = ui.statusMessage;
-        statusElement.style.color = ui.isError ? "#D83B01" : "";
-      } else {
-        // Cloud Excel fallback: log when DOM element is missing
-        console.warn("Status element not found during update:", ui.statusMessage);
-      }
-    });
 
     // Initial margin update
     updateContentMargin();
