@@ -197,20 +197,34 @@ async function loadConfigData(configData, fileName) {
     
     state.setStatus("STEP 3: Getting current Excel workbook name...");
 
-    // Get workbook name
+    // Get workbook name with retry for Office 365
     let workbook;
-    try {
-      state.setStatus("STEP 4: Calling Excel.run() to get workbook name...");
-      workbook = await Excel.run(async (context) => {
-        const wb = context.workbook;
-        wb.load("name");
-        await context.sync();
-        return wb.name;
-      });
-      state.setStatus(`STEP 5: Got workbook name: "${workbook}" - looking for matching config...`);
-    } catch (excelError) {
-      state.setStatus(`ERROR: Excel.run() failed: ${excelError.message}`, true);
-      throw new Error(`Failed to get Excel workbook name: ${excelError.message}`);
+    let excelRetryCount = 0;
+    const maxExcelRetries = 3;
+    const excelRetryDelay = 300; // ms
+    
+    while (!workbook && excelRetryCount < maxExcelRetries) {
+      try {
+        state.setStatus(`STEP 4: Calling Excel.run() to get workbook name (attempt ${excelRetryCount + 1}/${maxExcelRetries})...`);
+        workbook = await Excel.run(async (context) => {
+          const wb = context.workbook;
+          wb.load("name");
+          await context.sync();
+          return wb.name;
+        });
+        state.setStatus(`STEP 5: Got workbook name: "${workbook}" - looking for matching config...`);
+      } catch (excelError) {
+        excelRetryCount++;
+        state.setStatus(`LOG: Excel.run() attempt ${excelRetryCount} failed: ${excelError.message}`);
+        
+        if (excelRetryCount >= maxExcelRetries) {
+          state.setStatus(`ERROR: Excel.run() failed after ${maxExcelRetries} attempts: ${excelError.message}`, true);
+          throw new Error(`Failed to get Excel workbook name after ${maxExcelRetries} attempts: ${excelError.message}`);
+        } else {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, excelRetryDelay));
+        }
+      }
     }
 
     // Find matching config
@@ -231,38 +245,77 @@ async function loadConfigData(configData, fileName) {
     // Verify UI container exists before proceeding
     const container = document.getElementById("mapping-configs-container");
     if (!container) {
-      state.setStatus("LOG: ERROR - mapping-configs-container not found in DOM - check if we're in setup view", true);
-      return;
+      state.setStatus("ERROR: UI not ready - switching to setup view...", true);
+      // Try to switch to setup view to show the container
+      if (window.showView) {
+        window.showView("setup");
+        // Wait a moment and try again
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const retryContainer = document.getElementById("mapping-configs-container");
+        if (!retryContainer) {
+          throw new Error("Configuration UI container not available - please refresh the add-in");
+        }
+      } else {
+        throw new Error("Configuration UI not ready - please refresh the add-in");
+      }
     }
     
     state.setStatus(`LOG: UI container verified - style display: ${container.style.display}, visibility: ${container.style.visibility}, offsetParent: ${!!container.offsetParent}`);
 
-    // Reload mapping modules with detailed status logging
-    state.setStatus(`LOG: Checking window.app availability...`);
-    if (window.app) {
-      state.setStatus(`LOG: window.app found - type: ${typeof window.app}, checking reloadMappingModules method...`);
-      if (window.app.reloadMappingModules) {
-        state.setStatus(`LOG: reloadMappingModules method found - type: ${typeof window.app.reloadMappingModules}`);
-        try {
-          state.setStatus("LOG: Starting mapping module reload...");
-          await window.app.reloadMappingModules();
-          
-          // Verify container state after reload
-          const finalChildCount = container.children.length;
-          const visibleChildren = Array.from(container.children).filter(child => 
-            child.offsetParent !== null && window.getComputedStyle(child).display !== 'none'
-          ).length;
-          
-          state.setStatus(`LOG: Module reload completed - total children: ${finalChildCount}, visible: ${visibleChildren}`);
-          state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
-        } catch (moduleError) {
-          state.setStatus(`LOG: ERROR - Module reload failed: ${moduleError.message}`, true);
-        }
-      } else {
-        state.setStatus(`LOG: ERROR - window.app.reloadMappingModules method not found`, true);
+    // Reload mapping modules with retry logic for Office 365
+    state.setStatus(`LOG: Checking window.app availability with retry logic...`);
+    
+    let app = window.app;
+    let retryCount = 0;
+    const maxRetries = 5;
+    const retryDelay = 200; // ms
+    
+    // Retry logic for app availability (Office 365 timing issues)
+    while (!app && retryCount < maxRetries) {
+      state.setStatus(`LOG: window.app not ready, retry ${retryCount + 1}/${maxRetries}...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      app = window.app;
+      retryCount++;
+    }
+    
+    if (!app) {
+      throw new Error("Application not initialized - please refresh the add-in and try again");
+    }
+    
+    state.setStatus(`LOG: window.app found after ${retryCount} retries - type: ${typeof app}`);
+    
+    if (!app.reloadMappingModules) {
+      throw new Error("Mapping module functionality not available - please refresh the add-in");
+    }
+    
+    state.setStatus(`LOG: reloadMappingModules method found - type: ${typeof app.reloadMappingModules}`);
+    
+    try {
+      state.setStatus("LOG: Starting mapping module reload...");
+      await app.reloadMappingModules();
+      
+      // Get fresh reference to container after potential view switch
+      const finalContainer = document.getElementById("mapping-configs-container");
+      if (!finalContainer) {
+        throw new Error("Container disappeared after module reload");
       }
-    } else {
-      state.setStatus(`LOG: ERROR - window.app not available - app not initialized properly`, true);
+      
+      // Verify container state after reload
+      const finalChildCount = finalContainer.children.length;
+      const visibleChildren = Array.from(finalContainer.children).filter(child => 
+        child.offsetParent !== null && window.getComputedStyle(child).display !== 'none'
+      ).length;
+      
+      state.setStatus(`LOG: Module reload completed - total children: ${finalChildCount}, visible: ${visibleChildren}`);
+      
+      if (finalChildCount === 0) {
+        throw new Error("Module reload completed but no UI elements were created");
+      }
+      
+      state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    } catch (moduleError) {
+      state.setStatus(`ERROR: Module reload failed: ${moduleError.message}`, true);
+      throw moduleError;
     }
 
   } catch (error) {
