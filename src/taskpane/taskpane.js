@@ -77,7 +77,7 @@ Office.onReady(async (info) => {
     window.addEventListener("resize", updateContentMargin);
   } catch (error) {
     console.error("Failed to initialize:", error);
-    alert(`Initialization failed: ${error.message}`);
+    state.setStatus(`Initialization failed: ${error.message}`, true);
   }
 });
 
