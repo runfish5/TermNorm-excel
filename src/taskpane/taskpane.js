@@ -4,6 +4,19 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
 
+// Office 365 environment detection
+function isOffice365() {
+  // Check for web-based Office indicators
+  return (
+    typeof window !== "undefined" &&
+    (window.location.hostname.includes("excel.officeapps.live.com") ||
+      window.location.hostname.includes("office.com") ||
+      window.location.hostname.includes("officeapps-df.live.com") ||
+      Office.context?.host?.includes("ExcelWebApp") ||
+      Office.context?.platform === Office.PlatformType.OfficeOnline)
+  );
+}
+
 // No theme system - using default only
 
 // Function to update content margin based on status bar height
@@ -265,14 +278,33 @@ async function loadConfigData(configData, fileName) {
     // Reload mapping modules with enhanced validation
     state.setStatus("LOG: Starting mapping module reload...");
     
+    // Defensive recovery for Office 365 race condition
     if (!window.app) {
-      throw new Error("Application not available - please refresh the add-in and try again");
+      const isO365 = isOffice365();
+      state.setStatus(`LOG: window.app is null - Office 365: ${isO365}. Attempting recovery...`);
+
+      if (isO365) {
+        // Office 365 specific recovery - attempt to re-initialize
+        try {
+          state.setStatus("LOG: Office 365 detected - attempting AppOrchestrator re-initialization...");
+          const app = new AppOrchestrator();
+          await app.init();
+          window.app = app;
+          state.setStatus("LOG: AppOrchestrator re-initialization successful in Office 365");
+        } catch (reinitError) {
+          state.setStatus(`ERROR: Office 365 re-initialization failed: ${reinitError.message}`, true);
+          throw new Error(`Office 365 application recovery failed: ${reinitError.message}. Please refresh the add-in and try again.`);
+        }
+      } else {
+        // Desktop Excel - this should not happen, treat as critical error
+        throw new Error("Application not available - please refresh the add-in and try again");
+      }
     }
-    
+
     if (!window.app.reloadMappingModules) {
       throw new Error("Mapping module functionality not available - please refresh the add-in");
     }
-    
+
     try {
       await window.app.reloadMappingModules();
       
