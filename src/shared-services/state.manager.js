@@ -92,21 +92,61 @@ export class StateManager {
 
   // Store individual mapping for combination
   addMappingSource(index, mappings, result, config) {
+    console.log(`🔵 STATE_ADD_SOURCE: Adding mapping source ${index} -`, {
+      hasForward: !!mappings?.forward,
+      hasReverse: !!mappings?.reverse,
+      forwardCount: mappings?.forward ? Object.keys(mappings.forward).length : 0,
+      reverseCount: mappings?.reverse ? Object.keys(mappings.reverse).length : 0,
+      hasResult: !!result,
+      hasConfig: !!config,
+    });
+
     const sources = this.get("mappings.sources") || {};
     sources[index] = { mappings, result, config };
     this.update({ "mappings.sources": sources });
+
+    const updatedSources = this.get("mappings.sources") || {};
+    console.log("🟢 STATE_ADD_SOURCE: Source stored -", {
+      totalSources: Object.keys(updatedSources).length,
+      sourceIndexes: Object.keys(updatedSources),
+    });
   }
 
   // Combine all stored mapping sources
   combineMappingSources() {
+    console.log("🔵 STATE_COMBINE: Starting mapping source combination");
+
     const sources = this.get("mappings.sources") || {};
-    if (Object.keys(sources).length === 0) return;
+    console.log("🔵 STATE_COMBINE: Raw sources -", {
+      sourcesCount: Object.keys(sources).length,
+      sourceIndexes: Object.keys(sources),
+      sources: sources,
+    });
+
+    if (Object.keys(sources).length === 0) {
+      console.log("🔴 STATE_COMBINE: FAILED - No mapping sources to combine");
+      return;
+    }
 
     const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
 
     Object.entries(sources).forEach(([index, { mappings, result, config }]) => {
-      Object.assign(combined.forward, mappings.forward);
-      Object.assign(combined.reverse, mappings.reverse);
+      console.log(`🔵 STATE_COMBINE: Processing source ${index} -`, {
+        hasForward: !!mappings?.forward,
+        hasReverse: !!mappings?.reverse,
+        forwardCount: mappings?.forward ? Object.keys(mappings.forward).length : 0,
+        reverseCount: mappings?.reverse ? Object.keys(mappings.reverse).length : 0,
+        hasResult: !!result,
+        hasConfig: !!config,
+      });
+
+      if (mappings?.forward) {
+        Object.assign(combined.forward, mappings.forward);
+      }
+      if (mappings?.reverse) {
+        Object.assign(combined.reverse, mappings.reverse);
+      }
+
       combined.metadata.sources.push({
         index: parseInt(index) + 1,
         config,
@@ -115,7 +155,14 @@ export class StateManager {
       });
     });
 
+    console.log("🔵 STATE_COMBINE: Final combined result -", {
+      forwardCount: Object.keys(combined.forward).length,
+      reverseCount: Object.keys(combined.reverse).length,
+      sourcesCount: combined.metadata.sources.length,
+    });
+
     this.setMappings(combined.forward, combined.reverse, combined.metadata);
+    console.log("🟢 STATE_COMBINE: SUCCESS - Mappings combined and set");
   }
 
   clearMappings() {

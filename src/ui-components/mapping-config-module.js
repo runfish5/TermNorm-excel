@@ -30,11 +30,15 @@ export class MappingConfigModule {
                 <div class="radio-group">
                     <label>Excel File:</label>
                     <div>
-                        <input type="radio" id="${this.elementId}-current-file" name="${this.elementId}-file-source" value="current" checked />
+                        <input type="radio" id="${this.elementId}-current-file" name="${
+      this.elementId
+    }-file-source" value="current" checked />
                         <label for="${this.elementId}-current-file" class="ms-font-m">This Excel file</label>
                     </div>
                     <div>
-                        <input type="radio" id="${this.elementId}-external-file" name="${this.elementId}-file-source" value="external" />
+                        <input type="radio" id="${this.elementId}-external-file" name="${
+      this.elementId
+    }-file-source" value="external" />
                         <label for="${this.elementId}-external-file" class="ms-font-m">External Excel file</label>
                     </div>
                 </div>
