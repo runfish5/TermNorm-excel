@@ -16,7 +16,6 @@
 **TermNorm Excel Add-in** - AI-powered terminology standardization in Excel worksheets.
 
 ### Core Components (Flattened Architecture)
-- `AppOrchestrator` - Central coordinator, owns LiveTracker, handles config/mapping modules
 - `LiveTracker` - Real-time Excel cell monitoring with defensive programming
 - `NormalizerRouter` - Processing strategy (cached/API/fuzzy matching)
 - `StateManager` - Centralized state management and configuration storage
@@ -27,37 +26,10 @@
 - `python main.py` - Aggregates API endpoints
 - LLM integration for term matching and generation
 
-### Data Flow (Simplified)
-1. Config drag/drop → StateManager → AppOrchestrator → MappingConfigModules
-2. Cell edit → `LiveTracker` → `NormalizerRouter` → Backend API
-3. Results → Excel cells + ActivityFeed + CandidateRankingUI → Activity logging
-
 ## Configuration
 
 - `config/app.config.json` - Column mappings and standard mappings
 - `manifest.xml` - Office Add-in metadata
-
-## Architecture Evolution
-
-**Phase 1**: Fixed duplicate LiveTracker - only `AppOrchestrator` owns it  
-**Phase 2**: Removed unused template files, renamed `normalizer.main.js` → `live.tracker.js`  
-**Phase 3**: Made `loadAndProcessMappings()` pure function  
-**Phase 4**: Made ConfigManager stateless - removed static import, uses StateManager for all config storage  
-**Phase 5**: Eliminated UIManager (277 lines) - moved functionality to taskpane.js and orchestrator  
-**Phase 6**: Eliminated NavigationManager (74 lines) - inlined view switching to taskpane.js  
-**Phase 7**: Eliminated ServerStatusManager (192 lines) - inlined server functionality to taskpane.js  
-**Phase 8**: Aggressive compaction (196 lines) - eliminated DOMUtils, ErrorUtils, ExcelIntegration, ActivityLogger utility files
-
-**Total Eliminated**: ~862 lines across manager pattern and utility files, simplified to direct operations
-
-## Simple Theme System
-
-**CSS-based themes** with single HTML file approach:
-
-**Available Themes**:
-- `default` - Standard professional UI (use for development)
-- `ocean` - Ocean depths theme with blue/cyan colors
-- `artdeco` - Art deco theme with gold/burgundy colors
 
 **Implementation**: 
 - Single `taskpane.html` with embedded CSS theme classes
