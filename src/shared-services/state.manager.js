@@ -110,10 +110,20 @@ export class StateManager {
       totalSources: Object.keys(updatedSources).length,
       sourceIndexes: Object.keys(updatedSources),
     });
+
+    // Auto-combine mappings when sources are added
+    this.combineMappingSources();
   }
 
   // Combine all stored mapping sources
   combineMappingSources() {
+    // Guard against recursion
+    if (this._combiningInProgress) {
+      console.log("🟡 STATE_COMBINE: Already combining, skipping to prevent recursion");
+      return;
+    }
+
+    this._combiningInProgress = true;
     console.log("🔵 STATE_COMBINE: Starting mapping source combination");
 
     const sources = this.get("mappings.sources") || {};
@@ -125,6 +135,7 @@ export class StateManager {
 
     if (Object.keys(sources).length === 0) {
       console.log("🔴 STATE_COMBINE: FAILED - No mapping sources to combine");
+      this._combiningInProgress = false;
       return;
     }
 
@@ -163,6 +174,7 @@ export class StateManager {
 
     this.setMappings(combined.forward, combined.reverse, combined.metadata);
     console.log("🟢 STATE_COMBINE: SUCCESS - Mappings combined and set");
+    this._combiningInProgress = false;
   }
 
   clearMappings() {
