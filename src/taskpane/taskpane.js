@@ -53,31 +53,36 @@ Office.onReady(async (info) => {
     }
   });
 
+  // Set up UI infrastructure BEFORE app initialization - environment agnostic
+  window.showView = showView; // Make showView globally available
+  
+  // Initial margin update
+  updateContentMargin();
+
+  // Update margin when status content changes
+  const observer = new MutationObserver(updateContentMargin);
+  const statusMessage = document.getElementById("main-status-message");
+  if (statusMessage) {
+    observer.observe(statusMessage, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }
+
+  // Update margin on window resize
+  window.addEventListener("resize", updateContentMargin);
+
+  // App initialization - can fail without breaking UI infrastructure
   try {
     const app = new AppOrchestrator();
     await app.init();
     window.app = app; // For debugging
-    window.showView = showView; // Make showView globally available
-
-    // Initial margin update
-    updateContentMargin();
-
-    // Update margin when status content changes
-    const observer = new MutationObserver(updateContentMargin);
-    const statusMessage = document.getElementById("main-status-message");
-    if (statusMessage) {
-      observer.observe(statusMessage, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
-
-    // Update margin on window resize
-    window.addEventListener("resize", updateContentMargin);
+    window.state = state; // Debug access to state manager
   } catch (error) {
     console.error("Failed to initialize:", error);
     state.setStatus(`Initialization failed: ${error.message}`, true);
+    // UI infrastructure still works - users can still navigate, see status, etc.
   }
 });
 
