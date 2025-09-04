@@ -6,7 +6,7 @@ import { getRelevanceColor, PROCESSING_COLORS } from "./colorUtils.js";
  * @param {*} value - Source cell value
  * @param {Object} result - Processing result
  * @param {number} row - Row index
- * @param {number} col - Column index  
+ * @param {number} col - Column index
  * @param {number} targetCol - Target column index
  * @returns {Object} Cell update operations
  */
@@ -25,8 +25,8 @@ export function createCellUpdates(value, result, row, col, targetCol) {
     metadata: {
       candidates: result?.candidates,
       total_time: result?.total_time || 0,
-      llm_provider: result?.llm_provider
-    }
+      llm_provider: result?.llm_provider,
+    },
   };
 }
 
@@ -41,7 +41,7 @@ export function createCellUpdates(value, result, row, col, targetCol) {
  */
 export function createErrorUpdates(value, error, row, col, targetCol) {
   const errorMsg = error instanceof Error ? error.message : String(error);
-  
+
   return {
     value,
     target: errorMsg,
@@ -51,8 +51,8 @@ export function createErrorUpdates(value, error, row, col, targetCol) {
     targetCell: { row: row, col: targetCol, value: errorMsg, color: PROCESSING_COLORS.ERROR },
     metadata: {
       total_time: 0,
-      llm_provider: undefined
-    }
+      llm_provider: undefined,
+    },
   };
 }
 
@@ -75,8 +75,8 @@ export function createChoiceUpdates(value, choice, row, col, targetCol) {
     targetCell: { row: row, col: targetCol, value: choice.candidate, color: getRelevanceColor(choice.relevance_score) },
     metadata: {
       total_time: 0,
-      llm_provider: undefined
-    }
+      llm_provider: undefined,
+    },
   };
 }
 
@@ -88,7 +88,7 @@ export function createChoiceUpdates(value, choice, row, col, targetCol) {
  */
 export async function applyCellUpdates(ws, updates) {
   const { sourceCell, targetCell } = updates;
-  
+
   const srcCell = ws.getRangeByIndexes(sourceCell.row, sourceCell.col, 1, 1);
   const tgtCell = ws.getRangeByIndexes(targetCell.row, targetCell.col, 1, 1);
 

@@ -18,7 +18,7 @@ export function getRelevanceColor(score) {
  * Get processing state colors
  */
 export const PROCESSING_COLORS = {
-  PENDING: "#FFFB9D",    // Light yellow for pending
-  ERROR: "#FFC7CE",      // Light red for errors
-  CLEAR: null            // Clear formatting
+  PENDING: "#FFFB9D", // Light yellow for pending
+  ERROR: "#FFC7CE", // Light red for errors
+  CLEAR: null, // Clear formatting
 };

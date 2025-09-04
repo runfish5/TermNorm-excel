@@ -19,11 +19,10 @@ export function parseCellAddress(address) {
   // Simple parser for basic addresses
   const match = address.match(/([A-Z]+)(\d+)/);
   if (!match) return null;
-  
-  const col = match[1].split('').reduce((result, char) => 
-    result * 26 + char.charCodeAt(0) - 64, 0) - 1;
+
+  const col = match[1].split("").reduce((result, char) => result * 26 + char.charCodeAt(0) - 64, 0) - 1;
   const row = parseInt(match[2]) - 1;
-  
+
   return { startRow: row, startCol: col, endRow: row, endCol: col };
 }
 

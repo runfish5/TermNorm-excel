@@ -103,7 +103,7 @@ export class StateManager {
     if (Object.keys(sources).length === 0) return;
 
     const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
-    
+
     Object.entries(sources).forEach(([index, { mappings, result, config }]) => {
       Object.assign(combined.forward, mappings.forward);
       Object.assign(combined.reverse, mappings.reverse);
@@ -126,7 +126,6 @@ export class StateManager {
       "mappings.loaded": false,
     });
   }
-
 
   // Debug helper
   getFullState() {

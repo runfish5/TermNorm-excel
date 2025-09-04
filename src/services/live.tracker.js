@@ -69,7 +69,6 @@ export class LiveTracker {
     });
   }
 
-
   handleChange = async (e) => {
     if (!this.active) return;
 
@@ -133,14 +132,20 @@ export class LiveTracker {
 
       // Create cell updates using pure function
       const updates = createCellUpdates(value, result, row, col, targetCol);
-      
+
       // Apply updates to Excel
       await applyCellUpdates(ws, updates);
 
       // Log activity
       ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-      logActivity(updates.value, updates.target, updates.method, updates.confidence, 
-                 updates.metadata.total_time, updates.metadata.llm_provider);
+      logActivity(
+        updates.value,
+        updates.target,
+        updates.method,
+        updates.confidence,
+        updates.metadata.total_time,
+        updates.metadata.llm_provider
+      );
     } catch (error) {
       this.handleCellError(ws, row, col, targetCol, value, error);
     }
@@ -149,28 +154,40 @@ export class LiveTracker {
   async handleCellError(ws, row, col, targetCol, value, error) {
     // Create error updates using pure function
     const updates = createErrorUpdates(value, error, row, col, targetCol);
-    
+
     // Apply updates to Excel
     await applyCellUpdates(ws, updates);
 
     // Log activity
     ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-    logActivity(updates.value, updates.target, updates.method, updates.confidence, 
-               updates.metadata.total_time, updates.metadata.llm_provider);
+    logActivity(
+      updates.value,
+      updates.target,
+      updates.method,
+      updates.confidence,
+      updates.metadata.total_time,
+      updates.metadata.llm_provider
+    );
   }
 
   applyChoice = async (ws, row, col, targetCol, value, choice) => {
     await Excel.run(async (ctx) => {
       // Create choice updates using pure function
       const updates = createChoiceUpdates(value, choice, row, col, targetCol);
-      
+
       // Apply updates to Excel
       await applyCellUpdates(ctx.workbook.worksheets.getActiveWorksheet(), updates);
 
       // Log activity
       ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-      logActivity(updates.value, updates.target, updates.method, updates.confidence, 
-                 updates.metadata.total_time, updates.metadata.llm_provider);
+      logActivity(
+        updates.value,
+        updates.target,
+        updates.method,
+        updates.confidence,
+        updates.metadata.total_time,
+        updates.metadata.llm_provider
+      );
 
       await ctx.sync();
     });

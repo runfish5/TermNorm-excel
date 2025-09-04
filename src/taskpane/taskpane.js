@@ -4,19 +4,6 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
 
-// Office 365 environment detection
-function isOffice365() {
-  // Check for web-based Office indicators
-  return (
-    typeof window !== "undefined" &&
-    (window.location.hostname.includes("excel.officeapps.live.com") ||
-      window.location.hostname.includes("office.com") ||
-      window.location.hostname.includes("officeapps-df.live.com") ||
-      Office.context?.host?.includes("ExcelWebApp") ||
-      Office.context?.platform === Office.PlatformType.OfficeOnline)
-  );
-}
-
 // No theme system - using default only
 
 // Function to update content margin based on status bar height
@@ -123,11 +110,11 @@ function preventDefaults(e) {
   e.stopPropagation();
 }
 
-function highlight(e) {
+function highlight() {
   document.getElementById("drop-zone").classList.add("highlight");
 }
 
-function unhighlight(e) {
+function unhighlight() {
   document.getElementById("drop-zone").classList.remove("highlight");
 }
 
@@ -156,228 +143,142 @@ function openFileDialog() {
 }
 
 async function processFile(file) {
-  state.setStatus(`PROCESSFILE: Starting to process file: ${file.name}`);
+  state.setStatus(`Processing file: ${file.name}`);
   try {
-    // Validate file type
-    state.setStatus(`PROCESSFILE: Validating file type for: ${file.name}`);
     if (!file.name.endsWith(".json")) {
-      state.setStatus("ERROR: Please select a JSON configuration file", true);
+      state.setStatus("Please select a JSON configuration file", true);
       return;
     }
 
-    state.setStatus("PROCESSFILE: File type valid - creating FileReader...");
     const reader = new FileReader();
 
-    // Add error handlers for FileReader
-    reader.onerror = function () {
-      state.setStatus("ERROR: Failed to read file - file might be corrupted", true);
-    };
-
-    reader.onabort = function () {
-      state.setStatus("ERROR: File reading was aborted", true);
-    };
+    reader.onerror = () => state.setStatus("Failed to read file - file might be corrupted", true);
+    reader.onabort = () => state.setStatus("File reading was aborted", true);
 
     reader.onload = async function (e) {
       try {
-        state.setStatus("PROCESSFILE: FileReader onload triggered - parsing JSON...");
         const configData = JSON.parse(e.target.result);
-        state.setStatus("PROCESSFILE: JSON parsed successfully - calling loadConfigData...");
         await loadConfigData(configData, file.name);
       } catch (error) {
-        state.setStatus(`ERROR: Invalid JSON file - ${error.message}`, true);
+        state.setStatus(`Invalid JSON file - ${error.message}`, true);
       }
     };
 
-    state.setStatus("PROCESSFILE: Calling reader.readAsText() to start reading...");
     reader.readAsText(file);
   } catch (error) {
-    state.setStatus(`ERROR: File processing failed - ${error.message}`, true);
+    state.setStatus(`File processing failed - ${error.message}`, true);
   }
 }
 
-// Load config data (simplified with better success path handling)
 async function loadConfigData(configData, fileName) {
-  state.setStatus("ENTRY: loadConfigData() called - starting processing...");
   try {
-    // Validate config structure
-    state.setStatus("STEP 1: Validating config structure...");
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
     }
 
-    state.setStatus("STEP 2: Config structure valid - setting raw config...");
     state.set("config.raw", configData);
-    
-    state.setStatus("STEP 3: Getting current Excel workbook name...");
 
-    // Get workbook name with retry for Office 365 API resilience
-    let workbook;
-    let excelRetryCount = 0;
-    const maxExcelRetries = 3;
-    const excelRetryDelay = 300; // ms
-    
-    while (!workbook && excelRetryCount < maxExcelRetries) {
-      try {
-        state.setStatus(`STEP 4: Calling Excel.run() to get workbook name (attempt ${excelRetryCount + 1}/${maxExcelRetries})...`);
-        workbook = await Excel.run(async (context) => {
-          const wb = context.workbook;
-          wb.load("name");
-          await context.sync();
-          return wb.name;
-        });
-        state.setStatus(`STEP 5: Got workbook name: "${workbook}" - looking for matching config...`);
-      } catch (excelError) {
-        excelRetryCount++;
-        state.setStatus(`LOG: Excel.run() attempt ${excelRetryCount} failed: ${excelError.message}`);
-        
-        if (excelRetryCount >= maxExcelRetries) {
-          state.setStatus(`ERROR: Excel.run() failed after ${maxExcelRetries} attempts: ${excelError.message}`, true);
-          throw new Error(`Failed to get Excel workbook name after ${maxExcelRetries} attempts: ${excelError.message}`);
-        } else {
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, excelRetryDelay));
-        }
-      }
-    }
+    // Get workbook name
+    const workbook = await Excel.run(async (context) => {
+      const wb = context.workbook;
+      wb.load("name");
+      await context.sync();
+      return wb.name;
+    });
 
     // Find matching config
-    state.setStatus("STEP 6: Searching for matching config...");
     const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
-    
     const availableWorkbooks = Object.keys(configData["excel-projects"]).join(", ");
-    state.setStatus(`STEP 7: Available configs: ${availableWorkbooks}`);
-    
+
     if (!config?.standard_mappings?.length) {
-      state.setStatus(`STEP 7-ERROR: No config found for "${workbook}"`, true);
-      throw new Error(`3No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
+      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
     }
 
-    state.setStatus(`STEP 8: Config found! Has ${config.standard_mappings.length} mappings - applying settings...`);
     state.setConfig({ ...config, workbook });
-    
-    // Verify UI container exists before proceeding
-    const container = document.getElementById("mapping-configs-container");
-    if (!container) {
-      state.setStatus("ERROR: UI not ready - switching to setup view...", true);
-      // Try to switch to setup view to show the container
-      if (window.showView) {
-        window.showView("setup");
-        // Wait a moment and try again
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const retryContainer = document.getElementById("mapping-configs-container");
-        if (!retryContainer) {
-          throw new Error("Configuration UI container not available - please refresh the add-in");
-        }
-      } else {
-        throw new Error("Configuration UI not ready - please refresh the add-in");
-      }
+
+    // Ensure UI container exists
+    let container = document.getElementById("mapping-configs-container");
+    if (!container && window.showView) {
+      window.showView("setup");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      container = document.getElementById("mapping-configs-container");
     }
-    
-    state.setStatus(`LOG: UI container verified - style display: ${container.style.display}, visibility: ${container.style.visibility}, offsetParent: ${!!container.offsetParent}`);
 
-    // Reload mapping modules with enhanced validation
-    state.setStatus("LOG: Starting mapping module reload...");
-    
-    // Defensive recovery for Office 365 race condition
+    if (!container) {
+      throw new Error("Configuration UI container not available - please refresh the add-in");
+    }
+
+    // Ensure app is available
     if (!window.app) {
-      const isO365 = isOffice365();
-      state.setStatus(`LOG: window.app is null - Office 365: ${isO365}. Attempting recovery...`);
-
-      if (isO365) {
-        // Office 365 specific recovery - attempt to re-initialize
-        try {
-          state.setStatus("LOG: Office 365 detected - attempting AppOrchestrator re-initialization...");
-          const app = new AppOrchestrator();
-          await app.init();
-          window.app = app;
-          state.setStatus("LOG: AppOrchestrator re-initialization successful in Office 365");
-        } catch (reinitError) {
-          state.setStatus(`ERROR: Office 365 re-initialization failed: ${reinitError.message}`, true);
-          throw new Error(`Office 365 application recovery failed: ${reinitError.message}. Please refresh the add-in and try again.`);
-        }
-      } else {
-        // Desktop Excel - this should not happen, treat as critical error
-        throw new Error("Application not available - please refresh the add-in and try again");
-      }
+      const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
+      const app = new AppOrchestrator();
+      await app.init();
+      window.app = app;
     }
 
     if (!window.app.reloadMappingModules) {
       throw new Error("Mapping module functionality not available - please refresh the add-in");
     }
 
-    try {
-      await window.app.reloadMappingModules();
-      
-      // Get fresh reference to container after potential view switch
-      const finalContainer = document.getElementById("mapping-configs-container");
-      if (!finalContainer) {
-        throw new Error("Container disappeared after module reload");
-      }
-      
-      // Verify container state after reload
-      const finalChildCount = finalContainer.children.length;
-      
-      state.setStatus(`LOG: Module reload completed - container children: ${finalChildCount}`);
-      
-      if (finalChildCount === 0) {
-        throw new Error("Module reload completed but no UI elements were created - check configuration");
-      }
-      
-      state.setStatus(`SUCCESS: Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
-    } catch (moduleError) {
-      state.setStatus(`ERROR: Module reload failed: ${moduleError.message}`, true);
-      throw moduleError;
+    await window.app.reloadMappingModules();
+
+    const finalContainer = document.getElementById("mapping-configs-container");
+    if (!finalContainer?.children.length) {
+      throw new Error("Module reload completed but no UI elements were created - check configuration");
     }
 
+    state.setStatus(
+      `Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`
+    );
   } catch (error) {
-    state.setStatus(`FAILED: ${error.message}`, true);
-    // Also try direct DOM update as backup
-    const statusElement = document.getElementById("main-status-message");
-    if (statusElement) {
-      statusElement.textContent = `FAILED: ${error.message}`;
-      statusElement.style.color = "#D83B01";
-    }
+    state.setStatus(error.message, true);
   }
 }
 
-// Direct event binding without manager layers
 function setupDirectEventBindings() {
   // Toggle metadata button
-  document.addEventListener("click", (e) => {
-    if (e.target.closest("#show-metadata-btn")) {
-      e.preventDefault();
+  const metadataBtn = document.getElementById("show-metadata-btn");
+  if (metadataBtn) {
+    metadataBtn.addEventListener("click", () => {
       const content = document.getElementById("metadata-content");
-      const btn = e.target.closest("#show-metadata-btn");
-      if (content && btn) {
+      if (content) {
         const isHidden = content.classList.toggle("hidden");
-        const label = btn.querySelector(".ms-Button-label") || btn;
-        label.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
+        metadataBtn.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
       }
-    }
+    });
+  }
 
-    // Start tracking button
-    if (e.target.closest("#setup-map-tracking")) {
-      e.preventDefault();
+  // Start tracking button
+  const trackingBtn = document.getElementById("setup-map-tracking");
+  if (trackingBtn) {
+    trackingBtn.addEventListener("click", () => {
       if (window.app?.startTracking) {
         window.app.startTracking();
+      } else {
+        state.setStatus("Application not ready - please refresh", true);
       }
-    }
+    });
+  }
 
-    // Renew prompt button
-    if (e.target.closest("#renew-prompt")) {
-      e.preventDefault();
+  // Renew prompt button
+  const renewBtn = document.getElementById("renew-prompt");
+  if (renewBtn) {
+    renewBtn.addEventListener("click", () => {
       if (window.app?.renewPrompt) {
         window.app.renewPrompt();
+      } else {
+        state.setStatus("Application not ready - please refresh", true);
       }
-    }
+    });
+  }
 
-    // Navigation tabs
-    const tab = e.target.closest(".nav-tab");
-    if (tab) {
+  // Navigation tabs
+  document.querySelectorAll(".nav-tab").forEach((tab) => {
+    tab.addEventListener("click", (e) => {
       e.preventDefault();
       const viewName = tab.getAttribute("data-view");
       showView(viewName);
-    }
+    });
   });
 }
 
