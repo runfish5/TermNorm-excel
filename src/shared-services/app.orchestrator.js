@@ -65,97 +65,19 @@ export class AppOrchestrator {
     }
   }
 
-  // Validate current state and provide user feedback
-  validateTrackingReadiness() {
-    const config = state.get("config.data");
-    const rawSources = state.get("mappings.sources");
-    const sourceCount = rawSources ? Object.keys(rawSources).length : 0;
-
-    const validation = {
-      ready: false,
-      issues: [],
-      summary: "",
-    };
-
-    // Check config
-    if (!config) {
-      validation.issues.push("❌ No configuration loaded");
-    } else if (!config.column_map || !Object.keys(config.column_map).length) {
-      validation.issues.push("❌ Configuration missing column mappings");
-    } else {
-      validation.issues.push(`✅ Configuration loaded (${Object.keys(config.column_map).length} column mappings)`);
-    }
-
-    // Check mapping sources
-    if (sourceCount === 0) {
-      validation.issues.push("❌ No mapping tables loaded");
-    } else {
-      validation.issues.push(`✅ ${sourceCount} mapping table(s) loaded`);
-
-      // Check if combined mappings exist (they should be auto-combined when sources are added)
-      const mappings = state.get("mappings");
-      const forwardCount = mappings?.forward ? Object.keys(mappings.forward).length : 0;
-      const reverseCount = mappings?.reverse ? Object.keys(mappings.reverse).length : 0;
-
-      if (forwardCount > 0 || reverseCount > 0) {
-        validation.issues.push(`✅ Valid mappings found (${forwardCount} forward, ${reverseCount} reverse)`);
-        validation.ready = true;
-      } else {
-        validation.issues.push("❌ Mapping tables contain no valid mappings");
-      }
-    }
-
-    validation.summary = validation.issues.join(" • ");
-    return validation;
-  }
 
   async startTracking() {
-    // Check config
     const config = state.get("config.data");
-
-    if (!config?.column_map || !Object.keys(config.column_map).length) {
-      const errorMsg = !config
-        ? "No configuration loaded - please drag and drop a config file first"
-        : "Configuration missing column mappings - check your config file";
-      return state.setStatus(`Error: ${errorMsg}`, true);
-    }
-
-    // Check mapping sources before combining
-    const rawSources = state.get("mappings.sources");
-    state.combineMappingSources();
     const mappings = state.get("mappings");
-
-    const hasForward = mappings.forward && Object.keys(mappings.forward).length > 0;
-    const hasReverse = mappings.reverse && Object.keys(mappings.reverse).length > 0;
-
-    if (!hasForward && !hasReverse) {
-      const sourceCount = rawSources ? Object.keys(rawSources).length : 0;
-      let errorMsg;
-      if (sourceCount === 0) {
-        errorMsg = "No mapping tables loaded - click 'Load Mapping Table' buttons first";
-      } else {
-        errorMsg = `${sourceCount} mapping source(s) loaded but no valid mappings found - check your mapping tables`;
-      }
-      return state.setStatus(`Error: ${errorMsg}`, true);
+    
+    if (!config || (!mappings.forward && !mappings.reverse)) {
+      return state.setStatus("Error: Config or mappings missing", true);
     }
 
-    // Start tracking
     try {
       await this.tracker.start(config, mappings);
-
-      const forwardCount = Object.keys(mappings.forward || {}).length;
-      const reverseCount = Object.keys(mappings.reverse || {}).length;
-      const sourcesCount = mappings.metadata?.sources?.length || 0;
-
-      const mode = forwardCount > 0 ? "with mappings" : "reverse-only";
-      const suffix = sourcesCount > 1 ? ` (${sourcesCount} sources)` : "";
-
-      state.setStatus(`Tracking active ${mode}${suffix} - ${forwardCount} forward, ${reverseCount} reverse`);
-
-      // Show results view
-      if (window.showView) {
-        window.showView("results");
-      }
+      state.setStatus("Tracking active");
+      window.showView?.("results");
     } catch (error) {
       state.setStatus(`Error: ${error.message}`, true);
     }
