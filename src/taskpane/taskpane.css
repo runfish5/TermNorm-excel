@@ -360,6 +360,43 @@
     cursor: not-allowed;
 }
 
+/* Version Info Styling */
+.version-info {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.version-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.version-row:last-child {
+    border-bottom: none;
+}
+
+.version-label {
+    font-weight: 500;
+    color: #666;
+    min-width: 80px;
+}
+
+.version-value {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+    color: #333;
+    text-align: right;
+    font-size: 12px;
+    cursor: default;
+}
+
+.version-value[title] {
+    cursor: help;
+    border-bottom: 1px dotted #999;
+}
+
 /* Utilities */
 .hidden {
     display: none;
