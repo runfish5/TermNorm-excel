@@ -4,6 +4,7 @@
 export const VersionInfo = {
   version: "1.0.0",
   commit: "04d751b", // Real git commit hash
+  commitDate: "2025-09-05 09:12", // Git commit date/time
   branch: "web365debug_dragnDrop", // Git branch
   repository: "runfish5/excel-entity-standardizer", // GitHub repository
   buildTime: (() => {
@@ -35,7 +36,7 @@ export const VersionInfo = {
 
   // Get git info string for security/debugging
   getGitInfo() {
-    return `${this.commit} (${this.branch})`;
+    return `${this.commit} (${this.commitDate})`;
   },
 
   // Get repository info for security verification
@@ -52,6 +53,7 @@ export const VersionInfo = {
     return {
       version: this.version,
       commit: this.commit,
+      commitDate: this.commitDate,
       branch: this.branch,
       repository: this.repository,
       buildTime: this.buildTime,
@@ -65,7 +67,7 @@ export const VersionInfo = {
     const repo = this.getRepositoryInfo();
     console.group("🔧 TermNorm Version Info");
     console.log(`Version: ${this.getVersionString()}`);
-    console.log(`Commit: ${this.commit} (${this.branch})`);
+    console.log(`Commit: ${this.commit} (${this.commitDate}) on ${this.branch}`);
     console.log(`Repository: ${this.repository}`);
     console.log(`Build Time: ${this.buildTime}`);
     console.log(`Commit URL: ${repo.commitUrl}`);

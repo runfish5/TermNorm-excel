@@ -515,7 +515,7 @@ function updateVersionDisplay() {
 
   if (versionBuild) {
     versionBuild.textContent = VersionInfo.getGitInfo();
-    versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nBuild Time: ${info.buildTime}`;
+    versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`;
   }
 
   if (versionEnvironment) {
