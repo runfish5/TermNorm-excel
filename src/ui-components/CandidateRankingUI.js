@@ -9,8 +9,10 @@ export class ActivityDisplay {
   static init() {
     this.container = document.getElementById("results-view");
     if (!this.container) {
+      console.error("CandidateRankingUI: Could not find results-view container in DOM");
       return false;
     }
+    console.log("CandidateRankingUI: Successfully initialized container");
 
     // Set up toggle event listener
     this.container.addEventListener("change", (e) => {
@@ -34,7 +36,17 @@ export class ActivityDisplay {
 
   static addCandidate(value, result, context) {
     const candidates = result?.candidates;
-    if (!candidates || !this.container) return;
+    if (!candidates) return;
+    
+    // Ensure container is initialized - try to initialize if needed
+    if (!this.container) {
+      console.log("CandidateRankingUI: Container not initialized, attempting initialization...");
+      const initSuccess = this.init();
+      if (!initSuccess || !this.container) {
+        console.error("CandidateRankingUI: Failed to initialize container, cannot display candidates");
+        return;
+      }
+    }
 
     this.candidatesData = [...candidates];
     this.currentContext = context;
@@ -57,8 +69,11 @@ export class ActivityDisplay {
 
     const rankedContainer = this.container.querySelector("#candidate-ranking-section");
     if (!rankedContainer) {
+      console.error("CandidateRankingUI: Could not find candidate-ranking-section within results-view");
       return;
     }
+    
+    console.log(`CandidateRankingUI: Adding candidate for "${value}" with ${candidates.length} options`);
 
     rankedContainer.innerHTML = `
           <div class="candidate-entry">
