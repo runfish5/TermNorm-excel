@@ -14,6 +14,19 @@ export class ActivityDisplay {
     }
     console.log("CandidateRankingUI: Successfully initialized container");
 
+    // Add CSS styles for drag and drop functionality
+    const style = document.createElement("style");
+    style.textContent = `
+        .candidate-table tr { cursor: move; transition: background 0.2s; }
+        .candidate-table tr:hover { background: #f3f2f1; }
+        .candidate-table tr.dragging { opacity: 0.5; }
+        .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
+        .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
+        .drag-handle:hover { color: #0078d4; }
+        .drag-handle:active { cursor: grabbing; }
+    `;
+    document.head.appendChild(style);
+
     // Set up toggle event listener
     this.container.addEventListener("change", (e) => {
       if (e.target.name === "activity-mode") {
@@ -80,16 +93,18 @@ export class ActivityDisplay {
               <div class="candidate-header">Input: "${value}"</div>
               <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
                   <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
+                  <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
               </div>
               <table class="candidate-table">
-                  <thead><tr>${columns
+                  <thead><tr><th>🔀</th>${columns
                     .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
                     .join("")}</tr></thead>
                   <tbody>
                       ${this.candidatesData
                         .map(
                           (c, i) => `
-                          <tr data-index="${i}">
+                          <tr draggable="true" data-index="${i}">
+                              <td class="drag-handle">⋮⋮</td>
                               ${columns
                                 .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
                                 .join("")}
@@ -102,6 +117,7 @@ export class ActivityDisplay {
           </div>
       `;
 
+    this.setupDragDrop(rankedContainer);
     this.setupFirstChoice(rankedContainer);
   }
 
@@ -147,6 +163,55 @@ export class ActivityDisplay {
     }
     feedback.innerHTML = message;
     return feedback;
+  }
+
+  static setupDragDrop(container) {
+    const tbody = container.querySelector("tbody");
+    if (!tbody) {
+      console.error("CandidateRankingUI: tbody not found in container");
+      return;
+    }
+
+    let dragIndex = null;
+
+    tbody.ondragstart = (e) => {
+      if (e.target.tagName === "TR") {
+        dragIndex = parseInt(e.target.dataset.index);
+        e.target.classList.add("dragging");
+      }
+    };
+
+    tbody.ondragend = (e) => {
+      if (e.target.tagName === "TR") {
+        e.target.classList.remove("dragging");
+        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
+      }
+    };
+
+    tbody.ondragover = (e) => {
+      e.preventDefault();
+      const targetRow = e.target.closest("tr");
+      if (targetRow && dragIndex !== null) {
+        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
+        targetRow.classList.add("drag-over");
+      }
+    };
+
+    tbody.ondrop = (e) => {
+      e.preventDefault();
+      const targetRow = e.target.closest("tr");
+      if (targetRow && dragIndex !== null) {
+        const targetIndex = parseInt(targetRow.dataset.index);
+        const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
+        this.candidatesData.splice(targetIndex, 0, draggedItem);
+
+        const headerElement = container.querySelector(".candidate-header");
+        const input = headerElement.textContent.match(/Input: "([^"]+)"/)?.[1];
+        const mockResult = { candidates: this.candidatesData };
+        this.addCandidate(input, mockResult, this.currentContext);
+      }
+      dragIndex = null;
+    };
   }
 
 
