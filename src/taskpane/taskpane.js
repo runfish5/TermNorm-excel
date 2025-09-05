@@ -260,88 +260,24 @@ function setupDirectEventBindings() {
     });
   }
 
-  // Start tracking button
+  // Start tracking button - simple implementation
   const trackingBtn = document.getElementById("setup-map-tracking");
-
-  // Button state management functions
-  function updateTrackingButtonState() {
-    if (!trackingBtn) return;
-
-    if (!window.app?.validateTrackingReadiness) {
-      trackingBtn.disabled = true;
-      trackingBtn.textContent = "Application Loading...";
-      trackingBtn.title = "Please wait for application to initialize";
-      return;
-    }
-
-    const validation = window.app.validateTrackingReadiness();
-
-    if (validation.ready) {
-      trackingBtn.disabled = false;
-      trackingBtn.removeAttribute("aria-disabled");
-      trackingBtn.style.pointerEvents = "auto";
-      trackingBtn.style.cursor = "pointer";
-      trackingBtn.textContent = "Activate Tracking";
-      trackingBtn.title = "Ready to start tracking: " + validation.summary;
-      trackingBtn.className = "ms-Button bidirectional-option";
-    } else {
-      trackingBtn.disabled = true;
-      trackingBtn.setAttribute("aria-disabled", "true");
-      trackingBtn.style.pointerEvents = "auto"; // Still allow events for better debugging
-      trackingBtn.style.cursor = "not-allowed";
-      trackingBtn.textContent = "Not Ready";
-      trackingBtn.title = "Issues to resolve: " + validation.summary;
-      trackingBtn.className = "ms-Button bidirectional-option ms-Button--disabled";
-    }
-  }
-
-  // Button click handler
-  async function handleTrackingButtonClick(event) {
-    // Prevent if button is disabled
-    if (trackingBtn.disabled || trackingBtn.getAttribute("aria-disabled") === "true") {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // Set loading state
-    trackingBtn.disabled = true;
-    trackingBtn.setAttribute("aria-disabled", "true");
-    trackingBtn.style.cursor = "not-allowed";
-    trackingBtn.textContent = "Activating...";
-
-    try {
-      if (window.app?.startTracking) {
-        await window.app.startTracking();
-      } else {
-        // Simple failsafe: try to reinitialize app if missing
-        if (!window.app) {
-          const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
-          const app = new AppOrchestrator();
-          await app.init();
-          window.app = app;
-          await window.app.startTracking();
-        } else {
-          throw new Error("window.app exists but startTracking method is missing");
-        }
-      }
-    } catch (error) {
-      state.setStatus(`Activation failed: ${error.message}`, true);
-    } finally {
-      // Restore button state
-      setTimeout(updateTrackingButtonState, 100);
-    }
-  }
-
   if (trackingBtn) {
-    trackingBtn.addEventListener("click", handleTrackingButtonClick);
-    
-    // Initial button state update
-    updateTrackingButtonState();
-
-    // Update button state when mappings change
-    state.subscribe("mappings", updateTrackingButtonState);
-    state.subscribe("config", updateTrackingButtonState);
+    trackingBtn.addEventListener("click", async () => {
+      if (!window.app) return;
+      
+      trackingBtn.disabled = true;
+      trackingBtn.textContent = "Activating...";
+      
+      try {
+        await window.app.startTracking();
+      } catch (error) {
+        state.setStatus(`Activation failed: ${error.message}`, true);
+      } finally {
+        trackingBtn.disabled = false;
+        trackingBtn.textContent = "Activate Tracking";
+      }
+    });
   }
 
   // Renew prompt button
