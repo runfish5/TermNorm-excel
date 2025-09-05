@@ -4,7 +4,25 @@
 export const VersionInfo = {
   // Static version info (would be generated during build in production)
   version: "1.0.0",
-  buildTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  buildTime: (() => {
+    const zurichTime = new Date().toLocaleString('de-CH', { 
+      timeZone: 'Europe/Zurich',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, '$3-$2-$1 $4');
+    
+    // Determine if we're in CET (UTC+1) or CEST (UTC+2)
+    const now = new Date();
+    const zurichDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Zurich' }));
+    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const offsetHours = Math.round((zurichDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
+    
+    return `${zurichTime} UTC+${offsetHours}`;
+  })(),
   environment: "development",
   
   // Get commit hash placeholder (in production this would be injected during build)
