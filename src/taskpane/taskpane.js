@@ -59,7 +59,7 @@ Office.onReady(async (info) => {
 
   // Set up UI infrastructure BEFORE app initialization - environment agnostic
   window.showView = showView; // Make showView globally available
-  
+
   // Initial margin update
   updateContentMargin();
 
@@ -265,10 +265,10 @@ function setupDirectEventBindings() {
   if (trackingBtn) {
     trackingBtn.addEventListener("click", async () => {
       if (!window.app) return;
-      
+
       trackingBtn.disabled = true;
       trackingBtn.textContent = "Activating...";
-      
+
       try {
         await window.app.startTracking();
       } catch (error) {
@@ -494,39 +494,38 @@ function updateCloudIndicator(serverInfo) {
 function initializeVersionDisplay() {
   // Log version info to console for developers
   VersionInfo.logToConsole();
-  
+
   // Update version display elements when settings view is accessed
   updateVersionDisplay();
 }
 
 function updateVersionDisplay() {
-  const versionInfo = VersionInfo.getFullInfo();
-  const envInfo = VersionInfo.getEnvironmentInfo();
-  
-  // Update version elements
+  const info = VersionInfo.getEssentialInfo();
+  const repo = VersionInfo.getRepositoryInfo();
+
+  // Update version elements with git provenance focus
   const versionNumber = document.getElementById("version-number");
   const versionBuild = document.getElementById("version-build");
   const versionEnvironment = document.getElementById("version-environment");
   const versionRuntime = document.getElementById("version-runtime");
-  
+
   if (versionNumber) {
-    versionNumber.textContent = versionInfo.versionString;
+    versionNumber.textContent = VersionInfo.getVersionString();
   }
-  
+
   if (versionBuild) {
-    versionBuild.textContent = versionInfo.buildString;
-    versionBuild.title = `Commit: ${versionInfo.commit}\nBuild Time: ${versionInfo.buildTime}`;
+    versionBuild.textContent = VersionInfo.getGitInfo();
+    versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nBuild Time: ${info.buildTime}`;
   }
-  
+
   if (versionEnvironment) {
-    versionEnvironment.textContent = versionInfo.environment;
-    versionEnvironment.style.color = envInfo.color;
+    versionEnvironment.textContent = info.environment;
+    versionEnvironment.style.color = info.environment === "development" ? "#0078d7" : "#5cb85c";
     versionEnvironment.style.fontWeight = "500";
   }
-  
+
   if (versionRuntime) {
-    const currentTime = new Date().toLocaleString();
-    versionRuntime.textContent = currentTime;
-    versionRuntime.title = `Cache verification: ${versionInfo.timestamp}`;
+    versionRuntime.textContent = info.buildTime;
+    versionRuntime.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`;
   }
 }
