@@ -3,10 +3,10 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "04d751b", // Real git commit hash
-  commitDate: "2025-09-05 09:12", // Git commit date/time
-  branch: "web365debug_dragnDrop", // Git branch
-  repository: "runfish5/excel-entity-standardizer", // GitHub repository
+  commit: "23f8538", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-05 11:19", // Auto-updated by scripts/update-version.js
+  branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
+  repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
   buildTime: (() => {
     const zurichTime = new Date()
       .toLocaleString("de-CH", {

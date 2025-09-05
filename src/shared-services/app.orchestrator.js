@@ -65,11 +65,10 @@ export class AppOrchestrator {
     }
   }
 
-
   async startTracking() {
     const config = state.get("config.data");
     const mappings = state.get("mappings");
-    
+
     if (!config || (!mappings.forward && !mappings.reverse)) {
       return state.setStatus("Error: Config or mappings missing", true);
     }
