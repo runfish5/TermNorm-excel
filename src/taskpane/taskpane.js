@@ -3,6 +3,7 @@ import { AppOrchestrator } from "../shared-services/app.orchestrator.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerConfig } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
+import { VersionInfo } from "../utils/version.js";
 
 // No theme system - using default only
 
@@ -40,6 +41,9 @@ Office.onReady(async (info) => {
 
   // Initialize server status
   initializeServerStatus();
+
+  // Initialize version information display
+  initializeVersionDisplay();
 
   // Set up status display FIRST - ensures it works even if initialization fails
   state.subscribe("ui", (ui) => {
@@ -548,4 +552,45 @@ function updateCloudIndicator(serverInfo) {
 
   const isCloudAPI = serverInfo?.connectionType === "Cloud API";
   cloudIndicator.classList.toggle("hidden", !isCloudAPI);
+}
+
+// Version information display
+function initializeVersionDisplay() {
+  // Log version info to console for developers
+  VersionInfo.logToConsole();
+  
+  // Update version display elements when settings view is accessed
+  updateVersionDisplay();
+}
+
+function updateVersionDisplay() {
+  const versionInfo = VersionInfo.getFullInfo();
+  const envInfo = VersionInfo.getEnvironmentInfo();
+  
+  // Update version elements
+  const versionNumber = document.getElementById("version-number");
+  const versionBuild = document.getElementById("version-build");
+  const versionEnvironment = document.getElementById("version-environment");
+  const versionRuntime = document.getElementById("version-runtime");
+  
+  if (versionNumber) {
+    versionNumber.textContent = versionInfo.versionString;
+  }
+  
+  if (versionBuild) {
+    versionBuild.textContent = versionInfo.buildString;
+    versionBuild.title = `Commit: ${versionInfo.commit}\nBuild Time: ${versionInfo.buildTime}`;
+  }
+  
+  if (versionEnvironment) {
+    versionEnvironment.textContent = versionInfo.environment;
+    versionEnvironment.style.color = envInfo.color;
+    versionEnvironment.style.fontWeight = "500";
+  }
+  
+  if (versionRuntime) {
+    const currentTime = new Date().toLocaleString();
+    versionRuntime.textContent = currentTime;
+    versionRuntime.title = `Cache verification: ${versionInfo.timestamp}`;
+  }
 }
