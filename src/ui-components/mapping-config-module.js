@@ -12,7 +12,7 @@ export class MappingConfigModule {
     this.cachedFileName = null;
     this.elementId = `mapping-config-${index}`;
     this.mappings = { forward: {}, reverse: {}, metadata: null };
-    
+
     // Pre-generate all DOM IDs to reduce repetition
     this.ids = {
       filenameDisplay: `${this.elementId}-filename-display`,
@@ -26,7 +26,7 @@ export class MappingConfigModule {
       sourceColumn: `${this.elementId}-source-column`,
       loadMapping: `${this.elementId}-load-mapping`,
       fileSource: `${this.elementId}-file-source`,
-      externalFileSection: `${this.elementId}-external-file-section`
+      externalFileSection: `${this.elementId}-external-file-section`,
     };
   }
   createElement() {
@@ -109,7 +109,7 @@ export class MappingConfigModule {
   }
   setupEvents() {
     const { ids } = this;
-    
+
     // File source radios
     const currentFileRadio = document.getElementById(ids.currentFile);
     const externalFileRadio = document.getElementById(ids.externalFile);
@@ -163,7 +163,7 @@ export class MappingConfigModule {
   }
   loadInitialData() {
     const { ids } = this;
-    
+
     // Pre-fill form with config data
     if (this.mappingConfig.source_column) {
       document.getElementById(ids.sourceColumn).value = this.mappingConfig.source_column;
@@ -237,7 +237,7 @@ export class MappingConfigModule {
   }
   async loadMappings() {
     const { ids } = this;
-    
+
     try {
       this.updateStatus("Loading...");
 
@@ -250,7 +250,7 @@ export class MappingConfigModule {
       };
 
       const result = await loadAndProcessMappings(customParams);
-      
+
       // Store mapping source for later combination
       state.addMappingSource(this.index, result, result, this.mappingConfig);
       this.mappings = result;

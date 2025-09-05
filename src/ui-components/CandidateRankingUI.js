@@ -50,7 +50,7 @@ export class ActivityDisplay {
   static addCandidate(value, result, context) {
     const candidates = result?.candidates;
     if (!candidates) return;
-    
+
     // Ensure container is initialized - try to initialize if needed
     if (!this.container) {
       console.log("CandidateRankingUI: Container not initialized, attempting initialization...");
@@ -85,7 +85,7 @@ export class ActivityDisplay {
       console.error("CandidateRankingUI: Could not find candidate-ranking-section within results-view");
       return;
     }
-    
+
     console.log(`CandidateRankingUI: Adding candidate for "${value}" with ${candidates.length} options`);
 
     rankedContainer.innerHTML = `
@@ -213,7 +213,6 @@ export class ActivityDisplay {
       dragIndex = null;
     };
   }
-
 
   static clearCandidates() {
     this.candidatesData = [];
