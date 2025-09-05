@@ -2,77 +2,73 @@
 // Version information utility for TermNorm Excel Add-in
 
 export const VersionInfo = {
-  // Static version info (would be generated during build in production)
   version: "1.0.0",
+  commit: "04d751b", // Real git commit hash
+  branch: "web365debug_dragnDrop", // Git branch
+  repository: "runfish5/excel-entity-standardizer", // GitHub repository
   buildTime: (() => {
-    const zurichTime = new Date().toLocaleString('de-CH', { 
-      timeZone: 'Europe/Zurich',
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, '$3-$2-$1 $4');
-    
-    // Determine if we're in CET (UTC+1) or CEST (UTC+2)
+    const zurichTime = new Date()
+      .toLocaleString("de-CH", {
+        timeZone: "Europe/Zurich",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+      .replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, "$3-$2-$1 $4");
+
     const now = new Date();
-    const zurichDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Zurich' }));
-    const utcDate = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const zurichDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Zurich" }));
+    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
     const offsetHours = Math.round((zurichDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
-    
+
     return `${zurichTime} UTC+${offsetHours}`;
   })(),
   environment: "development",
-  
-  // Get commit hash placeholder (in production this would be injected during build)
-  getCommitHash() {
-    // In a real build process, this would be replaced with actual git commit hash
-    // For now, generate a short hash-like string from current timestamp
-    const hash = Date.now().toString(36).slice(-7);
-    return hash;
-  },
 
   // Get formatted version string
   getVersionString() {
     return `v${this.version}`;
   },
 
-  // Get build info string
-  getBuildString() {
-    return `${this.getCommitHash()} (${this.buildTime})`;
+  // Get git info string for security/debugging
+  getGitInfo() {
+    return `${this.commit} (${this.branch})`;
   },
 
-  // Get environment with color coding
-  getEnvironmentInfo() {
+  // Get repository info for security verification
+  getRepositoryInfo() {
     return {
-      name: this.environment,
-      color: this.environment === "development" ? "#0078d7" : 
-             this.environment === "staging" ? "#ff8c00" : "#5cb85c"
+      name: this.repository,
+      url: `https://github.com/${this.repository}`,
+      commitUrl: `https://github.com/${this.repository}/commit/${this.commit}`,
     };
   },
 
-  // Get full version info object
-  getFullInfo() {
+  // Get essential info for debugging and security
+  getEssentialInfo() {
     return {
       version: this.version,
-      commit: this.getCommitHash(),
+      commit: this.commit,
+      branch: this.branch,
+      repository: this.repository,
       buildTime: this.buildTime,
       environment: this.environment,
-      buildString: this.getBuildString(),
-      versionString: this.getVersionString(),
-      timestamp: Date.now() // For cache verification
+      timestamp: Date.now(), // For cache verification
     };
   },
 
-  // Log version info to console
+  // Log essential info to console
   logToConsole() {
-    const info = this.getFullInfo();
+    const repo = this.getRepositoryInfo();
     console.group("🔧 TermNorm Version Info");
-    console.log(`Version: ${info.versionString}`);
-    console.log(`Build: ${info.buildString}`);
-    console.log(`Environment: ${info.environment}`);
-    console.log(`Runtime: ${new Date().toLocaleString()}`);
+    console.log(`Version: ${this.getVersionString()}`);
+    console.log(`Commit: ${this.commit} (${this.branch})`);
+    console.log(`Repository: ${this.repository}`);
+    console.log(`Build Time: ${this.buildTime}`);
+    console.log(`Commit URL: ${repo.commitUrl}`);
     console.groupEnd();
-  }
+  },
 };
