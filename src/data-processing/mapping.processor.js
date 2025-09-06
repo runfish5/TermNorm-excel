@@ -1,7 +1,11 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
 import { state } from "../shared-services/state.manager.js";
-import { findColumnIndex } from "../utils/columnUtils.js";
+// Inlined column utility
+function findColumnIndex(headers, columnName) {
+  if (!columnName || !headers) return -1;
+  return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
+}
 import { ServerConfig } from "../utils/serverConfig.js";
 
 // Combined parameter extraction and validation
