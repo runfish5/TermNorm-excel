@@ -194,6 +194,14 @@ export class MappingConfigModule {
   async loadMappings() {
     const element = document.getElementById(this.elementId);
     
+    // Check server status before proceeding
+    const isServerOnline = state.get("server.online");
+    if (!isServerOnline) {
+      const errorMessage = "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
+      state.setStatus(errorMessage, true);
+      return;
+    }
+    
     try {
       state.setStatus("Loading...");
 
@@ -214,7 +222,7 @@ export class MappingConfigModule {
       element.open = false;
     } catch (error) {
       this.mappings = { forward: {}, reverse: {}, metadata: null };
-      state.setStatus(error.message);
+      state.setStatus(error.message, true);
     }
   }
   handleMappingSuccess(result) {
