@@ -8,17 +8,8 @@ function findColumnIndex(headers, columnName) {
 }
 import { getHost, getHeaders } from "../utils/serverConfig.js";
 
-// Combined parameter extraction and validation
-function getValidatedParams(customParams) {
-  // Use custom params or extract from DOM
-  const params = customParams || {
-    useCurrentFile: document.getElementById("current-file")?.checked || false,
-    sheetName: document.getElementById("worksheet-dropdown")?.value?.trim() || "",
-    sourceColumn: document.getElementById("source-column")?.value?.trim() || null,
-    targetColumn: document.getElementById("target-column")?.value?.trim() || "",
-    externalFile: window.externalFile || document.getElementById("external-file")?.files?.[0] || null,
-  };
-
+// Parameter validation
+function validateParams(params) {
   // Validate required fields
   if (!params.sheetName) throw new Error("Sheet name is required");
   if (!params.targetColumn) throw new Error("Target column is required");
@@ -147,12 +138,12 @@ async function loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
 }
 
 // Main function - much simpler
-export async function loadAndProcessMappings(customParams = null) {
+export async function loadAndProcessMappings(customParams) {
   try {
     state.setStatus("Loading mappings...");
 
-    // Get params, load data, process mappings
-    const params = getValidatedParams(customParams);
+    // Validate params, load data, process mappings
+    const params = validateParams(customParams);
     const data = await loadWorksheetData(params);
     const result = processMappings(data, params.sourceColumn, params.targetColumn);
 

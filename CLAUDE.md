@@ -45,11 +45,13 @@ src/
 │   ├── normalizer.router.js  # Term normalization routing
 │   ├── normalizer.fuzzy.js   # Fuzzy matching logic
 │   └── server.status.js      # Server connectivity management
-├── ui-components/      # Reusable UI components
+├── ui-components/      # Simple UI functions (no heavyweight classes)
+│   └── mapping-config-functions.js  # Pure functions for mapping UI (replaces MappingConfigModule)
 ├── utils/              # Simplified utility functions
 │   ├── serverConfig.js       # Simple function exports (getHost, getHeaders, getApiKey)
 │   └── version.js            # Version information utilities
 └── data-processing/    # Data transformation and mapping
+    └── mapping.processor.js     # Streamlined mapping processing with direct validation
 ```
 
 ### Backend Structure
