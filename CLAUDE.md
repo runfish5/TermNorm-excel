@@ -52,7 +52,8 @@ src/
 ├── utils/              # Simplified utility functions
 │   ├── serverConfig.js       # Simple function exports (getHost, getHeaders, getApiKey)
 │   ├── version.js            # Version information utilities
-│   └── app-utilities.js      # General app utilities (margins, workbook names)
+│   ├── app-utilities.js      # General app utilities (margins, workbook names)
+│   └── config-processor.js   # Pure functions for config validation and selection
 └── data-processing/    # Data transformation and mapping
     └── mapping.processor.js     # Streamlined mapping processing with direct validation
 ```
@@ -68,11 +69,11 @@ backend-api/
 
 ### Key Integration Points
 
-**Central Orchestration**: `taskpane.js` serves as the main application coordinator, handling configuration loading, mapping module management, and user interactions directly without intermediate abstraction layers.
+**Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
 **State Management**: The frontend uses a centralized state manager (`state.manager.js`) that coordinates between UI components and services. Subscribe to state changes using `state.subscribe()`.
 
-**Configuration System**: Project configurations are stored in `config/app.config.json` with per-workbook mappings that define:
+**Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
 - Reference file paths and worksheet specifications
 - Standard mapping sources
@@ -87,7 +88,8 @@ backend-api/
 
 - **Direct Function Calls**: Use direct function imports instead of object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`)
 - **Inline Critical Operations**: Excel cell operations are inlined in `live.tracker.js` for performance and clarity
-- **Central Coordination**: `taskpane.js` handles orchestration directly - avoid creating intermediate coordinator classes
+- **Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules (`config-processor.js`, `file-handling.js`, `view-manager.js`)
+- **Pure Functions**: Extract reusable logic into pure functions (e.g., config validation) for better testability and maintainability
 - **Minimal Indirection**: Prefer function-based modules over class-based abstractions for simple utilities
 - **Maintain Modularity**: Keep logical separation of concerns while avoiding unnecessary abstraction layers
 

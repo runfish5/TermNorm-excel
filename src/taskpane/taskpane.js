@@ -9,6 +9,7 @@ import { getApiKey } from "../utils/serverConfig.js";
 import { updateContentMargin, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, reloadMappingModules } from "../ui-components/file-handling.js";
+import { validateConfigStructure, selectWorkbookConfig, buildConfigErrorMessage } from "../utils/config-processor.js";
 
 // No theme system - using default only
 
@@ -107,36 +108,25 @@ Office.onReady(async (info) => {
 // Functions moved from AppOrchestrator
 async function reloadConfig() {
   try {
-    // Get current workbook name
     const workbook = await getCurrentWorkbookName();
-
-    // Try to load config file
-    let currentConfigData = state.get("config.raw");
-    if (!currentConfigData) {
-      currentConfigData = (await import("../../config/app.config.json")).default;
-      state.set("config.raw", currentConfigData);
+    
+    // Load config data (from state or import)
+    let configData = state.get("config.raw");
+    if (!configData) {
+      configData = (await import("../../config/app.config.json")).default;
+      state.set("config.raw", configData);
     }
 
-    if (!currentConfigData?.["excel-projects"]) {
-      throw new Error("Configuration file not found - please drag and drop a config file");
-    }
-
-    const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
-    if (!config?.standard_mappings?.length) {
-      throw new Error(`No valid configuration found for workbook: ${workbook}`);
-    }
-
-    state.setConfig({ ...config, workbook });
+    // Validate and select using pure functions
+    validateConfigStructure(configData);
+    const config = selectWorkbookConfig(configData, workbook);
+    
+    state.setConfig(config);
     await reloadMappingModules();
-
     state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
-    let errorMessage = `Config failed: ${error.message}`;
-    if (error.message.includes("No valid configuration found for workbook:")) {
-      const configData = state.get("config.raw");
-      const keys = Object.keys(configData?.["excel-projects"] || {});
-      keys.length && (errorMessage += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`);
-    }
+    const configData = state.get("config.raw");
+    const errorMessage = buildConfigErrorMessage(error, configData);
     state.setStatus(errorMessage, true);
     throw error;
   }
