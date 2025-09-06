@@ -1,7 +1,7 @@
 // Entry point
 import { LiveTracker } from "../services/live.tracker.js";
 import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
-import { MappingConfigModule } from "../ui-components/mapping-config-module.js";
+import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "../ui-components/mapping-config-functions.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerStatusManager } from "../services/server.status.js";
 import { state } from "../shared-services/state.manager.js";
@@ -492,17 +492,31 @@ async function reloadMappingModules() {
   container.innerHTML = "";
   window.mappingModules = [];
 
-  // Create new modules
+  // Create new modules using direct functions
   window.mappingModules = standardMappings.map((config, index) => {
-    const module = new MappingConfigModule(config, index, () => onMappingLoaded());
-
+    const elementId = `mapping-config-${index}`;
+    
     try {
-      module.init(container);
+      // Create element
+      const element = document.createElement("details");
+      element.id = elementId;
+      element.className = "ms-welcome__section mapping-config-module";
+      element.open = true;
+      element.innerHTML = createMappingConfigHTML(config, index);
+      
+      container.appendChild(element);
+      
+      // Setup events and get mapping accessor
+      const moduleAPI = setupMappingConfigEvents(element, config, index, () => onMappingLoaded());
+      
+      // Load initial data
+      loadMappingConfigData(element, config);
+      
+      return { element, getMappings: moduleAPI.getMappings, index };
     } catch (initError) {
       state.setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
+      return { element: null, getMappings: () => ({ forward: {}, reverse: {}, metadata: null }), index };
     }
-
-    return module;
   });
 
   updateGlobalStatus();
