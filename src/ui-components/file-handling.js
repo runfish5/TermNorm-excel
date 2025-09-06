@@ -7,6 +7,7 @@ import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigDat
 import { state } from "../shared-services/state.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
+import { validateConfigStructure, selectWorkbookConfig } from "../utils/config-processor.js";
 
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
 export function setupFileHandling() {
@@ -102,53 +103,41 @@ async function processFile(file) {
 
 async function loadConfigData(configData, fileName) {
   try {
-    if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config format - missing excel-projects structure");
-    }
-
+    // Validate and select config using pure functions
+    validateConfigStructure(configData);
     state.set("config.raw", configData);
-
-    // Get workbook name
+    
     const workbook = await getCurrentWorkbookName();
+    const config = selectWorkbookConfig(configData, workbook);
+    state.setConfig(config);
 
-    // Find matching config
-    const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
-    const availableWorkbooks = Object.keys(configData["excel-projects"]).join(", ");
-
-    if (!config?.standard_mappings?.length) {
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${availableWorkbooks}`);
-    }
-
-    state.setConfig({ ...config, workbook });
-
-    // Ensure UI container exists
-    let container = document.getElementById("mapping-configs-container");
-    if (!container && window.showView) {
-      showView("setup");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      container = document.getElementById("mapping-configs-container");
-    }
-
-    if (!container) {
-      throw new Error("Configuration UI container not available - please refresh the add-in");
-    }
-
-    // Ensure global objects are available (fallback if not initialized)
-    !window.tracker && Object.assign(window, { tracker: new LiveTracker(), aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), mappingModules: [] });
-
+    // Ensure UI setup and initialize modules
+    await ensureUISetup();
     await reloadMappingModules();
-
-    const finalContainer = document.getElementById("mapping-configs-container");
-    if (!finalContainer?.children.length) {
-      throw new Error("Module reload completed but no UI elements were created - check configuration");
-    }
-
-    state.setStatus(
-      `Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`
-    );
+    
+    state.setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
     state.setStatus(error.message, true);
   }
+}
+
+// Separate UI setup concern
+async function ensureUISetup() {
+  let container = document.getElementById("mapping-configs-container");
+  if (!container) {
+    showView("setup");
+    await new Promise(resolve => setTimeout(resolve, 100));
+    container = document.getElementById("mapping-configs-container");
+  }
+  
+  if (!container) throw new Error("Configuration UI container not available - please refresh the add-in");
+  
+  // Ensure global objects (fallback initialization)
+  !window.tracker && Object.assign(window, { 
+    tracker: new LiveTracker(), 
+    aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), 
+    mappingModules: [] 
+  });
 }
 
 export async function reloadMappingModules() {
