@@ -3,12 +3,30 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "c2ece4a", // Auto-updated by scripts/update-version.js
-  commitDate: "2025-09-06 14:46", // Auto-updated by scripts/update-version.js
+  commit: "41a1983", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-06 15:21", // Auto-updated by scripts/update-version.js
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
-  buildTime: "2025-09-06 14:59 UTC+2", // Auto-updated by scripts/update-version.js
-  bundleSize: "1.4 MiB", // Auto-updated by webpack BundleSizePlugin
+  buildTime: (() => {
+    const zurichTime = new Date()
+      .toLocaleString("de-CH", {
+        timeZone: "Europe/Zurich",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+      .replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, "$3-$2-$1 $4");
+
+    const now = new Date();
+    const zurichDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Zurich" }));
+    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+    const offsetHours = Math.round((zurichDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
+
+    return `${zurichTime} UTC+${offsetHours}`;
+  })(),
 
   // Get formatted version string
   getVersionString() {
