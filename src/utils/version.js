@@ -3,11 +3,11 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "2d39abc", // Auto-updated by scripts/update-version.js
-  commitDate: "2025-09-06 14:31", // Auto-updated by scripts/update-version.js
+  commit: "c2ece4a", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-06 14:46", // Auto-updated by scripts/update-version.js
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
-  buildTime: "2025-09-06 14:45 UTC+2", // Auto-updated by scripts/update-version.js
+  buildTime: "2025-09-06 14:59 UTC+2", // Auto-updated by scripts/update-version.js
   bundleSize: "1.4 MiB", // Auto-updated by webpack BundleSizePlugin
 
   // Get formatted version string
