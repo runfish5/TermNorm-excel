@@ -27,7 +27,6 @@ export const VersionInfo = {
 
     return `${zurichTime} UTC+${offsetHours}`;
   })(),
-  environment: "development",
 
   // Get formatted version string
   getVersionString() {
@@ -57,7 +56,6 @@ export const VersionInfo = {
       branch: this.branch,
       repository: this.repository,
       buildTime: this.buildTime,
-      environment: this.environment,
       timestamp: Date.now(), // For cache verification
     };
   },
