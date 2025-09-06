@@ -1,4 +1,4 @@
-import { ServerConfig } from "../utils/serverConfig.js";
+import { getHost, getHeaders, getApiKey } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
 
 class ServerStatusManager {
@@ -8,7 +8,7 @@ class ServerStatusManager {
 
   initialize() {
     // Set initial server host from existing service configuration
-    const backendUrl = ServerConfig.getHost();
+    const backendUrl = getHost();
     state.set("server.host", backendUrl);
 
     // Set up server input handlers
@@ -58,7 +58,7 @@ class ServerStatusManager {
     if (this.isCheckingServer) return;
 
     this.isCheckingServer = true;
-    const host = ServerConfig.getHost();
+    const host = getHost();
 
     if (!host) {
       this.isCheckingServer = false;
@@ -66,7 +66,7 @@ class ServerStatusManager {
     }
 
     try {
-      const headers = ServerConfig.getHeaders();
+      const headers = getHeaders();
 
       // Test basic connection
       const testResponse = await fetch(`${host}/test-connection`, {
@@ -89,7 +89,7 @@ class ServerStatusManager {
         };
 
         // Test protected endpoint if API key available
-        if (ServerConfig.getApiKey()) {
+        if (getApiKey()) {
           try {
             const protectedResponse = await fetch(`${host}/analyze-patterns`, {
               method: "POST",
@@ -124,13 +124,13 @@ class ServerStatusManager {
       // Show appropriate status messages
       if (!isOnline) {
         state.setStatus("Server connection failed", true);
-      } else if (ServerConfig.getApiKey() && !connectionValidation.protected) {
+      } else if (getApiKey() && !connectionValidation.protected) {
         // Server is online but API key issues - show warning but don't treat as error
         state.setStatus(`Server online - ${connectionValidation.error || "API key validation failed"}`, true);
-      } else if (isOnline && ServerConfig.getApiKey() && connectionValidation.protected) {
+      } else if (isOnline && getApiKey() && connectionValidation.protected) {
         // Everything working perfectly
         state.setStatus("Server online - API key validated");
-      } else if (isOnline && !ServerConfig.getApiKey()) {
+      } else if (isOnline && !getApiKey()) {
         // Server online but no API key set
         state.setStatus("Server online - API key not set");
       } else if (isOnline) {

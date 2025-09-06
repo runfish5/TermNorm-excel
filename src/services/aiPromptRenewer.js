@@ -1,5 +1,5 @@
 // ./services/aiPromptRenewer.js
-import { ServerConfig } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/serverConfig.js";
 
 export class aiPromptRenewer {
   constructor(showStatus) {
@@ -44,8 +44,8 @@ export class aiPromptRenewer {
   }
 
   async _callBackend(mappings) {
-    const serverHost = ServerConfig.getHost();
-    const headers = ServerConfig.getHeaders();
+    const serverHost = getHost();
+    const headers = getHeaders();
 
     await fetch(`${serverHost}/test-connection`, { method: "POST" });
 

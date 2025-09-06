@@ -3,8 +3,8 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "41a1983", // Auto-updated by scripts/update-version.js
-  commitDate: "2025-09-06 15:21", // Auto-updated by scripts/update-version.js
+  commit: "10d2637", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-06 16:05", // Auto-updated by scripts/update-version.js
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
   buildTime: (() => {

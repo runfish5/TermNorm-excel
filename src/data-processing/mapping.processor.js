@@ -6,7 +6,7 @@ function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
-import { ServerConfig } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/serverConfig.js";
 
 // Combined parameter extraction and validation
 function getValidatedParams(customParams) {
@@ -93,9 +93,9 @@ async function updateTokenMatcher(terms) {
   const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
   try {
-    const response = await fetch(`${ServerConfig.getHost()}/update-matcher`, {
+    const response = await fetch(`${getHost()}/update-matcher`, {
       method: "POST",
-      headers: ServerConfig.getHeaders(),
+      headers: getHeaders(),
       body: JSON.stringify({ terms }),
       signal: controller.signal,
     });

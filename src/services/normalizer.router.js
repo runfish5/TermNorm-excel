@@ -1,6 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from "./normalizer.fuzzy.js";
-import { ServerConfig } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/serverConfig.js";
 import { state } from "../shared-services/state.manager.js";
 
 export class NormalizerRouter {
@@ -56,8 +56,8 @@ export class NormalizerRouter {
     try {
       state.setStatus("Starting mapping process...");
 
-      const headers = ServerConfig.getHeaders();
-      const apiEndpoint = `${ServerConfig.getHost()}/research-and-match`;
+      const headers = getHeaders();
+      const apiEndpoint = `${getHost()}/research-and-match`;
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: headers,

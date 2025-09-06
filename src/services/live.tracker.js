@@ -2,7 +2,7 @@
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
 import { NormalizerRouter } from "./normalizer.router.js";
-import { ServerConfig } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/serverConfig.js";
 // Inlined column utilities
 function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
@@ -42,21 +42,29 @@ function hasValueChanged(cellValues, cellKey, newValue) {
 function cleanCellValue(value) {
   return String(value || "").trim();
 }
-import {
-  createCellUpdates,
-  createErrorUpdates,
-  createChoiceUpdates,
-  applyCellUpdates,
-  markCellPending,
-} from "../utils/cellProcessor.js";
+// Inlined color utilities
+function getRelevanceColor(score) {
+  const s = score > 1 ? score / 100 : score;
+  if (s >= 0.9) return "#C6EFCE"; // High confidence - light green
+  if (s >= 0.8) return "#FFEB9C"; // Good - light yellow
+  if (s >= 0.6) return "#FFD1A9"; // Medium - light orange
+  if (s >= 0.2) return "#FFC7CE"; // Low - light red
+  return "#E1E1E1"; // No confidence - light gray
+}
+
+const PROCESSING_COLORS = {
+  PENDING: "#FFFB9D", // Light yellow for pending
+  ERROR: "#FFC7CE", // Light red for errors
+  CLEAR: null, // Clear formatting
+};
 
 // Inlined activity logging (from activity.logger.js)
 const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 function logActivity(source, target, method, confidence, total_time, llm_provider) {
-  fetch(`${ServerConfig.getHost()}/log-activity`, {
+  fetch(`${getHost()}/log-activity`, {
     method: "POST",
-    headers: ServerConfig.getHeaders(),
+    headers: getHeaders(),
     body: JSON.stringify({
       timestamp: new Date().toISOString(),
       source,
@@ -142,7 +150,8 @@ export class LiveTracker {
             // Only process if value actually changed
             if (hasValueChanged(this.cellValues, cellKey, cleanValue)) {
               this.cellValues.set(cellKey, cleanValue);
-              markCellPending(ws, row, col);
+              // Mark cell as pending (inlined markCellPending)
+              ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
               tasks.push(() => this.processCell(ws, row, col, targetCol, cleanValue));
             }
           }
@@ -167,11 +176,30 @@ export class LiveTracker {
         });
       }
 
-      // Create cell updates using pure function
-      const updates = createCellUpdates(value, result, row, col, targetCol);
+      // Create and apply cell updates (inlined)
+      const target = result?.target || "No matches found";
+      const confidence = result?.confidence || 0;
+      const method = result?.method || (result ? "match" : "no_match");
 
-      // Apply updates to Excel
-      await applyCellUpdates(ws, updates);
+      // Apply to Excel directly
+      const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+      const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+
+      tgtCell.values = [[target]];
+      tgtCell.format.fill.color = getRelevanceColor(confidence);
+      srcCell.format.fill.clear(); // Clear source formatting
+
+      const updates = {
+        value,
+        target,
+        method,
+        confidence,
+        metadata: {
+          candidates: result?.candidates,
+          total_time: result?.total_time || 0,
+          llm_provider: result?.llm_provider,
+        },
+      };
 
       // Log activity
       ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
@@ -189,42 +217,35 @@ export class LiveTracker {
   }
 
   async handleCellError(ws, row, col, targetCol, value, error) {
-    // Create error updates using pure function
-    const updates = createErrorUpdates(value, error, row, col, targetCol);
+    // Handle error directly (inlined)
+    const errorMsg = error instanceof Error ? error.message : String(error);
 
-    // Apply updates to Excel
-    await applyCellUpdates(ws, updates);
+    // Apply error to Excel directly
+    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+
+    srcCell.format.fill.color = PROCESSING_COLORS.ERROR;
+    tgtCell.values = [[errorMsg]];
+    tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
 
     // Log activity
-    ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-    logActivity(
-      updates.value,
-      updates.target,
-      updates.method,
-      updates.confidence,
-      updates.metadata.total_time,
-      updates.metadata.llm_provider
-    );
+    ActivityFeed.add(value, errorMsg, "error", 0);
+    logActivity(value, errorMsg, "error", 0, 0, undefined);
   }
 
   applyChoice = async (ws, row, col, targetCol, value, choice) => {
     await Excel.run(async (ctx) => {
-      // Create choice updates using pure function
-      const updates = createChoiceUpdates(value, choice, row, col, targetCol);
+      // Apply choice directly (inlined)
+      const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
+      const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
 
-      // Apply updates to Excel
-      await applyCellUpdates(ctx.workbook.worksheets.getActiveWorksheet(), updates);
+      tgtCell.values = [[choice.candidate]];
+      tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
+      srcCell.format.fill.clear(); // Clear source formatting
 
       // Log activity
-      ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-      logActivity(
-        updates.value,
-        updates.target,
-        updates.method,
-        updates.confidence,
-        updates.metadata.total_time,
-        updates.metadata.llm_provider
-      );
+      ActivityFeed.add(value, choice.candidate, "UserChoice", choice.relevance_score);
+      logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 
       await ctx.sync();
     });
