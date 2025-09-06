@@ -6,6 +6,7 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../services/server-status-functions.js";
 import { state } from "../shared-services/state.manager.js";
 import { VersionInfo } from "../utils/version.js";
+import { getApiKey } from "../utils/serverConfig.js";
 
 // No theme system - using default only
 
@@ -18,6 +19,19 @@ function updateContentMargin() {
   }
 }
 
+
+
+// Utility function to get current workbook name
+async function getCurrentWorkbookName() {
+  return await Excel.run(async (context) => {
+    const wb = context.workbook;
+    wb.load("name");
+    await context.sync();
+    return wb.name;
+  });
+}
+
+
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
     document.getElementById("sideload-msg").textContent = "This add-in requires Microsoft Excel";
@@ -25,39 +39,52 @@ Office.onReady(async (info) => {
   }
 
   // Apply default styling only
-  document.body.className = `ms-font-m ms-welcome ms-Fabric`;
+  document.body.className = 'ms-font-m ms-welcome ms-Fabric';
 
   ActivityFeed.init();
 
   // Hide loading, show app
-  document.getElementById("sideload-msg").style.display = "none";
-  document.getElementById("app-body").style.display = "flex";
+  const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map(id => document.getElementById(id));
+  sideloadMsg.style.display = "none";
+  appBody.style.display = "flex";
 
   // No theme selector functionality needed - default only
 
   // Set up ultra-simple drag/drop
   setupSimpleDragDrop();
 
-  // Set up direct event bindings
-  setupDirectEventBindings();
-
-  // Initialize server status
+  // Initialize server status and version, set up event bindings
   setupServerEvents();
   checkServerStatus();
-
-  // Initialize version information display
   initializeVersionDisplay();
+  
+  // Event bindings - metadata toggle, tracking, renew, navigation
+  document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
+    const content = document.getElementById("metadata-content");
+    content && (content.classList.toggle("hidden") ? document.getElementById("show-metadata-btn").textContent = "Show Processing Details" : document.getElementById("show-metadata-btn").textContent = "Hide Processing Details");
+  });
+  
+  document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
+    if (!getApiKey()?.trim()) return state.setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
+    e.target.disabled = true; e.target.textContent = "Activating...";
+    try { await startTracking(); } catch (error) { state.setStatus(`Activation failed: ${error.message}`, true); }
+    finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
+  });
+  
+  document.getElementById("renew-prompt")?.addEventListener("click", () => window.aiRenewer ? renewPrompt() : state.setStatus("Application not ready - please refresh", true));
+  
+  document.addEventListener("click", (e) => {
+    const navTab = e.target.closest(".nav-tab");
+    if (navTab) {
+      e.preventDefault();
+      showView(navTab.getAttribute("data-view"));
+    }
+  });
 
   // Set up status display FIRST - ensures it works even if initialization fails
   state.subscribe("ui", (ui) => {
     const statusElement = document.getElementById("main-status-message");
-    if (statusElement) {
-      statusElement.textContent = ui.statusMessage;
-      statusElement.style.color = ui.isError ? "#D83B01" : "";
-    } else {
-      // Cloud Excel fallback: log when DOM element is missing
-      console.warn("Status element not found during update:", ui.statusMessage);
-    }
+    statusElement && (statusElement.textContent = ui.statusMessage, statusElement.style.color = ui.isError ? "#D83B01" : "") || console.warn("Status element not found:", ui.statusMessage);
   });
 
   // Set up UI infrastructure BEFORE app initialization - environment agnostic
@@ -66,10 +93,10 @@ Office.onReady(async (info) => {
   // Initial margin update
   updateContentMargin();
 
-  // Update margin when status content changes
-  const observer = new MutationObserver(updateContentMargin);
+  // Update margin when status content changes - only if element exists
   const statusMessage = document.getElementById("main-status-message");
   if (statusMessage) {
+    const observer = new MutationObserver(updateContentMargin);
     observer.observe(statusMessage, {
       childList: true,
       subtree: true,
@@ -84,10 +111,7 @@ Office.onReady(async (info) => {
   try {
     await reloadConfig();
     // Set up global references for debugging
-    window.state = state;
-    window.tracker = new LiveTracker();
-    window.aiRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
-    window.mappingModules = [];
+    Object.assign(window, { state, tracker: new LiveTracker(), aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
     state.setStatus(`Initialization failed: ${error.message}`, true);
@@ -196,12 +220,7 @@ async function loadConfigData(configData, fileName) {
     state.set("config.raw", configData);
 
     // Get workbook name
-    const workbook = await Excel.run(async (context) => {
-      const wb = context.workbook;
-      wb.load("name");
-      await context.sync();
-      return wb.name;
-    });
+    const workbook = await getCurrentWorkbookName();
 
     // Find matching config
     const config = configData["excel-projects"][workbook] || configData["excel-projects"]["*"];
@@ -225,16 +244,8 @@ async function loadConfigData(configData, fileName) {
       throw new Error("Configuration UI container not available - please refresh the add-in");
     }
 
-    // Ensure global objects are available
-    if (!window.tracker) {
-      window.tracker = new LiveTracker();
-    }
-    if (!window.aiRenewer) {
-      window.aiRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
-    }
-    if (!window.mappingModules) {
-      window.mappingModules = [];
-    }
+    // Ensure global objects are available (fallback if not initialized)
+    !window.tracker && Object.assign(window, { tracker: new LiveTracker(), aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), mappingModules: [] });
 
     await reloadMappingModules();
 
@@ -251,67 +262,6 @@ async function loadConfigData(configData, fileName) {
   }
 }
 
-function setupDirectEventBindings() {
-  // Toggle metadata button
-  const metadataBtn = document.getElementById("show-metadata-btn");
-  if (metadataBtn) {
-    metadataBtn.addEventListener("click", () => {
-      const content = document.getElementById("metadata-content");
-      if (content) {
-        const isHidden = content.classList.toggle("hidden");
-        metadataBtn.textContent = isHidden ? "Show Processing Details" : "Hide Processing Details";
-      }
-    });
-  }
-
-  // Start tracking button - simple implementation
-  const trackingBtn = document.getElementById("setup-map-tracking");
-  if (trackingBtn) {
-    trackingBtn.addEventListener("click", async () => {
-      // Import ServerConfig to check API key
-      const { getApiKey } = await import("../utils/serverConfig.js");
-      const apiKey = getApiKey();
-
-      if (!apiKey || apiKey.trim() === "") {
-        state.setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
-        return;
-      }
-
-      trackingBtn.disabled = true;
-      trackingBtn.textContent = "Activating...";
-
-      try {
-        await startTracking();
-      } catch (error) {
-        state.setStatus(`Activation failed: ${error.message}`, true);
-      } finally {
-        trackingBtn.disabled = false;
-        trackingBtn.textContent = "Activate Tracking";
-      }
-    });
-  }
-
-  // Renew prompt button
-  const renewBtn = document.getElementById("renew-prompt");
-  if (renewBtn) {
-    renewBtn.addEventListener("click", () => {
-      if (window.aiRenewer) {
-        renewPrompt();
-      } else {
-        state.setStatus("Application not ready - please refresh", true);
-      }
-    });
-  }
-
-  // Navigation tabs
-  document.querySelectorAll(".nav-tab").forEach((tab) => {
-    tab.addEventListener("click", (e) => {
-      e.preventDefault();
-      const viewName = tab.getAttribute("data-view");
-      showView(viewName);
-    });
-  });
-}
 
 // Simple view switching
 function showView(viewName) {
@@ -321,12 +271,7 @@ function showView(viewName) {
   if (!views.includes(viewElement)) return;
 
   // Hide all views and show selected
-  views.forEach((id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.classList.toggle("hidden", !id.startsWith(viewName));
-    }
-  });
+  views.forEach((id) => document.getElementById(id)?.classList.toggle("hidden", !id.startsWith(viewName)));
 
   // Update tab states
   document.querySelectorAll(".nav-tab").forEach((tab) => {
@@ -340,59 +285,24 @@ function showView(viewName) {
 
 // Version information display
 function initializeVersionDisplay() {
-  // Log version info to console for developers
   VersionInfo.logToConsole();
-
-  // Update version display elements when settings view is accessed
-  updateVersionDisplay();
-}
-
-function updateVersionDisplay() {
-  const info = VersionInfo.getEssentialInfo();
-  const repo = VersionInfo.getRepositoryInfo();
-
-  // Update version elements with git provenance focus
-  const versionNumber = document.getElementById("version-number");
-  const versionBuild = document.getElementById("version-build");
-  const versionRuntime = document.getElementById("version-runtime");
-  const versionBundleSize = document.getElementById("version-bundle-size");
-
-  if (versionNumber) {
-    versionNumber.textContent = VersionInfo.getVersionString();
-  }
-
-  if (versionBuild) {
-    versionBuild.textContent = VersionInfo.getGitInfo();
-    versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`;
-  }
-
-  if (versionRuntime) {
-    versionRuntime.textContent = info.buildTime;
-    versionRuntime.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`;
-  }
-
-  if (versionBundleSize) {
-    versionBundleSize.textContent = VersionInfo.bundleSize;
-    versionBundleSize.title = `Webpack bundle size for taskpane.js\nGenerated during build process`;
-  }
+  const info = VersionInfo.getEssentialInfo(), repo = VersionInfo.getRepositoryInfo();
+  document.getElementById("version-number") && (document.getElementById("version-number").textContent = VersionInfo.getVersionString());
+  const buildEl = document.getElementById("version-build"); buildEl && (buildEl.textContent = VersionInfo.getGitInfo(), buildEl.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`);
+  const runtimeEl = document.getElementById("version-runtime"); runtimeEl && (runtimeEl.textContent = info.buildTime, runtimeEl.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`);
+  const bundleEl = document.getElementById("version-bundle-size"); bundleEl && (bundleEl.textContent = VersionInfo.bundleSize, bundleEl.title = "Webpack bundle size for taskpane.js\nGenerated during build process");
 }
 
 // Functions moved from AppOrchestrator
 async function reloadConfig() {
   try {
     // Get current workbook name
-    const workbook = await Excel.run(async (context) => {
-      const wb = context.workbook;
-      wb.load("name");
-      await context.sync();
-      return wb.name;
-    });
+    const workbook = await getCurrentWorkbookName();
 
     // Try to load config file
     let currentConfigData = state.get("config.raw");
     if (!currentConfigData) {
-      const configModule = await import("../../config/app.config.json");
-      currentConfigData = configModule.default || configModule;
+      currentConfigData = (await import("../../config/app.config.json")).default;
       state.set("config.raw", currentConfigData);
     }
 
@@ -414,9 +324,7 @@ async function reloadConfig() {
     if (error.message.includes("No valid configuration found for workbook:")) {
       const configData = state.get("config.raw");
       const keys = Object.keys(configData?.["excel-projects"] || {});
-      if (keys.length > 0) {
-        errorMessage += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
-      }
+      keys.length && (errorMessage += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`);
     }
     state.setStatus(errorMessage, true);
     throw error;
@@ -427,9 +335,7 @@ async function startTracking() {
   const config = state.get("config.data");
   const mappings = state.get("mappings");
 
-  if (!config || (!mappings.forward && !mappings.reverse)) {
-    return state.setStatus("Error: Config or mappings missing", true);
-  }
+  if (!config || (!mappings.forward && !mappings.reverse)) return state.setStatus("Error: Config or mappings missing", true);
 
   try {
     await window.tracker.start(config, mappings);
@@ -442,10 +348,7 @@ async function startTracking() {
 
 async function renewPrompt() {
   const config = state.get("config.data");
-  if (!config) {
-    state.setStatus("Config not loaded", true);
-    return;
-  }
+  if (!config) return state.setStatus("Config not loaded", true);
 
   const button = document.getElementById("renew-prompt");
   const label = button?.querySelector(".ms-Button-label");
@@ -522,43 +425,15 @@ async function reloadMappingModules() {
   updateGlobalStatus();
 }
 
-function onMappingLoaded() {
-  // Mapping data is now managed directly in state - just update UI
-  updateGlobalStatus();
-  updateJsonDump();
-}
+function onMappingLoaded() { updateGlobalStatus(); updateJsonDump(); }
 
 function updateJsonDump() {
-  const content = document.getElementById("metadata-content");
-  const sources = state.get("mappings.sources") || {};
-  if (!content || Object.keys(sources).length === 0) return;
-
-  const data = Object.entries(sources).map(([index, { mappings, result }]) => ({
-    sourceIndex: parseInt(index) + 1,
-    forwardMappings: Object.keys(mappings.forward || {}).length,
-    reverseMappings: Object.keys(mappings.reverse || {}).length,
-    metadata: result.metadata,
-    mappings: mappings,
-  }));
-
-  content.innerHTML = `
-    <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
-      <strong>Raw Data:</strong>
-      <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
-    </div>`;
+  const content = document.getElementById("metadata-content"), sources = state.get("mappings.sources") || {};
+  if (!content || !Object.keys(sources).length) return;
+  content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(Object.entries(sources).map(([index, { mappings, result }]) => ({ sourceIndex: +index + 1, forwardMappings: Object.keys(mappings.forward || {}).length, reverseMappings: Object.keys(mappings.reverse || {}).length, metadata: result.metadata, mappings })), null, 2)}</pre></div>`;
 }
 
 function updateGlobalStatus() {
-  const sources = state.get("mappings.sources") || {};
-  const loaded = Object.keys(sources).length;
-  const total = window.mappingModules?.length || 0;
-
-  const message =
-    loaded === 0
-      ? "Ready to load mapping configurations..."
-      : loaded === total
-        ? `All ${total} mapping sources loaded`
-        : `${loaded}/${total} mapping sources loaded`;
-
-  state.setStatus(message);
+  const loaded = Object.keys(state.get("mappings.sources") || {}).length, total = window.mappingModules?.length || 0;
+  state.setStatus(loaded === 0 ? "Ready to load mapping configurations..." : loaded === total ? `All ${total} mapping sources loaded` : `${loaded}/${total} mapping sources loaded`);
 }
