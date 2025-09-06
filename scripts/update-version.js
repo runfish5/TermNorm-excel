@@ -43,17 +43,38 @@ function updateVersionFile() {
   const gitInfo = getGitInfo();
   const versionPath = path.join(__dirname, '..', 'src', 'utils', 'version.js');
   
+  // Generate build timestamp
+  const buildTime = new Date()
+    .toLocaleString("de-CH", {
+      timeZone: "Europe/Zurich",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, "$3-$2-$1 $4");
+
+  const now = new Date();
+  const zurichDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Zurich" }));
+  const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+  const offsetHours = Math.round((zurichDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
+  const fullBuildTime = `${buildTime} UTC+${offsetHours}`;
+  
   console.log('Updating version.js with git info:', gitInfo);
+  console.log('Build timestamp:', fullBuildTime);
   
   // Read current version file
   let versionContent = fs.readFileSync(versionPath, 'utf8');
   
-  // Replace git information
+  // Replace git information and build time
   versionContent = versionContent
     .replace(/commit: "[^"]*"/, `commit: "${gitInfo.commit}"`)
     .replace(/commitDate: "[^"]*"/, `commitDate: "${gitInfo.commitDate}"`)
     .replace(/branch: "[^"]*"/, `branch: "${gitInfo.branch}"`)
-    .replace(/repository: "[^"]*"/, `repository: "${gitInfo.repository}"`);
+    .replace(/repository: "[^"]*"/, `repository: "${gitInfo.repository}"`)
+    .replace(/buildTime: "[^"]*"/, `buildTime: "${fullBuildTime}"`);
   
   // Write updated content
   fs.writeFileSync(versionPath, versionContent, 'utf8');

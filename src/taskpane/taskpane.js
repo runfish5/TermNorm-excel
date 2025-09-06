@@ -346,6 +346,7 @@ function updateVersionDisplay() {
   const versionNumber = document.getElementById("version-number");
   const versionBuild = document.getElementById("version-build");
   const versionRuntime = document.getElementById("version-runtime");
+  const versionBundleSize = document.getElementById("version-bundle-size");
 
   if (versionNumber) {
     versionNumber.textContent = VersionInfo.getVersionString();
@@ -360,5 +361,10 @@ function updateVersionDisplay() {
   if (versionRuntime) {
     versionRuntime.textContent = info.buildTime;
     versionRuntime.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`;
+  }
+
+  if (versionBundleSize) {
+    versionBundleSize.textContent = VersionInfo.bundleSize;
+    versionBundleSize.title = `Webpack bundle size for taskpane.js\nGenerated during build process`;
   }
 }

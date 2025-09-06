@@ -3,30 +3,12 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "23f8538", // Auto-updated by scripts/update-version.js
-  commitDate: "2025-09-05 11:19", // Auto-updated by scripts/update-version.js
+  commit: "2d39abc", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-06 14:31", // Auto-updated by scripts/update-version.js
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
-  buildTime: (() => {
-    const zurichTime = new Date()
-      .toLocaleString("de-CH", {
-        timeZone: "Europe/Zurich",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-      .replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}:\d{2})/, "$3-$2-$1 $4");
-
-    const now = new Date();
-    const zurichDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Zurich" }));
-    const utcDate = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
-    const offsetHours = Math.round((zurichDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60));
-
-    return `${zurichTime} UTC+${offsetHours}`;
-  })(),
+  buildTime: "2025-09-06 14:45 UTC+2", // Auto-updated by scripts/update-version.js
+  bundleSize: "461.3 KiB", // Auto-updated by webpack BundleSizePlugin
 
   // Get formatted version string
   getVersionString() {
