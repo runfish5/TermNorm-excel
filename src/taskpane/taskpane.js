@@ -506,7 +506,6 @@ function updateVersionDisplay() {
   // Update version elements with git provenance focus
   const versionNumber = document.getElementById("version-number");
   const versionBuild = document.getElementById("version-build");
-  const versionEnvironment = document.getElementById("version-environment");
   const versionRuntime = document.getElementById("version-runtime");
 
   if (versionNumber) {
@@ -518,11 +517,6 @@ function updateVersionDisplay() {
     versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`;
   }
 
-  if (versionEnvironment) {
-    versionEnvironment.textContent = info.environment;
-    versionEnvironment.style.color = info.environment === "development" ? "#0078d7" : "#5cb85c";
-    versionEnvironment.style.fontWeight = "500";
-  }
 
   if (versionRuntime) {
     versionRuntime.textContent = info.buildTime;
