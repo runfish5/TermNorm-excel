@@ -3,7 +3,7 @@ import { LiveTracker } from "../services/live.tracker.js";
 import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
 import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "../ui-components/mapping-config-functions.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
-import { ServerStatusManager } from "../services/server.status.js";
+import { setupServerEvents, checkServerStatus } from "../services/server-status-functions.js";
 import { state } from "../shared-services/state.manager.js";
 import { VersionInfo } from "../utils/version.js";
 
@@ -42,8 +42,8 @@ Office.onReady(async (info) => {
   setupDirectEventBindings();
 
   // Initialize server status
-  const serverStatusManager = new ServerStatusManager();
-  serverStatusManager.initialize();
+  setupServerEvents();
+  checkServerStatus();
 
   // Initialize version information display
   initializeVersionDisplay();

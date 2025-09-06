@@ -19,11 +19,6 @@ function validateParams(params) {
   return params;
 }
 
-// Use imported utility function
-function findColumn(headers, columnName) {
-  return findColumnIndex(headers, columnName);
-}
-
 // Streamlined mapping processor
 export function processMappings(data, sourceColumn, targetColumn) {
   if (!data?.length || data.length < 2) {
@@ -31,8 +26,8 @@ export function processMappings(data, sourceColumn, targetColumn) {
   }
 
   const [headers, ...rows] = data;
-  const srcIdx = findColumn(headers, sourceColumn);
-  const tgtIdx = findColumn(headers, targetColumn);
+  const srcIdx = findColumnIndex(headers, sourceColumn);
+  const tgtIdx = findColumnIndex(headers, targetColumn);
 
   // Validate columns exist
   if (sourceColumn && srcIdx === -1) throw new Error(`Source column "${sourceColumn}" not found`);

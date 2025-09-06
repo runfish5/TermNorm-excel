@@ -44,7 +44,7 @@ src/
 │   ├── live.tracker.js       # Real-time cell monitoring with inlined utilities
 │   ├── normalizer.router.js  # Term normalization routing
 │   ├── normalizer.fuzzy.js   # Fuzzy matching logic
-│   └── server.status.js      # Server connectivity management
+│   └── server-status-functions.js  # Simple server connectivity functions (replaces ServerStatusManager)
 ├── ui-components/      # Simple UI functions (no heavyweight classes)
 │   └── mapping-config-functions.js  # Pure functions for mapping UI (replaces MappingConfigModule)
 ├── utils/              # Simplified utility functions
