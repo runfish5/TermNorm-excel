@@ -8,7 +8,7 @@ export const VersionInfo = {
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
   buildTime: "2025-09-06 14:45 UTC+2", // Auto-updated by scripts/update-version.js
-  bundleSize: "461.3 KiB", // Auto-updated by webpack BundleSizePlugin
+  bundleSize: "1.4 MiB", // Auto-updated by webpack BundleSizePlugin
 
   // Get formatted version string
   getVersionString() {

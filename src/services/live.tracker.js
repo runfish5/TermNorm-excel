@@ -3,8 +3,45 @@ import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
 import { NormalizerRouter } from "./normalizer.router.js";
 import { ServerConfig } from "../utils/serverConfig.js";
-import { buildColumnMap } from "../utils/columnUtils.js";
-import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cellUtils.js";
+// Inlined column utilities
+function findColumnIndex(headers, columnName) {
+  if (!columnName || !headers) return -1;
+  return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
+}
+
+function buildColumnMap(headers, columnMap) {
+  const result = new Map();
+  const missing = [];
+
+  Object.entries(columnMap).forEach(([src, tgt]) => {
+    const srcIdx = findColumnIndex(headers, src);
+    const tgtIdx = findColumnIndex(headers, tgt);
+
+    if (srcIdx === -1) missing.push(src);
+    else if (tgtIdx === -1) missing.push(tgt);
+    else result.set(srcIdx, tgtIdx);
+  });
+
+  if (missing.length > 0) {
+    throw new Error(`Missing columns: ${missing.join(", ")}`);
+  }
+
+  return result;
+}
+
+// Inlined cell utilities
+function createCellKey(row, col) {
+  return `${row}:${col}`;
+}
+
+function hasValueChanged(cellValues, cellKey, newValue) {
+  const oldValue = cellValues.get(cellKey);
+  return oldValue !== newValue;
+}
+
+function cleanCellValue(value) {
+  return String(value || "").trim();
+}
 import {
   createCellUpdates,
   createErrorUpdates,
