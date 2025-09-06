@@ -46,10 +46,13 @@ src/
 │   ├── normalizer.fuzzy.js   # Fuzzy matching logic
 │   └── server-status-functions.js  # Simple server connectivity functions (replaces ServerStatusManager)
 ├── ui-components/      # Simple UI functions (no heavyweight classes)
-│   └── mapping-config-functions.js  # Pure functions for mapping UI (replaces MappingConfigModule)
+│   ├── mapping-config-functions.js  # Pure functions for mapping UI (replaces MappingConfigModule)
+│   ├── file-handling.js      # Drag & drop and config processing functionality
+│   └── view-manager.js       # Simple view switching
 ├── utils/              # Simplified utility functions
 │   ├── serverConfig.js       # Simple function exports (getHost, getHeaders, getApiKey)
-│   └── version.js            # Version information utilities
+│   ├── version.js            # Version information utilities
+│   └── app-utilities.js      # General app utilities (margins, workbook names)
 └── data-processing/    # Data transformation and mapping
     └── mapping.processor.js     # Streamlined mapping processing with direct validation
 ```
