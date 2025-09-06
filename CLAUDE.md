@@ -71,6 +71,65 @@ backend-api/
 
 **API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 for LLM processing and term analysis.
 
+## Event Task Flowchart
+
+The TermNorm add-in follows a structured event-driven workflow from initialization to term processing:
+
+```
+App Initialization
+    ↓
+Configuration Loading
+    ├─ Drag & Drop config file (365 Cloud)
+    └─ Load from filesystem (Local Excel)
+    ↓
+Python Server Setup & Startup
+    ├─ Virtual environment activation
+    ├─ API key configuration (TERMNORM_API_KEY)
+    └─ FastAPI server launch (localhost:8000)
+    ↓
+Excel Files & Mapping Processing
+    ├─ Load reference Excel files via Browse button
+    ├─ Process standard mappings configuration
+    └─ Validate column mappings from app.config.json
+    ↓
+Activate Real-time Tracking
+    └─ LiveTracker service begins monitoring worksheet changes
+    ↓
+Cell Monitoring Active
+    └─ System ready for user input
+    ↓
+User Input Event (Cell Entry + Enter)
+    └─ Triggers normalization pipeline
+    ↓
+Term Normalization Pipeline
+    ├─ 1. Quick lookup (cached mappings)
+    ├─ 2. Fuzzy matching (similar terms via normalizer.fuzzy.js)
+    └─ 3. Advanced search (API requests + LLM processing)
+    ↓
+Results Display
+    ├─ Candidate ranking in "Tracking Results" panel
+    ├─ Color-coded status indicators
+    └─ Activity tracking panel update
+    ↓
+User Selection & Application
+    ├─ Review candidates in "Candidate Ranked" view
+    ├─ Apply selected term via "apply-first" button
+    └─ Auto-update target column
+    ↓
+Logging & Persistence
+    ├─ Activity log entry (backend-api/logs/activity.jsonl)
+    ├─ State management update via state.manager.js
+    └─ History view update for future reference
+```
+
+### Key Event Triggers
+
+- **Configuration Events**: File drop, config reload, server status changes
+- **User Input Events**: Cell selection, Enter key press, button clicks
+- **Processing Events**: API calls, fuzzy matching, LLM requests
+- **UI Update Events**: Result display, status indicators, activity feed updates
+- **Persistence Events**: Logging actions, state changes, mapping updates
+
 ## Configuration Requirements
 
 The add-in requires an `app.config.json` file in the `config/` directory with this structure:
