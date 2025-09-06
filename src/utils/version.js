@@ -3,8 +3,8 @@
 
 export const VersionInfo = {
   version: "1.0.0",
-  commit: "10d2637", // Auto-updated by scripts/update-version.js
-  commitDate: "2025-09-06 16:05", // Auto-updated by scripts/update-version.js
+  commit: "04e4f54", // Auto-updated by scripts/update-version.js
+  commitDate: "2025-09-06 20:06", // Auto-updated by scripts/update-version.js
   branch: "web365debug_dragnDrop", // Auto-updated by scripts/update-version.js
   repository: "runfish5/excel-entity-standardizer", // Auto-updated by scripts/update-version.js
   buildTime: (() => {
@@ -70,5 +70,15 @@ export const VersionInfo = {
     console.log(`Build Time: ${this.buildTime}`);
     console.log(`Commit URL: ${repo.commitUrl}`);
     console.groupEnd();
+  },
+
+  // Initialize version display in DOM
+  initializeDisplay() {
+    this.logToConsole();
+    const info = this.getEssentialInfo(), repo = this.getRepositoryInfo();
+    document.getElementById("version-number") && (document.getElementById("version-number").textContent = this.getVersionString());
+    const buildEl = document.getElementById("version-build"); buildEl && (buildEl.textContent = this.getGitInfo(), buildEl.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`);
+    const runtimeEl = document.getElementById("version-runtime"); runtimeEl && (runtimeEl.textContent = info.buildTime, runtimeEl.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`);
+    const bundleEl = document.getElementById("version-bundle-size"); bundleEl && (bundleEl.textContent = "N/A", bundleEl.title = "Webpack bundle size for taskpane.js\nGenerated during build process");
   },
 };
