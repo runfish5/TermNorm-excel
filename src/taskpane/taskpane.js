@@ -267,6 +267,15 @@ function setupDirectEventBindings() {
     trackingBtn.addEventListener("click", async () => {
       if (!window.app) return;
 
+      // Import ServerConfig to check API key
+      const { ServerConfig } = await import("../utils/serverConfig.js");
+      const apiKey = ServerConfig.getApiKey();
+      
+      if (!apiKey || apiKey.trim() === "") {
+        state.setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
+        return;
+      }
+
       trackingBtn.disabled = true;
       trackingBtn.textContent = "Activating...";
 
