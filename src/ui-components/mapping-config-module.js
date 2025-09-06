@@ -89,7 +89,7 @@ export class MappingConfigModule {
   }
   setupEvents() {
     const element = document.getElementById(this.elementId);
-    
+
     element.addEventListener("click", (e) => {
       if (e.target.matches(".browse-button")) {
         e.preventDefault();
@@ -100,7 +100,7 @@ export class MappingConfigModule {
         this.loadMappings();
       }
     });
-    
+
     element.addEventListener("change", (e) => {
       if (e.target.matches(".current-file")) {
         element.querySelector(".external-file-section").classList.add("hidden");
@@ -126,7 +126,7 @@ export class MappingConfigModule {
   }
   loadInitialData() {
     const element = document.getElementById(this.elementId);
-    
+
     if (this.mappingConfig.source_column) {
       element.querySelector(".source-column").value = this.mappingConfig.source_column;
     }
@@ -134,9 +134,9 @@ export class MappingConfigModule {
       element.querySelector(".target-column").value = this.mappingConfig.target_column;
     }
 
-    const isExternal = this.mappingConfig.mapping_reference?.includes("/") || 
-                      this.mappingConfig.mapping_reference?.includes("\\");
-    
+    const isExternal =
+      this.mappingConfig.mapping_reference?.includes("/") || this.mappingConfig.mapping_reference?.includes("\\");
+
     if (isExternal) {
       element.querySelector(".external-file").checked = true;
       element.querySelector(".external-file-section").classList.remove("hidden");
@@ -157,11 +157,9 @@ export class MappingConfigModule {
       this.setDropdown(["Select external file first..."], true);
       return;
     }
-    
+
     try {
-      const sheets = isExternal 
-        ? await this.getWorksheetNames(this.externalFile)
-        : await this.getWorksheetNames();
+      const sheets = isExternal ? await this.getWorksheetNames(this.externalFile) : await this.getWorksheetNames();
 
       this.setDropdown(sheets);
       state.setStatus(`${sheets.length} worksheets found${isExternal ? ` in ${this.externalFile.name}` : ""}`);
@@ -178,30 +176,31 @@ export class MappingConfigModule {
     const dropdown = document.getElementById(this.elementId).querySelector(".worksheet-dropdown");
     if (!dropdown) return;
 
-    dropdown.innerHTML = disabled 
+    dropdown.innerHTML = disabled
       ? `<option value="">${sheets[0]}</option>`
-      : '<option value="">Select a worksheet...</option>' + 
-        sheets.map(name => `<option value="${name}">${name}</option>`).join("");
+      : '<option value="">Select a worksheet...</option>' +
+        sheets.map((name) => `<option value="${name}">${name}</option>`).join("");
     dropdown.disabled = disabled;
   }
   selectWorksheet(name) {
     const dropdown = document.getElementById(this.elementId).querySelector(".worksheet-dropdown");
-    if (name && dropdown && Array.from(dropdown.options).some(opt => opt.value === name)) {
+    if (name && dropdown && Array.from(dropdown.options).some((opt) => opt.value === name)) {
       dropdown.value = name;
       state.setStatus(`Selected: ${name}`);
     }
   }
   async loadMappings() {
     const element = document.getElementById(this.elementId);
-    
+
     // Check server status before proceeding
     const isServerOnline = state.get("server.online");
     if (!isServerOnline) {
-      const errorMessage = "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
+      const errorMessage =
+        "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
       state.setStatus(errorMessage, true);
       return;
     }
-    
+
     try {
       state.setStatus("Loading...");
 
@@ -227,15 +226,15 @@ export class MappingConfigModule {
   }
   handleMappingSuccess(result) {
     const { validMappings, issues, serverWarning } = result.metadata || {};
-    
+
     let message = issues?.length
       ? `✓ ${validMappings} mappings (${issues.length} issues)`
       : `✓ ${validMappings} mappings loaded`;
-    
+
     if (serverWarning) message += " - Server unavailable";
-    
+
     state.setStatus(message);
-    
+
     const filename = this.externalFile?.name || "Current Excel file";
     document.getElementById(this.elementId).querySelector(".filename-display").textContent = ` - ${filename}`;
   }
@@ -249,12 +248,12 @@ export class MappingConfigModule {
       const workbook = XLSX.read(buffer, { type: "array" });
       return workbook.SheetNames;
     }
-    
+
     return await Excel.run(async (context) => {
       const worksheets = context.workbook.worksheets;
       worksheets.load("items/name");
       await context.sync();
-      return worksheets.items.map(ws => ws.name);
+      return worksheets.items.map((ws) => ws.name);
     });
   }
 }

@@ -1,5 +1,7 @@
 // Entry point
-import { AppOrchestrator } from "../shared-services/app.orchestrator.js";
+import { LiveTracker } from "../services/live.tracker.js";
+import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
+import { MappingConfigModule } from "../ui-components/mapping-config-module.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ServerStatusManager } from "../services/server.status.js";
 import { state } from "../shared-services/state.manager.js";
@@ -80,10 +82,12 @@ Office.onReady(async (info) => {
 
   // App initialization - can fail without breaking UI infrastructure
   try {
-    const app = new AppOrchestrator();
-    await app.init();
-    window.app = app; // For debugging
-    window.state = state; // Debug access to state manager
+    await reloadConfig();
+    // Set up global references for debugging
+    window.state = state;
+    window.tracker = new LiveTracker();
+    window.aiRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
+    window.mappingModules = [];
   } catch (error) {
     console.error("Failed to initialize:", error);
     state.setStatus(`Initialization failed: ${error.message}`, true);
@@ -221,19 +225,18 @@ async function loadConfigData(configData, fileName) {
       throw new Error("Configuration UI container not available - please refresh the add-in");
     }
 
-    // Ensure app is available
-    if (!window.app) {
-      const { AppOrchestrator } = await import("../shared-services/app.orchestrator.js");
-      const app = new AppOrchestrator();
-      await app.init();
-      window.app = app;
+    // Ensure global objects are available
+    if (!window.tracker) {
+      window.tracker = new LiveTracker();
+    }
+    if (!window.aiRenewer) {
+      window.aiRenewer = new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError));
+    }
+    if (!window.mappingModules) {
+      window.mappingModules = [];
     }
 
-    if (!window.app.reloadMappingModules) {
-      throw new Error("Mapping module functionality not available - please refresh the add-in");
-    }
-
-    await window.app.reloadMappingModules();
+    await reloadMappingModules();
 
     const finalContainer = document.getElementById("mapping-configs-container");
     if (!finalContainer?.children.length) {
@@ -265,12 +268,10 @@ function setupDirectEventBindings() {
   const trackingBtn = document.getElementById("setup-map-tracking");
   if (trackingBtn) {
     trackingBtn.addEventListener("click", async () => {
-      if (!window.app) return;
-
       // Import ServerConfig to check API key
-      const { ServerConfig } = await import("../utils/serverConfig.js");
-      const apiKey = ServerConfig.getApiKey();
-      
+      const { getApiKey } = await import("../utils/serverConfig.js");
+      const apiKey = getApiKey();
+
       if (!apiKey || apiKey.trim() === "") {
         state.setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
         return;
@@ -280,7 +281,7 @@ function setupDirectEventBindings() {
       trackingBtn.textContent = "Activating...";
 
       try {
-        await window.app.startTracking();
+        await startTracking();
       } catch (error) {
         state.setStatus(`Activation failed: ${error.message}`, true);
       } finally {
@@ -294,8 +295,8 @@ function setupDirectEventBindings() {
   const renewBtn = document.getElementById("renew-prompt");
   if (renewBtn) {
     renewBtn.addEventListener("click", () => {
-      if (window.app?.renewPrompt) {
-        window.app.renewPrompt();
+      if (window.aiRenewer) {
+        renewPrompt();
       } else {
         state.setStatus("Application not ready - please refresh", true);
       }
@@ -337,7 +338,6 @@ function showView(viewName) {
   state.set("ui.currentView", viewName);
 }
 
-
 // Version information display
 function initializeVersionDisplay() {
   // Log version info to console for developers
@@ -366,7 +366,6 @@ function updateVersionDisplay() {
     versionBuild.title = `Repository: ${info.repository}\nCommit: ${repo.commitUrl}\nCommit Date: ${info.commitDate}\nBranch: ${info.branch}\nBuild Time: ${info.buildTime}`;
   }
 
-
   if (versionRuntime) {
     versionRuntime.textContent = info.buildTime;
     versionRuntime.title = `Cache verification: ${info.timestamp}\nRepository: ${repo.url}`;
@@ -376,4 +375,176 @@ function updateVersionDisplay() {
     versionBundleSize.textContent = VersionInfo.bundleSize;
     versionBundleSize.title = `Webpack bundle size for taskpane.js\nGenerated during build process`;
   }
+}
+
+// Functions moved from AppOrchestrator
+async function reloadConfig() {
+  try {
+    // Get current workbook name
+    const workbook = await Excel.run(async (context) => {
+      const wb = context.workbook;
+      wb.load("name");
+      await context.sync();
+      return wb.name;
+    });
+
+    // Try to load config file
+    let currentConfigData = state.get("config.raw");
+    if (!currentConfigData) {
+      const configModule = await import("../../config/app.config.json");
+      currentConfigData = configModule.default || configModule;
+      state.set("config.raw", currentConfigData);
+    }
+
+    if (!currentConfigData?.["excel-projects"]) {
+      throw new Error("Configuration file not found - please drag and drop a config file");
+    }
+
+    const config = currentConfigData["excel-projects"][workbook] || currentConfigData["excel-projects"]["*"];
+    if (!config?.standard_mappings?.length) {
+      throw new Error(`No valid configuration found for workbook: ${workbook}`);
+    }
+
+    state.setConfig({ ...config, workbook });
+    await reloadMappingModules();
+
+    state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+  } catch (error) {
+    let errorMessage = `Config failed: ${error.message}`;
+    if (error.message.includes("No valid configuration found for workbook:")) {
+      const configData = state.get("config.raw");
+      const keys = Object.keys(configData?.["excel-projects"] || {});
+      if (keys.length > 0) {
+        errorMessage += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
+      }
+    }
+    state.setStatus(errorMessage, true);
+    throw error;
+  }
+}
+
+async function startTracking() {
+  const config = state.get("config.data");
+  const mappings = state.get("mappings");
+
+  if (!config || (!mappings.forward && !mappings.reverse)) {
+    return state.setStatus("Error: Config or mappings missing", true);
+  }
+
+  try {
+    await window.tracker.start(config, mappings);
+    state.setStatus("Tracking active");
+    window.showView?.("results");
+  } catch (error) {
+    state.setStatus(`Error: ${error.message}`, true);
+  }
+}
+
+async function renewPrompt() {
+  const config = state.get("config.data");
+  if (!config) {
+    state.setStatus("Config not loaded", true);
+    return;
+  }
+
+  const button = document.getElementById("renew-prompt");
+  const label = button?.querySelector(".ms-Button-label");
+  const originalText = label?.textContent || "Renew Prompt 🤖";
+  let cancelled = false;
+
+  const cancelHandler = () => {
+    cancelled = true;
+    state.setStatus("Generation cancelled");
+  };
+
+  if (button) {
+    button.removeEventListener("click", renewPrompt);
+    button.addEventListener("click", cancelHandler);
+  }
+  if (label) label.textContent = "Cancel Generation";
+
+  try {
+    const mappings = state.get("mappings");
+    await window.aiRenewer.renewPrompt(mappings, config, () => cancelled);
+  } finally {
+    if (button) {
+      button.removeEventListener("click", cancelHandler);
+      button.addEventListener("click", () => renewPrompt());
+    }
+    if (label) label.textContent = originalText;
+  }
+}
+
+async function reloadMappingModules() {
+  const config = state.get("config.data");
+  const standardMappings = config?.standard_mappings || [];
+
+  if (!standardMappings?.length) {
+    return;
+  }
+
+  const container = document.getElementById("mapping-configs-container");
+  if (!container) {
+    throw new Error("Mapping configs container not found");
+  }
+
+  // Reset state
+  container.innerHTML = "";
+  window.mappingModules = [];
+
+  // Create new modules
+  window.mappingModules = standardMappings.map((config, index) => {
+    const module = new MappingConfigModule(config, index, () => onMappingLoaded());
+
+    try {
+      module.init(container);
+    } catch (initError) {
+      state.setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
+    }
+
+    return module;
+  });
+
+  updateGlobalStatus();
+}
+
+function onMappingLoaded() {
+  // Mapping data is now managed directly in state - just update UI
+  updateGlobalStatus();
+  updateJsonDump();
+}
+
+function updateJsonDump() {
+  const content = document.getElementById("metadata-content");
+  const sources = state.get("mappings.sources") || {};
+  if (!content || Object.keys(sources).length === 0) return;
+
+  const data = Object.entries(sources).map(([index, { mappings, result }]) => ({
+    sourceIndex: parseInt(index) + 1,
+    forwardMappings: Object.keys(mappings.forward || {}).length,
+    reverseMappings: Object.keys(mappings.reverse || {}).length,
+    metadata: result.metadata,
+    mappings: mappings,
+  }));
+
+  content.innerHTML = `
+    <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;">
+      <strong>Raw Data:</strong>
+      <pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(data, null, 2)}</pre>
+    </div>`;
+}
+
+function updateGlobalStatus() {
+  const sources = state.get("mappings.sources") || {};
+  const loaded = Object.keys(sources).length;
+  const total = window.mappingModules?.length || 0;
+
+  const message =
+    loaded === 0
+      ? "Ready to load mapping configurations..."
+      : loaded === total
+        ? `All ${total} mapping sources loaded`
+        : `${loaded}/${total} mapping sources loaded`;
+
+  state.setStatus(message);
 }

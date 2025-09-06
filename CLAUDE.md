@@ -36,16 +36,19 @@ Navigate to `backend-api/` directory first:
 ### Frontend Structure
 ```
 src/
-├── taskpane/           # Main Excel task pane UI and entry point
+├── taskpane/           # Central application hub - main UI and orchestration
+│   └── taskpane.js           # Application entry point and coordinator
 ├── shared-services/    # Core business logic and state management
-│   ├── app.orchestrator.js    # Main application coordinator
-│   └── state.manager.js       # Centralized state management
+│   └── state.manager.js      # Centralized state management
 ├── services/           # Processing and API services
-│   ├── live.tracker.js        # Real-time cell monitoring
-│   ├── normalizer.router.js   # Term normalization routing
-│   └── normalizer.fuzzy.js    # Fuzzy matching logic
+│   ├── live.tracker.js       # Real-time cell monitoring with inlined utilities
+│   ├── normalizer.router.js  # Term normalization routing
+│   ├── normalizer.fuzzy.js   # Fuzzy matching logic
+│   └── server.status.js      # Server connectivity management
 ├── ui-components/      # Reusable UI components
-├── utils/              # Utility functions and helpers
+├── utils/              # Simplified utility functions
+│   ├── serverConfig.js       # Simple function exports (getHost, getHeaders, getApiKey)
+│   └── version.js            # Version information utilities
 └── data-processing/    # Data transformation and mapping
 ```
 
@@ -60,6 +63,8 @@ backend-api/
 
 ### Key Integration Points
 
+**Central Orchestration**: `taskpane.js` serves as the main application coordinator, handling configuration loading, mapping module management, and user interactions directly without intermediate abstraction layers.
+
 **State Management**: The frontend uses a centralized state manager (`state.manager.js`) that coordinates between UI components and services. Subscribe to state changes using `state.subscribe()`.
 
 **Configuration System**: Project configurations are stored in `config/app.config.json` with per-workbook mappings that define:
@@ -67,9 +72,21 @@ backend-api/
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
-**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system.
+**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system. Excel operations are inlined directly for optimal performance.
 
-**API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 for LLM processing and term analysis.
+**API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using simplified serverConfig functions (`getHost()`, `getHeaders()`, `getApiKey()`) for LLM processing and term analysis.
+
+## Simplified Architecture Principles
+
+**IMPORTANT**: The codebase has been streamlined to eliminate unnecessary abstraction layers:
+
+- **Direct Function Calls**: Use direct function imports instead of object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`)
+- **Inline Critical Operations**: Excel cell operations are inlined in `live.tracker.js` for performance and clarity
+- **Central Coordination**: `taskpane.js` handles orchestration directly - avoid creating intermediate coordinator classes
+- **Minimal Indirection**: Prefer function-based modules over class-based abstractions for simple utilities
+- **Maintain Modularity**: Keep logical separation of concerns while avoiding unnecessary abstraction layers
+
+When making changes, preserve this streamlined approach and resist over-engineering patterns.
 
 ## Event Task Flowchart
 
