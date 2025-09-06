@@ -68,13 +68,22 @@ function updateVersionFile() {
   // Read current version file
   let versionContent = fs.readFileSync(versionPath, 'utf8');
   
-  // Replace git information and build time
+  // Replace git information and build time ONLY - preserve bundleSize
   versionContent = versionContent
     .replace(/commit: "[^"]*"/, `commit: "${gitInfo.commit}"`)
     .replace(/commitDate: "[^"]*"/, `commitDate: "${gitInfo.commitDate}"`)
     .replace(/branch: "[^"]*"/, `branch: "${gitInfo.branch}"`)
     .replace(/repository: "[^"]*"/, `repository: "${gitInfo.repository}"`)
     .replace(/buildTime: "[^"]*"/, `buildTime: "${fullBuildTime}"`);
+  
+  // Preserve existing bundleSize if it was already set by webpack plugin
+  // If no bundleSize exists, add a placeholder for webpack to replace
+  if (!/bundleSize:\s*"[^"]*"/.test(versionContent)) {
+    versionContent = versionContent.replace(
+      /buildTime: "[^"]*",/,
+      `buildTime: "${fullBuildTime}",\n  bundleSize: "BUILD_PENDING",`
+    );
+  }
   
   // Write updated content
   fs.writeFileSync(versionPath, versionContent, 'utf8');
