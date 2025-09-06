@@ -121,13 +121,21 @@ class ServerStatusManager {
         "server.validation": connectionValidation,
       });
 
-      // Show specific error messages
+      // Show appropriate status messages
       if (!isOnline) {
         state.setStatus("Server connection failed", true);
       } else if (ServerConfig.getApiKey() && !connectionValidation.protected) {
-        state.setStatus(connectionValidation.error || "API endpoints not accessible", true);
-      } else if (!testResponse.ok && testResponse.status === 401) {
-        state.setStatus("API key required or invalid", true);
+        // Server is online but API key issues - show warning but don't treat as error
+        state.setStatus(`Server online - ${connectionValidation.error || "API key validation failed"}`, true);
+      } else if (isOnline && ServerConfig.getApiKey() && connectionValidation.protected) {
+        // Everything working perfectly
+        state.setStatus("Server online - API key validated");
+      } else if (isOnline && !ServerConfig.getApiKey()) {
+        // Server online but no API key set
+        state.setStatus("Server online - API key not set");
+      } else if (isOnline) {
+        // Basic connection working
+        state.setStatus("Server online");
       }
     } catch (error) {
       state.update({
