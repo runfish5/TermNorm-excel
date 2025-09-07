@@ -218,12 +218,8 @@ export function clearCandidates() {
   }
 }
 
-export const ActivityDisplay = {
+export const CandidateRankingUI = {
   init,
   addCandidate,
   clearCandidates,
-  add: addCandidate,
-  clear: clearCandidates,
 };
-
-export const CandidateRankingUI = ActivityDisplay;

@@ -88,10 +88,10 @@ async function reloadConfig() {
   try {
     const workbook = await getCurrentWorkbookName();
     
-    let configData = state.get("config.raw");
+    let configData = state.config.raw;
     if (!configData) {
       configData = (await import("../../config/app.config.json")).default;
-      state.set("config.raw", configData);
+      state.config.raw = configData;
     }
 
     validateConfigStructure(configData);
@@ -101,7 +101,7 @@ async function reloadConfig() {
     await reloadMappingModules();
     state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
-    const configData = state.get("config.raw");
+    const configData = state.config.raw;
     const errorMessage = buildConfigErrorMessage(error, configData);
     state.setStatus(errorMessage, true);
     throw error;
@@ -109,8 +109,8 @@ async function reloadConfig() {
 }
 
 async function startTracking() {
-  const config = state.get("config.data");
-  const mappings = state.get("mappings");
+  const config = state.config.data;
+  const mappings = state.mappings;
 
   if (!config || (!mappings.forward && !mappings.reverse)) return state.setStatus("Error: Config or mappings missing", true);
 
@@ -124,10 +124,10 @@ async function startTracking() {
 }
 
 async function renewPromptHandler() {
-  const config = state.get("config.data");
+  const config = state.config.data;
   if (!config) return state.setStatus("Config not loaded", true);
 
-  const mappings = state.get("mappings");
+  const mappings = state.mappings;
   await renewPrompt(mappings, config, (msg, isError) => state.setStatus(msg, isError));
 }
 

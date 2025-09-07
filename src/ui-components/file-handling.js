@@ -105,7 +105,7 @@ async function loadConfigData(configData, fileName) {
   try {
     // Validate and select config using pure functions
     validateConfigStructure(configData);
-    state.set("config.raw", configData);
+    state.config.raw = configData;
     
     const workbook = await getCurrentWorkbookName();
     const config = selectWorkbookConfig(configData, workbook);
@@ -140,7 +140,7 @@ async function ensureUISetup() {
 }
 
 export async function reloadMappingModules() {
-  const config = state.get("config.data");
+  const config = state.config.data;
   const standardMappings = config?.standard_mappings || [];
 
   if (!standardMappings?.length) {
@@ -192,12 +192,12 @@ function onMappingLoaded() {
 }
 
 function updateJsonDump() {
-  const content = document.getElementById("metadata-content"), sources = state.get("mappings.sources") || {};
+  const content = document.getElementById("metadata-content"), sources = state.mappings.sources || {};
   if (!content || !Object.keys(sources).length) return;
   content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(Object.entries(sources).map(([index, { mappings, result }]) => ({ sourceIndex: +index + 1, forwardMappings: Object.keys(mappings.forward || {}).length, reverseMappings: Object.keys(mappings.reverse || {}).length, metadata: result.metadata, mappings })), null, 2)}</pre></div>`;
 }
 
 function updateGlobalStatus() {
-  const loaded = Object.keys(state.get("mappings.sources") || {}).length, total = window.mappingModules?.length || 0;
+  const loaded = Object.keys(state.mappings.sources || {}).length, total = window.mappingModules?.length || 0;
   state.setStatus(loaded === 0 ? "Ready to load mapping configurations..." : loaded === total ? `All ${total} mapping sources loaded` : `${loaded}/${total} mapping sources loaded`);
 }

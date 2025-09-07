@@ -134,7 +134,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
 
   async function loadMappings() {
     // Check server status before proceeding
-    const isServerOnline = state.get("server.online");
+    const isServerOnline = state.server.online;
     if (!isServerOnline) {
       const errorMessage =
         "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
