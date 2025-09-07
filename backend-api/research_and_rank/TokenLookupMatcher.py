@@ -111,7 +111,7 @@ async def match_term(request: MatchRequest):
     
     if token_matcher is None:
         print(f"[DEBUG] token_matcher is None - matcher not initialized")
-        return {"error": "Matcher not initialized. Call /update-matcher first."}
+        return {"error": "Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data."}
     
     print(f"[MATCH-TERM] Query: '{request.query}'")
     

@@ -32,7 +32,7 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     
     from .TokenLookupMatcher import token_matcher
     if token_matcher is None:
-        raise HTTPException(status_code=503, detail="Matcher not initialized. Call /setup-matcher first.")
+        raise HTTPException(status_code=503, detail="Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.")
     
     # Step 1: Research
     print("[PIPELINE] Step 1: Researching")
