@@ -1,7 +1,7 @@
-// Version constants
+// Version constants - values updated during build process, no responsibility for accuracy
 const version = "1.0.0";
-const commit = "26f40cb";
-const commitDate = "2025-09-06 20:20";
+const commit = "824de74";
+const commitDate = "2025-09-07 11:52";
 const branch = "web365debug_dragnDrop";
 const repository = "runfish5/excel-entity-standardizer";
 const buildTime = new Date().toISOString().slice(0, 16).replace('T', ' ');
