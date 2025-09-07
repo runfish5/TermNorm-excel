@@ -2,7 +2,7 @@
 // File drag & drop and processing functionality
 
 import { LiveTracker } from "../services/live.tracker.js";
-import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
+import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config-functions.js";
 import { state } from "../shared-services/state.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
@@ -135,7 +135,6 @@ async function ensureUISetup() {
   // Ensure global objects (fallback initialization)
   !window.tracker && Object.assign(window, { 
     tracker: new LiveTracker(), 
-    aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), 
     mappingModules: [] 
   });
 }

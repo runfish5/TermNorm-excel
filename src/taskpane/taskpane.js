@@ -1,6 +1,5 @@
-// Entry point
 import { LiveTracker } from "../services/live.tracker.js";
-import { aiPromptRenewer } from "../services/aiPromptRenewer.js";
+import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../services/server-status-functions.js";
 import { state } from "../shared-services/state.manager.js";
@@ -11,7 +10,6 @@ import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, reloadMappingModules } from "../ui-components/file-handling.js";
 import { validateConfigStructure, selectWorkbookConfig, buildConfigErrorMessage } from "../utils/config-processor.js";
 
-// No theme system - using default only
 
 
 Office.onReady(async (info) => {
@@ -20,27 +18,18 @@ Office.onReady(async (info) => {
     return;
   }
 
-  // Apply default styling only
   document.body.className = 'ms-font-m ms-welcome ms-Fabric';
 
   ActivityFeed.init();
 
-  // Hide loading, show app
   const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map(id => document.getElementById(id));
   sideloadMsg.style.display = "none";
   appBody.style.display = "flex";
 
-  // No theme selector functionality needed - default only
-
-  // Set up file handling (drag/drop)
   setupFileHandling();
-
-  // Initialize server status and version, set up event bindings
   setupServerEvents();
   checkServerStatus();
   VersionInfo.initializeDisplay();
-  
-  // Event bindings - metadata toggle, tracking, renew, navigation
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
     content && (content.classList.toggle("hidden") ? document.getElementById("show-metadata-btn").textContent = "Show Processing Details" : document.getElementById("show-metadata-btn").textContent = "Hide Processing Details");
@@ -53,7 +42,7 @@ Office.onReady(async (info) => {
     finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
   });
   
-  document.getElementById("renew-prompt")?.addEventListener("click", () => window.aiRenewer ? renewPrompt() : state.setStatus("Application not ready - please refresh", true));
+  document.getElementById("renew-prompt")?.addEventListener("click", () => renewPromptHandler());
   
   document.addEventListener("click", (e) => {
     const navTab = e.target.closest(".nav-tab");
@@ -63,19 +52,14 @@ Office.onReady(async (info) => {
     }
   });
 
-  // Set up status display FIRST - ensures it works even if initialization fails
   state.subscribe("ui", (ui) => {
     const statusElement = document.getElementById("main-status-message");
     statusElement && (statusElement.textContent = ui.statusMessage, statusElement.style.color = ui.isError ? "#D83B01" : "") || console.warn("Status element not found:", ui.statusMessage);
   });
 
-  // Set up UI infrastructure BEFORE app initialization - environment agnostic
-  window.showView = showView; // Make showView globally available for compatibility
+  window.showView = showView;
 
-  // Initial margin update
   updateContentMargin();
-
-  // Update margin when status content changes - only if element exists
   const statusMessage = document.getElementById("main-status-message");
   if (statusMessage) {
     const observer = new MutationObserver(updateContentMargin);
@@ -86,18 +70,13 @@ Office.onReady(async (info) => {
     });
   }
 
-  // Update margin on window resize
   window.addEventListener("resize", updateContentMargin);
-
-  // App initialization - can fail without breaking UI infrastructure
   try {
     await reloadConfig();
-    // Set up global references for debugging
-    Object.assign(window, { state, tracker: new LiveTracker(), aiRenewer: new aiPromptRenewer((msg, isError) => state.setStatus(msg, isError)), mappingModules: [] });
+    Object.assign(window, { state, tracker: new LiveTracker(), mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
     state.setStatus(`Initialization failed: ${error.message}`, true);
-    // UI infrastructure still works - users can still navigate, see status, etc.
   }
 });
 
@@ -105,19 +84,16 @@ Office.onReady(async (info) => {
 
 
 
-// Functions moved from AppOrchestrator
 async function reloadConfig() {
   try {
     const workbook = await getCurrentWorkbookName();
     
-    // Load config data (from state or import)
     let configData = state.get("config.raw");
     if (!configData) {
       configData = (await import("../../config/app.config.json")).default;
       state.set("config.raw", configData);
     }
 
-    // Validate and select using pure functions
     validateConfigStructure(configData);
     const config = selectWorkbookConfig(configData, workbook);
     
@@ -147,36 +123,12 @@ async function startTracking() {
   }
 }
 
-async function renewPrompt() {
+async function renewPromptHandler() {
   const config = state.get("config.data");
   if (!config) return state.setStatus("Config not loaded", true);
 
-  const button = document.getElementById("renew-prompt");
-  const label = button?.querySelector(".ms-Button-label");
-  const originalText = label?.textContent || "Renew Prompt 🤖";
-  let cancelled = false;
-
-  const cancelHandler = () => {
-    cancelled = true;
-    state.setStatus("Generation cancelled");
-  };
-
-  if (button) {
-    button.removeEventListener("click", renewPrompt);
-    button.addEventListener("click", cancelHandler);
-  }
-  if (label) label.textContent = "Cancel Generation";
-
-  try {
-    const mappings = state.get("mappings");
-    await window.aiRenewer.renewPrompt(mappings, config, () => cancelled);
-  } finally {
-    if (button) {
-      button.removeEventListener("click", cancelHandler);
-      button.addEventListener("click", () => renewPrompt());
-    }
-    if (label) label.textContent = originalText;
-  }
+  const mappings = state.get("mappings");
+  await renewPrompt(mappings, config, (msg, isError) => state.setStatus(msg, isError));
 }
 
 

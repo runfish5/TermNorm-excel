@@ -1,68 +1,63 @@
-// ./ui-components/CandidateRankingUI.js
 import { ActivityFeed } from "./ActivityFeedUI.js";
 
-export class ActivityDisplay {
-  static container = null;
-  static candidatesData = [];
-  static currentContext = null;
+let container = null;
+let candidatesData = [];
+let currentContext = null;
 
-  static init() {
-    this.container = document.getElementById("results-view");
-    if (!this.container) {
-      console.error("CandidateRankingUI: Could not find results-view container in DOM");
-      return false;
-    }
-    console.log("CandidateRankingUI: Successfully initialized container");
+export function init() {
+  container = document.getElementById("results-view");
+  if (!container) {
+    console.error("CandidateRankingUI: Could not find results-view container in DOM");
+    return false;
+  }
+  console.log("CandidateRankingUI: Successfully initialized container");
 
-    // Add CSS styles for drag and drop functionality
-    const style = document.createElement("style");
-    style.textContent = `
-        .candidate-table tr { cursor: move; transition: background 0.2s; }
-        .candidate-table tr:hover { background: #f3f2f1; }
-        .candidate-table tr.dragging { opacity: 0.5; }
-        .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
-        .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
-        .drag-handle:hover { color: #0078d4; }
-        .drag-handle:active { cursor: grabbing; }
-    `;
-    document.head.appendChild(style);
+  const style = document.createElement("style");
+  style.textContent = `
+      .candidate-table tr { cursor: move; transition: background 0.2s; }
+      .candidate-table tr:hover { background: #f3f2f1; }
+      .candidate-table tr.dragging { opacity: 0.5; }
+      .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
+      .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
+      .drag-handle:hover { color: #0078d4; }
+      .drag-handle:active { cursor: grabbing; }
+  `;
+  document.head.appendChild(style);
 
-    // Set up toggle event listener
-    this.container.addEventListener("change", (e) => {
-      if (e.target.name === "activity-mode") {
-        const isHistory = e.target.value === "history";
-        const activityFeed = this.container.querySelector("#activity-feed");
-        const candidateSection = this.container.querySelector("#candidate-ranking-section");
+  container.addEventListener("change", (e) => {
+    if (e.target.name === "activity-mode") {
+      const isHistory = e.target.value === "history";
+      const activityFeed = container.querySelector("#activity-feed");
+      const candidateSection = container.querySelector("#candidate-ranking-section");
 
-        if (activityFeed) {
-          activityFeed.style.display = isHistory ? "block" : "none";
-        }
-        if (candidateSection) {
-          candidateSection.style.display = isHistory ? "none" : "block";
-        }
+      if (activityFeed) {
+        activityFeed.style.display = isHistory ? "block" : "none";
       }
-    });
+      if (candidateSection) {
+        candidateSection.style.display = isHistory ? "none" : "block";
+      }
+    }
+  });
 
-    ActivityFeed.init("activity-feed");
-    return true;
+  ActivityFeed.init("activity-feed");
+  return true;
+}
+
+export function addCandidate(value, result, context) {
+  const candidates = result?.candidates;
+  if (!candidates) return;
+
+  if (!container) {
+    console.log("CandidateRankingUI: Container not initialized, attempting initialization...");
+    const initSuccess = init();
+    if (!initSuccess || !container) {
+      console.error("CandidateRankingUI: Failed to initialize container, cannot display candidates");
+      return;
+    }
   }
 
-  static addCandidate(value, result, context) {
-    const candidates = result?.candidates;
-    if (!candidates) return;
-
-    // Ensure container is initialized - try to initialize if needed
-    if (!this.container) {
-      console.log("CandidateRankingUI: Container not initialized, attempting initialization...");
-      const initSuccess = this.init();
-      if (!initSuccess || !this.container) {
-        console.error("CandidateRankingUI: Failed to initialize container, cannot display candidates");
-        return;
-      }
-    }
-
-    this.candidatesData = [...candidates];
-    this.currentContext = context;
+  candidatesData = [...candidates];
+  currentContext = context;
 
     // Column customization
     const hiddenColumns = ["abc"]; // Add columns to hide here
@@ -80,151 +75,155 @@ export class ActivityDisplay {
       ),
     ];
 
-    const rankedContainer = this.container.querySelector("#candidate-ranking-section");
-    if (!rankedContainer) {
-      console.error("CandidateRankingUI: Could not find candidate-ranking-section within results-view");
-      return;
-    }
-
-    console.log(`CandidateRankingUI: Adding candidate for "${value}" with ${candidates.length} options`);
-
-    rankedContainer.innerHTML = `
-          <div class="candidate-entry">
-              <div class="candidate-header">Input: "${value}"</div>
-              <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
-                  <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
-                  <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
-              </div>
-              <table class="candidate-table">
-                  <thead><tr><th>🔀</th>${columns
-                    .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
-                    .join("")}</tr></thead>
-                  <tbody>
-                      ${this.candidatesData
-                        .map(
-                          (c, i) => `
-                          <tr draggable="true" data-index="${i}">
-                              <td class="drag-handle">⋮⋮</td>
-                              ${columns
-                                .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
-                                .join("")}
-                          </tr>
-                      `
-                        )
-                        .join("")}
-                  </tbody>
-              </table>
-          </div>
-      `;
-
-    this.setupDragDrop(rankedContainer);
-    this.setupFirstChoice(rankedContainer);
+  const rankedContainer = container.querySelector("#candidate-ranking-section");
+  if (!rankedContainer) {
+    console.error("CandidateRankingUI: Could not find candidate-ranking-section within results-view");
+    return;
   }
 
-  static setupFirstChoice(container) {
-    const applyButton = container.querySelector("#apply-first");
-    if (!applyButton) {
-      return;
-    }
+  console.log(`CandidateRankingUI: Adding candidate for "${value}" with ${candidates.length} options`);
 
-    applyButton.onclick = async () => {
-      const first = this.candidatesData[0];
-      if (!first || !this.currentContext) return;
+  rankedContainer.innerHTML = `
+        <div class="candidate-entry">
+            <div class="candidate-header">Input: "${value}"</div>
+            <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+                <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
+                <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
+            </div>
+            <table class="candidate-table">
+                <thead><tr><th>🔀</th>${columns
+                  .map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`)
+                  .join("")}</tr></thead>
+                <tbody>
+                    ${candidatesData
+                      .map(
+                        (c, i) => `
+                        <tr draggable="true" data-index="${i}">
+                            <td class="drag-handle">⋮⋮</td>
+                            ${columns
+                              .map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`)
+                              .join("")}
+                        </tr>
+                    `
+                      )
+                      .join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
 
-      const feedback = this.showFeedback(container, "Processing...", "#f3f2f1");
-
-      try {
-        await this.currentContext.applyChoice(first);
-        feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${
-          first.core_concept_score || first.spec_score || first.relevance_score || "N/A"
-        }`;
-        feedback.style.background = "#d4edda";
-        setTimeout(() => feedback.remove(), 3000);
-      } catch (error) {
-        feedback.innerHTML = "❌ Error: Failed to apply first choice";
-        feedback.style.background = "#f8d7da";
-        setTimeout(() => feedback.remove(), 3000);
-      }
-    };
-  }
-
-  static showFeedback(container, message, bg) {
-    let feedback = container.querySelector(".feedback");
-    if (!feedback) {
-      feedback = document.createElement("div");
-      feedback.className = "feedback";
-      feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
-      const table = container.querySelector("table");
-      if (table) {
-        table.before(feedback);
-      } else {
-        container.appendChild(feedback);
-      }
-    }
-    feedback.innerHTML = message;
-    return feedback;
-  }
-
-  static setupDragDrop(container) {
-    const tbody = container.querySelector("tbody");
-    if (!tbody) {
-      console.error("CandidateRankingUI: tbody not found in container");
-      return;
-    }
-
-    let dragIndex = null;
-
-    tbody.ondragstart = (e) => {
-      if (e.target.tagName === "TR") {
-        dragIndex = parseInt(e.target.dataset.index);
-        e.target.classList.add("dragging");
-      }
-    };
-
-    tbody.ondragend = (e) => {
-      if (e.target.tagName === "TR") {
-        e.target.classList.remove("dragging");
-        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
-      }
-    };
-
-    tbody.ondragover = (e) => {
-      e.preventDefault();
-      const targetRow = e.target.closest("tr");
-      if (targetRow && dragIndex !== null) {
-        tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
-        targetRow.classList.add("drag-over");
-      }
-    };
-
-    tbody.ondrop = (e) => {
-      e.preventDefault();
-      const targetRow = e.target.closest("tr");
-      if (targetRow && dragIndex !== null) {
-        const targetIndex = parseInt(targetRow.dataset.index);
-        const [draggedItem] = this.candidatesData.splice(dragIndex, 1);
-        this.candidatesData.splice(targetIndex, 0, draggedItem);
-
-        const headerElement = container.querySelector(".candidate-header");
-        const input = headerElement.textContent.match(/Input: "([^"]+)"/)?.[1];
-        const mockResult = { candidates: this.candidatesData };
-        this.addCandidate(input, mockResult, this.currentContext);
-      }
-      dragIndex = null;
-    };
-  }
-
-  static clearCandidates() {
-    this.candidatesData = [];
-    this.currentContext = null;
-    const candidateSection = this.container.querySelector("#candidate-ranking-section");
-    if (candidateSection) {
-      candidateSection.innerHTML = '<div class="placeholder-text">Rankings appear here during processing</div>';
-    }
-  }
-
-  static add = this.addCandidate;
-  static clear = this.clearCandidates;
+  setupDragDrop(rankedContainer);
+  setupFirstChoice(rankedContainer);
 }
+
+function setupFirstChoice(containerElement) {
+  const applyButton = containerElement.querySelector("#apply-first");
+  if (!applyButton) {
+    return;
+  }
+
+  applyButton.onclick = async () => {
+    const first = candidatesData[0];
+    if (!first || !currentContext) return;
+
+    const feedback = showFeedback(containerElement, "Processing...", "#f3f2f1");
+
+    try {
+      await currentContext.applyChoice(first);
+      feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${
+        first.core_concept_score || first.spec_score || first.relevance_score || "N/A"
+      }`;
+      feedback.style.background = "#d4edda";
+      setTimeout(() => feedback.remove(), 3000);
+    } catch (error) {
+      feedback.innerHTML = "❌ Error: Failed to apply first choice";
+      feedback.style.background = "#f8d7da";
+      setTimeout(() => feedback.remove(), 3000);
+    }
+  };
+}
+
+function showFeedback(containerElement, message, bg) {
+  let feedback = containerElement.querySelector(".feedback");
+  if (!feedback) {
+    feedback = document.createElement("div");
+    feedback.className = "feedback";
+    feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
+    const table = containerElement.querySelector("table");
+    if (table) {
+      table.before(feedback);
+    } else {
+      containerElement.appendChild(feedback);
+    }
+  }
+  feedback.innerHTML = message;
+  return feedback;
+}
+
+function setupDragDrop(containerElement) {
+  const tbody = containerElement.querySelector("tbody");
+  if (!tbody) {
+    console.error("CandidateRankingUI: tbody not found in container");
+    return;
+  }
+
+  let dragIndex = null;
+
+  tbody.ondragstart = (e) => {
+    if (e.target.tagName === "TR") {
+      dragIndex = parseInt(e.target.dataset.index);
+      e.target.classList.add("dragging");
+    }
+  };
+
+  tbody.ondragend = (e) => {
+    if (e.target.tagName === "TR") {
+      e.target.classList.remove("dragging");
+      tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
+    }
+  };
+
+  tbody.ondragover = (e) => {
+    e.preventDefault();
+    const targetRow = e.target.closest("tr");
+    if (targetRow && dragIndex !== null) {
+      tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over"));
+      targetRow.classList.add("drag-over");
+    }
+  };
+
+  tbody.ondrop = (e) => {
+    e.preventDefault();
+    const targetRow = e.target.closest("tr");
+    if (targetRow && dragIndex !== null) {
+      const targetIndex = parseInt(targetRow.dataset.index);
+      const [draggedItem] = candidatesData.splice(dragIndex, 1);
+      candidatesData.splice(targetIndex, 0, draggedItem);
+
+      const headerElement = containerElement.querySelector(".candidate-header");
+      const input = headerElement.textContent.match(/Input: "([^"]+)"/)?.[1];
+      const mockResult = { candidates: candidatesData };
+      addCandidate(input, mockResult, currentContext);
+    }
+    dragIndex = null;
+  };
+}
+
+export function clearCandidates() {
+  candidatesData = [];
+  currentContext = null;
+  const candidateSection = container?.querySelector("#candidate-ranking-section");
+  if (candidateSection) {
+    candidateSection.innerHTML = '<div class="placeholder-text">Rankings appear here during processing</div>';
+  }
+}
+
+export const ActivityDisplay = {
+  init,
+  addCandidate,
+  clearCandidates,
+  add: addCandidate,
+  clear: clearCandidates,
+};
 
 export const CandidateRankingUI = ActivityDisplay;

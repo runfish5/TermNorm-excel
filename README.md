@@ -122,9 +122,21 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
    - Click **Load Mapping Table**
    - Repeat for all reference files
 
+---
+Note: Setup complete
+
+#### Start tracking
+
 7. **Activate tracking.**
    - Navigate to **Load Configuration**
    - Click the **Activate Tracking** button
+
+8. **Trouble shoting.**
+- Monitor real-time processing through the Activity Feed UI component
+- Check server status using the status indicator in the task pane
+- Wait for user instruction before running any validation or testing commands
+
+
 
 ## Use the TermNorm add-in
 

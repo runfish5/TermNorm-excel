@@ -1,47 +1,50 @@
-// shared-services/state.manager.js
-
-/**
- * Simple centralized state management
- * Enhanced for direct UI access to config and mappings
- */
 export class StateManager {
   constructor() {
-    this.state = {
-      ui: {
-        currentView: "config",
-        statusMessage: "Ready to load configuration...",
-        isError: false,
-      },
-      server: {
-        online: false,
-        host: null,
-        apiKey: "",
-      },
-      config: {
-        loaded: false,
-        data: null,
-      },
-      mappings: {
-        forward: {},
-        reverse: {},
-        metadata: null,
-        loaded: false,
-      },
+    this.ui = {
+      currentView: "config",
+      statusMessage: "Ready to load configuration...",
+      isError: false,
     };
-    this.subscribers = new Map();
-    this.nextId = 1;
+    this.server = {
+      online: false,
+      host: null,
+      apiKey: "",
+    };
+    this.config = {
+      loaded: false,
+      data: null,
+      raw: null,
+    };
+    this.mappings = {
+      forward: {},
+      reverse: {},
+      metadata: null,
+      loaded: false,
+      sources: {},
+    };
+    this.subscribers = [];
+    this._combiningInProgress = false;
   }
 
   get(path) {
-    return path.split(".").reduce((obj, key) => obj?.[key], this.state);
+    const keys = path.split(".");
+    let result = this;
+    for (const key of keys) {
+      result = result?.[key];
+      if (result === undefined) return undefined;
+    }
+    return result;
   }
 
   set(path, value) {
     const keys = path.split(".");
     const lastKey = keys.pop();
-    const target = keys.reduce((obj, key) => (obj[key] = obj[key] || {}), this.state);
+    let target = this;
+    for (const key of keys) {
+      target = target[key];
+    }
     target[lastKey] = value;
-    this._notify(path);
+    this._notify();
   }
 
   update(updates) {
@@ -49,67 +52,53 @@ export class StateManager {
   }
 
   subscribe(path, callback) {
-    const id = this.nextId++;
-    this.subscribers.set(id, { path, callback });
-    return id;
+    this.subscribers.push({ path, callback });
+    return this.subscribers.length - 1;
   }
 
   unsubscribe(id) {
-    this.subscribers.delete(id);
+    this.subscribers.splice(id, 1);
   }
 
-  _notify(changedPath) {
+  _notify() {
     this.subscribers.forEach(({ path, callback }) => {
-      if (changedPath.startsWith(path)) {
-        callback(this.get(path));
-      }
+      callback(this.get(path));
     });
   }
 
-  // Convenience methods
   setStatus(message, isError = false) {
-    this.update({
-      "ui.statusMessage": message,
-      "ui.isError": isError,
-    });
+    this.ui.statusMessage = message;
+    this.ui.isError = isError;
+    this._notify();
   }
 
   setConfig(config) {
-    this.update({
-      "config.data": config,
-      "config.loaded": true,
-    });
+    this.config.data = config;
+    this.config.loaded = true;
+    this._notify();
   }
 
   setMappings(forward, reverse, metadata) {
-    this.update({
-      "mappings.forward": forward,
-      "mappings.reverse": reverse,
-      "mappings.metadata": metadata,
-      "mappings.loaded": true,
-    });
+    this.mappings.forward = forward;
+    this.mappings.reverse = reverse;
+    this.mappings.metadata = metadata;
+    this.mappings.loaded = true;
+    this._notify();
   }
 
-  // Store individual mapping for combination
   addMappingSource(index, mappings, result, config) {
-    const sources = this.get("mappings.sources") || {};
-    sources[index] = { mappings, result, config };
-    this.update({ "mappings.sources": sources });
-
-    // Auto-combine mappings when sources are added
+    this.mappings.sources[index] = { mappings, result, config };
     this.combineMappingSources();
   }
 
-  // Combine all stored mapping sources
   combineMappingSources() {
-    // Guard against recursion
     if (this._combiningInProgress) {
       return;
     }
 
     this._combiningInProgress = true;
 
-    const sources = this.get("mappings.sources") || {};
+    const sources = this.mappings.sources;
     if (Object.keys(sources).length === 0) {
       this._combiningInProgress = false;
       return;
@@ -138,17 +127,20 @@ export class StateManager {
   }
 
   clearMappings() {
-    this.update({
-      "mappings.forward": {},
-      "mappings.reverse": {},
-      "mappings.metadata": null,
-      "mappings.loaded": false,
-    });
+    this.mappings.forward = {};
+    this.mappings.reverse = {};
+    this.mappings.metadata = null;
+    this.mappings.loaded = false;
+    this._notify();
   }
 
-  // Debug helper
   getFullState() {
-    return { ...this.state };
+    return {
+      ui: { ...this.ui },
+      server: { ...this.server },
+      config: { ...this.config },
+      mappings: { ...this.mappings },
+    };
   }
 }
 
