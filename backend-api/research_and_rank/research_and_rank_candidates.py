@@ -1,5 +1,6 @@
 # ./backend-api/research_and_rank/research_and_rank_candidates.py
 import json
+import logging
 import time
 from pathlib import Path
 from pprint import pprint
@@ -22,6 +23,7 @@ class ResearchAndMatchRequest(BaseModel):
     query: str
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/research-and-match", response_model=ApiResponse)
 @handle_exceptions
@@ -32,6 +34,8 @@ async def research_and_rank_candidates_endpoint(request: ResearchAndMatchRequest
     
     from .TokenLookupMatcher import token_matcher
     if token_matcher is None:
+        logger.error(f"[MISSING MAPPING INDEXES]")
+        logger.error("TokenLookupMatcher not initialized. Configuration files need to be reloaded.")
         raise HTTPException(status_code=503, detail="Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.")
     
     # Step 1: Research
