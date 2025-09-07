@@ -48,12 +48,12 @@ function updateVersionFile() {
   // Read current version file
   let versionContent = fs.readFileSync(versionPath, 'utf8');
   
-  // Replace git information
+  // Replace git information (updated for const format)
   versionContent = versionContent
-    .replace(/commit: "[^"]*"/, `commit: "${gitInfo.commit}"`)
-    .replace(/commitDate: "[^"]*"/, `commitDate: "${gitInfo.commitDate}"`)
-    .replace(/branch: "[^"]*"/, `branch: "${gitInfo.branch}"`)
-    .replace(/repository: "[^"]*"/, `repository: "${gitInfo.repository}"`);
+    .replace(/const commit = "[^"]*";/, `const commit = "${gitInfo.commit}";`)
+    .replace(/const commitDate = "[^"]*";/, `const commitDate = "${gitInfo.commitDate}";`)
+    .replace(/const branch = "[^"]*";/, `const branch = "${gitInfo.branch}";`)
+    .replace(/const repository = "[^"]*";/, `const repository = "${gitInfo.repository}";`);
   
   // Write updated content
   fs.writeFileSync(versionPath, versionContent, 'utf8');
