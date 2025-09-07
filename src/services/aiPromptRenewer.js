@@ -1,4 +1,4 @@
-import { getHost, getHeaders } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
 
 let isGenerating = false;
 let abortController = null;

@@ -6,7 +6,7 @@ function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
-import { getHost, getHeaders } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
 
 // Parameter validation
 function validateParams(params) {

@@ -1,10 +1,10 @@
 import { LiveTracker } from "../services/live.tracker.js";
 import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
-import { setupServerEvents, checkServerStatus } from "../services/server-status-functions.js";
+import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { state } from "../shared-services/state.manager.js";
-import { VersionInfo } from "../utils/version.js";
-import { getApiKey } from "../utils/serverConfig.js";
+import { initializeVersionDisplay } from "../utils/version.js";
+import { getApiKey } from "../utils/server-utilities.js";
 import { updateContentMargin, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, reloadMappingModules } from "../ui-components/file-handling.js";
@@ -29,7 +29,7 @@ Office.onReady(async (info) => {
   setupFileHandling();
   setupServerEvents();
   checkServerStatus();
-  VersionInfo.initializeDisplay();
+  initializeVersionDisplay();
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
     content && (content.classList.toggle("hidden") ? document.getElementById("show-metadata-btn").textContent = "Show Processing Details" : document.getElementById("show-metadata-btn").textContent = "Hide Processing Details");

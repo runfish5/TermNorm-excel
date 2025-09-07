@@ -1,4 +1,4 @@
-import { getHost, getHeaders } from "./serverConfig.js";
+import { getHost, getHeaders } from "./server-utilities.js";
 
 const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
