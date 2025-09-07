@@ -43,7 +43,6 @@ Navigate to `backend-api/` directory first:
 - `services/live.tracker.js` - Real-time cell monitoring (utilities extracted to utils/)
 - `services/normalizer.router.js` - Term normalization pipeline
 - `services/normalizer.fuzzy.js` - Fuzzy matching algorithms
-- `services/server-status-functions.js` - Simple connectivity functions (no class abstractions)
 
 **UI Layer: Function-Based Components**
 - `ui-components/` - Pure functions for UI operations (no classes)
@@ -57,8 +56,8 @@ Navigate to `backend-api/` directory first:
 - `utils/color-utilities.js` - UI color management and scoring visualization
 - `utils/activity-logger.js` - Session logging and backend communication
 - `utils/config-processor.js` - Pure functions for configuration validation
-- `utils/serverConfig.js` - Simple function exports (no object wrappers)
-- `utils/version.js` - Simplified version display (complex timezone logic removed)
+- `utils/server-utilities.js` - Consolidated server configuration and status management
+- `utils/version.js` - Simple version display with pure function exports
 - `utils/app-utilities.js` - General application utilities
 
 **Data Processing Layer**
@@ -86,7 +85,7 @@ backend-api/
 
 **Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system. Utility functions extracted to dedicated modules for reusability and maintainability.
 
-**API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using simplified serverConfig functions (`getHost()`, `getHeaders()`, `getApiKey()`) for LLM processing and term analysis.
+**API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using consolidated server utilities (`getHost()`, `getHeaders()`, `getApiKey()`, `checkServerStatus()`) for LLM processing and term analysis.
 
 ## Exemplary Architecture Principles
 
