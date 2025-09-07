@@ -2,10 +2,9 @@ import { LiveTracker } from "../services/live.tracker.js";
 import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state } from "../shared-services/state.manager.js";
-import { initializeVersionDisplay } from "../utils/version.js";
+import { state, setStatus, setConfig, subscribe } from "../shared-services/state.manager.js";
+import { initializeVersionDisplay, updateContentMargin, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
-import { updateContentMargin, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, reloadMappingModules } from "../ui-components/file-handling.js";
 import { validateConfigStructure, selectWorkbookConfig, buildConfigErrorMessage } from "../utils/config-processor.js";
@@ -36,9 +35,9 @@ Office.onReady(async (info) => {
   });
   
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
-    if (!getApiKey()?.trim()) return state.setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
+    if (!getApiKey()?.trim()) return setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
     e.target.disabled = true; e.target.textContent = "Activating...";
-    try { await startTracking(); } catch (error) { state.setStatus(`Activation failed: ${error.message}`, true); }
+    try { await startTracking(); } catch (error) { setStatus(`Activation failed: ${error.message}`, true); }
     finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
   });
   
@@ -52,7 +51,7 @@ Office.onReady(async (info) => {
     }
   });
 
-  state.subscribe("ui", (ui) => {
+  subscribe("ui", (ui) => {
     const statusElement = document.getElementById("main-status-message");
     statusElement && (statusElement.textContent = ui.statusMessage, statusElement.style.color = ui.isError ? "#D83B01" : "") || console.warn("Status element not found:", ui.statusMessage);
   });
@@ -76,7 +75,7 @@ Office.onReady(async (info) => {
     Object.assign(window, { state, tracker: new LiveTracker(), mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
-    state.setStatus(`Initialization failed: ${error.message}`, true);
+    setStatus(`Initialization failed: ${error.message}`, true);
   }
 });
 
@@ -97,13 +96,13 @@ async function reloadConfig() {
     validateConfigStructure(configData);
     const config = selectWorkbookConfig(configData, workbook);
     
-    state.setConfig(config);
+    setConfig(config);
     await reloadMappingModules();
-    state.setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+    setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
     const configData = state.config.raw;
     const errorMessage = buildConfigErrorMessage(error, configData);
-    state.setStatus(errorMessage, true);
+    setStatus(errorMessage, true);
     throw error;
   }
 }
@@ -112,23 +111,23 @@ async function startTracking() {
   const config = state.config.data;
   const mappings = state.mappings;
 
-  if (!config || (!mappings.forward && !mappings.reverse)) return state.setStatus("Error: Config or mappings missing", true);
+  if (!config || (!mappings.forward && !mappings.reverse)) return setStatus("Error: Config or mappings missing", true);
 
   try {
     await window.tracker.start(config, mappings);
-    state.setStatus("Tracking active");
+    setStatus("Tracking active");
     showView("results");
   } catch (error) {
-    state.setStatus(`Error: ${error.message}`, true);
+    setStatus(`Error: ${error.message}`, true);
   }
 }
 
 async function renewPromptHandler() {
   const config = state.config.data;
-  if (!config) return state.setStatus("Config not loaded", true);
+  if (!config) return setStatus("Config not loaded", true);
 
   const mappings = state.mappings;
-  await renewPrompt(mappings, config, (msg, isError) => state.setStatus(msg, isError));
+  await renewPrompt(mappings, config, (msg, isError) => setStatus(msg, isError));
 }
 
 

@@ -1,6 +1,6 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
-import { state } from "../shared-services/state.manager.js";
+import { setStatus, clearMappings } from "../shared-services/state.manager.js";
 // Inlined column utility
 function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
@@ -135,7 +135,7 @@ async function loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
 // Main function - much simpler
 export async function loadAndProcessMappings(customParams) {
   try {
-    state.setStatus("Loading mappings...");
+    setStatus("Loading mappings...");
 
     // Validate params, load data, process mappings
     const params = validateParams(customParams);
@@ -156,8 +156,8 @@ export async function loadAndProcessMappings(customParams) {
     // Return result - let caller handle state management
     return result;
   } catch (error) {
-    state.setStatus(`Failed: ${error.message}`, true);
-    state.clearMappings();
+    setStatus(`Failed: ${error.message}`, true);
+    clearMappings();
     throw error;
   }
 }

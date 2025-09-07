@@ -1,7 +1,7 @@
 // ui-components/mapping-config-functions.js
 import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
-import { state } from "../shared-services/state.manager.js";
+import { state, setStatus, addMappingSource } from "../shared-services/state.manager.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
   return `
@@ -86,7 +86,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
         element.querySelector(".file-path-display").value = file.name;
         element.querySelector(".external-file").checked = true;
         element.querySelector(".external-file-section").classList.remove("hidden");
-        state.setStatus(`Reading ${file.name}...`);
+        setStatus(`Reading ${file.name}...`);
         loadSheets(true);
       }
     }
@@ -102,14 +102,14 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       const sheets = isExternal ? await getWorksheetNames(externalFile) : await getWorksheetNames();
 
       setDropdown(sheets);
-      state.setStatus(`${sheets.length} worksheets found${isExternal ? ` in ${externalFile.name}` : ""}`);
+      setStatus(`${sheets.length} worksheets found${isExternal ? ` in ${externalFile.name}` : ""}`);
 
       if (mappingConfig.worksheet) {
         selectWorksheet(mappingConfig.worksheet);
       }
     } catch (error) {
       setDropdown(["Error loading worksheets"], true);
-      state.setStatus(`Error: ${error.message}`);
+      setStatus(`Error: ${error.message}`);
     }
   }
 
@@ -128,7 +128,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
     const dropdown = element.querySelector(".worksheet-dropdown");
     if (name && dropdown && Array.from(dropdown.options).some((opt) => opt.value === name)) {
       dropdown.value = name;
-      state.setStatus(`Selected: ${name}`);
+      setStatus(`Selected: ${name}`);
     }
   }
 
@@ -138,12 +138,12 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
     if (!isServerOnline) {
       const errorMessage =
         "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
-      state.setStatus(errorMessage, true);
+      setStatus(errorMessage, true);
       return;
     }
 
     try {
-      state.setStatus("Loading...");
+      setStatus("Loading...");
 
       const customParams = {
         useCurrentFile: element.querySelector(".current-file").checked,
@@ -154,7 +154,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       };
 
       const result = await loadAndProcessMappings(customParams);
-      state.addMappingSource(index, result, result, mappingConfig);
+      addMappingSource(index, result, result, mappingConfig);
       mappings = result;
 
       handleMappingSuccess(result);
@@ -162,7 +162,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       element.open = false;
     } catch (error) {
       mappings = { forward: {}, reverse: {}, metadata: null };
-      state.setStatus(error.message, true);
+      setStatus(error.message, true);
     }
   }
 
@@ -175,7 +175,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
 
     if (serverWarning) message += " - Server unavailable";
 
-    state.setStatus(message);
+    setStatus(message);
 
     const filename = externalFile?.name || "Current Excel file";
     element.querySelector(".filename-display").textContent = ` - ${filename}`;
@@ -215,7 +215,7 @@ export function loadMappingConfigData(element, mappingConfig) {
     element.querySelector(".external-file-section").classList.remove("hidden");
     const fileName = mappingConfig.mapping_reference?.split(/[\\/]/).pop();
     element.querySelector(".file-path-display").value = fileName;
-    state.setStatus(`Config expects: ${fileName}`);
+    setStatus(`Config expects: ${fileName}`);
     // setDropdown will be handled by event system
   } else {
     // loadSheets will be handled by event system

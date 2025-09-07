@@ -1,6 +1,6 @@
 // utils/server-utilities.js
 // Consolidated server configuration and status management
-import { state } from "../shared-services/state.manager.js";
+import { state, setStatus, subscribe } from "../shared-services/state.manager.js";
 
 // Server configuration functions
 export function getHost() {
@@ -57,26 +57,22 @@ export async function checkServerStatus() {
       };
     }
 
-    // Update state
-    state.update({
-      "server.online": isOnline,
-      "server.host": host,
-      "server.info": serverInfo,
-    });
+    // Update state directly
+    state.server.online = isOnline;
+    state.server.host = host;
+    state.server.info = serverInfo;
 
     // Simple status messages
     if (isOnline) {
-      state.setStatus("Server online");
+      setStatus("Server online");
     } else {
-      state.setStatus("Server connection failed", true);
+      setStatus("Server connection failed", true);
     }
   } catch (error) {
-    state.update({
-      "server.online": false,
-      "server.host": host,
-      "server.info": {},
-    });
-    state.setStatus(`Connection error: ${error.message}`, true);
+    state.server.online = false;
+    state.server.host = host;
+    state.server.info = {};
+    setStatus(`Connection error: ${error.message}`, true);
   } finally {
     isCheckingServer = false;
   }
@@ -141,5 +137,5 @@ export function setupServerEvents() {
   }
 
   // Subscribe to server state changes
-  state.subscribe("server", updateServerUI);
+  subscribe("server", updateServerUI);
 }
