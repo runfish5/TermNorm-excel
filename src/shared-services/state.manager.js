@@ -26,29 +26,20 @@ export class StateManager {
     this._combiningInProgress = false;
   }
 
-  get(path) {
-    const keys = path.split(".");
-    let result = this;
-    for (const key of keys) {
-      result = result?.[key];
-      if (result === undefined) return undefined;
-    }
-    return result;
-  }
-
-  set(path, value) {
-    const keys = path.split(".");
-    const lastKey = keys.pop();
-    let target = this;
-    for (const key of keys) {
-      target = target[key];
-    }
-    target[lastKey] = value;
-    this._notify();
-  }
+  // Removed complex path-based get/set methods - use direct property access instead
+  // Example: state.server.online instead of state.get("server.online")
 
   update(updates) {
-    Object.entries(updates).forEach(([path, value]) => this.set(path, value));
+    Object.entries(updates).forEach(([path, value]) => {
+      const keys = path.split(".");
+      const lastKey = keys.pop();
+      let target = this;
+      for (const key of keys) {
+        target = target[key];
+      }
+      target[lastKey] = value;
+    });
+    this._notify();
   }
 
   subscribe(path, callback) {
@@ -57,7 +48,14 @@ export class StateManager {
 
   _notify() {
     this.subscribers.forEach(({ path, callback }) => {
-      callback(this.get(path));
+      // Simple path resolution for notification system
+      const keys = path.split(".");
+      let result = this;
+      for (const key of keys) {
+        result = result?.[key];
+        if (result === undefined) return;
+      }
+      callback(result);
     });
   }
 

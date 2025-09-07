@@ -4,11 +4,11 @@ import { state } from "../shared-services/state.manager.js";
 
 // Server configuration functions
 export function getHost() {
-  return state.get("server.host") || "http://127.0.0.1:8000";
+  return state.server.host || "http://127.0.0.1:8000";
 }
 
 export function getApiKey() {
-  return state.get("server.apiKey");
+  return state.server.apiKey;
 }
 
 export function getHeaders() {
@@ -94,7 +94,7 @@ function updateServerLED(isOnline, host) {
   led.className = `status-led ${isOnline ? "online" : "offline"}`;
   
   const status = isOnline ? "Online" : "Offline";
-  const serverInfo = state.get("server.info") || {};
+  const serverInfo = state.server.info || {};
   
   const tooltipText = isOnline && serverInfo.connectionType && serverInfo.connectionUrl
     ? `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`
@@ -114,7 +114,7 @@ function updateCloudIndicator(serverInfo) {
 export function setupServerEvents() {
   // Set initial server host
   const backendUrl = getHost();
-  state.set("server.host", backendUrl);
+  state.server.host = backendUrl;
 
   // LED click to refresh status
   document.addEventListener("click", (e) => {
@@ -128,7 +128,7 @@ export function setupServerEvents() {
   const apiKeyInput = document.getElementById("api-key-input");
   if (apiKeyInput) {
     apiKeyInput.addEventListener("input", (e) => {
-      state.set("server.apiKey", e.target.value.trim());
+      state.server.apiKey = e.target.value.trim();
     });
   }
 
@@ -136,7 +136,7 @@ export function setupServerEvents() {
   const serverUrlInput = document.getElementById("server-url-input");
   if (serverUrlInput) {
     serverUrlInput.addEventListener("input", (e) => {
-      state.set("server.host", e.target.value.trim());
+      state.server.host = e.target.value.trim();
     });
   }
 

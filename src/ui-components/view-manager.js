@@ -11,5 +11,5 @@ export function showView(viewName) {
     const isActive = tab.getAttribute("data-view") === viewName;
     tab.classList.toggle("ms-Button--primary", isActive);
   });
-  state.set("ui.currentView", viewName);
+  state.ui.currentView = viewName;
 }

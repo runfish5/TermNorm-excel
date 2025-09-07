@@ -1,5 +1,5 @@
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
-import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
+import { CandidateRankingUI } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
@@ -101,7 +101,7 @@ export class LiveTracker {
       console.log(`Result: ${JSON.stringify(result, null, 2)}`);
 
       if (result?.candidates) {
-        ActivityDisplay.addCandidate(value, result, {
+        CandidateRankingUI.addCandidate(value, result, {
           applyChoice: (choice) => this.applyChoice(ws, row, col, targetCol, value, choice),
         });
       }
@@ -158,6 +158,6 @@ export class LiveTracker {
     this.active = false;
   }
   static setup() {
-    ActivityDisplay.init();
+    CandidateRankingUI.init();
   }
 }

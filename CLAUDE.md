@@ -196,7 +196,7 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 
 This codebase demonstrates industry best practices through systematic refactoring:
 
-**Class-to-Function Migration**: Converted heavyweight classes (ActivityDisplay, aiPromptRenewer) to lightweight function modules, reducing bundle size and complexity while maintaining the same API.
+**Class-to-Function Migration**: Converted heavyweight classes (CandidateRankingUI, aiPromptRenewer) to lightweight function modules, reducing bundle size and complexity while maintaining the same API.
 
 **Utility Extraction Pattern**: Moved inline utilities to dedicated modules, creating reusable components and improving code organization. LiveTracker reduced from 260+ lines to focused core logic.
 
