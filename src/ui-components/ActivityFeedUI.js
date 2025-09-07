@@ -33,7 +33,6 @@ export const ActivityFeed = {
     }
 
     this.showPlaceholder();
-    console.log("ActivityFeed initialized");
     return true;
   },
 
@@ -69,7 +68,6 @@ export const ActivityFeed = {
         }
       }
 
-      console.log(`ActivityFeed: Added ${source} → ${target}`);
     } catch (error) {
       console.error("ActivityFeed.add() error:", error);
     }

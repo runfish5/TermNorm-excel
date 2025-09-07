@@ -4,7 +4,7 @@
 import { LiveTracker } from "../services/live.tracker.js";
 import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config-functions.js";
-import { state } from "../shared-services/state.manager.js";
+import { state, setStatus, setConfig } from "../shared-services/state.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 import { validateConfigStructure, selectWorkbookConfig } from "../utils/config-processor.js";
@@ -56,7 +56,7 @@ function handleDrop(e) {
 
 function openFileDialog() {
   // Immediate feedback that dialog was clicked
-  state.setStatus("Opening file dialog...");
+  setStatus("Opening file dialog...");
 
   const input = document.createElement("input");
   input.type = "file";
@@ -64,40 +64,40 @@ function openFileDialog() {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      state.setStatus(`File selected: ${file.name} - Processing...`);
+      setStatus(`File selected: ${file.name} - Processing...`);
       await processFile(file);
     } else {
-      state.setStatus("No file selected", true);
+      setStatus("No file selected", true);
     }
   };
   input.click();
 }
 
 async function processFile(file) {
-  state.setStatus(`Processing file: ${file.name}`);
+  setStatus(`Processing file: ${file.name}`);
   try {
     if (!file.name.endsWith(".json")) {
-      state.setStatus("Please select a JSON configuration file", true);
+      setStatus("Please select a JSON configuration file", true);
       return;
     }
 
     const reader = new FileReader();
 
-    reader.onerror = () => state.setStatus("Failed to read file - file might be corrupted", true);
-    reader.onabort = () => state.setStatus("File reading was aborted", true);
+    reader.onerror = () => setStatus("Failed to read file - file might be corrupted", true);
+    reader.onabort = () => setStatus("File reading was aborted", true);
 
     reader.onload = async function (e) {
       try {
         const configData = JSON.parse(e.target.result);
         await loadConfigData(configData, file.name);
       } catch (error) {
-        state.setStatus(`Invalid JSON file - ${error.message}`, true);
+        setStatus(`Invalid JSON file - ${error.message}`, true);
       }
     };
 
     reader.readAsText(file);
   } catch (error) {
-    state.setStatus(`File processing failed - ${error.message}`, true);
+    setStatus(`File processing failed - ${error.message}`, true);
   }
 }
 
@@ -109,15 +109,15 @@ async function loadConfigData(configData, fileName) {
     
     const workbook = await getCurrentWorkbookName();
     const config = selectWorkbookConfig(configData, workbook);
-    state.setConfig(config);
+    setConfig(config);
 
     // Ensure UI setup and initialize modules
     await ensureUISetup();
     await reloadMappingModules();
     
-    state.setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
-    state.setStatus(error.message, true);
+    setStatus(error.message, true);
   }
 }
 
@@ -178,7 +178,7 @@ export async function reloadMappingModules() {
       
       return { element, getMappings: moduleAPI.getMappings, index };
     } catch (initError) {
-      state.setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
+      setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
       return { element: null, getMappings: () => ({ forward: {}, reverse: {}, metadata: null }), index };
     }
   });
@@ -199,5 +199,5 @@ function updateJsonDump() {
 
 function updateGlobalStatus() {
   const loaded = Object.keys(state.mappings.sources || {}).length, total = window.mappingModules?.length || 0;
-  state.setStatus(loaded === 0 ? "Ready to load mapping configurations..." : loaded === total ? `All ${total} mapping sources loaded` : `${loaded}/${total} mapping sources loaded`);
+  setStatus(loaded === 0 ? "Ready to load mapping configurations..." : loaded === total ? `All ${total} mapping sources loaded` : `${loaded}/${total} mapping sources loaded`);
 }

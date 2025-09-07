@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state } from "../shared-services/state.manager.js";
+import { setStatus } from "../shared-services/state.manager.js";
 
 export function getCachedMatch(value, forward, reverse) {
   const val = String(value || "").trim();
@@ -40,7 +40,7 @@ export async function findTokenMatch(value, config) {
   if (!val) return null;
 
   try {
-    state.setStatus("Starting mapping process...");
+    setStatus("Starting mapping process...");
 
     const headers = getHeaders();
     const apiEndpoint = `${getHost()}/research-and-match`;
@@ -55,20 +55,15 @@ export async function findTokenMatch(value, config) {
       const message = isAuthError
         ? "❌ API key invalid - check your key"
         : `❌ API Error: ${response.status} ${response.statusText} (API)`;
-      const logMessage = `[API] ${
-        isAuthError ? "API Key Error: 401 Unauthorized" : `API Error: ${response.status} ${response.statusText}`
-      } - Endpoint: ${apiEndpoint}`;
 
-      state.setStatus(message, true);
-      console.error(logMessage);
+      setStatus(message, true);
       return null;
     }
 
     const data = await response.json();
     if (!data.success || !data.data.ranked_candidates?.length) {
       if (!data.success) {
-        console.error(`API Error: ${data.error} (${data.error_type})`);
-        state.setStatus(`Research failed: ${data.error}`, true);
+        setStatus(`Research failed: ${data.error}`, true);
       }
       return null;
     }
@@ -76,11 +71,11 @@ export async function findTokenMatch(value, config) {
     const responseData = data.data;
     const best = responseData.ranked_candidates[0];
     if (!best) {
-      state.setStatus("ranked_candidates has wrong schema or empty", true);
+      setStatus("ranked_candidates has wrong schema or empty", true);
       return null;
     }
 
-    state.setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
+    setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
     return {
       target: best.candidate,
       method: "ProfileRank",
@@ -98,7 +93,7 @@ export async function findTokenMatch(value, config) {
       errorMessage = "Backend server not accessible - ensure server is running on port 8000";
     }
 
-    state.setStatus(errorMessage, true);
+    setStatus(errorMessage, true);
     return null;
   }
 }

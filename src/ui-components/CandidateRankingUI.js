@@ -10,7 +10,6 @@ export function init() {
     console.error("CandidateRankingUI: Could not find results-view container in DOM");
     return false;
   }
-  console.log("CandidateRankingUI: Successfully initialized container");
 
   const style = document.createElement("style");
   style.textContent = `
@@ -48,7 +47,6 @@ export function addCandidate(value, result, context) {
   if (!candidates) return;
 
   if (!container) {
-    console.log("CandidateRankingUI: Container not initialized, attempting initialization...");
     const initSuccess = init();
     if (!initSuccess || !container) {
       console.error("CandidateRankingUI: Failed to initialize container, cannot display candidates");
@@ -81,7 +79,6 @@ export function addCandidate(value, result, context) {
     return;
   }
 
-  console.log(`CandidateRankingUI: Adding candidate for "${value}" with ${candidates.length} options`);
 
   rankedContainer.innerHTML = `
         <div class="candidate-entry">

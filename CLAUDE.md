@@ -53,12 +53,10 @@ Navigate to `backend-api/` directory first:
 **Utility Layer: Single-Purpose Modules**
 - `utils/column-utilities.js` - Column mapping and validation functions
 - `utils/cell-utilities.js` - Cell value processing and change detection
-- `utils/color-utilities.js` - UI color management and scoring visualization
 - `utils/activity-logger.js` - Session logging and backend communication
 - `utils/config-processor.js` - Pure functions for configuration validation
 - `utils/server-utilities.js` - Consolidated server configuration and status management
-- `utils/version.js` - Simple version display with pure function exports
-- `utils/app-utilities.js` - General application utilities
+- `utils/app-utilities.js` - Consolidated application utilities (UI layout, Excel integration, color management, version display)
 
 **Data Processing Layer**
 - `data-processing/mapping.processor.js` - Streamlined mapping with direct validation
@@ -76,14 +74,14 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: The frontend uses a centralized state manager (`state.manager.js`) that coordinates between UI components and services. Subscribe to state changes using `state.subscribe()`.
+**State Management**: The frontend uses functional state management (`state.manager.js`) with direct property access and exported functions (`setStatus()`, `setConfig()`, `subscribe()`). State is accessed directly via `state.server.online` instead of complex path resolution.
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
-**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization using pure functions from `normalizer.functions.js`. Utility functions extracted to dedicated modules for reusability and maintainability.
+**Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`. Legacy `LiveTracker` class maintained for backwards compatibility.
 
 **API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using consolidated server utilities (`getHost()`, `getHeaders()`, `getApiKey()`, `checkServerStatus()`) for LLM processing and term analysis.
 
@@ -95,11 +93,11 @@ backend-api/
 
 **Extracted Concerns**: Previously inlined utilities (80+ lines in LiveTracker) extracted to dedicated modules following separation of concerns and DRY principles. Creates reusable components and improves code organization.
 
-**Direct Property Access**: StateManager uses direct property manipulation instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
+**Direct Property Access**: Functional state management uses direct property manipulation (`state.server.online`) instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
 
 **Minimal Abstraction Layers**: Prefer direct function calls over object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`), eliminating unnecessary indirection and improving code clarity.
 
-**Pure Function Extraction**: Complex operations broken into testable, reusable pure functions for config validation, cell processing, and color management. Enhances maintainability and enables better testing strategies.
+**Pure Function Extraction**: Complex operations broken into testable, reusable pure functions for config validation, cell processing, and consolidated utilities. Enhances maintainability and enables better testing strategies.
 
 **Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules, maintaining clear separation of concerns without over-engineering.
 
