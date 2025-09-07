@@ -1,4 +1,5 @@
 import re
+import logging
 from collections import defaultdict
 from pydantic import BaseModel
 from typing import List
@@ -75,6 +76,7 @@ class MatchRequest(BaseModel):
 
 # Create router
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/update-matcher")
 async def update_matcher(request: UpdateMatcherRequest):
@@ -110,7 +112,8 @@ async def match_term(request: MatchRequest):
     """Simple token-based matching without web research"""
     
     if token_matcher is None:
-        print(f"[DEBUG] token_matcher is None - matcher not initialized")
+        logger.error(f"[MISSING MAPPING INDEXES] TokenLookupMatcher not initialized")
+        logger.error("Server restart detected. Configuration reload required.")
         return {"error": "Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data."}
     
     print(f"[MATCH-TERM] Query: '{request.query}'")
