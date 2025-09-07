@@ -33,30 +33,36 @@ Navigate to `backend-api/` directory first:
 
 ## Architecture
 
-### Frontend Structure
-```
-src/
-├── taskpane/           # Central application hub - main UI and orchestration
-│   └── taskpane.js           # Application entry point and coordinator
-├── shared-services/    # Core business logic and state management
-│   └── state.manager.js      # Centralized state management
-├── services/           # Processing and API services
-│   ├── live.tracker.js       # Real-time cell monitoring with inlined utilities
-│   ├── normalizer.router.js  # Term normalization routing
-│   ├── normalizer.fuzzy.js   # Fuzzy matching logic
-│   └── server-status-functions.js  # Simple server connectivity functions (replaces ServerStatusManager)
-├── ui-components/      # Simple UI functions (no heavyweight classes)
-│   ├── mapping-config-functions.js  # Pure functions for mapping UI (replaces MappingConfigModule)
-│   ├── file-handling.js      # Drag & drop and config processing functionality
-│   └── view-manager.js       # Simple view switching
-├── utils/              # Simplified utility functions
-│   ├── serverConfig.js       # Simple function exports (getHost, getHeaders, getApiKey)
-│   ├── version.js            # Version information utilities
-│   ├── app-utilities.js      # General app utilities (margins, workbook names)
-│   └── config-processor.js   # Pure functions for config validation and selection
-└── data-processing/    # Data transformation and mapping
-    └── mapping.processor.js     # Streamlined mapping processing with direct validation
-```
+### Frontend Architecture: Function-First Design
+
+**Core Application Layer**
+- `taskpane/taskpane.js` - Application orchestrator with pure function delegation
+- `shared-services/state.manager.js` - Centralized state with direct property access
+
+**Service Layer: Specialized Processing**
+- `services/live.tracker.js` - Real-time cell monitoring (utilities extracted to utils/)
+- `services/normalizer.router.js` - Term normalization pipeline
+- `services/normalizer.fuzzy.js` - Fuzzy matching algorithms
+- `services/server-status-functions.js` - Simple connectivity functions (no class abstractions)
+
+**UI Layer: Function-Based Components**
+- `ui-components/` - Pure functions for UI operations (no classes)
+- `ui-components/view-manager.js` - Direct DOM manipulation functions
+- `ui-components/file-handling.js` - Drag & drop with extracted configuration logic
+- `ui-components/mapping-config-functions.js` - Pure functions for mapping UI
+
+**Utility Layer: Single-Purpose Modules**
+- `utils/column-utilities.js` - Column mapping and validation functions
+- `utils/cell-utilities.js` - Cell value processing and change detection
+- `utils/color-utilities.js` - UI color management and scoring visualization
+- `utils/activity-logger.js` - Session logging and backend communication
+- `utils/config-processor.js` - Pure functions for configuration validation
+- `utils/serverConfig.js` - Simple function exports (no object wrappers)
+- `utils/version.js` - Simplified version display (complex timezone logic removed)
+- `utils/app-utilities.js` - General application utilities
+
+**Data Processing Layer**
+- `data-processing/mapping.processor.js` - Streamlined mapping with direct validation
 
 ### Backend Structure
 ```
@@ -78,20 +84,25 @@ backend-api/
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
-**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system. Excel operations are inlined directly for optimal performance.
+**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system. Utility functions extracted to dedicated modules for reusability and maintainability.
 
 **API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using simplified serverConfig functions (`getHost()`, `getHeaders()`, `getApiKey()`) for LLM processing and term analysis.
 
-## Simplified Architecture Principles
+## Exemplary Architecture Principles
 
-**IMPORTANT**: The codebase has been streamlined to eliminate unnecessary abstraction layers:
+**IMPORTANT**: This codebase demonstrates industry best practices through systematic architectural decisions:
 
-- **Direct Function Calls**: Use direct function imports instead of object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`)
-- **Inline Critical Operations**: Excel cell operations are inlined in `live.tracker.js` for performance and clarity
-- **Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules (`config-processor.js`, `file-handling.js`, `view-manager.js`)
-- **Pure Functions**: Extract reusable logic into pure functions (e.g., config validation) for better testability and maintainability
-- **Minimal Indirection**: Prefer function-based modules over class-based abstractions for simple utilities
-- **Maintain Modularity**: Keep logical separation of concerns while avoiding unnecessary abstraction layers
+**Function-First Design**: All utilities implemented as pure functions with single responsibilities, eliminating class-based complexity and improving testability. Classes converted to lightweight function modules reduce bundle size and cognitive overhead.
+
+**Extracted Concerns**: Previously inlined utilities (80+ lines in LiveTracker) extracted to dedicated modules following separation of concerns and DRY principles. Creates reusable components and improves code organization.
+
+**Direct Property Access**: StateManager uses direct property manipulation instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
+
+**Minimal Abstraction Layers**: Prefer direct function calls over object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`), eliminating unnecessary indirection and improving code clarity.
+
+**Pure Function Extraction**: Complex operations broken into testable, reusable pure functions for config validation, cell processing, and color management. Enhances maintainability and enables better testing strategies.
+
+**Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules, maintaining clear separation of concerns without over-engineering.
 
 When making changes, preserve this streamlined approach and resist over-engineering patterns.
 
@@ -181,6 +192,18 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 2. **LLM Provider**: Configure Groq or OpenAI API keys in backend environment
 3. **Development Certificates**: Office add-in requires HTTPS certificates (handled by office-addin-dev-certs)
 4. **Python Environment**: Backend requires Python virtual environment with FastAPI dependencies
+
+## Code Quality & Maintainability Standards
+
+This codebase demonstrates industry best practices through systematic refactoring:
+
+**Class-to-Function Migration**: Converted heavyweight classes (ActivityDisplay, aiPromptRenewer) to lightweight function modules, reducing bundle size and complexity while maintaining the same API.
+
+**Utility Extraction Pattern**: Moved inline utilities to dedicated modules, creating reusable components and improving code organization. LiveTracker reduced from 260+ lines to focused core logic.
+
+**Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
+
+**Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
 
 ## Testing and Validation
 
