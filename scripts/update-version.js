@@ -41,14 +41,14 @@ function getGitInfo() {
 
 function updateVersionFile() {
   const gitInfo = getGitInfo();
-  const versionPath = path.join(__dirname, '..', 'src', 'utils', 'version.js');
+  const versionPath = path.join(__dirname, '..', 'src', 'utils', 'app-utilities.js');
   
-  console.log('Updating version.js with git info:', gitInfo);
+  console.log('Updating app-utilities.js with git info:', gitInfo);
   
-  // Read current version file
+  // Read current app-utilities file
   let versionContent = fs.readFileSync(versionPath, 'utf8');
   
-  // Replace git information (updated for const format)
+  // Replace git information (updated for const format in app-utilities.js)
   versionContent = versionContent
     .replace(/const commit = "[^"]*";/, `const commit = "${gitInfo.commit}";`)
     .replace(/const commitDate = "[^"]*";/, `const commitDate = "${gitInfo.commitDate}";`)
@@ -58,7 +58,7 @@ function updateVersionFile() {
   // Write updated content
   fs.writeFileSync(versionPath, versionContent, 'utf8');
   
-  console.log('✅ Version file updated successfully');
+  console.log('✅ App utilities file updated successfully');
 }
 
 if (require.main === module) {
