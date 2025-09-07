@@ -41,7 +41,7 @@ Navigate to `backend-api/` directory first:
 
 **Service Layer: Specialized Processing**
 - `services/live.tracker.js` - Real-time cell monitoring (utilities extracted to utils/)
-- `services/normalizer.router.js` - Term normalization pipeline
+- `services/normalizer.functions.js` - Pure functions for term normalization pipeline
 - `services/normalizer.fuzzy.js` - Fuzzy matching algorithms
 
 **UI Layer: Function-Based Components**
@@ -83,7 +83,7 @@ backend-api/
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
-**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization through the routing system. Utility functions extracted to dedicated modules for reusability and maintainability.
+**Cell Monitoring**: `LiveTracker` service monitors Excel worksheet changes and triggers normalization using pure functions from `normalizer.functions.js`. Utility functions extracted to dedicated modules for reusability and maintainability.
 
 **API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using consolidated server utilities (`getHost()`, `getHeaders()`, `getApiKey()`, `checkServerStatus()`) for LLM processing and term analysis.
 

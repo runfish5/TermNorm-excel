@@ -53,11 +53,6 @@ export class StateManager {
 
   subscribe(path, callback) {
     this.subscribers.push({ path, callback });
-    return this.subscribers.length - 1;
-  }
-
-  unsubscribe(id) {
-    this.subscribers.splice(id, 1);
   }
 
   _notify() {

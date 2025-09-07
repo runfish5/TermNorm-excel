@@ -1,6 +1,6 @@
 import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
 import { ActivityDisplay } from "../ui-components/CandidateRankingUI.js";
-import { NormalizerRouter } from "./normalizer.router.js";
+import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS } from "../utils/color-utilities.js";
@@ -10,16 +10,18 @@ export class LiveTracker {
   constructor() {
     this.active = false;
     this.handler = null;
-    this.processor = null;
     this.columnMap = new Map();
-    this.cellValues = new Map(); // Track cell values to detect actual changes
+    this.cellValues = new Map();
+    this.mappings = null;
+    this.config = null;
   }
 
   async start(config, mappings) {
     if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
     this.columnMap = await this.buildColumnMap(config.column_map);
-    this.processor = new NormalizerRouter(mappings.forward, mappings.reverse, config);
+    this.mappings = mappings;
+    this.config = config;
 
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
@@ -95,7 +97,7 @@ export class LiveTracker {
 
   async processCell(ws, row, col, targetCol, value) {
     try {
-      const result = await this.processor.process(value);
+      const result = await processTermNormalization(value, this.mappings.forward, this.mappings.reverse, this.config);
       console.log(`Result: ${JSON.stringify(result, null, 2)}`);
 
       if (result?.candidates) {
@@ -104,51 +106,27 @@ export class LiveTracker {
         });
       }
 
-      // Create and apply cell updates (inlined)
       const target = result?.target || "No matches found";
       const confidence = result?.confidence || 0;
       const method = result?.method || (result ? "match" : "no_match");
 
-      // Apply to Excel directly
       const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
       const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
       tgtCell.values = [[target]];
       tgtCell.format.fill.color = getRelevanceColor(confidence);
-      srcCell.format.fill.clear(); // Clear source formatting
+      srcCell.format.fill.clear();
 
-      const updates = {
-        value,
-        target,
-        method,
-        confidence,
-        metadata: {
-          candidates: result?.candidates,
-          total_time: result?.total_time || 0,
-          llm_provider: result?.llm_provider,
-        },
-      };
-
-      // Log activity
-      ActivityFeed.add(updates.value, updates.target, updates.method, updates.confidence);
-      logActivity(
-        updates.value,
-        updates.target,
-        updates.method,
-        updates.confidence,
-        updates.metadata.total_time,
-        updates.metadata.llm_provider
-      );
+      ActivityFeed.add(value, target, method, confidence);
+      logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
     } catch (error) {
       this.handleCellError(ws, row, col, targetCol, value, error);
     }
   }
 
   async handleCellError(ws, row, col, targetCol, value, error) {
-    // Handle error directly (inlined)
     const errorMsg = error instanceof Error ? error.message : String(error);
 
-    // Apply error to Excel directly
     const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
     const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
@@ -156,22 +134,19 @@ export class LiveTracker {
     tgtCell.values = [[errorMsg]];
     tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
 
-    // Log activity
     ActivityFeed.add(value, errorMsg, "error", 0);
     logActivity(value, errorMsg, "error", 0, 0, undefined);
   }
 
   applyChoice = async (ws, row, col, targetCol, value, choice) => {
     await Excel.run(async (ctx) => {
-      // Apply choice directly (inlined)
       const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
       const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
 
       tgtCell.values = [[choice.candidate]];
       tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
-      srcCell.format.fill.clear(); // Clear source formatting
+      srcCell.format.fill.clear();
 
-      // Log activity
       ActivityFeed.add(value, choice.candidate, "UserChoice", choice.relevance_score);
       logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 
