@@ -51,12 +51,24 @@ export async function findTokenMatch(value, config) {
     });
 
     if (!response.ok) {
-      const isAuthError = response.status === 401;
-      const message = isAuthError
-        ? "❌ API key invalid - check your key"
-        : `❌ API Error: ${response.status} ${response.statusText} (API)`;
-
-      setStatus(message, true);
+      if (response.status === 401) {
+        setStatus("❌ API key invalid - check your key", true);
+        return null;
+      }
+      
+      if (response.status === 503) {
+        try {
+          const errorData = await response.json();
+          if (errorData.detail && errorData.detail.includes("Server restart detected")) {
+            setStatus("⚠️ Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.", true);
+            return null;
+          }
+        } catch (e) {
+          // If we can't parse the response, fall through to generic 503 error
+        }
+      }
+      
+      setStatus(`❌ API Error: ${response.status} ${response.statusText} (API)`, true);
       return null;
     }
 
