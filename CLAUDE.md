@@ -202,6 +202,8 @@ This codebase demonstrates industry best practices through systematic refactorin
 
 **Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
 
+**Utility Consolidation**: Merged `color-utilities.js` and `version.js` into `app-utilities.js` for better organization. Build script (`scripts/update-version.js`) now updates version info in the consolidated utility file.
+
 ## Testing and Validation
 
 **IMPORTANT**: Do not automatically run tests or start testing procedures. The user will handle testing manually.
