@@ -1,7 +1,26 @@
-// services/server-status-functions.js
-import { getHost, getHeaders, getApiKey } from "../utils/serverConfig.js";
+// utils/server-utilities.js
+// Consolidated server configuration and status management
 import { state } from "../shared-services/state.manager.js";
 
+// Server configuration functions
+export function getHost() {
+  return state.get("server.host") || "http://127.0.0.1:8000";
+}
+
+export function getApiKey() {
+  return state.get("server.apiKey");
+}
+
+export function getHeaders() {
+  const headers = { "Content-Type": "application/json" };
+  const apiKey = getApiKey();
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  }
+  return headers;
+}
+
+// Server status management
 let isCheckingServer = false;
 
 export async function checkServerStatus() {

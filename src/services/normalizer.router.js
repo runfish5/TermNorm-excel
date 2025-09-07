@@ -1,6 +1,6 @@
 // services/normalizer.router.js
 import { findBestMatch } from "./normalizer.fuzzy.js";
-import { getHost, getHeaders } from "../utils/serverConfig.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { state } from "../shared-services/state.manager.js";
 
 export class NormalizerRouter {
