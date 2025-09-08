@@ -68,6 +68,8 @@ export const ActivityFeed = {
         }
       }
 
+      this.updateHistoryTabCounter();
+
     } catch (error) {
       console.error("ActivityFeed.add() error:", error);
     }
@@ -77,6 +79,7 @@ export const ActivityFeed = {
     if (!this.tableBody) return;
     this.tableBody.innerHTML = "";
     this.showPlaceholder();
+    this.updateHistoryTabCounter();
   },
 
   showPlaceholder() {
@@ -85,5 +88,22 @@ export const ActivityFeed = {
       this.tableBody.innerHTML =
         '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking to see live mappings.</td></tr>';
     }
+  },
+
+  updateHistoryTabCounter() {
+    const historyTab = document.getElementById("history-tab");
+    if (historyTab && this.tableBody) {
+      const activityRows = this.tableBody.querySelectorAll(".activity-row");
+      const count = activityRows.length;
+      const tabIcon = historyTab.querySelector(".tab-icon");
+      if (tabIcon) {
+        tabIcon.textContent = `${count}📜`;
+      }
+    }
+  },
+
+  getCount() {
+    if (!this.tableBody) return 0;
+    return this.tableBody.querySelectorAll(".activity-row").length;
   },
 };

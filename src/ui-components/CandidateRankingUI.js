@@ -23,20 +23,6 @@ export function init() {
   `;
   document.head.appendChild(style);
 
-  container.addEventListener("change", (e) => {
-    if (e.target.name === "activity-mode") {
-      const isHistory = e.target.value === "history";
-      const activityFeed = container.querySelector("#activity-feed");
-      const candidateSection = container.querySelector("#candidate-ranking-section");
-
-      if (activityFeed) {
-        activityFeed.style.display = isHistory ? "block" : "none";
-      }
-      if (candidateSection) {
-        candidateSection.style.display = isHistory ? "none" : "block";
-      }
-    }
-  });
 
   ActivityFeed.init("activity-feed");
   return true;
@@ -211,7 +197,7 @@ export function clearCandidates() {
   currentContext = null;
   const candidateSection = container?.querySelector("#candidate-ranking-section");
   if (candidateSection) {
-    candidateSection.innerHTML = '<div class="placeholder-text">Rankings appear here during processing</div>';
+    candidateSection.innerHTML = '<div class="placeholder-text">Results appear here during processing</div>';
   }
 }
 
