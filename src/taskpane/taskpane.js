@@ -20,6 +20,7 @@ Office.onReady(async (info) => {
   document.body.className = 'ms-font-m ms-welcome ms-Fabric';
 
   ActivityFeed.init();
+  ActivityFeed.updateHistoryTabCounter();
 
   const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map(id => document.getElementById(id));
   sideloadMsg.style.display = "none";
