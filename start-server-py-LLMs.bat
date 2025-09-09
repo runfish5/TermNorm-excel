@@ -1,159 +1,194 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal enabledelayedexpansion
 
-:: Check if running as administrator
-net session >nul 2>&1
-if %errorLevel% == 0 (
-    echo Running with Administrator privileges
-    echo.
-    echo Please enter the admin password for additional security:
-    set /p admin_password="Admin Password: "
-    if "!admin_password!"=="" (
-        echo No password entered. Exiting.
-        pause
-        exit /b 1
-    )
-) else (
-    echo Running with standard user privileges
-)
+:: Set up color codes (since uvicorn colors work, ANSI support is available)
+:: Create ESC character and restore prompt
+for /f "delims=#" %%E in ('"prompt #$E# & for %%E in (1) do rem"') do set "ESC=%%E"
+prompt $P$G
+set "GREEN=%ESC%[92m"
+set "YELLOW=%ESC%[93m" 
+set "BLUE=%ESC%[94m"
+set "CYAN=%ESC%[96m"
+set "RED=%ESC%[91m"
+set "RESET=%ESC%[0m"
+set "BOLD=%ESC%[1m"
 
-echo.
-echo ===========================================
-echo     TermNorm Excel Backend Server
-echo ===========================================
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%      TermNorm Excel Backend Server    %RESET%
+echo %CYAN%===============================================%RESET%
 echo.
 
-:: Ask for deployment type
-echo Choose deployment type:
-echo [1] Local (localhost only)
-echo [2] Network/Cloud (accessible from other devices)
+:: Deployment type selection
+echo +-- DEPLOYMENT TYPE -----------------------+
+echo ^| %YELLOW%[1]%RESET% Local (localhost only)               ^|
+echo ^| %YELLOW%[2]%RESET% Network/Cloud (accessible remotely)  ^|
+echo +-------------------------------------------+
 echo.
-set /p deploy_choice="Enter choice (1 or 2): "
+set /p deploy_choice="%BLUE%>>%RESET% Enter choice (%YELLOW%1%RESET% or %YELLOW%2%RESET%): "
 
-if "!deploy_choice!"=="1" (
+:: Set deployment type and get API key
+if "%deploy_choice%"=="1" (
     set deployment_type=local
-    echo Selected: Local deployment
-) else if "!deploy_choice!"=="2" (
+    echo %GREEN%[OK]%RESET% Selected: %BOLD%%GREEN%Local deployment%RESET%
+) else (
     set deployment_type=network
-    echo Selected: Network deployment
-    echo.
-    set /p api_key="Enter API key (or press Enter for default 'mycatlikesfish'): "
-    if "!api_key!"=="" set api_key=mycatlikesfish
-) else (
-    echo Invalid choice. Defaulting to local deployment.
-    set deployment_type=local
+    echo %GREEN%[OK]%RESET% Selected: %BOLD%%GREEN%Network deployment%RESET%
 )
 
 echo.
-echo ===========================================
-echo     Backend Directory Setup
-echo ===========================================
-echo.
+echo +-- API CONFIGURATION ---------------------+
+set /p api_key="^| API Key [default: %CYAN%mycatlikesfish%RESET%]: "
+if "%api_key%"=="" set api_key=mycatlikesfish
+echo ^| %GREEN%[OK]%RESET% API Key set: %BOLD%%YELLOW%!api_key!%RESET%
+echo +-------------------------------------------+
 
-:: Ask for backend directory path
-echo Please enter the path to your backend-api directory:
-echo Default: C:\Users\dsacc\OfficeAddinApps\TermNorm-excel\backend-api
+:: Backend directory setup
 echo.
-set /p backend_path="Enter path (or press Enter for default): "
-
-:: Use default if no input provided
-if "!backend_path!"=="" (
-    set backend_path=C:\Users\dsacc\OfficeAddinApps\TermNorm-excel\backend-api
-    echo Using default path: !backend_path!
-) else (
-    echo Using provided path: !backend_path!
-)
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%        Backend Directory Setup         %RESET%
+echo %CYAN%===============================================%RESET%
+echo.
+set backend_path=C:\Users\dsacc\OfficeAddinApps\TermNorm-excel\backend-api
+echo Default: %BOLD%%CYAN%!backend_path!%RESET%
+set /p backend_input="%BLUE%>>%RESET% Enter backend path (or press Enter for default): "
+if not "!backend_input!"=="" set backend_path=!backend_input!
 
 echo.
-echo Checking if directory exists...
+echo %BLUE%>>%RESET% Using path: %BOLD%%YELLOW%!backend_path!%RESET%
 
-:: Check if directory exists
+:: Check directory exists
 if not exist "!backend_path!" (
     echo.
-    echo ERROR: Directory does not exist: !backend_path!
-    echo Please check the path and try again.
+    echo %RED%[ERROR]%RESET% Directory does not exist: %BOLD%%RED%!backend_path!%RESET%
     echo.
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
-)
-
-:: Navigate to the backend directory
-echo Directory found! Navigating to: !backend_path!
-cd /d "!backend_path!"
-if %errorLevel% neq 0 (
-    echo Error: Could not navigate to directory. Please check permissions.
-    echo.
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
-)
-
-echo.
-echo Setting up environment...
-
-:: Check if virtual environment exists, if not create it
-if not exist "venv\" (
-    echo Creating virtual environment...
-    python -m venv venv
-    if %errorLevel% neq 0 (
-        echo Error: Failed to create virtual environment. Make sure Python is installed.
-        pause
-        exit /b 1
-    )
-)
-
-:: Activate virtual environment
-echo Activating virtual environment...
-call .\venv\Scripts\activate.bat
-if %errorLevel% neq 0 (
-    echo Error: Failed to activate virtual environment.
     pause
     exit /b 1
 )
+echo %GREEN%[OK]%RESET% Directory validated
 
-:: Install requirements if requirements.txt exists
-if exist "requirements.txt" (
-    echo Installing/updating requirements...
-    pip install -r requirements.txt
-    if %errorLevel% neq 0 (
-        echo Warning: Some requirements may have failed to install.
-        echo Press any key to continue anyway...
-        pause >nul
+:: Navigate to backend directory
+cd /d "!backend_path!"
+
+:: Virtual environment setup
+echo.
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%       Virtual Environment Setup          %RESET%
+echo %CYAN%===============================================%RESET%
+echo.
+set GLOBAL_VENV_PATH=C:\Users\dsacc\venvs\termnorm-backend
+
+:: Create venvs directory if needed
+if not exist "C:\Users\dsacc\venvs\" (
+    echo %BLUE%>>%RESET% Creating global venvs directory...
+    mkdir "C:\Users\dsacc\venvs"
+)
+
+:: Check/create virtual environment
+if not exist "!GLOBAL_VENV_PATH!" (
+    echo %BLUE%>>%RESET% Creating virtual environment at: %BOLD%%CYAN%!GLOBAL_VENV_PATH!%RESET%
+    python -m venv "!GLOBAL_VENV_PATH!"
+    if errorlevel 1 (
+        echo %RED%[ERROR]%RESET% Failed to create virtual environment
+        pause
+        exit /b 1
     )
+    echo %GREEN%[OK]%RESET% Virtual environment created
 ) else (
-    echo Warning: requirements.txt not found. Skipping dependency installation.
+    echo %GREEN%[OK]%RESET% Virtual environment found
+)
+
+:: Install requirements
+echo.
+echo %BLUE%>>%RESET% Installing/updating requirements...
+"!GLOBAL_VENV_PATH!\Scripts\pip.exe" install -r requirements.txt -q
+if errorlevel 1 (
+    echo %YELLOW%[WARNING]%RESET% Some requirements may have failed to install
+) else (
+    echo %GREEN%[OK]%RESET% Requirements installed successfully
+)
+
+:: Set environment variable
+set TERMNORM_API_KEY=!api_key!
+
+:: Basic diagnostics
+echo.
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%          Pre-flight Diagnostics          %RESET%
+echo %CYAN%===============================================%RESET%
+echo.
+
+echo %BLUE%>>%RESET% Testing main.py import...
+"!GLOBAL_VENV_PATH!\Scripts\python.exe" -c "import main; print('  %GREEN%[OK]%RESET% main.py imported successfully')" 2>nul
+if errorlevel 1 (
+    echo   %RED%[ERROR]%RESET% Could not import main.py
+) else (
+    echo   %GREEN%[OK]%RESET% main.py import verified
 )
 
 echo.
-echo Environment setup complete!
-echo Current directory: %CD%
-echo Virtual environment: ACTIVATED
-echo Python version:
-python --version
+echo %BLUE%>>%RESET% Testing FastAPI app object...
+"!GLOBAL_VENV_PATH!\Scripts\python.exe" -c "import main; print('  %GREEN%[OK]%RESET% FastAPI app object found')" 2>nul
+if errorlevel 1 (
+    echo   %YELLOW%[WARNING]%RESET% Could not verify FastAPI app object
+) else (
+    echo   %GREEN%[OK]%RESET% FastAPI app object verified
+)
+
 echo.
-echo Press any key to start the server...
+echo %BLUE%>>%RESET% Testing port %BOLD%%YELLOW%8000%RESET% availability...
+netstat -an | findstr ":8000 " >nul 2>nul
+if errorlevel 1 (
+    echo   %GREEN%[OK]%RESET% Port %BOLD%%YELLOW%8000%RESET% is available
+) else (
+    echo   %YELLOW%[WARNING]%RESET% Port %BOLD%%YELLOW%8000%RESET% appears to be in use
+)
+
+:: Server startup
+echo.
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%             Server Launch                %RESET%
+echo %CYAN%===============================================%RESET%
+echo.
+echo +-- CONFIGURATION SUMMARY -----------------+
+echo ^| API Key:     %BOLD%%YELLOW%!api_key!%RESET%
+echo ^| Deployment:  %BOLD%%GREEN%!deployment_type!%RESET%
+echo ^| Directory:   %BOLD%%CYAN%!backend_path!%RESET%
+echo ^| Virtual Env: %BOLD%%CYAN%!GLOBAL_VENV_PATH!%RESET%
+echo +-------------------------------------------+
+echo.
+echo.
+echo %BLUE%>>%RESET% Press any key to start the server...
+echo.
 pause >nul
 
 echo.
-echo Starting server...
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%            Starting Server...            %RESET%
+echo %CYAN%===============================================%RESET%
 echo.
 
 :: Start server based on deployment type
 if "!deployment_type!"=="local" (
-    echo Starting local server (http://localhost:8000)...
-    echo Press Ctrl+C to stop the server
+    echo %BLUE%>>%RESET% Command: %BOLD%%GREEN%uvicorn main:app --reload%RESET%
+    echo %BLUE%>>%RESET% Server will be available at: %BOLD%%CYAN%http://localhost:8000%RESET%
+    echo %BLUE%>>%RESET% Press %YELLOW%Ctrl+C%RESET% to stop the server
     echo.
-    python -m uvicorn main:app --reload
+    echo %CYAN%===========================================%RESET%
+    "!GLOBAL_VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --reload
 ) else (
-    echo Starting network server (accessible at http://your-ip:8000)...
-    echo API Key: !api_key!
-    echo Press Ctrl+C to stop the server
+    echo %BLUE%>>%RESET% Command: %BOLD%%GREEN%uvicorn main:app --host 0.0.0.0 --port 8000 --reload%RESET%  
+    echo %BLUE%>>%RESET% Server will be available at: %BOLD%%CYAN%http://your-ip:8000%RESET%
+    echo %BLUE%>>%RESET% Press %YELLOW%Ctrl+C%RESET% to stop the server
     echo.
-    set TERMNORM_API_KEY=!api_key!
-    python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    echo %CYAN%===========================================%RESET%
+    "!GLOBAL_VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 )
 
 echo.
-echo Server stopped.
-pause
+echo %CYAN%===============================================%RESET%
+echo %BOLD%%CYAN%            Server Stopped                %RESET%
+echo %CYAN%===============================================%RESET%
+echo Exit code: %BOLD%%YELLOW%!errorlevel!%RESET%
+echo.
+echo Press any key to exit...
+pause >nul
