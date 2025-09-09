@@ -1,4 +1,8 @@
 /* Layout */
+:root {
+    --nav-bar-height: 40px;
+}
+
 .ms-welcome__main {
     display: flex;
     flex-direction: column;
@@ -10,7 +14,7 @@
 .content {
     width: 100%;
     padding: 10px;
-    margin-top: calc(32px + var(--status-bar-height, 47px));
+    margin-top: calc(var(--nav-bar-height) + var(--status-bar-height, 47px));
 }
 
 /* Navigation */
@@ -20,8 +24,8 @@
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 2px 20px;
-    height: 32px;
+    padding: 0px 20px;
+    height: var(--nav-bar-height);
     background: white;
     border-bottom: 1px solid #eee;
     z-index: 1000;
@@ -100,7 +104,7 @@
 /* Status Bar*/
 .status-bar {
     position: fixed;
-    top: 32px;
+    top: var(--nav-bar-height);
     width: 100%;
     display: flex;
     flex-wrap: wrap; /* Allow wrapping */
