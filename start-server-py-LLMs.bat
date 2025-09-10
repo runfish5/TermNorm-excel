@@ -130,8 +130,9 @@ if errorlevel 1 (
     echo %GREEN%[OK]%RESET% Requirements installed successfully
 )
 
-:: Set environment variable
+:: Set environment variables
 set TERMNORM_API_KEY=!api_key!
+set ALLOWED_IPS=127.0.0.1,192.168.1.100,10.0.0.15
 
 :: Basic diagnostics
 echo.
@@ -182,6 +183,12 @@ echo ^| Deployment:  %BOLD%%GREEN%!deployment_type!%RESET%
 echo ^| Directory:   %BOLD%%CYAN%!backend_path!%RESET%
 echo ^| Virtual Env: %BOLD%%CYAN%!GLOBAL_VENV_PATH!%RESET%
 echo +-------------------------------------------+
+echo.
+echo %GREEN%[SECURITY]%RESET% IP Access Control Active
+echo ^| Localhost:    %BOLD%127.0.0.1%RESET%     ^(Development access^)
+echo ^| Office PC:    %BOLD%192.168.1.100%RESET% ^(Main workstation^)
+echo ^| Server Host:  %BOLD%10.0.0.15%RESET%     ^(Production server^)
+echo ^| Blocked IPs:  All others rejected with 403
 echo.
 echo.
 echo %BLUE%^>%RESET% Press any key to start the server...
