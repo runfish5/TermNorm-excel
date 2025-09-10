@@ -24,6 +24,9 @@ API_KEY = os.getenv("TERMNORM_API_KEY")
 if not API_KEY:
     raise ValueError("TERMNORM_API_KEY environment variable must be set! Example: set TERMNORM_API_KEY=your_secret_key")
 
+# IP whitelist from environment variable
+ALLOWED_IPS = os.getenv("ALLOWED_IPS", "127.0.0.1,::1").split(",")
+
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
 
 def get_local_ip():
@@ -73,6 +76,19 @@ def detect_server_environment():
         return "cloud"
         
     return "local"
+
+# IP whitelist middleware
+@app.middleware("http")
+async def ip_filter_middleware(request: Request, call_next):
+    client_ip = request.client.host
+    if client_ip not in [ip.strip() for ip in ALLOWED_IPS]:
+        print(f"[IP_BLOCKED] Rejected connection from {client_ip}")
+        return JSONResponse(
+            status_code=403,
+            content={"error": "IP address blocked", "blocked_ip": client_ip}
+        )
+    response = await call_next(request)
+    return response
 
 # API Key middleware
 @app.middleware("http")
