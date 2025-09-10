@@ -6,7 +6,7 @@ import { setStatus } from "../shared-services/state.manager.js";
 export function getCachedMatch(value, forward, reverse) {
   const val = String(value || "").trim();
   if (!val) return null;
-  
+
   if (val in forward) {
     const mapping = forward[val];
     return {
@@ -35,7 +35,7 @@ export function findFuzzyMatch(value, forward, reverse) {
   return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score } : null;
 }
 
-export async function findTokenMatch(value, config) {
+export async function findTokenMatch(value) {
   const val = String(value || "").trim();
   if (!val) return null;
 
@@ -55,19 +55,22 @@ export async function findTokenMatch(value, config) {
         setStatus("❌ API key invalid - check your key", true);
         return null;
       }
-      
+
       if (response.status === 503) {
         try {
           const errorData = await response.json();
           if (errorData.detail && errorData.detail.includes("Server restart detected")) {
-            setStatus("⚠️ Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.", true);
+            setStatus(
+              "⚠️ Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.",
+              true
+            );
             return null;
           }
         } catch (e) {
           // If we can't parse the response, fall through to generic 503 error
         }
       }
-      
+
       setStatus(`❌ API Error: ${response.status} ${response.statusText} (API)`, true);
       return null;
     }
@@ -110,7 +113,7 @@ export async function findTokenMatch(value, config) {
   }
 }
 
-export async function processTermNormalization(value, forward, reverse, config) {
+export async function processTermNormalization(value, forward, reverse) {
   const val = String(value || "").trim();
   if (!val) return null;
 
@@ -119,7 +122,7 @@ export async function processTermNormalization(value, forward, reverse, config) 
   if (cached) return cached;
 
   // Try research API
-  const researched = await findTokenMatch(val, config);
+  const researched = await findTokenMatch(val);
   if (researched) return researched;
 
   // Fallback to fuzzy

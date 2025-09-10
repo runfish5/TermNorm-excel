@@ -1,43 +1,26 @@
 // ui-components/file-handling.js
 // File drag & drop and processing functionality
 
-import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
-import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config-functions.js";
+import {
+  createMappingConfigHTML,
+  setupMappingConfigEvents,
+  loadMappingConfigData,
+} from "./mapping-config-functions.js";
 import { state, setStatus, setConfig } from "../shared-services/state.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
 
-// Config processor functions (moved from utils/config-processor.js)
-function validateConfigStructure(configData) {
-  if (!configData?.["excel-projects"]) {
-    throw new Error("Invalid config format - missing excel-projects structure");
-  }
-  return configData;
-}
-
-function selectWorkbookConfig(configData, workbook) {
-  const projects = configData["excel-projects"];
-  const config = projects[workbook] || projects["*"];
-  
-  if (!config?.standard_mappings?.length) {
-    const available = Object.keys(projects).join(", ");
-    throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
-  }
-  
-  return { ...config, workbook };
-}
-
 export function buildConfigErrorMessage(error, configData) {
   let message = `Config failed: ${error.message}`;
-  
+
   if (error.message.includes("No valid configuration found for workbook:")) {
     const keys = Object.keys(configData?.["excel-projects"] || {});
     if (keys.length) {
       message += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
     }
   }
-  
+
   return message;
 }
 
@@ -45,22 +28,33 @@ export function buildConfigErrorMessage(error, configData) {
 export async function loadStaticConfig() {
   try {
     const workbook = await getCurrentWorkbookName();
-    
+
     let configData = state.config.raw;
     if (!configData) {
       configData = (await import("../../config/app.config.json")).default;
       state.config.raw = configData;
     }
 
-    // Validate and select config using the same functions
-    validateConfigStructure(configData);
-    const config = selectWorkbookConfig(configData, workbook);
-    setConfig(config);
+    // Inline validation - check structure
+    if (!configData?.["excel-projects"]) {
+      throw new Error("Invalid config format - missing excel-projects structure");
+    }
+
+    // Inline config selection
+    const projects = configData["excel-projects"];
+    const config = projects[workbook] || projects["*"];
+
+    if (!config?.standard_mappings?.length) {
+      const available = Object.keys(projects).join(", ");
+      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
+    }
+
+    setConfig({ ...config, workbook });
 
     // Ensure UI setup and initialize modules
     await ensureUISetup();
     await reloadMappingModules();
-    
+
     setStatus(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
     const configData = state.config.raw;
@@ -134,68 +128,68 @@ function openFileDialog() {
 }
 
 async function processFile(file) {
+  if (!file.name.endsWith(".json")) {
+    return setStatus("Please select a JSON configuration file", true);
+  }
+
   setStatus(`Processing file: ${file.name}`);
+
   try {
-    if (!file.name.endsWith(".json")) {
-      setStatus("Please select a JSON configuration file", true);
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onerror = () => setStatus("Failed to read file - file might be corrupted", true);
-    reader.onabort = () => setStatus("File reading was aborted", true);
-
-    reader.onload = async function (e) {
-      try {
-        const configData = JSON.parse(e.target.result);
-        await loadConfigData(configData, file.name);
-      } catch (error) {
-        setStatus(`Invalid JSON file - ${error.message}`, true);
-      }
-    };
-
-    reader.readAsText(file);
+    const text = await file.text();
+    const configData = JSON.parse(text);
+    await loadConfigData(configData, file.name);
   } catch (error) {
-    setStatus(`File processing failed - ${error.message}`, true);
+    const message =
+      error instanceof SyntaxError
+        ? `Invalid JSON file - ${error.message}`
+        : `File processing failed - ${error.message}`;
+    setStatus(message, true);
   }
 }
 
 async function loadConfigData(configData, fileName) {
   try {
-    // Validate and select config using pure functions
-    validateConfigStructure(configData);
+    // Inline validation and selection
+    if (!configData?.["excel-projects"]) {
+      throw new Error("Invalid config format - missing excel-projects structure");
+    }
     state.config.raw = configData;
-    
+
     const workbook = await getCurrentWorkbookName();
-    const config = selectWorkbookConfig(configData, workbook);
-    setConfig(config);
+    const projects = configData["excel-projects"];
+    const config = projects[workbook] || projects["*"];
+
+    if (!config?.standard_mappings?.length) {
+      const available = Object.keys(projects).join(", ");
+      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
+    }
+
+    setConfig({ ...config, workbook });
 
     // Ensure UI setup and initialize modules
     await ensureUISetup();
     await reloadMappingModules();
-    
+
     setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
     setStatus(error.message, true);
   }
 }
 
-// Separate UI setup concern
+// Simplified UI setup
 async function ensureUISetup() {
-  let container = document.getElementById("mapping-configs-container");
+  showView("setup");
+
+  // Brief delay to ensure DOM is ready
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const container = document.getElementById("mapping-configs-container");
   if (!container) {
-    showView("setup");
-    await new Promise(resolve => setTimeout(resolve, 100));
-    container = document.getElementById("mapping-configs-container");
+    throw new Error("Configuration UI container not available - please refresh the add-in");
   }
-  
-  if (!container) throw new Error("Configuration UI container not available - please refresh the add-in");
-  
-  // Ensure global objects (fallback initialization)
-  !window.mappingModules && Object.assign(window, { 
-    mappingModules: [] 
-  });
+
+  // Initialize global modules if needed
+  window.mappingModules = window.mappingModules || [];
 }
 
 export async function reloadMappingModules() {
@@ -218,7 +212,7 @@ export async function reloadMappingModules() {
   // Create new modules using direct functions
   window.mappingModules = standardMappings.map((config, index) => {
     const elementId = `mapping-config-${index}`;
-    
+
     try {
       // Create element
       const element = document.createElement("details");
@@ -226,15 +220,15 @@ export async function reloadMappingModules() {
       element.className = "ms-welcome__section mapping-config-module";
       element.open = true;
       element.innerHTML = createMappingConfigHTML(config, index);
-      
+
       container.appendChild(element);
-      
+
       // Setup events and get mapping accessor
       const moduleAPI = setupMappingConfigEvents(element, config, index, () => onMappingLoaded());
-      
+
       // Load initial data
       loadMappingConfigData(element, config);
-      
+
       return { element, getMappings: moduleAPI.getMappings, index };
     } catch (initError) {
       setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
@@ -245,18 +239,36 @@ export async function reloadMappingModules() {
   updateGlobalStatus();
 }
 
-function onMappingLoaded() { 
-  updateGlobalStatus(); 
-  updateJsonDump(); 
+function onMappingLoaded() {
+  updateGlobalStatus();
+  updateJsonDump();
 }
 
 function updateJsonDump() {
-  const content = document.getElementById("metadata-content"), sources = state.mappings.sources || {};
+  const content = document.getElementById("metadata-content"),
+    sources = state.mappings.sources || {};
   if (!content || !Object.keys(sources).length) return;
-  content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(Object.entries(sources).map(([index, { mappings, result }]) => ({ sourceIndex: +index + 1, forwardMappings: Object.keys(mappings.forward || {}).length, reverseMappings: Object.keys(mappings.reverse || {}).length, metadata: result.metadata, mappings })), null, 2)}</pre></div>`;
+  content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(
+    Object.entries(sources).map(([index, { mappings, result }]) => ({
+      sourceIndex: +index + 1,
+      forwardMappings: Object.keys(mappings.forward || {}).length,
+      reverseMappings: Object.keys(mappings.reverse || {}).length,
+      metadata: result.metadata,
+      mappings,
+    })),
+    null,
+    2
+  )}</pre></div>`;
 }
 
 function updateGlobalStatus() {
-  const loaded = Object.keys(state.mappings.sources || {}).length, total = window.mappingModules?.length || 0;
-  setStatus(loaded === 0 ? "Ready to load mapping configurations..." : loaded === total ? `All ${total} mapping sources loaded` : `${loaded}/${total} mapping sources loaded`);
+  const loaded = Object.keys(state.mappings.sources || {}).length,
+    total = window.mappingModules?.length || 0;
+  setStatus(
+    loaded === 0
+      ? "Ready to load mapping configurations..."
+      : loaded === total
+        ? `All ${total} mapping sources loaded`
+        : `${loaded}/${total} mapping sources loaded`
+  );
 }

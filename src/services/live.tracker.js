@@ -1,5 +1,5 @@
 import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
-import { init as initCandidateRanking, addCandidate } from "../ui-components/CandidateRankingUI.js";
+import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
@@ -48,7 +48,7 @@ export async function startTracking(config, mappings) {
     const headerNames = headers.values[0].map((h) => String(h || "").trim());
     return buildColumnMap(headerNames, config.column_map);
   });
-  
+
   trackingState.mappings = mappings;
   trackingState.config = config;
 
@@ -61,7 +61,6 @@ export async function startTracking(config, mappings) {
 
   trackingState.active = true;
 }
-
 
 const handleWorksheetChange = async (e) => {
   if (!trackingState.active) return;
@@ -116,7 +115,11 @@ const handleWorksheetChange = async (e) => {
 
 async function processCell(ws, row, col, targetCol, value) {
   try {
-    const result = await processTermNormalization(value, trackingState.mappings.forward, trackingState.mappings.reverse, trackingState.config);
+    const result = await processTermNormalization(
+      value,
+      trackingState.mappings.forward,
+      trackingState.mappings.reverse
+    );
 
     if (result?.candidates) {
       addCandidate(value, result, {
@@ -175,5 +178,3 @@ async function applyChoiceToCell(ws, row, col, targetCol, value, choice) {
 export function stopTracking() {
   trackingState.active = false;
 }
-
-

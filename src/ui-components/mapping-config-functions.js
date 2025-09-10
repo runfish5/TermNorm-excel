@@ -207,8 +207,7 @@ export function loadMappingConfigData(element, mappingConfig) {
     element.querySelector(".target-column").value = mappingConfig.target_column;
   }
 
-  const isExternal =
-    mappingConfig.mapping_reference?.includes("/") || mappingConfig.mapping_reference?.includes("\\");
+  const isExternal = mappingConfig.mapping_reference?.includes("/") || mappingConfig.mapping_reference?.includes("\\");
 
   if (isExternal) {
     element.querySelector(".external-file").checked = true;

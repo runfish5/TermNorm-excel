@@ -37,20 +37,20 @@ export function init(containerId = "activity-feed") {
 
 export function add(source, target, method, confidence) {
   if (!tableBody) {
-      const initSuccess = init();
-      if (!initSuccess || !tableBody) {
-        console.warn("ActivityFeed: Cannot initialize - skipping add");
-        return;
-      }
+    const initSuccess = init();
+    if (!initSuccess || !tableBody) {
+      console.warn("ActivityFeed: Cannot initialize - skipping add");
+      return;
     }
+  }
 
-    try {
-      const placeholder = tableBody?.querySelector(".placeholder-row");
-      if (placeholder) placeholder.remove();
+  try {
+    const placeholder = tableBody?.querySelector(".placeholder-row");
+    if (placeholder) placeholder.remove();
 
-      const row = document.createElement("tr");
-      row.className = `activity-row ${method}`;
-      row.innerHTML = `
+    const row = document.createElement("tr");
+    row.className = `activity-row ${method}`;
+    row.innerHTML = `
               <td class="time">${new Date().toLocaleTimeString()}</td>
               <td class="source">${source || "-"}</td>
               <td class="target">${target || "-"}</td>
@@ -58,20 +58,19 @@ export function add(source, target, method, confidence) {
               <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
           `;
 
-      if (tableBody) {
-        tableBody.insertBefore(row, tableBody.firstChild);
+    if (tableBody) {
+      tableBody.insertBefore(row, tableBody.firstChild);
 
-        const rows = tableBody.querySelectorAll(".activity-row");
-        if (rows.length > maxEntries) {
-          rows[rows.length - 1].remove();
-        }
+      const rows = tableBody.querySelectorAll(".activity-row");
+      if (rows.length > maxEntries) {
+        rows[rows.length - 1].remove();
       }
-
-      updateHistoryTabCounter();
-
-    } catch (error) {
-      console.error("ActivityFeed.add() error:", error);
     }
+
+    updateHistoryTabCounter();
+  } catch (error) {
+    console.error("ActivityFeed.add() error:", error);
+  }
 }
 
 export function clear() {

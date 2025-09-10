@@ -23,7 +23,6 @@ export function init() {
   `;
   document.head.appendChild(style);
 
-
   initActivityFeed("activity-feed");
   return true;
 }
@@ -43,28 +42,27 @@ export function addCandidate(value, result, context) {
   candidatesData = [...candidates];
   currentContext = context;
 
-    // Column customization
-    const hiddenColumns = ["abc"]; // Add columns to hide here
-    const columnNames = {
-      core_concept_score: "Core Score",
-      spec_score: "Sp. Score",
-      key_match_factors: "Match Factors",
-      spec_gaps: "Gaps",
-    };
+  // Column customization
+  const hiddenColumns = ["abc"]; // Add columns to hide here
+  const columnNames = {
+    core_concept_score: "Core Score",
+    spec_score: "Sp. Score",
+    key_match_factors: "Match Factors",
+    spec_gaps: "Gaps",
+  };
 
-    // Get all unique keys from candidates, excluding private properties and hidden ones
-    const columns = [
-      ...new Set(
-        candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
-      ),
-    ];
+  // Get all unique keys from candidates, excluding private properties and hidden ones
+  const columns = [
+    ...new Set(
+      candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k)))
+    ),
+  ];
 
   const rankedContainer = container.querySelector("#candidate-ranking-section");
   if (!rankedContainer) {
     console.error("CandidateRankingUI: Could not find candidate-ranking-section within results-view");
     return;
   }
-
 
   rankedContainer.innerHTML = `
         <div class="candidate-entry">
@@ -200,4 +198,3 @@ export function clearCandidates() {
     candidateSection.innerHTML = '<div class="placeholder-text">Results appear here during processing</div>';
   }
 }
-

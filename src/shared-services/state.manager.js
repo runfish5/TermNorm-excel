@@ -24,35 +24,28 @@ const appState = {
   },
 };
 
-let subscribers = [];
 let combiningInProgress = false;
 
-function notify() {
-  subscribers.forEach(({ path, callback }) => {
-    const keys = path.split(".");
-    let result = appState;
-    for (const key of keys) {
-      result = result?.[key];
-      if (result === undefined) return;
-    }
-    callback(result);
-  });
+// Simple callback system for UI updates
+let statusCallback = null;
+
+function notifyStatus() {
+  statusCallback?.(appState.ui);
 }
 
-export function subscribe(path, callback) {
-  subscribers.push({ path, callback });
+export function onStatusChange(callback) {
+  statusCallback = callback;
 }
 
 export function setStatus(message, isError = false) {
   appState.ui.statusMessage = message;
   appState.ui.isError = isError;
-  notify();
+  notifyStatus();
 }
 
 export function setConfig(config) {
   appState.config.data = config;
   appState.config.loaded = true;
-  notify();
 }
 
 export function setMappings(forward, reverse, metadata) {
@@ -60,7 +53,6 @@ export function setMappings(forward, reverse, metadata) {
   appState.mappings.reverse = reverse;
   appState.mappings.metadata = metadata;
   appState.mappings.loaded = true;
-  notify();
 }
 
 export function addMappingSource(index, mappings, result, config) {
@@ -73,7 +65,7 @@ function combineMappingSources() {
 
   combiningInProgress = true;
   const sources = appState.mappings.sources;
-  
+
   if (Object.keys(sources).length === 0) {
     combiningInProgress = false;
     return;
@@ -102,7 +94,6 @@ export function clearMappings() {
   appState.mappings.reverse = {};
   appState.mappings.metadata = null;
   appState.mappings.loaded = false;
-  notify();
 }
 
 export function getFullState() {
