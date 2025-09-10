@@ -31,6 +31,16 @@ Navigate to `backend-api/` directory first:
 - `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload` - Start network server
 - Set `TERMNORM_API_KEY` environment variable before starting production server
 
+### Automated Server Startup (Recommended for Non-Technical Users)
+The project includes `start-server-py-LLMs.bat` - an interactive setup script that handles:
+- **Automated Environment Setup**: Creates virtual environment, installs dependencies automatically
+- **Interactive Configuration**: Prompts for deployment type (local/network) and API key entry
+- **Security Management**: Role-based IP whitelist with dynamic IP detection and interactive management
+- **Visual Feedback**: Clear status indicators, connection URLs, and security information display
+- **Error Handling**: Pre-flight diagnostics for main.py imports, FastAPI validation, and port availability
+
+**Usage**: Simply run `start-server-py-LLMs.bat` from project root - the script guides users through complete server setup with no technical knowledge required. Reduced from 297 to 203 lines while preserving all functionality for optimal maintainability.
+
 ## Architecture
 
 ### Frontend Architecture: Function-First Design
