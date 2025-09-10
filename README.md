@@ -19,6 +19,22 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
 - **Color-Coded Results** - Visual feedback for normalization status
 - **Easily expandable** - DIY or contact me to get offer for additional features
 
+## Use the TermNorm add-in
+
+1. **Select a cell** in your predefined columns within the current worksheet.
+2. **Type a term** that you want to standardize.
+3. **Press Enter** to trigger the normalization process.
+4. The system will automatically perform:
+   - Quick lookup for existing mappings
+   - Fuzzy matching for similar terms
+   - Advanced search with indexing and API requests (requires internet)
+5. it will update the target_column automatically. 
+6. View results in the **Tracking Results** panel. The taskpane should now show under 'Tracking Results>Candidate Ranked' a table with the best candidates. You can select any better one and then click "apply-first" to update the target_column.
+
+When a term is standardized, it will also create an entry in the *log*-file (`C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api\logs\activity.jsonl`). And when you click "apply-first", it will also log it.
+
+7. Switch between **History** and **Candidate Ranked** views
+
 ## How to run the TermNorm Add-In
 
 ### Prerequisites
@@ -53,31 +69,31 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
    - Example:
    ```json
 
-{
-  "excel-projects": {
-    "Book 32.xlsx": {
-      "column_map": {
-        "name_of_your_input_column": "name_of_mapped_output_column",
-        "b": "b_std"
-      },
-      "default_std_suffix": "standardized",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
-          "worksheet": "Materials",
-          "source_column": "",
-          "target_column": "ISO"
-        },
-        {
-          "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
-          "worksheet": "Processing",
-          "source_column": "",
-          "target_column": "BFO"
-        }
-      ]
-    }
-  }
-}
+   {
+   "excel-projects": {
+      "Book 32.xlsx": {
+         "column_map": {
+         "name_of_your_input_column": "name_of_mapped_output_column",
+         "b": "b_std"
+         },
+         "default_std_suffix": "standardized",
+         "standard_mappings": [
+         {
+            "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
+            "worksheet": "Materials",
+            "source_column": "",
+            "target_column": "ISO"
+         },
+         {
+            "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
+            "worksheet": "Processing",
+            "source_column": "",
+            "target_column": "BFO"
+         }
+         ]
+      }
+   }
+   }
    ```
 
 3. **Load your configuration.**
@@ -91,30 +107,28 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
    - Use the **Load Config** button to reload existing configuration
 
 
-4. **Set up the Python server.**
-   - Open the terminal using `windows-key` and type 'cmd' in the search, click on 'command prompt'.
-   - Navigate to the `\OfficeAddinApps\TermNorm-excel\backend-api` directory
-      ```bash
-      cd C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api
-      ```
-   - Create and activate a virtual environment:
-     ```bash
-     .\venv\Scripts\activate
-     ```
+4. **Set up the Python server (Easy Setup).**
+   
+   **For Non-Technical Users:**
+   - Navigate to your TermNorm project folder: `C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\`
+   - Double-click `start-server-py-LLMs.bat` to launch the automated setup
+   - The script will guide you through:
+     - **Deployment Type**: Choose Local (localhost only) or Network (accessible to others)
+     - **API Key**: Enter your API key (default provided for development)
+     - **Automatic Setup**: Virtual environment, dependencies, and server configuration
+     - **IP Security**: Role-based access control with interactive IP management
+   - Follow the on-screen prompts - the script handles everything automatically
+   - Server will display connection URLs and security status when ready
 
-   - **Start the Python server**
-      - Local Development
-      ```bash
-      python -m uv corn main:app --reload
-      ```
-      The server will start and be ready to handle term normalization requests.
-
-      - Network based:
-      You first must set your password, but the start command is almost the same.
-      ```bash
-      set TERMNORM_API_KEY=mycatlikesfish 
-      python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      ```
+   **For Technical Users (Manual Setup):**
+   - Open command prompt and navigate to `backend-api/` directory
+   - Create virtual environment: `python -m venv venv`
+   - Activate: `.\venv\Scripts\activate`  
+   - Install dependencies: `pip install -r requirements.txt`
+   - Set API key: `set TERMNORM_API_KEY=your_key_here`
+   - Start server: 
+     - Local: `python -m uvicorn main:app --reload`
+     - Network: `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
    
 6. **Load mapping files.**
    - For each Excel reference file, click **Browse**
@@ -136,23 +150,6 @@ Note: Setup complete
 - Check server status using the status indicator in the task pane
 - Wait for user instruction before running any validation or testing commands
 
-
-
-## Use the TermNorm add-in
-
-1. **Select a cell** in your predefined columns within the current worksheet.
-2. **Type a term** that you want to standardize.
-3. **Press Enter** to trigger the normalization process.
-4. The system will automatically perform:
-   - Quick lookup for existing mappings
-   - Fuzzy matching for similar terms
-   - Advanced search with indexing and API requests (requires internet)
-5. it will update the target_column automatically. 
-6. View results in the **Tracking Results** panel. The taskpane should now show under 'Tracking Results>Candidate Ranked' a table with the best candidates. You can select any better one and then click "apply-first" to update the target_column.
-
-When a term is standardized, it will also create an entry in the *log*-file (`C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api\logs\activity.jsonl`). And when you click "apply-first", it will also log it.
-
-7. Switch between **History** and **Candidate Ranked** views
 
 ## Explore sample files
 
