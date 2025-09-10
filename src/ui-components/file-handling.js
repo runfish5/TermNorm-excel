@@ -262,13 +262,38 @@ function updateJsonDump() {
 }
 
 function updateGlobalStatus() {
-  const loaded = Object.keys(state.mappings.sources || {}).length,
-    total = window.mappingModules?.length || 0;
-  setStatus(
-    loaded === 0
-      ? "Ready to load mapping configurations..."
-      : loaded === total
-        ? `All ${total} mapping sources loaded`
-        : `${loaded}/${total} mapping sources loaded`
+  const sources = state.mappings.sources || {};
+  const attempted = Object.keys(sources).length;
+  const total = window.mappingModules?.length || 0;
+  
+  if (attempted === 0) {
+    setStatus("Ready to load mapping configurations...");
+    return;
+  }
+  
+  // Check for critical errors (401/403) - show immediately, don't count
+  const criticalErrors = Object.values(sources).filter(source => 
+    source.success === false && (
+      source.error?.includes("[401]") || source.error?.includes("[403]")
+    )
   );
+  
+  if (criticalErrors.length > 0) {
+    setStatus(criticalErrors[0].error, true);
+    return;
+  }
+  
+  // For non-critical errors or success, show counts
+  const successful = Object.values(sources).filter(source => source.success !== false).length;
+  const failed = attempted - successful;
+  
+  if (failed > 0) {
+    const failedSources = Object.values(sources).filter(source => source.success === false);
+    const firstError = failedSources[0]?.error || "Unknown error";
+    setStatus(`⚠️ ${successful}/${total} loaded, ${failed} failed: ${firstError}`, true);
+  } else if (successful === total) {
+    setStatus(`✓ All ${total} mapping sources loaded`);
+  } else {
+    setStatus(`${successful}/${total} mapping sources loaded`);
+  }
 }
