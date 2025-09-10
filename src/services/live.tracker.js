@@ -105,7 +105,6 @@ const handleWorksheetChange = async (e) => {
         }
       }
     }
-    await ctx.sync();
 
     // Execute all processing tasks
     for (const task of tasks) await task();

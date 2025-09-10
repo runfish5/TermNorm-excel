@@ -111,7 +111,7 @@ function setupFirstChoice(containerElement) {
 
     try {
       await currentContext.applyChoice(first);
-      feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${
+      feedback.innerHTML = `✅ Applied: ${first.candidate.toString().replace(/</g, '&lt;').replace(/>/g, '&gt;')} | Score: ${
         first.core_concept_score || first.spec_score || first.relevance_score || "N/A"
       }`;
       feedback.style.background = "#d4edda";
@@ -137,7 +137,7 @@ function showFeedback(containerElement, message, bg) {
       containerElement.appendChild(feedback);
     }
   }
-  feedback.innerHTML = message;
+  feedback.textContent = message;
   return feedback;
 }
 

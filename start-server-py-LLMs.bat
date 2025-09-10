@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :: CONFIGURATION PARAMETERS
 :: ===============================================
 set "DEFAULT_BACKEND_PATH=C:\Users\dsacc\OfficeAddinApps\TermNorm-excel\backend-api"
-set "DEFAULT_API_KEY=mycatlikesfish"
+set "DEFAULT_API_KEY=mycatlikesfish" :: Simple development default only
 set "DEFAULT_VENV_PATH=C:\Users\dsacc\venvs\termnorm-backend"
 set "DEFAULT_DEPLOYMENT=network"
 

@@ -52,8 +52,8 @@ export function add(source, target, method, confidence) {
     row.className = `activity-row ${method}`;
     row.innerHTML = `
               <td class="time">${new Date().toLocaleTimeString()}</td>
-              <td class="source">${source || "-"}</td>
-              <td class="target">${target || "-"}</td>
+              <td class="source">${(source || "-").toString().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+              <td class="target">${(target || "-").toString().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
               <td class="method">${method ? method.toUpperCase() : "-"}</td>
               <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
           `;
