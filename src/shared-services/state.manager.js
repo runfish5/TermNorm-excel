@@ -56,18 +56,7 @@ export function setMappings(forward, reverse, metadata) {
 }
 
 export function addMappingSource(index, mappings, result, config) {
-  appState.mappings.sources[index] = { mappings, result, config, success: true };
-  combineMappingSources();
-}
-
-export function addMappingSourceFailure(index, error, config) {
-  appState.mappings.sources[index] = { 
-    mappings: { forward: {}, reverse: {} }, 
-    result: { metadata: null }, 
-    config, 
-    success: false, 
-    error: error.message 
-  };
+  appState.mappings.sources[index] = { mappings, result, config };
   combineMappingSources();
 }
 

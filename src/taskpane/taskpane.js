@@ -1,7 +1,7 @@
 import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
-import { setupServerEvents, checkServerStatus, getStatusMessage, getHost, getHeaders } from "../utils/server-utilities.js";
+import { setupServerEvents, checkServerStatus, getStatusMessage } from "../utils/server-utilities.js";
 import { state, setStatus, onStatusChange } from "../shared-services/state.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
@@ -97,25 +97,17 @@ async function startLiveTracking() {
   if (!config || (!mappings.forward && !mappings.reverse)) return setStatus("Error: Config or mappings missing", true);
 
   try {
-    // Check server status first
-    const response = await fetch(`${getHost()}/test-connection`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({})
-    });
+    // Check server status first using existing utility
+    await checkServerStatus();
     
-    if (!response.ok) {
-      return setStatus(getStatusMessage(response.status), true);
+    if (!state.server.online) {
+      return setStatus(getStatusMessage(403), true);
     }
     
-    // Only proceed if server is OK
     await startTracking(config, mappings);
     setStatus("Tracking active");
     showView("results");
   } catch (error) {
-    if (error.message.includes("Failed to fetch")) {
-      return setStatus(getStatusMessage(403), true);
-    }
     setStatus(`Error: ${error.message}`, true);
   }
 }
