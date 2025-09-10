@@ -2,6 +2,53 @@
 // Consolidated server configuration and status management
 import { state, setStatus } from "../shared-services/state.manager.js";
 
+/**
+ * Parse HTTP response into standardized result object
+ * Follows OpenAPI/REST client library conventions
+ * @param {Response} response - Fetch API Response object
+ * @returns {ApiResult} Standardized result with success/error state
+ */
+export function parseResponse(response) {
+  return {
+    success: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    error: response.ok ? null : {
+      message: getStatusMessage(response.status),
+      category: getErrorCategory(response.status),
+      retryable: isRetryable(response.status)
+    }
+  };
+}
+
+function getStatusMessage(status) {
+  switch (status) {
+    case 401: return "❌[401] API key invalid - check your key";
+    case 403: return "🚫[403] Server returned 403 - IP may be blocked or access denied";
+    case 503: return "⚠️[503] Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data";
+    case 429: return "⏳[429] Rate limit exceeded - please wait before retrying";
+    case 408: return "⏱️[408] Request timeout - server took too long to respond";
+    case 502: return "🔧[502] Bad gateway - server configuration issue";
+    case 504: return "⏱️[504] Gateway timeout - upstream server not responding";
+    default:
+      if (status >= 500) return `🔧 Server error: ${status}`;
+      if (status >= 400) return `❌ Client error: ${status}`;
+      return `❌ HTTP error: ${status}`;
+  }
+}
+
+function getErrorCategory(status) {
+  if (status === 401) return 'authentication';
+  if (status === 403) return 'authorization';
+  if (status >= 400 && status < 500) return 'client';
+  if (status >= 500) return 'server';
+  return 'network';
+}
+
+function isRetryable(status) {
+  return status >= 500 || status === 429 || status === 408 || status === 502 || status === 504;
+}
+
 // Server configuration functions
 export function getHost() {
   return state.server.host || "http://127.0.0.1:8000";
@@ -45,10 +92,10 @@ export async function checkServerStatus() {
       signal: AbortSignal.timeout(5000),
     });
 
-    const isOnline = testResponse.ok;
+    const result = parseResponse(testResponse);
     let serverInfo = {};
 
-    if (isOnline) {
+    if (result.success) {
       const data = await testResponse.json();
       serverInfo = {
         connectionType: data.connection_type || "Backend API",
@@ -58,7 +105,7 @@ export async function checkServerStatus() {
     }
 
     // Update state directly
-    state.server.online = isOnline;
+    state.server.online = result.success;
     state.server.host = host;
     state.server.info = serverInfo;
 
@@ -66,10 +113,10 @@ export async function checkServerStatus() {
     updateServerUI(state.server);
 
     // Simple status messages
-    if (isOnline) {
+    if (result.success) {
       setStatus("Server online");
     } else {
-      setStatus("Server connection failed", true);
+      setStatus(result.error.message, true);
     }
   } catch (error) {
     state.server.online = false;
