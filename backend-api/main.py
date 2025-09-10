@@ -29,14 +29,49 @@ ALLOWED_IPS = os.getenv("ALLOWED_IPS", "127.0.0.1,::1").split(",")
 
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
 
-# Add CORS middleware first (will run last)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+# Office 365 Add-in Request Flow:
+# Excel Online → Browser → localhost:3000 (webpack) → localhost:8000 (FastAPI)
+# All requests appear as 127.0.0.1 regardless of Excel's location
+
+# IP whitelist with manual CORS handling for complete request control
+@app.middleware("http") 
+async def ip_filter_middleware(request: Request, call_next):
+    client_ip = request.client.host
+    allowed_ips = [ip.strip() for ip in ALLOWED_IPS]
+    
+    print(f"[MIDDLEWARE_ORDER] IP Filter running FIRST - Method: {request.method}, Path: {request.url.path}, IP: {client_ip}")
+    
+    # Block unauthorized IPs - this now catches ALL requests including OPTIONS
+    if client_ip not in allowed_ips:
+        print(f"[IP_BLOCKED] Method: {request.method}, Path: {request.url.path}, IP: {client_ip} - REJECTED")
+        return JSONResponse(status_code=403, content={"error": "IP blocked", "method": request.method, "path": request.url.path})
+    
+    print(f"[IP_ALLOWED] Method: {request.method}, Path: {request.url.path}, IP: {client_ip} - PROCEEDING")
+    
+    # Handle OPTIONS requests manually after IP validation
+    if request.method == "OPTIONS":
+        print(f"[CORS_OPTIONS] Handling OPTIONS request for {request.url.path}")
+        return JSONResponse(
+            status_code=200,
+            content={"message": "CORS preflight allowed"},
+            headers={
+                "Access-Control-Allow-Origin": "https://localhost:3000",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true"
+            }
+        )
+    
+    # Process normal requests and add CORS headers to response
+    response = await call_next(request)
+    
+    # Add CORS headers to all responses
+    response.headers["Access-Control-Allow-Origin"] = "https://localhost:3000"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
+
+# CORS middleware removed - now handled manually in IP filter for complete control
 
 def get_local_ip():
     """Get the local IP address of this machine"""
@@ -86,18 +121,6 @@ def detect_server_environment():
         
     return "local"
 
-# IP whitelist middleware
-@app.middleware("http")
-async def ip_filter_middleware(request: Request, call_next):
-    client_ip = request.client.host
-    if client_ip not in [ip.strip() for ip in ALLOWED_IPS]:
-        print(f"[IP_BLOCKED] Rejected connection from {client_ip}")
-        return JSONResponse(
-            status_code=403,
-            content={"error": "IP address blocked", "blocked_ip": client_ip}
-        )
-    response = await call_next(request)
-    return response
 
 # API Key middleware
 @app.middleware("http")
@@ -133,6 +156,11 @@ def read_root():
         "llm": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "endpoints": ["/match-term", "/research-and-match", "/quick-match", "/test-connection"]
     }
+
+@app.get("/test-ip-blocking")
+async def test_ip_blocking():
+    """Simple GET endpoint to test IP blocking without CORS complexity"""
+    return {"message": "IP blocking test passed", "status": "allowed"}
 
 @app.post("/test-connection")
 async def test_connection():
