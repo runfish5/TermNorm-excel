@@ -61,7 +61,7 @@ export function addMappingSource(index, mappings, result, config) {
 }
 
 function combineMappingSources() {
-  if (combiningInProgress) return;
+  if (combiningInProgress) { setTimeout(() => combineMappingSources(), 100); return; }
 
   combiningInProgress = true;
   const sources = appState.mappings.sources;

@@ -83,7 +83,7 @@ async def check_api_key(request: Request, call_next):
     # Check if this is a protected endpoint
     if any(request.url.path.startswith(path) for path in protected_paths):
         api_key = request.headers.get("X-API-Key")
-        print(f"[API_KEY_CHECK] Path: {request.url.path}, API Key provided: {'Yes' if api_key else 'No'}")
+        print(f"[API_KEY_CHECK] Path: {request.url.path}, Auth: {'Valid' if api_key else 'Missing'}")
         if not api_key or api_key != API_KEY:
             print(f"[API_KEY_CHECK] Rejecting request - API key invalid")
             return JSONResponse(
@@ -97,7 +97,7 @@ async def check_api_key(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000", "*"],
+    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]

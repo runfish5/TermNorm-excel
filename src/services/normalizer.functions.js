@@ -114,7 +114,7 @@ export async function findTokenMatch(value) {
 }
 
 export async function processTermNormalization(value, forward, reverse) {
-  const val = String(value || "").trim();
+  const val = (typeof value === 'string' ? value : String(value || "")).trim();
   if (!val) return null;
 
   // Try cached first
