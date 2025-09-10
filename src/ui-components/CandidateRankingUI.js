@@ -1,4 +1,4 @@
-import { ActivityFeed } from "./ActivityFeedUI.js";
+import { init as initActivityFeed } from "./ActivityFeedUI.js";
 
 let container = null;
 let candidatesData = [];
@@ -24,7 +24,7 @@ export function init() {
   document.head.appendChild(style);
 
 
-  ActivityFeed.init("activity-feed");
+  initActivityFeed("activity-feed");
   return true;
 }
 
@@ -201,8 +201,3 @@ export function clearCandidates() {
   }
 }
 
-export const CandidateRankingUI = {
-  init,
-  addCandidate,
-  clearCandidates,
-};

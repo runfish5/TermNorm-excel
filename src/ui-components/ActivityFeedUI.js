@@ -1,16 +1,15 @@
-export const ActivityFeed = {
-  container: null,
-  tableBody: null,
-  maxEntries: 50,
+let container = null;
+let tableBody = null;
+const maxEntries = 50;
 
-  init(containerId = "activity-feed") {
-    this.container = document.getElementById(containerId);
-    if (!this.container) {
-      console.warn(`ActivityFeed: Container '${containerId}' not found - will try lazy init`);
-      return false;
-    }
+export function init(containerId = "activity-feed") {
+  container = document.getElementById(containerId);
+  if (!container) {
+    console.warn(`ActivityFeed: Container '${containerId}' not found - will try lazy init`);
+    return false;
+  }
 
-    this.container.innerHTML = `
+  container.innerHTML = `
             <table class="activity-table">
                 <thead>
                     <tr>
@@ -25,28 +24,28 @@ export const ActivityFeed = {
             </table>
         `;
 
-    this.tableBody = this.container?.querySelector("tbody");
+  tableBody = container?.querySelector("tbody");
 
-    const clearBtn = document.getElementById("clear-activity");
-    if (clearBtn) {
-      clearBtn.addEventListener("click", () => this.clear());
-    }
+  const clearBtn = document.getElementById("clear-activity");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => clear());
+  }
 
-    this.showPlaceholder();
-    return true;
-  },
+  showPlaceholder();
+  return true;
+}
 
-  add(source, target, method, confidence) {
-    if (!this.tableBody) {
-      const initSuccess = this.init();
-      if (!initSuccess || !this.tableBody) {
+export function add(source, target, method, confidence) {
+  if (!tableBody) {
+      const initSuccess = init();
+      if (!initSuccess || !tableBody) {
         console.warn("ActivityFeed: Cannot initialize - skipping add");
         return;
       }
     }
 
     try {
-      const placeholder = this.tableBody?.querySelector(".placeholder-row");
+      const placeholder = tableBody?.querySelector(".placeholder-row");
       if (placeholder) placeholder.remove();
 
       const row = document.createElement("tr");
@@ -59,51 +58,50 @@ export const ActivityFeed = {
               <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
           `;
 
-      if (this.tableBody) {
-        this.tableBody.insertBefore(row, this.tableBody.firstChild);
+      if (tableBody) {
+        tableBody.insertBefore(row, tableBody.firstChild);
 
-        const rows = this.tableBody.querySelectorAll(".activity-row");
-        if (rows.length > this.maxEntries) {
+        const rows = tableBody.querySelectorAll(".activity-row");
+        if (rows.length > maxEntries) {
           rows[rows.length - 1].remove();
         }
       }
 
-      this.updateHistoryTabCounter();
+      updateHistoryTabCounter();
 
     } catch (error) {
       console.error("ActivityFeed.add() error:", error);
     }
-  },
+}
 
-  clear() {
-    if (!this.tableBody) return;
-    this.tableBody.innerHTML = "";
-    this.showPlaceholder();
-    this.updateHistoryTabCounter();
-  },
+export function clear() {
+  if (!tableBody) return;
+  tableBody.innerHTML = "";
+  showPlaceholder();
+  updateHistoryTabCounter();
+}
 
-  showPlaceholder() {
-    if (!this.tableBody) return;
-    if (!this.tableBody.querySelector(".activity-row")) {
-      this.tableBody.innerHTML =
-        '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking to see live mappings.</td></tr>';
+function showPlaceholder() {
+  if (!tableBody) return;
+  if (!tableBody.querySelector(".activity-row")) {
+    tableBody.innerHTML =
+      '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking to see live mappings.</td></tr>';
+  }
+}
+
+export function updateHistoryTabCounter() {
+  const historyTab = document.getElementById("history-tab");
+  if (historyTab && tableBody) {
+    const activityRows = tableBody.querySelectorAll(".activity-row");
+    const count = activityRows.length;
+    const tabIcon = historyTab.querySelector(".tab-icon");
+    if (tabIcon) {
+      tabIcon.textContent = `${count}📜`;
     }
-  },
+  }
+}
 
-  updateHistoryTabCounter() {
-    const historyTab = document.getElementById("history-tab");
-    if (historyTab && this.tableBody) {
-      const activityRows = this.tableBody.querySelectorAll(".activity-row");
-      const count = activityRows.length;
-      const tabIcon = historyTab.querySelector(".tab-icon");
-      if (tabIcon) {
-        tabIcon.textContent = `${count}📜`;
-      }
-    }
-  },
-
-  getCount() {
-    if (!this.tableBody) return 0;
-    return this.tableBody.querySelectorAll(".activity-row").length;
-  },
-};
+export function getCount() {
+  if (!tableBody) return 0;
+  return tableBody.querySelectorAll(".activity-row").length;
+}

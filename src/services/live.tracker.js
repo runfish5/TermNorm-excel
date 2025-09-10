@@ -1,10 +1,30 @@
-import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
-import { CandidateRankingUI } from "../ui-components/CandidateRankingUI.js";
+import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
+import { init as initCandidateRanking, addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS } from "../utils/app-utilities.js";
-import { logActivity } from "../utils/activity-logger.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
+
+// Activity logging
+const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+function logActivity(source, target, method, confidence, total_time, llm_provider) {
+  fetch(`${getHost()}/log-activity`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({
+      timestamp: new Date().toISOString(),
+      source,
+      target,
+      method,
+      confidence,
+      total_time,
+      llm_provider,
+      session_id: sessionId,
+    }),
+  }).catch((err) => console.warn("Log failed:", err));
+}
 
 // Live tracking state
 let trackingState = {
@@ -19,7 +39,16 @@ let trackingState = {
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
-  trackingState.columnMap = await buildTrackingColumnMap(config.column_map);
+  // Build column map directly inline
+  trackingState.columnMap = await Excel.run(async (ctx) => {
+    const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
+    headers.load("values");
+    await ctx.sync();
+
+    const headerNames = headers.values[0].map((h) => String(h || "").trim());
+    return buildColumnMap(headerNames, config.column_map);
+  });
+  
   trackingState.mappings = mappings;
   trackingState.config = config;
 
@@ -33,16 +62,6 @@ export async function startTracking(config, mappings) {
   trackingState.active = true;
 }
 
-async function buildTrackingColumnMap(colMap) {
-  return await Excel.run(async (ctx) => {
-    const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
-    headers.load("values");
-    await ctx.sync();
-
-    const headerNames = headers.values[0].map((h) => String(h || "").trim());
-    return buildColumnMap(headerNames, colMap);
-  });
-}
 
 const handleWorksheetChange = async (e) => {
   if (!trackingState.active) return;
@@ -100,7 +119,7 @@ async function processCell(ws, row, col, targetCol, value) {
     const result = await processTermNormalization(value, trackingState.mappings.forward, trackingState.mappings.reverse, trackingState.config);
 
     if (result?.candidates) {
-      CandidateRankingUI.addCandidate(value, result, {
+      addCandidate(value, result, {
         applyChoice: (choice) => applyChoiceToCell(ws, row, col, targetCol, value, choice),
       });
     }
@@ -116,7 +135,7 @@ async function processCell(ws, row, col, targetCol, value) {
     tgtCell.format.fill.color = getRelevanceColor(confidence);
     srcCell.format.fill.clear();
 
-    ActivityFeed.add(value, target, method, confidence);
+    addActivity(value, target, method, confidence);
     logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
   } catch (error) {
     handleCellError(ws, row, col, targetCol, value, error);
@@ -133,7 +152,7 @@ function handleCellError(ws, row, col, targetCol, value, error) {
   tgtCell.values = [[errorMsg]];
   tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
 
-  ActivityFeed.add(value, errorMsg, "error", 0);
+  addActivity(value, errorMsg, "error", 0);
   logActivity(value, errorMsg, "error", 0, 0, undefined);
 }
 
@@ -146,7 +165,7 @@ async function applyChoiceToCell(ws, row, col, targetCol, value, choice) {
     tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
     srcCell.format.fill.clear();
 
-    ActivityFeed.add(value, choice.candidate, "UserChoice", choice.relevance_score);
+    addActivity(value, choice.candidate, "UserChoice", choice.relevance_score);
     logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 
     await ctx.sync();
@@ -157,21 +176,4 @@ export function stopTracking() {
   trackingState.active = false;
 }
 
-export function initializeTrackingUI() {
-  CandidateRankingUI.init();
-}
 
-// Legacy class for backwards compatibility
-export class LiveTracker {
-  async start(config, mappings) {
-    return startTracking(config, mappings);
-  }
-  
-  stop() {
-    return stopTracking();
-  }
-  
-  static setup() {
-    return initializeTrackingUI();
-  }
-}
