@@ -1,7 +1,7 @@
 // ui-components/mapping-config-functions.js
 import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
-import { state, setStatus, addMappingSource, addMappingSourceFailure } from "../shared-services/state.manager.js";
+import { state, setStatus, addMappingSource } from "../shared-services/state.manager.js";
 import { getStatusMessage } from "../utils/server-utilities.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
@@ -161,11 +161,6 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
         errorMessage = getStatusMessage(403);
       }
       
-      // Track the failure in state management
-      addMappingSourceFailure(index, error, mappingConfig);
-      onMappingLoaded?.(index, mappings, { metadata: null, error: errorMessage });
-      
-      // Show the error immediately instead of counts
       setStatus(errorMessage, true);
     }
   }
