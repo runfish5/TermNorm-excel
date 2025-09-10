@@ -6,7 +6,7 @@ function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
-import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { getHost, getHeaders, parseResponse } from "../utils/server-utilities.js";
 
 // Parameter validation
 function validateParams(params) {
@@ -88,20 +88,16 @@ async function updateTokenMatcher(terms) {
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`Token matcher failed: ${response.statusText}`);
+    // Use existing parseResponse utility that calls getStatusMessage()
+    const result = parseResponse(response);
+    if (!result.success) {
+      throw new Error(result.error.message);
     }
 
     return response.json();
   } catch (error) {
     clearTimeout(timeoutId);
-    let errorMessage = "❌ Connection failed: " + error.message;
-    if (error.name === "AbortError") {
-      errorMessage = "Backend server timeout - ensure server is running on port 8000";
-    } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
-      errorMessage = "Backend server not accessible - ensure server is running on port 8000";
-    }
-    throw new Error(errorMessage);
+    throw error; // Just re-throw whatever error occurred
   }
 }
 
@@ -142,16 +138,8 @@ export async function loadAndProcessMappings(customParams) {
     const data = await loadWorksheetData(params);
     const result = processMappings(data, params.sourceColumn, params.targetColumn);
 
-    // Try to update matcher, but don't fail if server unavailable
-    try {
-      await updateTokenMatcher(Object.keys(result.reverse));
-    } catch (error) {
-      console.warn("Token matcher update failed:", error.message);
-      // Add server connectivity warning to result metadata
-      if (result.metadata) {
-        result.metadata.serverWarning = error.message;
-      }
-    }
+    // Update token matcher - let ALL errors bubble up to outer catch
+    await updateTokenMatcher(Object.keys(result.reverse));
 
     // Return result - let caller handle state management
     return result;

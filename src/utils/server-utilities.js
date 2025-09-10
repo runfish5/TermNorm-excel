@@ -21,7 +21,7 @@ export function parseResponse(response) {
   };
 }
 
-function getStatusMessage(status) {
+export function getStatusMessage(status) {
   switch (status) {
     case 401: return "❌[401] API key invalid - check your key";
     case 403: return "🚫[403] Server returned 403 - IP may be blocked or access denied";

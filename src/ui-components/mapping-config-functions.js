@@ -1,7 +1,8 @@
 // ui-components/mapping-config-functions.js
 import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
-import { state, setStatus, addMappingSource } from "../shared-services/state.manager.js";
+import { state, setStatus, addMappingSource, addMappingSourceFailure } from "../shared-services/state.manager.js";
+import { getStatusMessage } from "../utils/server-utilities.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
   return `
@@ -153,7 +154,19 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       element.open = false;
     } catch (error) {
       mappings = { forward: {}, reverse: {}, metadata: null };
-      setStatus(error.message, true);
+      
+      // Use server utilities for proper error messages
+      let errorMessage = error.message;
+      if (error.message.includes("Failed to fetch")) {
+        errorMessage = getStatusMessage(403);
+      }
+      
+      // Track the failure in state management
+      addMappingSourceFailure(index, error, mappingConfig);
+      onMappingLoaded?.(index, mappings, { metadata: null, error: errorMessage });
+      
+      // Show the error immediately instead of counts
+      setStatus(errorMessage, true);
     }
   }
 
