@@ -1,14 +1,12 @@
-import { startTracking, stopTracking } from "../services/live.tracker.js";
-import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
+import { startTracking } from "../services/live.tracker.js";
+import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state, setStatus, setConfig, subscribe } from "../shared-services/state.manager.js";
+import { state, setStatus, onStatusChange } from "../shared-services/state.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
-
-
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -16,12 +14,12 @@ Office.onReady(async (info) => {
     return;
   }
 
-  document.body.className = 'ms-font-m ms-welcome ms-Fabric';
+  document.body.className = "ms-font-m ms-welcome ms-Fabric";
 
   initActivityFeed();
   updateHistoryTabCounter();
 
-  const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map(id => document.getElementById(id));
+  const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map((id) => document.getElementById(id));
   sideloadMsg.style.display = "none";
   appBody.style.display = "flex";
 
@@ -31,18 +29,29 @@ Office.onReady(async (info) => {
   initializeVersionDisplay();
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
-    content && (content.classList.toggle("hidden") ? document.getElementById("show-metadata-btn").textContent = "Show Processing Details" : document.getElementById("show-metadata-btn").textContent = "Hide Processing Details");
+    content &&
+      (content.classList.toggle("hidden")
+        ? (document.getElementById("show-metadata-btn").textContent = "Show Processing Details")
+        : (document.getElementById("show-metadata-btn").textContent = "Hide Processing Details"));
   });
-  
+
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
-    if (!getApiKey()?.trim()) return setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
-    e.target.disabled = true; e.target.textContent = "Activating...";
-    try { await startLiveTracking(); } catch (error) { setStatus(`Activation failed: ${error.message}`, true); }
-    finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
+    if (!getApiKey()?.trim())
+      return setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
+    e.target.disabled = true;
+    e.target.textContent = "Activating...";
+    try {
+      await startLiveTracking();
+    } catch (error) {
+      setStatus(`Activation failed: ${error.message}`, true);
+    } finally {
+      e.target.disabled = false;
+      e.target.textContent = "Activate Tracking";
+    }
   });
-  
+
   document.getElementById("renew-prompt")?.addEventListener("click", () => renewPromptHandler());
-  
+
   document.addEventListener("click", (e) => {
     const navTab = e.target.closest(".nav-tab");
     if (navTab) {
@@ -51,9 +60,11 @@ Office.onReady(async (info) => {
     }
   });
 
-  subscribe("ui", (ui) => {
+  onStatusChange((ui) => {
     const statusElement = document.getElementById("main-status-message");
-    statusElement && (statusElement.textContent = ui.statusMessage, statusElement.style.color = ui.isError ? "#D83B01" : "") || console.warn("Status element not found:", ui.statusMessage);
+    (statusElement &&
+      ((statusElement.textContent = ui.statusMessage), (statusElement.style.color = ui.isError ? "#D83B01" : ""))) ||
+      console.warn("Status element not found:", ui.statusMessage);
   });
 
   window.showView = showView;
@@ -79,11 +90,6 @@ Office.onReady(async (info) => {
   }
 });
 
-
-
-
-
-
 async function startLiveTracking() {
   const config = state.config.data;
   const mappings = state.mappings;
@@ -106,5 +112,3 @@ async function renewPromptHandler() {
   const mappings = state.mappings;
   await renewPrompt(mappings, config, (msg, isError) => setStatus(msg, isError));
 }
-
-

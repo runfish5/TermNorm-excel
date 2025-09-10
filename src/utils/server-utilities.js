@@ -1,6 +1,6 @@
 // utils/server-utilities.js
 // Consolidated server configuration and status management
-import { state, setStatus, subscribe } from "../shared-services/state.manager.js";
+import { state, setStatus } from "../shared-services/state.manager.js";
 
 // Server configuration functions
 export function getHost() {
@@ -36,7 +36,7 @@ export async function checkServerStatus() {
 
   try {
     const headers = getHeaders();
-    
+
     // Single endpoint test with timeout
     const testResponse = await fetch(`${host}/test-connection`, {
       method: "POST",
@@ -62,6 +62,9 @@ export async function checkServerStatus() {
     state.server.host = host;
     state.server.info = serverInfo;
 
+    // Notify server state change
+    updateServerUI(state.server);
+
     // Simple status messages
     if (isOnline) {
       setStatus("Server online");
@@ -72,6 +75,7 @@ export async function checkServerStatus() {
     state.server.online = false;
     state.server.host = host;
     state.server.info = {};
+    updateServerUI(state.server);
     setStatus(`Connection error: ${error.message}`, true);
   } finally {
     isCheckingServer = false;
@@ -79,32 +83,26 @@ export async function checkServerStatus() {
 }
 
 export function updateServerUI(server) {
-  updateServerLED(server.online, server.host);
-  updateCloudIndicator(server.info);
-}
-
-function updateServerLED(isOnline, host) {
+  // Update LED status indicator
   const led = document.getElementById("server-status-led");
-  if (!led) return;
+  if (led) {
+    led.className = `status-led ${server.online ? "online" : "offline"}`;
 
-  led.className = `status-led ${isOnline ? "online" : "offline"}`;
-  
-  const status = isOnline ? "Online" : "Offline";
-  const serverInfo = state.server.info || {};
-  
-  const tooltipText = isOnline && serverInfo.connectionType && serverInfo.connectionUrl
-    ? `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`
-    : `Server: ${host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
+    const status = server.online ? "Online" : "Offline";
+    const serverInfo = server.info || {};
 
-  led.title = tooltipText;
-}
+    led.title =
+      server.online && serverInfo.connectionType && serverInfo.connectionUrl
+        ? `${serverInfo.connectionType}\n${serverInfo.connectionUrl}\nStatus: ${status}\nClick to refresh`
+        : `Server: ${server.host || "Unknown"}\nStatus: ${status}\nClick to refresh`;
+  }
 
-function updateCloudIndicator(serverInfo) {
+  // Update cloud indicator
   const cloudIndicator = document.getElementById("cloud-indicator");
-  if (!cloudIndicator) return;
-
-  const isCloudAPI = serverInfo?.connectionType === "Cloud API";
-  cloudIndicator.classList.toggle("hidden", !isCloudAPI);
+  if (cloudIndicator) {
+    const isCloudAPI = server.info?.connectionType === "Cloud API";
+    cloudIndicator.classList.toggle("hidden", !isCloudAPI);
+  }
 }
 
 export function setupServerEvents() {
@@ -136,6 +134,5 @@ export function setupServerEvents() {
     });
   }
 
-  // Subscribe to server state changes
-  subscribe("server", updateServerUI);
+  // No longer need subscription - direct updates handled in checkServerStatus
 }
