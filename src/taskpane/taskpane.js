@@ -1,13 +1,12 @@
-import { LiveTracker } from "../services/live.tracker.js";
+import { startTracking, stopTracking } from "../services/live.tracker.js";
 import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
-import { ActivityFeed } from "../ui-components/ActivityFeedUI.js";
+import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { state, setStatus, setConfig, subscribe } from "../shared-services/state.manager.js";
-import { initializeVersionDisplay, updateContentMargin, getCurrentWorkbookName } from "../utils/app-utilities.js";
+import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
-import { setupFileHandling, reloadMappingModules } from "../ui-components/file-handling.js";
-import { validateConfigStructure, selectWorkbookConfig, buildConfigErrorMessage } from "../utils/config-processor.js";
+import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 
 
 
@@ -19,8 +18,8 @@ Office.onReady(async (info) => {
 
   document.body.className = 'ms-font-m ms-welcome ms-Fabric';
 
-  ActivityFeed.init();
-  ActivityFeed.updateHistoryTabCounter();
+  initActivityFeed();
+  updateHistoryTabCounter();
 
   const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map(id => document.getElementById(id));
   sideloadMsg.style.display = "none";
@@ -38,7 +37,7 @@ Office.onReady(async (info) => {
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
     if (!getApiKey()?.trim()) return setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
     e.target.disabled = true; e.target.textContent = "Activating...";
-    try { await startTracking(); } catch (error) { setStatus(`Activation failed: ${error.message}`, true); }
+    try { await startLiveTracking(); } catch (error) { setStatus(`Activation failed: ${error.message}`, true); }
     finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
   });
   
@@ -72,8 +71,8 @@ Office.onReady(async (info) => {
 
   window.addEventListener("resize", updateContentMargin);
   try {
-    await reloadConfig();
-    Object.assign(window, { state, tracker: new LiveTracker(), mappingModules: [] });
+    await loadStaticConfig();
+    Object.assign(window, { state, mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
     setStatus(`Initialization failed: ${error.message}`, true);
@@ -84,38 +83,15 @@ Office.onReady(async (info) => {
 
 
 
-async function reloadConfig() {
-  try {
-    const workbook = await getCurrentWorkbookName();
-    
-    let configData = state.config.raw;
-    if (!configData) {
-      configData = (await import("../../config/app.config.json")).default;
-      state.config.raw = configData;
-    }
 
-    validateConfigStructure(configData);
-    const config = selectWorkbookConfig(configData, workbook);
-    
-    setConfig(config);
-    await reloadMappingModules();
-    setStatus(`Config reloaded - Found ${config.standard_mappings.length} standard mapping(s)`);
-  } catch (error) {
-    const configData = state.config.raw;
-    const errorMessage = buildConfigErrorMessage(error, configData);
-    setStatus(errorMessage, true);
-    throw error;
-  }
-}
-
-async function startTracking() {
+async function startLiveTracking() {
   const config = state.config.data;
   const mappings = state.mappings;
 
   if (!config || (!mappings.forward && !mappings.reverse)) return setStatus("Error: Config or mappings missing", true);
 
   try {
-    await window.tracker.start(config, mappings);
+    await startTracking(config, mappings);
     setStatus("Tracking active");
     showView("results");
   } catch (error) {

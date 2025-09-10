@@ -81,7 +81,7 @@ backend-api/
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
-**Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`. Legacy `LiveTracker` class maintained for backwards compatibility.
+**Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`.
 
 **API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using consolidated server utilities (`getHost()`, `getHeaders()`, `getApiKey()`, `checkServerStatus()`) for LLM processing and term analysis.
 
@@ -89,15 +89,13 @@ backend-api/
 
 **IMPORTANT**: This codebase demonstrates industry best practices through systematic architectural decisions:
 
-**Function-First Design**: All utilities implemented as pure functions with single responsibilities, eliminating class-based complexity and improving testability. Classes converted to lightweight function modules reduce bundle size and cognitive overhead.
+**Function-First Design**: Utilities are implemented as pure functions with single responsibilities.
 
-**Extracted Concerns**: Previously inlined utilities (80+ lines in LiveTracker) extracted to dedicated modules following separation of concerns and DRY principles. Creates reusable components and improves code organization.
 
 **Direct Property Access**: Functional state management uses direct property manipulation (`state.server.online`) instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
 
 **Minimal Abstraction Layers**: Prefer direct function calls over object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`), eliminating unnecessary indirection and improving code clarity.
 
-**Pure Function Extraction**: Complex operations broken into testable, reusable pure functions for config validation, cell processing, and consolidated utilities. Enhances maintainability and enables better testing strategies.
 
 **Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules, maintaining clear separation of concerns without over-engineering.
 
@@ -194,15 +192,11 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 
 This codebase demonstrates industry best practices through systematic refactoring:
 
-**Class-to-Function Migration**: Converted heavyweight classes (CandidateRankingUI, aiPromptRenewer) to lightweight function modules, reducing bundle size and complexity while maintaining the same API.
-
-**Utility Extraction Pattern**: Moved inline utilities to dedicated modules, creating reusable components and improving code organization. LiveTracker reduced from 260+ lines to focused core logic.
 
 **Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
 
 **Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
 
-**Utility Consolidation**: Merged `color-utilities.js` and `version.js` into `app-utilities.js` for better organization. Build script (`scripts/update-version.js`) now updates version info in the consolidated utility file.
 
 ## Testing and Validation
 

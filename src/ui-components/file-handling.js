@@ -1,15 +1,75 @@
 // ui-components/file-handling.js
 // File drag & drop and processing functionality
 
-import { LiveTracker } from "../services/live.tracker.js";
 import { renewPrompt, isRenewing, cancel } from "../services/aiPromptRenewer.js";
 import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config-functions.js";
 import { state, setStatus, setConfig } from "../shared-services/state.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
-import { validateConfigStructure, selectWorkbookConfig } from "../utils/config-processor.js";
-
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
+
+// Config processor functions (moved from utils/config-processor.js)
+function validateConfigStructure(configData) {
+  if (!configData?.["excel-projects"]) {
+    throw new Error("Invalid config format - missing excel-projects structure");
+  }
+  return configData;
+}
+
+function selectWorkbookConfig(configData, workbook) {
+  const projects = configData["excel-projects"];
+  const config = projects[workbook] || projects["*"];
+  
+  if (!config?.standard_mappings?.length) {
+    const available = Object.keys(projects).join(", ");
+    throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
+  }
+  
+  return { ...config, workbook };
+}
+
+export function buildConfigErrorMessage(error, configData) {
+  let message = `Config failed: ${error.message}`;
+  
+  if (error.message.includes("No valid configuration found for workbook:")) {
+    const keys = Object.keys(configData?.["excel-projects"] || {});
+    if (keys.length) {
+      message += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
+    }
+  }
+  
+  return message;
+}
+
+// Load config from static file (used during initialization)
+export async function loadStaticConfig() {
+  try {
+    const workbook = await getCurrentWorkbookName();
+    
+    let configData = state.config.raw;
+    if (!configData) {
+      configData = (await import("../../config/app.config.json")).default;
+      state.config.raw = configData;
+    }
+
+    // Validate and select config using the same functions
+    validateConfigStructure(configData);
+    const config = selectWorkbookConfig(configData, workbook);
+    setConfig(config);
+
+    // Ensure UI setup and initialize modules
+    await ensureUISetup();
+    await reloadMappingModules();
+    
+    setStatus(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+  } catch (error) {
+    const configData = state.config.raw;
+    const errorMessage = buildConfigErrorMessage(error, configData);
+    setStatus(errorMessage, true);
+    throw error;
+  }
+}
+
 export function setupFileHandling() {
   const dropZone = document.getElementById("drop-zone");
   if (!dropZone) return;
@@ -133,8 +193,7 @@ async function ensureUISetup() {
   if (!container) throw new Error("Configuration UI container not available - please refresh the add-in");
   
   // Ensure global objects (fallback initialization)
-  !window.tracker && Object.assign(window, { 
-    tracker: new LiveTracker(), 
+  !window.mappingModules && Object.assign(window, { 
     mappingModules: [] 
   });
 }
