@@ -29,6 +29,15 @@ ALLOWED_IPS = os.getenv("ALLOWED_IPS", "127.0.0.1,::1").split(",")
 
 app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
 
+# Add CORS middleware first (will run last)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 def get_local_ip():
     """Get the local IP address of this machine"""
     import socket
@@ -110,14 +119,6 @@ async def check_api_key(request: Request, call_next):
     
     response = await call_next(request)
     return response
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
 
 # Include routers
 app.include_router(llm_term_generator_api_router)
