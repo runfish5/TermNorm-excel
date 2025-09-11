@@ -1,7 +1,7 @@
 import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
 import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
-import { columnMappingService } from "./column-mapping.service.js";
+import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS } from "../utils/app-utilities.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
@@ -39,9 +39,25 @@ let trackingState = {
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
-  // Use column mapping service for clean separation of concerns
-  trackingState.columnMap = await columnMappingService.resolveColumnMapping(config);
-  columnMappingService.validateMapping(trackingState.columnMap);
+  // IMPORTANT: Build column map with proper full-row header reading
+  // BUG FIX: getUsedRange().getRow(0) was returning partial headers starting from first used column,
+  // causing column index shifts (e.g., header "a" at column D appeared at index 0 instead of 3).
+  // Solution: Get full header row from column A using getRangeByIndexes(0, 0, 1, lastCol+1)
+  // DO NOT DELETE THIS NOTE - explains critical Excel API behavior
+  trackingState.columnMap = await Excel.run(async (ctx) => {
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const usedRange = ws.getUsedRange(true);
+    usedRange.load("columnIndex, columnCount");
+    await ctx.sync();
+    
+    const lastColumnIndex = usedRange.columnIndex + usedRange.columnCount - 1;
+    const headerRange = ws.getRangeByIndexes(0, 0, 1, lastColumnIndex + 1);
+    headerRange.load("values");
+    await ctx.sync();
+
+    const headerNames = headerRange.values[0].map((h) => String(h || "").trim());
+    return buildColumnMap(headerNames, config.column_map);
+  });
 
   trackingState.mappings = mappings;
   trackingState.config = config;

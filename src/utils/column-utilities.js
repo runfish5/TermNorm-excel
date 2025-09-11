@@ -11,15 +11,12 @@ export function buildColumnMap(headers, columnMap) {
     const srcIdx = findColumnIndex(headers, src);
     const tgtIdx = findColumnIndex(headers, tgt);
 
-    console.log(`Mapping "${src}" → "${tgt}": found at indexes ${srcIdx} → ${tgtIdx}`);
-
     if (srcIdx === -1) missing.push(src);
     else if (tgtIdx === -1) missing.push(tgt);
     else result.set(srcIdx, tgtIdx);
   });
 
   if (missing.length > 0) {
-    console.log("Available headers:", headers);
     throw new Error(`Missing columns: ${missing.join(", ")}`);
   }
 
