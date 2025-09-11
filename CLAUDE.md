@@ -24,6 +24,8 @@ The add-in monitors Excel cells in real-time, applies configurable mapping rules
 - `npm run validate` - Validate manifest.xml
 - `npm run watch` - Development build with file watching
 
+IMPORTANT: Do not automatically run tests or start testing procedures. The user will handle testing manually.
+
 ### Backend (Python API)
 Navigate to `backend-api/` directory first:
 - `.\venv\Scripts\activate` - Activate Python virtual environment
@@ -32,14 +34,7 @@ Navigate to `backend-api/` directory first:
 - Set `TERMNORM_API_KEY` environment variable before starting production server
 
 ### Automated Server Startup (Recommended for Non-Technical Users)
-The project includes `start-server-py-LLMs.bat` - an interactive setup script that handles:
-- **Automated Environment Setup**: Creates virtual environment, installs dependencies automatically
-- **Interactive Configuration**: Prompts for deployment type (local/network) and API key entry
-- **Security Management**: Role-based IP whitelist with dynamic IP detection and interactive management
-- **Visual Feedback**: Clear status indicators, connection URLs, and security information display
-- **Error Handling**: Pre-flight diagnostics for main.py imports, FastAPI validation, and port availability
-
-**Usage**: Simply run `start-server-py-LLMs.bat` from project root - the script guides users through complete server setup with no technical knowledge required. Reduced from 297 to 203 lines while preserving all functionality for optimal maintainability.
+**Usage**: Simply run `start-server-py-LLMs.bat` from project root - the script guides users through complete server setup with no technical knowledge required.
 
 ## Architecture
 
@@ -84,7 +79,7 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: The frontend uses functional state management (`state.manager.js`) with direct property access and exported functions (`setStatus()`, `setConfig()`, `subscribe()`). State is accessed directly via `state.server.online` instead of complex path resolution.
+**State Management**: The frontend uses functional state management (`state.manager.js`) with direct property access and exported functions (`setStatus()`, `setConfig()`, `subscribe()`).
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
@@ -101,15 +96,11 @@ backend-api/
 
 **Function-First Design**: Utilities are implemented as pure functions with single responsibilities.
 
-
 **Direct Property Access**: Functional state management uses direct property manipulation (`state.server.online`) instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
 
 **Minimal Abstraction Layers**: Prefer direct function calls over object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`), eliminating unnecessary indirection and improving code clarity.
 
-
 **Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules, maintaining clear separation of concerns without over-engineering.
-
-When making changes, preserve this streamlined approach and resist over-engineering patterns.
 
 ## Event Task Flowchart
 
@@ -197,26 +188,6 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 2. **LLM Provider**: Configure Groq or OpenAI API keys in backend environment
 3. **Development Certificates**: Office add-in requires HTTPS certificates (handled by office-addin-dev-certs)
 4. **Python Environment**: Backend requires Python virtual environment with FastAPI dependencies
-
-## Code Quality & Maintainability Standards
-
-This codebase demonstrates industry best practices through systematic refactoring:
-
-
-**Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
-
-**Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
-
-
-## Testing and Validation
-
-**IMPORTANT**: Do not automatically run tests or start testing procedures. The user will handle testing manually.
-
-- Use `npm run validate` to check manifest.xml syntax only when explicitly requested
-- Backend includes built-in API documentation at `/docs` endpoint for reference
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
-- Wait for user instruction before running any validation or testing commands
 
 ## Manifest Configuration
 
