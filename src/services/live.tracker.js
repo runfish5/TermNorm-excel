@@ -1,7 +1,7 @@
 import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
 import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
-import { buildColumnMap } from "../utils/column-utilities.js";
+import { columnMappingService } from "./column-mapping.service.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS } from "../utils/app-utilities.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
@@ -39,15 +39,9 @@ let trackingState = {
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
-  // Build column map directly inline
-  trackingState.columnMap = await Excel.run(async (ctx) => {
-    const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
-    headers.load("values");
-    await ctx.sync();
-
-    const headerNames = headers.values[0].map((h) => String(h || "").trim());
-    return buildColumnMap(headerNames, config.column_map);
-  });
+  // Use column mapping service for clean separation of concerns
+  trackingState.columnMap = await columnMappingService.resolveColumnMapping(config);
+  columnMappingService.validateMapping(trackingState.columnMap);
 
   trackingState.mappings = mappings;
   trackingState.config = config;
