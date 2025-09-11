@@ -24,44 +24,10 @@ export function buildConfigErrorMessage(error, configData) {
   return message;
 }
 
-// Load config from static file (used during initialization)
+// Load config from static file (used during initialization) 
 export async function loadStaticConfig() {
-  try {
-    const workbook = await getCurrentWorkbookName();
-
-    let configData = state.config.raw;
-    if (!configData) {
-      configData = (await import("../../config/app.config.json")).default;
-      state.config.raw = configData;
-    }
-
-    // Inline validation - check structure
-    if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config format - missing excel-projects structure");
-    }
-
-    // Inline config selection
-    const projects = configData["excel-projects"];
-    const config = projects[workbook] || projects["*"];
-
-    if (!config?.standard_mappings?.length) {
-      const available = Object.keys(projects).join(", ");
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
-    }
-
-    setConfig({ ...config, workbook });
-
-    // Ensure UI setup and initialize modules
-    await ensureUISetup();
-    await reloadMappingModules();
-
-    setStatus(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
-  } catch (error) {
-    const configData = state.config.raw;
-    const errorMessage = buildConfigErrorMessage(error, configData);
-    setStatus(errorMessage, true);
-    throw error;
-  }
+  const { configPipeline } = await import("../services/config.pipeline.js");
+  return await configPipeline.loadStaticConfig();
 }
 
 export function setupFileHandling() {
@@ -148,32 +114,8 @@ async function processFile(file) {
 }
 
 async function loadConfigData(configData, fileName) {
-  try {
-    // Inline validation and selection
-    if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config format - missing excel-projects structure");
-    }
-    state.config.raw = configData;
-
-    const workbook = await getCurrentWorkbookName();
-    const projects = configData["excel-projects"];
-    const config = projects[workbook] || projects["*"];
-
-    if (!config?.standard_mappings?.length) {
-      const available = Object.keys(projects).join(", ");
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
-    }
-
-    setConfig({ ...config, workbook });
-
-    // Ensure UI setup and initialize modules
-    await ensureUISetup();
-    await reloadMappingModules();
-
-    setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
-  } catch (error) {
-    setStatus(error.message, true);
-  }
+  const { configPipeline } = await import("../services/config.pipeline.js");
+  await configPipeline.loadFromFile(configData, fileName);
 }
 
 // Simplified UI setup
