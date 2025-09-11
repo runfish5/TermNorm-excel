@@ -161,6 +161,8 @@ echo.
 echo %BLUE%^>%RESET% Press any key to start the server...
 pause >nul
 
+:: Server restart loop
+:server_loop
 echo.
 echo %CYAN%===============================================%RESET%
 echo %BOLD%%CYAN%            Starting Server...            %RESET%
@@ -194,11 +196,23 @@ if "!deployment_type!"=="local" (
     "!GLOBAL_VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 )
 
+:: Server stopped - offer restart option
 echo.
 echo %CYAN%===============================================%RESET%
 echo %BOLD%%CYAN%            Server Stopped                %RESET%
 echo %CYAN%===============================================%RESET%
 echo Exit code: %BOLD%%YELLOW%!errorlevel!%RESET%
 echo.
-echo Press any key to exit...
-pause >nul
+echo %BOLD%%GREEN%Quick Restart Options:%RESET%
+echo   %YELLOW%Press Enter%RESET% - Restart server (same settings)
+echo   %YELLOW%Type 'q' + Enter%RESET% - Quit and close terminal
+echo.
+set /p restart_choice="%BLUE%^>%RESET% Your choice: "
+
+if /i "!restart_choice!"=="q" (
+    echo %GREEN%[OK]%RESET% Goodbye!
+    exit /b 0
+) else (
+    echo %GREEN%[OK]%RESET% Restarting server...
+    goto server_loop
+)
