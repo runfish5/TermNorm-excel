@@ -18,7 +18,7 @@ from routers import (
     matching_router,
     research_router
 )
-from research_and_rank.llm_providers import LLM_PROVIDER, LLM_MODEL
+from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
 # Setup logging
 setup_logging(level="INFO", log_file="logs/app.log")

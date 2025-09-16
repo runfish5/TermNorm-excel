@@ -1,5 +1,5 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
-from research_and_rank.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
+from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
 

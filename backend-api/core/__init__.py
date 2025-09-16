@@ -6,10 +6,14 @@ from .dependencies import (
     get_matching_service_instance,
     get_research_service
 )
+from .llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 
 __all__ = [
     "setup_logging",
     "get_logger",
     "get_matching_service_instance",
     "get_research_service",
+    "llm_call",
+    "LLM_PROVIDER",
+    "LLM_MODEL",
 ]

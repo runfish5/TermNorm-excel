@@ -8,12 +8,7 @@ from collections import defaultdict
 from typing import List
 from fastapi import HTTPException
 
-from models.matching_models import (
-    UpdateMatcherRequest,
-    MatchRequest,
-    MatchResponse,
-    UpdateMatcherResponse
-)
+# Using simple dictionaries instead of Pydantic models
 
 logger = logging.getLogger(__name__)
 
@@ -83,34 +78,36 @@ class MatchingService:
         # Instead of global state, we'll store the matcher in the service
         self.token_matcher: TokenLookupMatcher = None
 
-    async def update_matcher(self, request: UpdateMatcherRequest) -> UpdateMatcherResponse:
+    async def update_matcher(self, request: dict) -> dict:
         """Smart endpoint that creates new matcher or appends to existing one"""
         start = time.time()
 
+        terms = request.get("terms", [])
+
         if self.token_matcher is None:
             # Create new matcher
-            self.token_matcher = TokenLookupMatcher(request.terms)
+            self.token_matcher = TokenLookupMatcher(terms)
             setup_time = time.time() - start
             logger.info(f"TokenLookupMatcher setup complete in {setup_time:.2f} seconds")
 
-            return UpdateMatcherResponse(
-                status="matcher_setup_complete",
-                setup_time=setup_time,
-                total_terms=len(self.token_matcher.complete_term_dataset),
-                unique_terms=len(self.token_matcher.deduplicated_terms),
-                duplicates_removed=len(self.token_matcher.complete_term_dataset) - len(self.token_matcher.deduplicated_terms)
-            )
+            return {
+                "status": "matcher_setup_complete",
+                "setup_time": setup_time,
+                "total_terms": len(self.token_matcher.complete_term_dataset),
+                "unique_terms": len(self.token_matcher.deduplicated_terms),
+                "duplicates_removed": len(self.token_matcher.complete_term_dataset) - len(self.token_matcher.deduplicated_terms)
+            }
         else:
             # Append to existing matcher
-            self.token_matcher.append_terms(request.terms)
+            self.token_matcher.append_terms(terms)
             append_time = time.time() - start
-            return UpdateMatcherResponse(
-                status="terms_appended",
-                append_time=append_time,
-                total_unique_terms=len(self.token_matcher.deduplicated_terms)
-            )
+            return {
+                "status": "terms_appended",
+                "append_time": append_time,
+                "total_unique_terms": len(self.token_matcher.deduplicated_terms)
+            }
 
-    async def match_term(self, request: MatchRequest) -> MatchResponse:
+    async def match_term(self, request: dict) -> dict:
         """Simple token-based matching without web research"""
 
         if self.token_matcher is None:
@@ -121,12 +118,13 @@ class MatchingService:
                 detail="Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data."
             )
 
-        logger.info(f"[MATCH-TERM] Query: '{request.query}'")
+        query = request.get("query", "")
+        logger.info(f"[MATCH-TERM] Query: '{query}'")
 
         try:
             # Simple token matching only
             start_time = time.time()
-            results = self.token_matcher.match(request.query)
+            results = self.token_matcher.match(query)
             match_time = time.time() - start_time
 
             logger.info(f"[MATCH-TERM] Found {len(results)} matches in {match_time:.3f}s")
@@ -136,13 +134,13 @@ class MatchingService:
                 for i, (candidate, score) in enumerate(results[:3]):
                     logger.info(f"[MATCH-TERM]   {i+1}. '{candidate}' (score: {score:.3f})")
 
-            return MatchResponse(
-                query=request.query,
-                matches=results,
-                total_matches=len(results),
-                match_time=match_time,
-                research_performed=False
-            )
+            return {
+                "query": query,
+                "matches": results,
+                "total_matches": len(results),
+                "match_time": match_time,
+                "research_performed": False
+            }
 
         except Exception as e:
             logger.error(f"Exception in match_term: {e}")

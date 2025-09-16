@@ -9,7 +9,7 @@ from pprint import pprint
 from collections import Counter
 from fastapi import HTTPException
 
-from models.matching_models import ResearchAndMatchRequest
+# Using simple dictionaries instead of Pydantic models
 from services.matching_service import get_matching_service
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
 from research_and_rank.display_profile import display_profile
@@ -29,9 +29,10 @@ class ResearchService:
         with open(schema_path, 'r') as f:
             self.entity_schema = json.load(f)
 
-    async def research_and_rank(self, request: ResearchAndMatchRequest) -> dict:
+    async def research_and_rank(self, request: dict) -> dict:
         """Research a query and rank candidates using LLM + token matching"""
-        logger.info(f"[PIPELINE] Started for query: '{request.query}'")
+        query = request.get("query", "")
+        logger.info(f"[PIPELINE] Started for query: '{query}'")
         start_time = time.time()
 
         # Get matching service
@@ -47,7 +48,7 @@ class ResearchService:
         # Step 1: Research
         logger.info("[PIPELINE] Step 1: Researching")
         entity_profile = await web_generate_entity_profile(
-            request.query,
+            query,
             max_sites=7,
             schema=self.entity_schema,
             verbose=True
@@ -58,7 +59,7 @@ class ResearchService:
         logger.info("\n[PIPELINE] Step 2: Matching candidates")
 
         # Usage - direct replacement:
-        search_terms = [request.query] + utils.flatten_strings(entity_profile)
+        search_terms = [query] + utils.flatten_strings(entity_profile)
 
         logger.info(f"LENGTH OF SEARCH TERMS: {len(search_terms)}")
         search_terms = [word for s in search_terms for word in s.split()]
@@ -79,7 +80,7 @@ class ResearchService:
         logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
 
-        response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, request.query)
+        response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, query)
         response['total_time'] = round(time.time() - start_time, 2)
         logger.info(YELLOW)
         logger.info(json.dumps(response, indent=2))
