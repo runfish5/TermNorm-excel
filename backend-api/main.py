@@ -13,9 +13,9 @@ from config import settings
 from config.middleware import setup_middleware
 from core.logging import setup_logging
 from utils.exceptions import global_exception_handler
-from routers import (
-    health_router,
-    matching_router,
+from api import (
+    system_router,
+    matcher_router,
     research_router
 )
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
@@ -36,10 +36,10 @@ setup_middleware(app)
 # Setup global exception handler
 app.add_exception_handler(Exception, global_exception_handler)
 
-# Include routers - Ultra-lean backend for research-and-match core purpose
-app.include_router(health_router)      # Health checks and logging
-app.include_router(matching_router)    # /update-matcher only
-app.include_router(research_router)    # Core /research-and-match functionality
+# Include routers - Streamlined API structure
+app.include_router(system_router)      # Health checks, connection test, activity logging
+app.include_router(matcher_router)     # /update-matcher endpoint
+app.include_router(research_router)    # /research-and-match pipeline
 
 
 @app.on_event("startup")
