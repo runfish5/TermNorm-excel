@@ -12,7 +12,6 @@ import logging
 from config import settings
 from config.middleware import setup_middleware
 from core.logging import setup_logging
-from utils.exceptions import global_exception_handler
 from api import (
     system_router,
     matcher_router,
@@ -33,8 +32,6 @@ app = FastAPI(
 # Setup middleware
 setup_middleware(app)
 
-# Setup global exception handler
-app.add_exception_handler(Exception, global_exception_handler)
 
 # Include routers - Streamlined API structure
 app.include_router(system_router)      # Health checks, connection test, activity logging

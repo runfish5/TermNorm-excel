@@ -100,7 +100,8 @@ async def update_matcher(request: Dict[str, List[str]]) -> Dict[str, Any]:
             "setup_time": setup_time,
             "total_terms": len(_token_matcher.complete_term_dataset),
             "unique_terms": len(_token_matcher.deduplicated_terms),
-            "duplicates_removed": len(_token_matcher.complete_term_dataset) - len(_token_matcher.deduplicated_terms)
+            "duplicates_removed": len(_token_matcher.complete_term_dataset) - len(_token_matcher.deduplicated_terms),
+            "status_message": f"✅ Matcher initialized - {len(_token_matcher.deduplicated_terms)} unique terms loaded in {setup_time:.2f}s"
         }
     else:
         # Append to existing matcher
@@ -109,5 +110,6 @@ async def update_matcher(request: Dict[str, List[str]]) -> Dict[str, Any]:
         return {
             "status": "terms_appended",
             "append_time": append_time,
-            "total_unique_terms": len(_token_matcher.deduplicated_terms)
+            "total_unique_terms": len(_token_matcher.deduplicated_terms),
+            "status_message": f"✅ Terms appended - {len(_token_matcher.deduplicated_terms)} total unique terms"
         }
