@@ -10,14 +10,14 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
 ## Key Features
 
 - **Real-time Cell Monitoring** - Automatically detects and processes cell changes
-- **AI-Powered Normalization** - Uses LLM integration for intelligent term matching and generation
-- **Multiple Processing Strategies** - Cached lookups, API calls, and fuzzy matching
-- **Clear Configuration** - One file config management
-- **Activity Tracking** - In-Excel view processing history and candidate rankings
-- **Persistant logs** - saves all mapping actions of users.
-- **Flexible Mapping System** - Support for multiple mapping sources and standard mappings
-- **Color-Coded Results** - Visual feedback for normalization status
-- **Easily expandable** - DIY or contact me to get offer for additional features
+- **AI-Powered Research & Matching** - Core `/research-and-match` endpoint performs web research + LLM ranking + token matching
+- **Intelligent Candidate Ranking** - Uses LLM integration to rank and evaluate terminology matches
+- **Clear Configuration** - Single file config management with drag & drop support
+- **Activity Tracking** - In-Excel view of processing history and ranked candidate results
+- **Persistent Logging** - Comprehensive logging of all mapping actions and decisions
+- **Flexible Mapping System** - Support for multiple mapping sources and reference files
+- **Color-Coded Results** - Visual feedback for normalization status and confidence levels
+- **Ultra-lean Backend** - Focused architecture with only essential endpoints for maximum performance
 
 ## How to run the TermNorm Add-In
 

@@ -61,13 +61,21 @@ Navigate to `backend-api/` directory first:
 **Data Processing Layer**
 - `data-processing/mapping.processor.js` - Streamlined mapping with direct validation
 
-### Backend Structure
+### Backend Structure - Ultra-lean Architecture
 ```
 backend-api/
-├── main.py                    # FastAPI application entry point
-├── research_and_rank/         # LLM and ranking algorithms
-├── llm_term_generator_api.py  # LLM API integration
-└── pattern_analyzer.py       # Text pattern analysis
+├── main.py                    # Minimal FastAPI application (3 routers only)
+├── config/                    # Centralized configuration management
+├── routers/                   # API endpoints (health, research, matching)
+│   ├── health_router.py      # Health checks and activity logging
+│   ├── research_router.py    # Core /research-and-match functionality
+│   └── matching_router.py    # /update-matcher for loading mapping data
+├── services/                  # Business logic
+│   ├── research_service.py   # Core research and ranking service
+│   └── matching_service.py   # Token matching for research
+├── models/                    # Pydantic models (common + matching only)
+├── research_and_rank/         # LLM providers and ranking algorithms
+└── utils/                     # Enhanced exception handling
 ```
 
 ### Key Integration Points
