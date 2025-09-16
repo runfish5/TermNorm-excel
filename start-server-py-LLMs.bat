@@ -179,6 +179,7 @@ echo %BLUE%^>%RESET% Press any key to start the server...
 echo.
 pause >nul
 
+:server_loop
 echo.
 echo ===============================================
 echo             Starting Server...
@@ -208,5 +209,9 @@ echo             Server Stopped
 echo ===============================================
 echo Exit code: %BOLD%%YELLOW%!errorlevel!%RESET%
 echo.
-echo Press any key to exit...
+echo %BLUE%^>%RESET% Press %YELLOW%Enter%RESET% to restart server, or any other key to exit...
+set /p restart=
+if "%restart%"=="" goto server_loop
+echo.
+echo Exiting...
 pause >nul
