@@ -59,11 +59,8 @@ export async function findTokenMatch(value) {
       if (response.status === 503) {
         try {
           const errorData = await response.json();
-          if (errorData.detail && errorData.detail.includes("Server restart detected")) {
-            setStatus(
-              "⚠️ Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data.",
-              true
-            );
+          if (errorData.detail) {
+            setStatus(`⚠️ ${errorData.detail}`, true);
             return null;
           }
         } catch (e) {
@@ -75,22 +72,24 @@ export async function findTokenMatch(value) {
       return null;
     }
 
-    const data = await response.json();
-    if (!data.success || !data.data.ranked_candidates?.length) {
-      if (!data.success) {
-        setStatus(`Research failed: ${data.error}`, true);
-      }
+    const responseData = await response.json();
+    if (!responseData.ranked_candidates?.length) {
+      setStatus("No matches found", true);
       return null;
     }
 
-    const responseData = data.data;
     const best = responseData.ranked_candidates[0];
     if (!best) {
       setStatus("ranked_candidates has wrong schema or empty", true);
       return null;
     }
 
-    setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
+    // Use backend status message if available, fallback to custom message
+    if (responseData.status_message) {
+      setStatus(responseData.status_message);
+    } else {
+      setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
+    }
     return {
       target: best.candidate,
       method: "ProfileRank",

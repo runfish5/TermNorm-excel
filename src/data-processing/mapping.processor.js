@@ -144,7 +144,11 @@ export async function loadAndProcessMappings(customParams) {
 
     // Try to update matcher, but don't fail if server unavailable
     try {
-      await updateTokenMatcher(Object.keys(result.reverse));
+      const matcherResponse = await updateTokenMatcher(Object.keys(result.reverse));
+      // Use backend status message if available
+      if (matcherResponse?.status_message) {
+        setStatus(matcherResponse.status_message);
+      }
     } catch (error) {
       console.warn("Token matcher update failed:", error.message);
       // Add server connectivity warning to result metadata

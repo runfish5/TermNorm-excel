@@ -16,7 +16,6 @@ from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
-from utils.exceptions import ApiResponse, handle_exceptions
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -27,8 +26,7 @@ with open(_schema_path, 'r') as f:
     ENTITY_SCHEMA = json.load(f)
 
 
-@router.post("/research-and-match", response_model=ApiResponse)
-@handle_exceptions
+@router.post("/research-and-match")
 async def research_and_match(request: Dict[str, str]) -> Dict[str, Any]:
     """Research a query and rank candidates using LLM + token matching"""
     query = request.get("query", "")
@@ -38,11 +36,10 @@ async def research_and_match(request: Dict[str, str]) -> Dict[str, Any]:
     # Get token matcher
     token_matcher = get_token_matcher()
     if token_matcher is None:
-        logger.error("[MISSING MAPPING INDEXES]")
-        logger.error("TokenLookupMatcher not initialized. Configuration files need to be reloaded.")
+        logger.error("[MISSING MAPPING INDEXES] TokenLookupMatcher not initialized")
         raise HTTPException(
             status_code=503,
-            detail="Server restart detected - mapping indexes lost. Please reload your configuration files to restore mapping data."
+            detail="Matcher not initialized - reload configuration files"
         )
 
     # Step 1: Research
@@ -81,7 +78,13 @@ async def research_and_match(request: Dict[str, str]) -> Dict[str, Any]:
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
 
     response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, query)
-    response['total_time'] = round(time.time() - start_time, 2)
+    total_time = round(time.time() - start_time, 2)
+    response['total_time'] = total_time
+
+    # Add success status message for frontend
+    num_candidates = len(response.get('ranked_candidates', []))
+    response['status_message'] = f"✅ Research completed - Found {num_candidates} matches in {total_time}s"
+
     logger.info(YELLOW)
     logger.info(json.dumps(response, indent=2))
     logger.info(RESET)
