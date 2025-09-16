@@ -1,9 +1,7 @@
 """
-Pydantic models for TermNorm Backend API
+Pydantic models for TermNorm Backend API - Ultra-lean for research-and-match core purpose
 """
 from .common import ActivityLogEntry, HealthResponse, ConnectionTestResponse
-from .llm_models import InputData, OutputData, TransformationGroup, PromptTestResponse
-from .pattern_models import PatternRequest, RuleCluster, PatternDiscoveryResult
 from .matching_models import (
     UpdateMatcherRequest,
     MatchRequest,
@@ -17,16 +15,7 @@ __all__ = [
     "ActivityLogEntry",
     "HealthResponse",
     "ConnectionTestResponse",
-    # LLM models
-    "InputData",
-    "OutputData",
-    "TransformationGroup",
-    "PromptTestResponse",
-    # Pattern models
-    "PatternRequest",
-    "RuleCluster",
-    "PatternDiscoveryResult",
-    # Matching models
+    # Matching models (core functionality)
     "UpdateMatcherRequest",
     "MatchRequest",
     "ResearchAndMatchRequest",
