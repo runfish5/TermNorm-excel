@@ -1,162 +1,87 @@
-import os
-import sys
-from datetime import datetime
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
+"""
+TermNorm Backend API - Minimal FastAPI Application
+"""
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
 
 # Load .env file BEFORE importing modules that read environment variables
 load_dotenv()
 
+from fastapi import FastAPI
+import logging
+
+from config import settings
+from config.middleware import setup_middleware
+from core.logging import setup_logging
+from utils.exceptions import global_exception_handler
+from routers import (
+    health_router,
+    llm_router,
+    pattern_router,
+    matching_router,
+    research_router
+)
 from research_and_rank.llm_providers import LLM_PROVIDER, LLM_MODEL
-# Import the endpoint routers
-from llm_term_generator_api import router as llm_term_generator_api_router
-from pattern_analyzer import router as pattern_analyzer_router
-from research_and_rank.TokenLookupMatcher import router as token_matcher_router
-from research_and_rank.research_and_rank_candidates import router as research_and_rank_candidates_router
 
-# Get API key from environment variable - no fallback for security
-API_KEY = os.getenv("TERMNORM_API_KEY")
-if not API_KEY:
-    raise ValueError("TERMNORM_API_KEY environment variable must be set! Example: set TERMNORM_API_KEY=your_secret_key")
+# Setup logging
+setup_logging(level="INFO", log_file="logs/app.log")
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="LLM Processing API", description=f"Uses {LLM_PROVIDER.upper()} ({LLM_MODEL}) for Excel Add-in processing")
-
-def get_local_ip():
-    """Get the local IP address of this machine"""
-    import socket
-    try:
-        # Connect to a remote address to determine local IP
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-
-def detect_server_environment():
-    """Detect server environment: cloud, network, or local"""
-    # Check for cloud environment indicators first
-    
-    # Azure App Service detection
-    if os.getenv("WEBSITE_SITE_NAME") or os.getenv("WEBSITE_RESOURCE_GROUP"):
-        return "cloud"
-    
-    # AWS detection
-    if os.getenv("AWS_LAMBDA_FUNCTION_NAME") or os.getenv("AWS_EXECUTION_ENV"):
-        return "cloud"
-    
-    # Google Cloud detection  
-    if os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GAE_APPLICATION"):
-        return "cloud"
-    
-    # Generic cloud indicators
-    if os.getenv("CLOUD_PROVIDER") or os.getenv("KUBERNETES_SERVICE_HOST"):
-        return "cloud"
-    
-    # Check for network mode (uvicorn --host 0.0.0.0)
-    host_env = os.getenv("UVICORN_HOST", "").lower()
-    if host_env in ["0.0.0.0", "network"]:
-        return "network"
-    
-    # Check process arguments for network binding
-    args_str = " ".join(sys.argv).lower()
-    if "--host 0.0.0.0" in args_str or "--host=0.0.0.0" in args_str:
-        return "network"
-    
-    # Check if local IP is in public ranges (rough cloud detection)
-    local_ip = get_local_ip()
-    if local_ip and not local_ip.startswith(("192.168.", "10.", "172.")) and local_ip != "127.0.0.1":
-        return "cloud"
-        
-    return "local"
-
-# API Key middleware
-@app.middleware("http")
-async def check_api_key(request: Request, call_next):
-    # Protected endpoints that require API key
-    protected_paths = ["/research-and-match", "/analyze-patterns", "/match-term"]
-    
-    # Check if this is a protected endpoint
-    if any(request.url.path.startswith(path) for path in protected_paths):
-        api_key = request.headers.get("X-API-Key")
-        print(f"[API_KEY_CHECK] Path: {request.url.path}, API Key provided: {'Yes' if api_key else 'No'}")
-        if not api_key or api_key != API_KEY:
-            print(f"[API_KEY_CHECK] Rejecting request - API key invalid")
-            return JSONResponse(
-                status_code=401,
-                content={"error": "Invalid or missing API key", "message": "Please provide a valid X-API-Key header"}
-            )
-        print(f"[API_KEY_CHECK] API key valid, proceeding")
-    
-    response = await call_next(request)
-    return response
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://localhost:3000", "http://127.0.0.1:8000", "*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+# Create FastAPI application
+app = FastAPI(
+    title=settings.api_title,
+    description=f"{settings.api_description} - Uses {LLM_PROVIDER.upper()} ({LLM_MODEL})"
 )
 
+# Setup middleware
+setup_middleware(app)
+
+# Setup global exception handler
+app.add_exception_handler(Exception, global_exception_handler)
+
 # Include routers
-app.include_router(llm_term_generator_api_router)
-app.include_router(pattern_analyzer_router)
-app.include_router(token_matcher_router)
-app.include_router(research_and_rank_candidates_router)
+app.include_router(health_router)
+app.include_router(llm_router)
+app.include_router(pattern_router)
+app.include_router(matching_router)
+app.include_router(research_router)
 
-@app.get("/")
-def read_root():
-    return {
-        "status": "API running",
-        "llm": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "endpoints": ["/match-term", "/research-and-match", "/quick-match", "/test-connection"]
-    }
 
-@app.post("/test-connection")
-async def test_connection():
-    # Detect server environment
-    environment = detect_server_environment()
-    
-    if environment == "cloud":
-        connection_type = "Cloud API"
-        local_ip = get_local_ip()
-        connection_url = f"http://{local_ip}:8000"
-    elif environment == "network":
-        connection_type = "Network API"
-        local_ip = get_local_ip()
-        connection_url = f"http://{local_ip}:8000"
-    else:
-        connection_type = "Local API"
-        connection_url = "http://localhost:8000"
-    
-    return {
-        "status": "OK", 
-        "provider": LLM_PROVIDER,
-        "connection_type": connection_type,
-        "connection_url": connection_url,
-        "environment": environment
-    }
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application state on startup"""
+    logger.info("Starting TermNorm Backend API")
+    logger.info(f"Environment: {settings.environment_type}")
+    logger.info(f"LLM Provider: {LLM_PROVIDER}/{LLM_MODEL}")
 
-# Option 2: Allow extra fields (most flexible)
-class ActivityLogEntry(BaseModel):
-    model_config = ConfigDict(extra="allow")  # Allows any extra fields
-    
-    timestamp: Optional[str] = ""
-    source: Optional[str] = ""
-    target: Optional[str] = ""
-    method: Optional[str] = ""
-    confidence: Optional[float] = 0.0
-    session_id: Optional[str] = ""
+    # Initialize Groq client (if needed)
+    try:
+        from groq import AsyncGroq
+        import os
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if groq_api_key:
+            app.state.groq_client = AsyncGroq(api_key=groq_api_key)
+            logger.info("Groq client initialized successfully")
+        else:
+            logger.warning("GROQ_API_KEY not found - LLM features will be disabled")
+            app.state.groq_client = None
+    except Exception as e:
+        logger.error(f"Failed to initialize Groq client: {e}")
+        app.state.groq_client = None
 
-@app.post("/log-activity")
-async def log_activity(entry: ActivityLogEntry):
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-        f.write(entry.model_dump_json() + "\n")
-    return {"status": "logged"}
+    logger.info("TermNorm Backend API startup complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    logger.info("Shutting down TermNorm Backend API")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload
+    )
