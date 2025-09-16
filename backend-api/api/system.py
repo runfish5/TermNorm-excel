@@ -1,7 +1,8 @@
 """
-Health check and system status router
+System API - Health checks, connection testing, and activity logging
 """
 import logging
+import json
 from typing import Dict, Any
 from fastapi import APIRouter
 from pathlib import Path
@@ -43,7 +44,6 @@ async def log_activity(entry: Dict[str, Any]) -> Dict[str, str]:
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
 
-    import json
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
