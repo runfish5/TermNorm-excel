@@ -68,12 +68,32 @@ Evaluate semantic alignment with core concept "{core_concept}" first, then speci
 
     print(GREEN + prompt + RESET)
     
+    # Use json mode instead of schema mode for better reliability with Groq
+    enhanced_prompt = f"""{prompt}
+
+IMPORTANT: Return a valid JSON response matching this exact structure:
+{{
+  "profile_summary": "Brief 1-2 sentence summary of the profile",
+  "core_concept_description": "What the core concept fundamentally is",
+  "ranked_candidates": [
+    {{
+      "candidate": "exact candidate string",
+      "core_concept_score": 0.0,
+      "spec_score": 0.0,
+      "evaluation_reasoning": "Brief explanation without quotes or backslashes",
+      "key_match_factors": ["factor1", "factor2"],
+      "spec_gaps": ["gap1", "gap2"]
+    }}
+  ]
+}}
+
+Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
+
     ranking_result = await llm_call(
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": enhanced_prompt}],
         temperature=0,
-        max_tokens=2000,
-        output_format="schema",
-        schema=RANKING_SCHEMA
+        max_tokens=4000,
+        output_format="json"  # Use json mode instead of schema
     )
     
     print("\n[PIPELINE] Step 4: Correcting candidate strings")
