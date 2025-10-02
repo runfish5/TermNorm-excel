@@ -62,9 +62,12 @@ Office.onReady(async (info) => {
 
   onStatusChange((ui) => {
     const statusElement = document.getElementById("main-status-message");
-    (statusElement &&
-      ((statusElement.textContent = ui.statusMessage), (statusElement.style.color = ui.isError ? "#D83B01" : ""))) ||
+    if (statusElement) {
+      statusElement.textContent = ui.statusMessage;
+      statusElement.style.color = ui.isError ? "#D83B01" : "";
+    } else {
       console.warn("Status element not found:", ui.statusMessage);
+    }
   });
 
   window.showView = showView;

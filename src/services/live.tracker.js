@@ -82,16 +82,9 @@ const handleWorksheetChange = async (e) => {
 
     // Process all cells that need mapping
     const tasks = [];
+
     // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const rowCount = range.rowCount;
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const columnCount = range.columnCount;
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const rowIndex = range.rowIndex;
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const columnIndex = range.columnIndex;
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const values = range.values;
+    const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
 
     for (let r = 0; r < rowCount; r++) {
       for (let c = 0; c < columnCount; c++) {
