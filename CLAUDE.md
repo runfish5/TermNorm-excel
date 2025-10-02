@@ -13,17 +13,6 @@ The add-in monitors Excel cells in real-time, applies configurable mapping rules
 
 ## Development Commands
 
-### Frontend (Office Add-in)
-- `npm run build` - Production build with version update
-- `npm run build:dev` - Development build with version update  
-- `npm run dev-server` - Start webpack dev server (https://localhost:3000)
-- `npm start` - Launch add-in in Excel desktop
-- `npm run start:web` - Launch add-in in Excel web
-- `npm run lint` - Run ESLint checks
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run validate` - Validate manifest.xml
-- `npm run watch` - Development build with file watching
-
 ### Backend (Python API)
 Navigate to `backend-api/` directory first:
 - `.\venv\Scripts\activate` - Activate Python virtual environment
@@ -64,18 +53,22 @@ Navigate to `backend-api/` directory first:
 ### Backend Structure - Ultra-lean Architecture
 ```
 backend-api/
-├── main.py                    # Minimal FastAPI application (3 routers only)
-├── config/                    # Centralized configuration management
-├── routers/                   # API endpoints (health, research, matching)
-│   ├── health_router.py      # Health checks and activity logging
-│   ├── research_router.py    # Core /research-and-match functionality
-│   └── matching_router.py    # /update-matcher for loading mapping data
-├── services/                  # Business logic
-│   ├── research_service.py   # Core research and ranking service
-│   └── matching_service.py   # Token matching for research
-├── models/                    # Pydantic models (common + matching only)
-├── research_and_rank/         # LLM providers and ranking algorithms
-└── utils/                     # Enhanced exception handling
+├── main.py                    # FastAPI application with 3 routers
+├── config/                    # Centralized configuration and middleware
+├── api/                       # API endpoints
+│   ├── system.py             # Health checks and activity logging
+│   ├── research_pipeline.py  # /research-and-match endpoint (core pipeline)
+│   └── matcher_setup.py      # /update-matcher endpoint (TokenLookupMatcher)
+├── core/                      # Core functionality
+│   ├── llm_providers.py      # LLM provider configuration
+│   └── logging.py            # Logging setup
+├── research_and_rank/         # Research and ranking implementation
+│   ├── web_generate_entity_profile.py
+│   ├── display_profile.py
+│   ├── call_llm_for_ranking.py
+│   └── correct_candidate_strings.py
+└── utils/                     # Utility functions
+    └── utils.py              # Helper functions and color constants
 ```
 
 ### Key Integration Points
@@ -111,62 +104,32 @@ When making changes, preserve this streamlined approach and resist over-engineer
 
 ## Event Task Flowchart
 
-The TermNorm add-in follows a structured event-driven workflow from initialization to term processing:
+The TermNorm add-in follows a structured event-driven workflow:
 
 ```
 App Initialization
     ↓
-Configuration Loading
-    ├─ Drag & Drop config file (365 Cloud)
-    └─ Load from filesystem (Local Excel)
+Configuration Loading (Drag & Drop or filesystem)
     ↓
-Python Server Setup & Startup
-    ├─ Virtual environment activation
-    ├─ API key configuration (TERMNORM_API_KEY)
-    └─ FastAPI server launch (localhost:8000)
+Server Setup (backend-api venv + FastAPI on localhost:8000)
     ↓
-Excel Files & Mapping Processing
-    ├─ Load reference Excel files via Browse button
-    ├─ Process standard mappings configuration
-    └─ Validate column mappings from app.config.json
+Mapping Processing (Load reference files + validate column mappings)
     ↓
-Activate Real-time Tracking
-    └─ LiveTracker service begins monitoring worksheet changes
+Activate Live Tracking (Monitor worksheet changes)
     ↓
-Cell Monitoring Active
-    └─ System ready for user input
+[User Input: Cell Entry + Enter]
     ↓
-User Input Event (Cell Entry + Enter)
-    └─ Triggers normalization pipeline
+Normalization Pipeline
+    ├─ 1. Quick lookup (cached)
+    ├─ 2. Fuzzy matching
+    └─ 3. LLM research (/research-and-match API)
     ↓
-Term Normalization Pipeline
-    ├─ 1. Quick lookup (cached mappings)
-    ├─ 2. Fuzzy matching (similar terms via normalizer.fuzzy.js)
-    └─ 3. Advanced search (API requests + LLM processing)
+Results Display (Ranked candidates + status indicators)
     ↓
-Results Display
-    ├─ Candidate ranking in "Tracking Results" panel
-    ├─ Color-coded status indicators
-    └─ Activity tracking panel update
+User Selection (Apply term → update target column)
     ↓
-User Selection & Application
-    ├─ Review candidates in "Candidate Ranked" view
-    ├─ Apply selected term via "apply-first" button
-    └─ Auto-update target column
-    ↓
-Logging & Persistence
-    ├─ Activity log entry (backend-api/logs/activity.jsonl)
-    ├─ State management update via state.manager.js
-    └─ History view update for future reference
+Logging (activity.jsonl + state update)
 ```
-
-### Key Event Triggers
-
-- **Configuration Events**: File drop, config reload, server status changes
-- **User Input Events**: Cell selection, Enter key press, button clicks
-- **Processing Events**: API calls, fuzzy matching, LLM requests
-- **UI Update Events**: Result display, status indicators, activity feed updates
-- **Persistence Events**: Logging actions, state changes, mapping updates
 
 ## Configuration Requirements
 
@@ -204,21 +167,3 @@ This codebase demonstrates industry best practices through systematic refactorin
 **Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
 
 **Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
-
-
-## Testing and Validation
-
-**IMPORTANT**: Do not automatically run tests or start testing procedures. The user will handle testing manually.
-
-- Use `npm run validate` to check manifest.xml syntax only when explicitly requested
-- Backend includes built-in API documentation at `/docs` endpoint for reference
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
-- Wait for user instruction before running any validation or testing commands
-
-## Manifest Configuration
-
-The add-in uses `manifest.xml` for Office integration. Key configuration:
-- Development: Uses localhost:3000 (webpack dev server)
-- Production: Update URLs in manifest for deployment
-- Supports both desktop and web Excel versions
