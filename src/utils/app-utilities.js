@@ -38,9 +38,9 @@ export const PROCESSING_COLORS = {
 
 // Version display functionality
 const version = "1.0.0";
-const commit = "14592a1";
-const commitDate = "2025-09-10 10:02";
-const branch = "web365debug_dragnDrop";
+const commit = "bae6efa";
+const commitDate = "2025-09-16 17:17";
+const branch = "master";
 const repository = "runfish5/excel-entity-standardizer";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 
