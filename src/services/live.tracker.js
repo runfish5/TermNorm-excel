@@ -40,8 +40,17 @@ export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
   // Build column map directly inline
+  // Fix: Excel's getUsedRange().getRow(0) returns partial headers starting from first used column
+  // Solution: Use getRangeByIndexes(0, 0, 1, lastCol+1) to get complete header row from column A
   trackingState.columnMap = await Excel.run(async (ctx) => {
-    const headers = ctx.workbook.worksheets.getActiveWorksheet().getUsedRange(true).getRow(0);
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const usedRange = ws.getUsedRange(true);
+    usedRange.load("columnIndex, columnCount");
+    await ctx.sync();
+
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+    const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
+    const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
     headers.load("values");
     await ctx.sync();
 
