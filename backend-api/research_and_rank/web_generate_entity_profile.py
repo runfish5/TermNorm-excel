@@ -1,6 +1,7 @@
 import json
 import time
 import requests
+import logging
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
@@ -8,6 +9,8 @@ from core.llm_providers import llm_call
 from utils.utils import CYAN, RED, RESET
 import re
 import asyncio
+
+logger = logging.getLogger(__name__)
 def generate_format_string_from_schema(schema):
     """Generate the JSON format string for LLM prompt from a JSON schema"""
     if 'properties' not in schema:
@@ -36,33 +39,34 @@ def generate_format_string_from_schema(schema):
 def scrape_url(url, char_limit):
     skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
     skip_domains = ['academia.edu', 'researchgate.net', 'arxiv.org', 'ieee.org']
-    
+
     if any(ext in url.lower() for ext in skip_extensions) or any(domain in url.lower() for domain in skip_domains):
         return None
-    
+
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept-Language': 'en-US,en;q=0.9'
         }
-        
+
         response = requests.get(url, timeout=5, headers=headers)
         if response.status_code != 200:
             return None
-        
+
         soup = BeautifulSoup(response.content[:50000], 'html.parser')
         for tag in soup(['script', 'style', 'nav', 'header', 'footer']):
             tag.decompose()
-        
+
         text = re.sub(r'\s+', ' ', soup.get_text().strip())
         if len(text) < 200 or len(text) > 10000:
             return None
-        
+
         title = soup.find('title')
         title = title.get_text().strip()[:100] if title else url.split('/')[-1]
-        
+
         return {'title': title, 'content': text[:char_limit], 'url': url}
-    except:
+    except Exception as e:
+        logger.error(f"Scraping failed for {url}: {e}")
         return None
 
 async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
@@ -93,10 +97,10 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
             bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
             bing_response = requests.get(bing_url, headers=english_headers, timeout=10)
             bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
-            urls = [link.get('href') for link in bing_soup.find_all('a', href=True) 
+            urls = [link.get('href') for link in bing_soup.find_all('a', href=True)
                    if link.get('href') and link.get('href').startswith('http') and 'bing.com' not in link.get('href')][:max_sites * 4]
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Bing fallback search failed for '{query}': {e}")
     
     scraped_content = []
     with ThreadPoolExecutor(max_workers=4) as executor:
