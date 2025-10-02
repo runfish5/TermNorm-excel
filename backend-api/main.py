@@ -8,6 +8,9 @@ load_dotenv()
 
 from fastapi import FastAPI
 import logging
+import asyncio
+from datetime import datetime, time as dt_time
+from contextlib import asynccontextmanager
 
 from config import settings
 from config.middleware import setup_middleware
@@ -18,15 +21,59 @@ from api import (
     research_router
 )
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+from core.user_manager import cleanup_all_sessions
 
 # Setup logging
 setup_logging(level="INFO", log_file="logs/app.log")
 logger = logging.getLogger(__name__)
 
-# Create FastAPI application
+
+async def midnight_cleanup_task():
+    """Background task that runs session cleanup at midnight"""
+    while True:
+        # Calculate seconds until next midnight
+        now = datetime.now()
+        midnight = datetime.combine(now.date(), dt_time(0, 0))
+
+        # If past midnight today, calculate for tomorrow
+        if now.time() >= dt_time(0, 0):
+            from datetime import timedelta
+            midnight = midnight + timedelta(days=1)
+
+        seconds_until_midnight = (midnight - now).total_seconds()
+
+        logger.info(f"Next cleanup scheduled in {seconds_until_midnight/3600:.1f} hours at {midnight}")
+
+        # Sleep until midnight
+        await asyncio.sleep(seconds_until_midnight)
+
+        # Run cleanup
+        try:
+            session_count = cleanup_all_sessions()
+            logger.info(f"Midnight cleanup completed: {session_count} sessions cleared")
+        except Exception as e:
+            logger.error(f"Midnight cleanup failed: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown tasks"""
+    # Startup
+    logger.info("Starting background cleanup task")
+    cleanup_task = asyncio.create_task(midnight_cleanup_task())
+
+    yield
+
+    # Shutdown
+    cleanup_task.cancel()
+    logger.info("Background cleanup task cancelled")
+
+
+# Create FastAPI application with lifespan
 app = FastAPI(
     title=settings.api_title,
-    description=f"{settings.api_description} - Uses {LLM_PROVIDER.upper()} ({LLM_MODEL})"
+    description=f"{settings.api_description} - Uses {LLM_PROVIDER.upper()} ({LLM_MODEL})",
+    lifespan=lifespan
 )
 
 # Setup middleware

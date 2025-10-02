@@ -6,28 +6,31 @@ from fastapi import Request, FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .settings import settings
+from core.user_manager import user_manager
 
 logger = logging.getLogger(__name__)
 
 
-async def api_key_middleware(request: Request, call_next):
-    """API Key authentication middleware"""
+async def user_auth_middleware(request: Request, call_next):
+    """User authentication middleware - authenticate by IP"""
     # Check if this is a protected endpoint
     if any(request.url.path.startswith(path) for path in settings.protected_paths):
-        api_key = request.headers.get("X-API-Key")
-        logger.info(f"[API_KEY_CHECK] Path: {request.url.path}, API Key provided: {'Yes' if api_key else 'No'}")
+        client_ip = request.client.host
+        user_id = user_manager.authenticate(client_ip)
 
-        if not api_key or (settings.api_key and api_key != settings.api_key):
-            logger.warning(f"[API_KEY_CHECK] Rejecting request - API key invalid")
+        if not user_id:
+            logger.warning(f"[USER_AUTH] IP {client_ip} not authorized")
             return JSONResponse(
-                status_code=401,
+                status_code=403,
                 content={
-                    "error": "Invalid or missing API key",
-                    "message": "Please provide a valid X-API-Key header"
+                    "error": "Forbidden",
+                    "message": f"IP {client_ip} not authorized. Contact admin."
                 }
             )
 
-        logger.info(f"[API_KEY_CHECK] API key valid, proceeding")
+        # Inject user context into request
+        request.state.user_id = user_id
+        logger.info(f"[USER_AUTH] Request from user {user_id} (IP: {client_ip})")
 
     response = await call_next(request)
     return response
@@ -36,8 +39,8 @@ async def api_key_middleware(request: Request, call_next):
 def setup_middleware(app: FastAPI) -> None:
     """Setup all middleware for the FastAPI application"""
 
-    # API Key middleware
-    app.middleware("http")(api_key_middleware)
+    # User authentication middleware
+    app.middleware("http")(user_auth_middleware)
 
     # CORS middleware
     app.add_middleware(

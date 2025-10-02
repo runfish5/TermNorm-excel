@@ -8,7 +8,7 @@ from pathlib import Path
 from pprint import pprint
 from collections import Counter
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Body
 
 from api.matcher_setup import get_token_matcher
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
@@ -27,16 +27,17 @@ with open(_schema_path, 'r') as f:
 
 
 @router.post("/research-and-match")
-async def research_and_match(request: Dict[str, str]) -> Dict[str, Any]:
+async def research_and_match(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
     """Research a query and rank candidates using LLM + token matching"""
-    query = request.get("query", "")
-    logger.info(f"[PIPELINE] Started for query: '{query}'")
+    user_id = request.state.user_id
+    query = payload.get("query", "")
+    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}'")
     start_time = time.time()
 
-    # Get token matcher
-    token_matcher = get_token_matcher()
+    # Get user's token matcher
+    token_matcher = get_token_matcher(user_id)
     if token_matcher is None:
-        logger.error("[MISSING MAPPING INDEXES] TokenLookupMatcher not initialized")
+        logger.error(f"[MISSING MAPPING INDEXES] User {user_id}: TokenLookupMatcher not initialized")
         raise HTTPException(
             status_code=503,
             detail="Matcher not initialized - reload configuration files"
