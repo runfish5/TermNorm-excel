@@ -55,20 +55,15 @@ async def research_and_match(request: Dict[str, str]) -> Dict[str, Any]:
     # Step 2: Token matching
     logger.info("\n[PIPELINE] Step 2: Matching candidates")
 
-    # Usage - direct replacement:
-    search_terms = [query] + utils.flatten_strings(entity_profile)
+    # Build search terms from query and entity profile
+    search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
+    unique_search_terms = list(set(search_terms))
 
-    logger.info(f"LENGTH OF SEARCH TERMS: {len(search_terms)}")
-    search_terms = [word for s in search_terms for word in s.split()]
-    logger.info(f"(After) LENGTH OF SEARCH TERMS: {len(search_terms)}")
-    logger.info(3*"\n>" + f">{'search_terms'}")
-    word_counts = Counter(search_terms)
-    logger.info("WORD COUNTS BEFORE SET:")
-    for word, count in word_counts.most_common():
-        logger.info(f"  '{word}': {count}")
+    logger.info(f"Search terms: {len(search_terms)} total → {len(unique_search_terms)} unique")
+    logger.info(f"Unique terms: {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
     match_start = time.time()
-    candidate_results = token_matcher.match(list(set(search_terms)))
+    candidate_results = token_matcher.match(unique_search_terms)
 
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
     logger.info(f"Match completed in {time.time() - match_start:.2f}s")

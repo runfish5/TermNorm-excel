@@ -120,10 +120,10 @@ export async function processTermNormalization(value, forward, reverse) {
   const cached = getCachedMatch(val, forward, reverse);
   if (cached) return cached;
 
-  // Try research API
-  const researched = await findTokenMatch(val);
-  if (researched) return researched;
+  // Try fuzzy matching before expensive API call
+  const fuzzy = findFuzzyMatch(val, forward, reverse);
+  if (fuzzy) return fuzzy;
 
-  // Fallback to fuzzy
-  return findFuzzyMatch(val, forward, reverse);
+  // Fallback to research API for advanced matching
+  return await findTokenMatch(val);
 }
