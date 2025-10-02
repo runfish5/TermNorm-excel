@@ -34,9 +34,13 @@ class Settings(BaseSettings):
         "*"
     ]
 
-    # Protected Endpoints (require API key)
+    # Protected Endpoints (require user authentication)
+    # Note: "/" (root health check) is intentionally public
     protected_paths: List[str] = [
+        "/update-matcher",
         "/research-and-match",
+        "/test-connection",
+        "/log-activity",
         "/analyze-patterns",
         "/match-term"
     ]

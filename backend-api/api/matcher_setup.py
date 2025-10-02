@@ -6,7 +6,9 @@ import logging
 import time
 from collections import defaultdict
 from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Body
+
+from core.user_manager import get_session, create_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -70,46 +72,47 @@ class TokenLookupMatcher:
                     self.token_term_lookup[token].add(term_index)
 
 
-# Global matcher instance (singleton pattern)
-_token_matcher: TokenLookupMatcher = None
-
-
-def get_token_matcher() -> TokenLookupMatcher:
-    """Get the global token matcher instance"""
-    global _token_matcher
-    return _token_matcher
+def get_token_matcher(user_id: str) -> TokenLookupMatcher:
+    """Get user's token matcher instance"""
+    session = get_session(user_id)
+    return session.matcher if session else None
 
 
 @router.post("/update-matcher")
-async def update_matcher(request: Dict[str, List[str]]) -> Dict[str, Any]:
-    """Smart endpoint that creates new matcher or appends to existing one"""
-    global _token_matcher
+async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Per-user matcher management - creates or updates user's matcher"""
+    user_id = request.state.user_id
+    terms = payload.get("terms", [])
+    force_reset = payload.get("force_reset", False)
+
     start = time.time()
+    logger.info(f"User {user_id}: Updating matcher with {len(terms)} terms")
 
-    terms = request.get("terms", [])
-    logger.info(f"Updating matcher with {len(terms)} terms")
+    # Get or create user session
+    session = get_session(user_id)
 
-    if _token_matcher is None:
+    if force_reset or session is None:
         # Create new matcher
-        _token_matcher = TokenLookupMatcher(terms)
-        setup_time = time.time() - start
-        logger.info(f"TokenLookupMatcher setup complete in {setup_time:.2f} seconds")
+        matcher = TokenLookupMatcher(terms)
+        session = create_session(user_id, matcher)
+        elapsed = time.time() - start
+        logger.info(f"User {user_id}: TokenLookupMatcher created in {elapsed:.2f}s")
 
         return {
-            "status": "matcher_setup_complete",
-            "setup_time": setup_time,
-            "total_terms": len(_token_matcher.complete_term_dataset),
-            "unique_terms": len(_token_matcher.deduplicated_terms),
-            "duplicates_removed": len(_token_matcher.complete_term_dataset) - len(_token_matcher.deduplicated_terms),
-            "status_message": f"✅ Matcher initialized - {len(_token_matcher.deduplicated_terms)} unique terms loaded in {setup_time:.2f}s"
+            "status": "matcher_created",
+            "setup_time": elapsed,
+            "total_terms": len(matcher.complete_term_dataset),
+            "unique_terms": len(matcher.deduplicated_terms),
+            "duplicates_removed": len(matcher.complete_term_dataset) - len(matcher.deduplicated_terms),
+            "status_message": f"✅ Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s"
         }
     else:
         # Append to existing matcher
-        _token_matcher.append_terms(terms)
-        append_time = time.time() - start
+        session.matcher.append_terms(terms)
+        elapsed = time.time() - start
         return {
             "status": "terms_appended",
-            "append_time": append_time,
-            "total_unique_terms": len(_token_matcher.deduplicated_terms),
-            "status_message": f"✅ Terms appended - {len(_token_matcher.deduplicated_terms)} total unique terms"
+            "append_time": elapsed,
+            "total_unique_terms": len(session.matcher.deduplicated_terms),
+            "status_message": f"✅ Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms"
         }

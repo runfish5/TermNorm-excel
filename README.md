@@ -180,23 +180,42 @@ If you have problems running the sample, take the following steps:
 - **Verify file paths** - ensure all mapping reference files exist at the specified locations.
 - **Try running again.**
 
+### Multi-User Setup
+
+The backend supports multiple concurrent users with IP-based authentication. Each user has an isolated session.
+
+**Add users** - Edit `backend-api/config/users.json`:
+```json
+{
+  "users": {
+    "admin": {
+      "email": "admin@company.com",
+      "allowed_ips": ["127.0.0.1", "192.168.1.134"]
+    },
+    "john": {
+      "email": "john@company.com",
+      "allowed_ips": ["192.168.1.100"]
+    }
+  }
+}
+```
+
+**Sessions:**
+- Users are authenticated by IP address
+- Each user gets an isolated TokenLookupMatcher
+- All sessions cleared at midnight daily
+- Changes to users.json are hot-reloaded (no restart needed)
+
 ### Cloud/Production Server Setup
 
 For production deployment:
 
-1. **Set your API key:**
-   ```bash
-   set TERMNORM_API_KEY=your_password_here
-   ```
-
-2. **Start the production server:**
+1. **Start network server:**
    ```bash
    python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
-3. **Configure API key in settings:**
-   - Go to **Settings** in the TermNorm interface
-   - Enter your API key
+2. **Add users with their actual IPs** in `backend-api/config/users.json`
 
 If you still have problems, see {{TROUBLESHOOT_DOCS_PLACEHOLDER}} or create a GitHub issue and we'll help you.
 
