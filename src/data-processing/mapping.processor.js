@@ -160,6 +160,7 @@ export async function loadAndProcessMappings(customParams) {
     // Return result - let caller handle state management
     return result;
   } catch (error) {
+    console.error("Mapping load failed:", error);
     setStatus(`Failed: ${error.message}`, true);
     clearMappings();
     throw error;

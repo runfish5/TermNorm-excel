@@ -105,14 +105,14 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
    - **Start the Python server**
       - Local Development
       ```bash
-      python -m uv corn main:app --reload
+      python -m uvicorn main:app --reload
       ```
       The server will start and be ready to handle term normalization requests.
 
       - Network based:
       You first must set your password, but the start command is almost the same.
       ```bash
-      set TERMNORM_API_KEY=mycatlikesfish 
+      set TERMNORM_API_KEY=mycatlikesfish
       python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
       ```
    
@@ -186,12 +186,12 @@ For production deployment:
 
 1. **Set your API key:**
    ```bash
-   set TERMINAL_API_KEY=your_password_here
+   set TERMNORM_API_KEY=your_password_here
    ```
 
 2. **Start the production server:**
    ```bash
-   python -m uv corn main:app --host 0.0.0.0 --port 8000 --reload
+   python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 3. **Configure API key in settings:**
