@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { setStatus } from "../shared-services/state.manager.js";
+import { setStatus, getState } from "../shared-services/state-machine.manager.js";
 
 export function getCachedMatch(value, forward, reverse) {
   const val = String(value || "").trim();
@@ -115,6 +115,19 @@ export async function findTokenMatch(value) {
 export async function processTermNormalization(value, forward, reverse) {
   const val = String(value || "").trim();
   if (!val) return null;
+
+  // Verify backend state before processing
+  const state = getState();
+  if (!state.mappings.loaded) {
+    setStatus("❌ Mapping tables not loaded - please load mapping tables first", true);
+    return null;
+  }
+
+  const syncedSources = Object.values(state.mappings.sources).filter((s) => s.status === "synced");
+  if (syncedSources.length === 0) {
+    setStatus("❌ No mapping tables synced with backend - please reload mapping tables", true);
+    return null;
+  }
 
   // Try cached first
   const cached = getCachedMatch(val, forward, reverse);

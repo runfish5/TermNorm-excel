@@ -48,8 +48,8 @@ async function callBackend(mappings) {
     method: "POST",
     headers: headers,
     body: JSON.stringify({
-      dictionary: toStrings(mappings.forward),
-      project_name: mappings.metadata?.project_name || "unnamed_project",
+      dictionary: toStrings(mappings?.forward),
+      project_name: mappings?.metadata?.project_name || "unnamed_project",
       bidirectional: hasBoth(mappings),
       mapping_metadata: getStats(mappings),
     }),
@@ -65,11 +65,11 @@ async function callBackend(mappings) {
 }
 
 function hasMappings(mappings) {
-  return Object.keys(mappings.forward || {}).length > 0 || Object.keys(mappings.reverse || {}).length > 0;
+  return Object.keys(mappings?.forward || {}).length > 0 || Object.keys(mappings?.reverse || {}).length > 0;
 }
 
 function hasBoth(mappings) {
-  return Object.keys(mappings.forward || {}).length > 0 && Object.keys(mappings.reverse || {}).length > 0;
+  return Object.keys(mappings?.forward || {}).length > 0 && Object.keys(mappings?.reverse || {}).length > 0;
 }
 
 function toStrings(forward = {}) {
@@ -81,7 +81,7 @@ function toStrings(forward = {}) {
 }
 
 function getStats(mappings) {
-  const entries = Object.entries(mappings.forward || {});
+  const entries = Object.entries(mappings?.forward || {});
   if (!entries.length) return { methods: {}, confidence_stats: { min: 1, max: 0, avg: 0 }, total_mappings: 0 };
 
   const methods = {};

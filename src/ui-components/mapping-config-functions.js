@@ -1,7 +1,8 @@
 // ui-components/mapping-config-functions.js
 import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
-import { state, setStatus, addMappingSource } from "../shared-services/state.manager.js";
+import { state, setStatus } from "../shared-services/state-machine.manager.js";
+import { loadMappingSource } from "../shared-services/state-machine.manager.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
   return `
@@ -133,18 +134,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
   }
 
   async function loadMappings() {
-    // Check server status before proceeding
-    const isServerOnline = state.server.online;
-    if (!isServerOnline) {
-      const errorMessage =
-        "❌ Server offline - Mapping table requires backend server to store Excel terminology for AI matching. Please start the backend server and refresh connection.";
-      setStatus(errorMessage, true);
-      return;
-    }
-
     try {
-      setStatus("Loading...");
-
       const customParams = {
         useCurrentFile: element.querySelector(".current-file").checked,
         sheetName: element.querySelector(".worksheet-dropdown").value,
@@ -153,16 +143,25 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
         externalFile: externalFile,
       };
 
-      const result = await loadAndProcessMappings(customParams);
-      addMappingSource(index, result, result, mappingConfig);
-      mappings = result;
+      // Use transaction pattern - state machine handles backend verification
+      await loadMappingSource(index, loadAndProcessMappings, customParams);
 
-      handleMappingSuccess(result);
-      onMappingLoaded?.(index, mappings, result);
+      // Update local reference for backward compatibility
+      mappings = state.mappings.sources[index]?.data || { forward: {}, reverse: {}, metadata: null };
+
+      handleMappingSuccess(mappings);
+      onMappingLoaded?.(index, mappings, mappings);
       element.open = false;
     } catch (error) {
       mappings = { forward: {}, reverse: {}, metadata: null };
-      setStatus(error.message, true);
+      // Provide specific error messages based on error type
+      let errorMessage = error.message;
+      if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+        errorMessage = "❌ Authentication failed - Your IP is not authorized. Check backend users.json";
+      } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
+        errorMessage = "❌ Server offline - Please start the backend server and refresh connection";
+      }
+      setStatus(errorMessage, true);
     }
   }
 

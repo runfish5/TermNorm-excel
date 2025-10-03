@@ -6,7 +6,7 @@ import {
   setupMappingConfigEvents,
   loadMappingConfigData,
 } from "./mapping-config-functions.js";
-import { state, setStatus, setConfig } from "../shared-services/state.manager.js";
+import { state, setStatus, setConfig } from "../shared-services/state-machine.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
@@ -249,12 +249,14 @@ function updateJsonDump() {
     sources = state.mappings.sources || {};
   if (!content || !Object.keys(sources).length) return;
   content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(
-    Object.entries(sources).map(([index, { mappings, result }]) => ({
+    Object.entries(sources).map(([index, source]) => ({
       sourceIndex: +index + 1,
-      forwardMappings: Object.keys(mappings.forward || {}).length,
-      reverseMappings: Object.keys(mappings.reverse || {}).length,
-      metadata: result.metadata,
-      mappings,
+      status: source.status,
+      backendSynced: source.backendSynced,
+      forwardMappings: Object.keys(source.data?.forward || {}).length,
+      reverseMappings: Object.keys(source.data?.reverse || {}).length,
+      metadata: source.data?.metadata,
+      lastSyncTime: source.lastSyncTime,
     })),
     null,
     2

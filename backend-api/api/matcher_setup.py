@@ -78,6 +78,35 @@ def get_token_matcher(user_id: str) -> TokenLookupMatcher:
     return session.matcher if session else None
 
 
+def get_session_state(user_id: str) -> Dict[str, Any]:
+    """Get current session state for verification"""
+    session = get_session(user_id)
+
+    if session is None:
+        return {
+            "session_exists": False,
+            "matcher_initialized": False,
+            "unique_terms": 0,
+            "total_terms": 0
+        }
+
+    matcher = session.matcher
+    return {
+        "session_exists": True,
+        "matcher_initialized": True,
+        "unique_terms": len(matcher.deduplicated_terms),
+        "total_terms": len(matcher.complete_term_dataset),
+        "user_id": user_id
+    }
+
+
+@router.get("/session-state")
+async def get_current_session_state(request: Request) -> Dict[str, Any]:
+    """Get current user's session state for frontend verification"""
+    user_id = request.state.user_id
+    return get_session_state(user_id)
+
+
 @router.post("/update-matcher")
 async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Per-user matcher management - creates or updates user's matcher"""
@@ -98,21 +127,25 @@ async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) 
         elapsed = time.time() - start
         logger.info(f"User {user_id}: TokenLookupMatcher created in {elapsed:.2f}s")
 
-        return {
+        response = {
             "status": "matcher_created",
             "setup_time": elapsed,
             "total_terms": len(matcher.complete_term_dataset),
             "unique_terms": len(matcher.deduplicated_terms),
             "duplicates_removed": len(matcher.complete_term_dataset) - len(matcher.deduplicated_terms),
-            "status_message": f"✅ Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s"
+            "status_message": f"✅ Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s",
+            "session_state": get_session_state(user_id)  # Include state snapshot
         }
+        return response
     else:
         # Append to existing matcher
         session.matcher.append_terms(terms)
         elapsed = time.time() - start
-        return {
+        response = {
             "status": "terms_appended",
             "append_time": elapsed,
             "total_unique_terms": len(session.matcher.deduplicated_terms),
-            "status_message": f"✅ Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms"
+            "status_message": f"✅ Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms",
+            "session_state": get_session_state(user_id)  # Include state snapshot
         }
+        return response

@@ -1,6 +1,6 @@
 // utils/server-utilities.js
 // Consolidated server configuration and status management
-import { state, setStatus } from "../shared-services/state.manager.js";
+import { state, setStatus } from "../shared-services/state-machine.manager.js";
 
 // Server configuration functions
 export function getHost() {
@@ -68,6 +68,10 @@ export async function checkServerStatus() {
     // Simple status messages
     if (isOnline) {
       setStatus("Server online");
+    } else if (testResponse.status === 403) {
+      // Server is online but authentication failed
+      const errorData = await testResponse.json().catch(() => ({}));
+      setStatus(`❌ Authentication failed: ${errorData.message || 'IP not authorized'}`, true);
     } else {
       setStatus("Server connection failed", true);
     }
@@ -76,7 +80,7 @@ export async function checkServerStatus() {
     state.server.host = host;
     state.server.info = {};
     updateServerUI(state.server);
-    setStatus(`Connection error: ${error.message}`, true);
+    setStatus(`❌ Server offline: ${error.message}`, true);
   } finally {
     isCheckingServer = false;
   }

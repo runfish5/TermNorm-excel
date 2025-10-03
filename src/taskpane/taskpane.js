@@ -2,7 +2,7 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state, setStatus, onStatusChange } from "../shared-services/state.manager.js";
+import { state, setStatus, onStatusChange, onStateChange } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
@@ -70,6 +70,15 @@ Office.onReady(async (info) => {
     }
   });
 
+  onStateChange((newState) => {
+    // Log state changes for debugging
+    console.log("State changed:", {
+      mappingsLoaded: newState.mappings.loaded,
+      sourceCount: Object.keys(newState.mappings.sources).length,
+      syncedCount: Object.values(newState.mappings.sources).filter((s) => s.status === "synced").length,
+    });
+  });
+
   window.showView = showView;
 
   updateContentMargin();
@@ -95,9 +104,11 @@ Office.onReady(async (info) => {
 
 async function startLiveTracking() {
   const config = state.config.data;
-  const mappings = state.mappings;
+  const mappings = state.mappings.combined;
 
-  if (!config || (!mappings.forward && !mappings.reverse)) return setStatus("Error: Config or mappings missing", true);
+  if (!config || !mappings || (!mappings.forward && !mappings.reverse)) {
+    return setStatus("Error: Config or mappings missing", true);
+  }
 
   try {
     await startTracking(config, mappings);
@@ -112,6 +123,6 @@ async function renewPromptHandler() {
   const config = state.config.data;
   if (!config) return setStatus("Config not loaded", true);
 
-  const mappings = state.mappings;
+  const mappings = state.mappings.combined;
   await renewPrompt(mappings, config, (msg, isError) => setStatus(msg, isError));
 }
