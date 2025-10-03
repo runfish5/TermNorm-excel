@@ -1,6 +1,6 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
-import { setStatus, clearMappings } from "../shared-services/state-machine.manager.js";
+import { state, setStatus, clearMappings } from "../shared-services/state-machine.manager.js";
 // Inlined column utility
 function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
@@ -82,7 +82,10 @@ async function updateTokenMatcher(terms) {
     const response = await fetch(`${getHost()}/update-matcher`, {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify({ terms }),
+      body: JSON.stringify({
+        terms,
+        project_id: state.config.data?.workbook || "default"
+      }),
       signal: controller.signal,
     });
 

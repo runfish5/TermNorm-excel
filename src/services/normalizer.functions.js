@@ -42,12 +42,16 @@ export async function findTokenMatch(value) {
   try {
     setStatus("Starting mapping process...");
 
+    const state = getState();
     const headers = getHeaders();
     const apiEndpoint = `${getHost()}/research-and-match`;
     const response = await fetch(apiEndpoint, {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({ query: val }),
+      body: JSON.stringify({
+        query: val,
+        project_id: state.config.data?.workbook || "default"
+      }),
     });
 
     if (!response.ok) {

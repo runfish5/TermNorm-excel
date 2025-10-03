@@ -30,14 +30,15 @@ with open(_schema_path, 'r') as f:
 async def research_and_match(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
     """Research a query and rank candidates using LLM + token matching"""
     user_id = request.state.user_id
+    project_id = payload.get("project_id", "default")
     query = payload.get("query", "")
-    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}'")
+    logger.info(f"[PIPELINE] User {user_id}, project {project_id}: Started for query: '{query}'")
     start_time = time.time()
 
-    # Get user's token matcher
-    token_matcher = get_token_matcher(user_id)
+    # Get user's token matcher for this project
+    token_matcher = get_token_matcher(user_id, project_id)
     if token_matcher is None:
-        logger.error(f"[MISSING MAPPING INDEXES] User {user_id}: TokenLookupMatcher not initialized")
+        logger.error(f"[MISSING MAPPING INDEXES] User {user_id}, project {project_id}: TokenLookupMatcher not initialized")
         raise HTTPException(
             status_code=503,
             detail="Matcher not initialized - reload configuration files"

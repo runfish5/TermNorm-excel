@@ -72,15 +72,15 @@ class TokenLookupMatcher:
                     self.token_term_lookup[token].add(term_index)
 
 
-def get_token_matcher(user_id: str) -> TokenLookupMatcher:
-    """Get user's token matcher instance"""
-    session = get_session(user_id)
+def get_token_matcher(user_id: str, project_id: str = "default") -> TokenLookupMatcher:
+    """Get user's token matcher instance for specific project"""
+    session = get_session(user_id, project_id)
     return session.matcher if session else None
 
 
-def get_session_state(user_id: str) -> Dict[str, Any]:
+def get_session_state(user_id: str, project_id: str = "default") -> Dict[str, Any]:
     """Get current session state for verification"""
-    session = get_session(user_id)
+    session = get_session(user_id, project_id)
 
     if session is None:
         return {
@@ -101,31 +101,32 @@ def get_session_state(user_id: str) -> Dict[str, Any]:
 
 
 @router.get("/session-state")
-async def get_current_session_state(request: Request) -> Dict[str, Any]:
+async def get_current_session_state(request: Request, project_id: str = "default") -> Dict[str, Any]:
     """Get current user's session state for frontend verification"""
     user_id = request.state.user_id
-    return get_session_state(user_id)
+    return get_session_state(user_id, project_id)
 
 
 @router.post("/update-matcher")
 async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Per-user matcher management - creates or updates user's matcher"""
+    """Per-user, per-project matcher management"""
     user_id = request.state.user_id
+    project_id = payload.get("project_id", "default")
     terms = payload.get("terms", [])
     force_reset = payload.get("force_reset", False)
 
     start = time.time()
-    logger.info(f"User {user_id}: Updating matcher with {len(terms)} terms")
+    logger.info(f"User {user_id}, project {project_id}: Updating matcher with {len(terms)} terms")
 
-    # Get or create user session
-    session = get_session(user_id)
+    # Get or create user session for this project
+    session = get_session(user_id, project_id)
 
     if force_reset or session is None:
         # Create new matcher
         matcher = TokenLookupMatcher(terms)
-        session = create_session(user_id, matcher)
+        session = create_session(user_id, project_id, matcher)
         elapsed = time.time() - start
-        logger.info(f"User {user_id}: TokenLookupMatcher created in {elapsed:.2f}s")
+        logger.info(f"User {user_id}, project {project_id}: TokenLookupMatcher created in {elapsed:.2f}s")
 
         response = {
             "status": "matcher_created",
@@ -134,7 +135,7 @@ async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) 
             "unique_terms": len(matcher.deduplicated_terms),
             "duplicates_removed": len(matcher.complete_term_dataset) - len(matcher.deduplicated_terms),
             "status_message": f"✅ Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s",
-            "session_state": get_session_state(user_id)  # Include state snapshot
+            "session_state": get_session_state(user_id, project_id)  # Include state snapshot
         }
         return response
     else:
@@ -146,6 +147,6 @@ async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) 
             "append_time": elapsed,
             "total_unique_terms": len(session.matcher.deduplicated_terms),
             "status_message": f"✅ Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms",
-            "session_state": get_session_state(user_id)  # Include state snapshot
+            "session_state": get_session_state(user_id, project_id)  # Include state snapshot
         }
         return response
