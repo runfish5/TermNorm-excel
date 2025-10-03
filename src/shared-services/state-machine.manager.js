@@ -135,7 +135,9 @@ async function executeTransaction(operation) {
  */
 async function verifyBackendState() {
   try {
-    const response = await fetch(`${getHost()}/session-state`, {
+    const projectId = appState.config.data?.workbook || "default";
+    const params = new URLSearchParams({ project_id: projectId });
+    const response = await fetch(`${getHost()}/session-state?${params}`, {
       method: "GET",
       headers: getHeaders(),
     });

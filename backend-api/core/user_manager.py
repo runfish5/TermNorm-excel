@@ -67,16 +67,18 @@ user_manager = UserManager()
 _user_sessions: Dict[str, UserSession] = {}
 
 
-def get_session(user_id: str) -> Optional[UserSession]:
+def get_session(user_id: str, project_id: str = "default") -> Optional[UserSession]:
     """Get user session, returns None if not found"""
-    return _user_sessions.get(user_id)
+    key = f"{user_id}:{project_id}"
+    return _user_sessions.get(key)
 
 
-def create_session(user_id: str, matcher) -> UserSession:
-    """Create new session for user"""
+def create_session(user_id: str, project_id: str, matcher) -> UserSession:
+    """Create new session for user + project"""
+    key = f"{user_id}:{project_id}"
     session = UserSession(user_id, matcher)
-    _user_sessions[user_id] = session
-    logger.info(f"Created session for user: {user_id}")
+    _user_sessions[key] = session
+    logger.info(f"Created session for user {user_id}, project: {project_id}")
     return session
 
 
@@ -93,7 +95,14 @@ def cleanup_all_sessions() -> int:
 
 def get_session_stats() -> dict:
     """Get statistics about active sessions"""
+    sessions_by_user = {}
+    for key in _user_sessions.keys():
+        user_id, project_id = key.split(":", 1)
+        if user_id not in sessions_by_user:
+            sessions_by_user[user_id] = []
+        sessions_by_user[user_id].append(project_id)
+
     return {
         "active_sessions": len(_user_sessions),
-        "users": list(_user_sessions.keys())
+        "sessions_by_user": sessions_by_user
     }
