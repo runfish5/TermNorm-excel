@@ -48,7 +48,6 @@ class UserManager:
 
         for user_id, data in self.users.items():
             if ip in data.get("allowed_ips", []):
-                logger.info(f"IP {ip} authenticated as {user_id}")
                 return user_id
 
         logger.warning(f"IP {ip} not authorized")

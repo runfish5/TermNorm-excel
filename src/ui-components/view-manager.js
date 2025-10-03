@@ -1,4 +1,4 @@
-import { state } from "../shared-services/state.manager.js";
+import { state } from "../shared-services/state-machine.manager.js";
 export function showView(viewName) {
   const views = ["setup-view", "results-view", "history-view", "settings-view"];
   const viewElement = `${viewName}-view`;

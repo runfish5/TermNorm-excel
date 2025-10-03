@@ -1,6 +1,6 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
-import { setStatus, clearMappings } from "../shared-services/state.manager.js";
+import { setStatus, clearMappings } from "../shared-services/state-machine.manager.js";
 // Inlined column utility
 function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
@@ -89,12 +89,22 @@ async function updateTokenMatcher(terms) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Token matcher failed: ${response.statusText}`);
+      if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Authentication failed (403): ${errorData.message || 'IP not authorized - check backend users.json'}`);
+      }
+      throw new Error(`Token matcher failed (${response.status}): ${response.statusText}`);
     }
 
     return response.json();
   } catch (error) {
     clearTimeout(timeoutId);
+
+    // Re-throw if already formatted
+    if (error.message.includes("Authentication failed") || error.message.includes("403")) {
+      throw error;
+    }
+
     let errorMessage = "❌ Connection failed: " + error.message;
     if (error.name === "AbortError") {
       errorMessage = "Backend server timeout - ensure server is running on port 8000";
@@ -134,35 +144,16 @@ async function loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
 
 // Main function - much simpler
 export async function loadAndProcessMappings(customParams) {
-  try {
-    setStatus("Loading mappings...");
+  // Validate params, load data, process mappings
+  const params = validateParams(customParams);
+  const data = await loadWorksheetData(params);
+  const result = processMappings(data, params.sourceColumn, params.targetColumn);
 
-    // Validate params, load data, process mappings
-    const params = validateParams(customParams);
-    const data = await loadWorksheetData(params);
-    const result = processMappings(data, params.sourceColumn, params.targetColumn);
+  // Update backend matcher - let errors bubble up to transaction handler
+  const matcherResponse = await updateTokenMatcher(Object.keys(result.reverse));
 
-    // Try to update matcher, but don't fail if server unavailable
-    try {
-      const matcherResponse = await updateTokenMatcher(Object.keys(result.reverse));
-      // Use backend status message if available
-      if (matcherResponse?.status_message) {
-        setStatus(matcherResponse.status_message);
-      }
-    } catch (error) {
-      console.warn("Token matcher update failed:", error.message);
-      // Add server connectivity warning to result metadata
-      if (result.metadata) {
-        result.metadata.serverWarning = error.message;
-      }
-    }
+  // Attach backend response to result for verification
+  result.backendResponse = matcherResponse;
 
-    // Return result - let caller handle state management
-    return result;
-  } catch (error) {
-    console.error("Mapping load failed:", error);
-    setStatus(`Failed: ${error.message}`, true);
-    clearMappings();
-    throw error;
-  }
+  return result;
 }
