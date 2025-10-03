@@ -25,7 +25,6 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
 
 - Microsoft Excel installed on your system or licence for the cloud version (Microsoft 365 subscription).
 - Python (latest version). Visit the Python.org site to download and install the right version for your operating system. To verify if you've already installed Python, run the command `python -v` in your terminal.
-- API key of groq.com  (free) or OpenAI.
 
 ### Add the add-in to Excel
 
@@ -102,6 +101,22 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
      .\venv\Scripts\activate
      ```
 
+   - **Configure users** (for multi-user access):
+     Edit `backend-api/config/users.json` to add allowed IPs:
+     ```json
+     {
+       "users": {
+         "admin": {
+           "email": "admin@company.com",
+           "allowed_ips": ["127.0.0.1"]
+         }
+       }
+     }
+     ```
+
+   - **Configure LLM provider**:
+     Set Groq or OpenAI API keys in your environment for research-and-match functionality
+
    - **Start the Python server**
       - Local Development
       ```bash
@@ -110,9 +125,7 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
       The server will start and be ready to handle term normalization requests.
 
       - Network based:
-      You first must set your password, but the start command is almost the same.
       ```bash
-      set TERMNORM_API_KEY=mycatlikesfish
       python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
       ```
    
@@ -182,7 +195,7 @@ If you have problems running the sample, take the following steps:
 
 ### Multi-User Setup
 
-The backend supports multiple concurrent users with IP-based authentication. Each user has an isolated session.
+The backend supports multiple concurrent users with IP-based authentication. Each user has isolated sessions.
 
 **Add users** - Edit `backend-api/config/users.json`:
 ```json
@@ -202,20 +215,26 @@ The backend supports multiple concurrent users with IP-based authentication. Eac
 
 **Sessions:**
 - Users are authenticated by IP address
-- Each user gets an isolated TokenLookupMatcher
+- Each user gets isolated sessions per workbook
 - All sessions cleared at midnight daily
 - Changes to users.json are hot-reloaded (no restart needed)
+
+**Per-Project Isolation:**
+- Each Excel workbook gets its own isolated matcher
+- Open multiple workbooks simultaneously without term conflation
+- Session keys: `{user_id}:{workbook_name}`
+- Example: User "admin" can work on "Book 76" and "DataSet.xlsx" simultaneously with separate matchers
 
 ### Cloud/Production Server Setup
 
 For production deployment:
 
-1. **Start network server:**
+1. **Add users with their actual IPs** in `backend-api/config/users.json`
+
+2. **Start network server:**
    ```bash
    python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
-
-2. **Add users with their actual IPs** in `backend-api/config/users.json`
 
 If you still have problems, see {{TROUBLESHOOT_DOCS_PLACEHOLDER}} or create a GitHub issue and we'll help you.
 

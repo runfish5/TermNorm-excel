@@ -18,7 +18,7 @@ Navigate to `backend-api/` directory first:
 - `.\venv\Scripts\activate` - Activate Python virtual environment
 - `python -m uvicorn main:app --reload` - Start development server (localhost:8000)
 - `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload` - Start network server
-- Set `TERMNORM_API_KEY` environment variable before starting production server
+- Configure user IPs in `config/users.json` for authentication
 
 ## Architecture
 
@@ -26,7 +26,7 @@ Navigate to `backend-api/` directory first:
 
 **Core Application Layer**
 - `taskpane/taskpane.js` - Application orchestrator with pure function delegation
-- `shared-services/state.manager.js` - Centralized state with direct property access
+- `shared-services/state-machine.manager.js` - Backend-first state machine with transaction pattern
 
 **Service Layer: Specialized Processing**
 - `services/live.tracker.js` - Real-time cell monitoring (utilities extracted to utils/)
@@ -53,13 +53,17 @@ Navigate to `backend-api/` directory first:
 ### Backend Structure - Ultra-lean Architecture
 ```
 backend-api/
-├── main.py                    # FastAPI application with 3 routers
+├── main.py                    # FastAPI application with 3 routers + lifespan management
 ├── config/                    # Centralized configuration and middleware
+│   ├── users.json            # User authentication with IP-based access control
+│   ├── middleware.py         # IP authentication middleware
+│   └── settings.py           # Application settings
 ├── api/                       # API endpoints
 │   ├── system.py             # Health checks and activity logging
 │   ├── research_pipeline.py  # /research-and-match endpoint (core pipeline)
-│   └── matcher_setup.py      # /update-matcher endpoint (TokenLookupMatcher)
+│   └── matcher_setup.py      # /update-matcher, /session-state endpoints (per-user, per-project)
 ├── core/                      # Core functionality
+│   ├── user_manager.py       # Multi-user session management with per-project isolation
 │   ├── llm_providers.py      # LLM provider configuration
 │   └── logging.py            # Logging setup
 ├── research_and_rank/         # Research and ranking implementation
@@ -75,7 +79,7 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: The frontend uses functional state management (`state.manager.js`) with direct property access and exported functions (`setStatus()`, `setConfig()`, `subscribe()`). State is accessed directly via `state.server.online` instead of complex path resolution.
+**State Management**: Backend-first architecture with explicit state machine (IDLE → LOADING → VERIFYING → SYNCED → ERROR). Frontend uses transaction pattern - every operation verified with backend before updating state. No optimistic updates. State tracked via `appState.mappings.totalBackendTerms`. Periodic reconciliation (30s) detects backend restarts or data loss.
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
@@ -84,7 +88,7 @@ backend-api/
 
 **Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`.
 
-**API Communication**: Frontend communicates with Python backend via REST API calls to localhost:8000 using consolidated server utilities (`getHost()`, `getHeaders()`, `getApiKey()`, `checkServerStatus()`) for LLM processing and term analysis.
+**API Communication**: Frontend communicates with Python backend via REST API calls using consolidated server utilities (`getHost()`, `getHeaders()`, `checkServerStatus()`). Authentication is IP-based via `users.json` with hot-reload. Each workbook gets isolated matcher - session keys use format `{user_id}:{workbook_name}`. Multiple workbooks can be open simultaneously without term conflation.
 
 ## Exemplary Architecture Principles
 
@@ -154,16 +158,39 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 
 ## Environment Setup
 
-1. **API Keys**: Set `TERMNORM_API_KEY` environment variable for backend authentication
-2. **LLM Provider**: Configure Groq or OpenAI API keys in backend environment
+1. **Multi-User Setup**: Configure `backend-api/config/users.json` with user IDs, emails, and allowed IPs. Hot-reload supported - no restart needed when adding users.
+2. **LLM Provider**: Configure Groq or OpenAI API keys in backend environment variables for research-and-match functionality
 3. **Development Certificates**: Office add-in requires HTTPS certificates (handled by office-addin-dev-certs)
 4. **Python Environment**: Backend requires Python virtual environment with FastAPI dependencies
+
+## Multi-User & Per-Project Architecture
+
+**Authentication**: IP-based authentication via `config/users.json`. No frontend API keys required. Users identified by IP address with hot-reload capability.
+
+**Session Management**:
+- Per-user, per-project isolation using composite keys: `{user_id}:{project_id}`
+- Project ID derived from workbook name (e.g., "Book 76", "Excel add-in xyz.xlsx")
+- Each workbook gets its own TokenLookupMatcher instance
+- Users can work on multiple projects simultaneously without term conflation
+- Automatic midnight cleanup of all sessions (clears all user sessions daily)
+
+**State Management**:
+- Backend is single source of truth - frontend verifies every operation
+- Explicit state machine: IDLE → LOADING → VERIFYING → SYNCED → ERROR
+- Transaction pattern with rollback on failures
+- No optimistic updates - always verify before updating frontend state
+- Periodic reconciliation (30s) detects backend restarts or data loss
+- State tracked via `appState.mappings.totalBackendTerms`
+
+**Example Session Keys**:
+- User "admin" with "Book 76" → `admin:Book 76`
+- User "john" with "DataSet.xlsx" → `john:DataSet.xlsx`
+- Same user, different workbooks → separate isolated matchers
 
 ## Code Quality & Maintainability Standards
 
 This codebase demonstrates industry best practices through systematic refactoring:
 
-
 **Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
 
-**Simplified State Management**: Eliminated complex path-based APIs in favor of direct property access, improving performance and developer experience while maintaining backward compatibility.
+**Simplified State Management**: Backend-first architecture eliminates frontend-backend state divergence, improving reliability and developer experience.
