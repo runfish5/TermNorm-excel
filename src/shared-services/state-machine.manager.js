@@ -21,7 +21,6 @@ const appState = {
   server: {
     online: false,
     host: null,
-    apiKey: "",
     lastChecked: null,
   },
   config: {
