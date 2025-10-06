@@ -129,7 +129,16 @@
                             <label class="server-label">
                                 Server URL: <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
                             </label>
-                            <p class="settings-note">Authentication via IP address (configured in backend users.json)</p>
+                            <div class="settings-help">
+                                <p class="settings-note"><strong>Authentication:</strong> IP-based (configure allowed IPs in backend <code>users.json</code>)</p>
+                                <p class="settings-note"><strong>Change server URL when:</strong></p>
+                                <ul class="settings-list">
+                                    <li>Running backend on different machine (e.g., <code>http://192.168.1.100:8000</code>)</li>
+                                    <li>Using production server (e.g., <code>https://api.company.com</code>)</li>
+                                    <li>Backend running on non-default port (e.g., <code>http://127.0.0.1:8080</code>)</li>
+                                </ul>
+                                <p class="settings-note">Changes apply instantly - no save button needed.</p>
+                            </div>
                         </div>
                     </div>
                 </details>
