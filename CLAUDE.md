@@ -78,7 +78,7 @@ backend-api/
 
 ### Key Integration Points
 
-**Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
+**Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading and file handling modularized in `file-handling.js`.
 
 **State Management (Frontend Only)**: Frontend is the single source of truth for mappings. State stored in `state.mappings.combined` for fast exact/fuzzy matching. Simple loading states: idle → loading → synced | error. Backend is stateless - no sessions, no TTL, no synchronization complexity.
 
@@ -89,16 +89,16 @@ backend-api/
 - Pure function architecture: `(query, terms) → ranked_candidates`
 - Each request is independent and self-contained
 
-**Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
+**Configuration System**: Project configurations are validated inline in `file-handling.js` with drag & drop support. Configurations define:
 - Column mappings (input → output columns)
 - Reference file paths and worksheet specifications
 - Standard mapping sources
 
 **Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`.
 
-**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, error handling, and LED updates. Authentication is IP-based via `users.json` with hot-reload.
+**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, and error handling. Authentication is IP-based via `users.json` with hot-reload.
 
-**Error Handling**: Centralized error display via `error-display.js`. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
+**UI Status Updates**: All status messages and LED updates go through `error-display.js` (`showStatus()`, `showError()`, `showSuccess()`, `showProcessing()`). Single source of truth for UI feedback - LED and message always synchronized. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
 
 ## Architecture Principles
 
