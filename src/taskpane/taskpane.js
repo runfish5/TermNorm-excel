@@ -4,7 +4,6 @@ import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-compone
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { state, onStateChange } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
-import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showStatus } from "../utils/error-display.js";
@@ -37,8 +36,6 @@ Office.onReady(async (info) => {
   });
 
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
-    if (!getApiKey()?.trim())
-      return showStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
     e.target.disabled = true;
     e.target.textContent = "Activating...";
     try {

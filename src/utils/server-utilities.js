@@ -8,17 +8,8 @@ export function getHost() {
   return state.server.host || "http://127.0.0.1:8000";
 }
 
-export function getApiKey() {
-  return state.server.apiKey;
-}
-
 export function getHeaders() {
-  const headers = { "Content-Type": "application/json" };
-  const apiKey = getApiKey();
-  if (apiKey) {
-    headers["X-API-Key"] = apiKey;
-  }
-  return headers;
+  return { "Content-Type": "application/json" };
 }
 
 // Server status management
@@ -65,14 +56,6 @@ export function setupServerEvents() {
     }
   });
 
-  // API key input
-  const apiKeyInput = document.getElementById("api-key-input");
-  if (apiKeyInput) {
-    apiKeyInput.addEventListener("input", (e) => {
-      state.server.apiKey = e.target.value.trim();
-    });
-  }
-
   // Server URL input
   const serverUrlInput = document.getElementById("server-url-input");
   if (serverUrlInput) {
@@ -80,6 +63,4 @@ export function setupServerEvents() {
       state.server.host = e.target.value.trim();
     });
   }
-
-  // No longer need subscription - direct updates handled in checkServerStatus
 }
