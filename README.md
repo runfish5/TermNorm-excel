@@ -118,17 +118,24 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
      Set Groq or OpenAI API keys in your environment for research-and-match functionality
 
    - **Start the Python server**
-      - Local Development
+      - Local Development (default: `http://127.0.0.1:8000`)
       ```bash
       python -m uvicorn main:app --reload
       ```
-      The server will start and be ready to handle term normalization requests.
 
-      - Network based:
+      - Network based (team/production):
       ```bash
       python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
       ```
-   
+
+   - **Configure Server URL in Excel** (if needed):
+      - Open TermNorm → **Settings** tab
+      - Update "Server URL" field to match your backend location:
+        - Local: `http://127.0.0.1:8000` (default)
+        - Network: `http://192.168.1.100:8000` (example)
+        - Production: `https://api.yourcompany.com`
+      - No save button needed - updates instantly
+
 6. **Load mapping files.**
    - For each Excel reference file, click **Browse**
    - Select the corresponding Excel file
