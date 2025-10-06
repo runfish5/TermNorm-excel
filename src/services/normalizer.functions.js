@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { getState } from "../shared-services/state-machine.manager.js";
+import { getState, checkBackendSession } from "../shared-services/state-machine.manager.js";
 import { showError, showSuccess } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
@@ -42,6 +42,16 @@ export async function findTokenMatch(value) {
   if (!val) return null;
 
   const state = getState();
+
+  // Health check before LLM call
+  if (!state.backend.sessionExists) {
+    const health = await checkBackendSession();
+    if (!health.exists) {
+      showError(503, health.message);
+      return null;
+    }
+  }
+
   const data = await apiPost(
     `${getHost()}/research-and-match`,
     {
@@ -79,16 +89,10 @@ export async function processTermNormalization(value, forward, reverse) {
   const val = String(value || "").trim();
   if (!val) return null;
 
-  // Verify backend state before processing
+  // Verify mappings loaded (server status checked in findTokenMatch if needed)
   const state = getState();
   if (!state.mappings.loaded) {
-    showError(0, "Mapping tables not loaded - please load mapping tables first");
-    return null;
-  }
-
-  const syncedSources = Object.values(state.mappings.sources).filter((s) => s.status === "synced");
-  if (syncedSources.length === 0) {
-    showError(0, "No mapping tables synced with backend - please reload mapping tables");
+    showError(0, "Mapping tables not loaded - load configuration first");
     return null;
   }
 

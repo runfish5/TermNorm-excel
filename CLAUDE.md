@@ -81,7 +81,14 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: Frontend caches mappings for fast exact/fuzzy matching. Backend stores TokenLookupMatcher for LLM research. Simple loading states: idle → loading → synced | error. Health check called once on mapping load (no periodic reconciliation). Frontend and backend serve different purposes - no state "synchronization" needed.
+**State Management**: Frontend caches mappings for fast exact/fuzzy matching. Backend stores TokenLookupMatcher for LLM research. Simple loading states: idle → loading → synced | error.
+
+**Frontend/Backend Session Sync**:
+- Frontend tracks backend session state (`state.backend.sessionExists`)
+- Health checks performed before major actions (tracking activation, LLM calls)
+- Backend sessions expire after 24h TTL - user must reload mappings when expired
+- `state.server.online` updated on every API call for real-time server status
+- Graceful degradation: Exact/fuzzy matching works offline, LLM requires backend session
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
@@ -195,3 +202,15 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 **Clear Separation**: Frontend caches data for performance. Backend stores data for LLM processing. No attempt to "synchronize" - they serve different purposes.
 
 **Maintainability**: Code is organized into focused modules with clear responsibilities. Complexity is added only when needed.
+
+## Known Limitations
+
+1. **Backend Session TTL**: Sessions expire after 24 hours. If Excel stays open longer, reload mappings to enable LLM research. Exact/fuzzy matching continues to work.
+
+2. **Manual Session Recovery**: When backend session expires, user must manually reload mappings. No automatic session recreation.
+
+3. **State Deep Clone**: `getState()` uses `JSON.parse(JSON.stringify())` for deep cloning. Functions and special objects (Date, Map, Set) are not preserved in the clone.
+
+4. **Health Check Latency**: Health checks called before tracking activation and LLM calls add ~100ms latency per check.
+
+5. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.

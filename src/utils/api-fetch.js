@@ -2,6 +2,7 @@
 // CENTRALIZED API COMMUNICATION - All fetch() calls go through here
 
 import { showError, showSuccess, showProcessing } from "./error-display.js";
+import { state, markBackendSessionLost } from "../shared-services/state-machine.manager.js";
 
 /**
  * Smart fetch wrapper - handles ALL complexity
@@ -20,24 +21,32 @@ export async function apiFetch(url, options = {}) {
 
   try {
     const response = await fetch(url, options);
-
-    // Parse JSON
     const data = await response.json();
 
-    // Success case
+    // Update server status - server responded (even if error)
+    state.server.online = true;
+    state.server.lastChecked = Date.now();
+
     if (response.ok) {
+      // Success
       showSuccess(data.message || "Operation successful");
       return data.data ?? null;
     }
 
-    // Error case - pass status code and message to error handler
+    // HTTP error but server is up
+    // Special case: 503 from matcher endpoints = session expired
+    if (response.status === 503 && (url.includes('/research-and-match') || url.includes('/update-matcher'))) {
+      markBackendSessionLost();
+    }
+
     showError(response.status, data.message || data.detail);
     return null;
 
   } catch (error) {
-    // Network error: server offline, DNS failure, no network, CORS, etc.
-    // Browser's native messages vary ("Failed to fetch", "NetworkError", etc.)
-    // Provide consistent, user-friendly message instead
+    // Network error - server offline
+    state.server.online = false;
+    state.server.lastChecked = Date.now();
+
     showError(0, "Server offline - Check backend is running on port 8000");
     return null;
   }

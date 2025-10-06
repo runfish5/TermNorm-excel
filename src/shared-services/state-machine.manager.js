@@ -21,6 +21,13 @@ const appState = {
     online: false,
     host: null,
     apiKey: "",
+    lastChecked: null,
+  },
+  backend: {
+    sessionExists: false,
+    sessionCheckedAt: null,
+    sessionCreatedAt: null,
+    termCount: 0,
   },
   config: {
     loaded: false,
@@ -100,10 +107,18 @@ export async function loadMappingSource(index, loadFunction, params) {
     source.status = "synced";
     source.data = result;
 
+    // Update backend session state (matcher was created/updated on backend)
+    appState.backend.sessionExists = true;
+    appState.backend.sessionCheckedAt = Date.now();
+    if (index === 0) {
+      appState.backend.sessionCreatedAt = Date.now();
+    }
+    const termCount = Object.keys(result.reverse || {}).length;
+    appState.backend.termCount += termCount;
+
     // Combine all synced sources
     combineMappingSources();
 
-    const termCount = Object.keys(result.reverse || {}).length;
     setStatus(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
     notifyStateChange();
 
@@ -153,10 +168,11 @@ function combineMappingSources() {
 }
 
 /**
- * Check backend health and verify session exists
- * Called once on mapping load (not periodically)
+ * Check if backend session exists
+ * Called before major actions (tracking activation, LLM calls)
+ * Updates state and returns result
  */
-export async function checkBackendHealth() {
+export async function checkBackendSession() {
   try {
     const projectId = appState.config.data?.workbook || "default";
     const params = new URLSearchParams({ project_id: projectId });
@@ -171,14 +187,35 @@ export async function checkBackendHealth() {
 
     const health = await response.json();
 
-    if (!health.exists) {
-      console.warn("Backend session does not exist - will be created on next load");
+    // Update state
+    appState.backend.sessionExists = health.exists;
+    appState.backend.sessionCheckedAt = Date.now();
+    if (health.exists) {
+      appState.backend.termCount = health.term_count || 0;
     }
+    notifyStateChange();
 
-    return health;
+    return {
+      exists: health.exists,
+      needsReload: !health.exists && appState.mappings.loaded,
+      message: health.exists
+        ? `Backend session active (${health.term_count} terms)`
+        : "Backend session expired - reload mappings to enable LLM research"
+    };
+
   } catch (error) {
     console.error("Backend health check failed:", error);
-    throw error;
+
+    // Server might be down - mark session as unknown
+    appState.backend.sessionExists = false;
+    appState.backend.sessionCheckedAt = Date.now();
+    notifyStateChange();
+
+    return {
+      exists: false,
+      needsReload: false,
+      message: `Cannot reach backend: ${error.message}`
+    };
   }
 }
 
@@ -193,20 +230,19 @@ export function clearMappings() {
 }
 
 /**
- * Get current state (read-only copy)
+ * Get current state (deep cloned read-only copy)
+ * Uses JSON for simplicity - breaks functions/Dates but we don't store those
  */
 export function getState() {
-  return {
-    ui: { ...appState.ui },
-    server: { ...appState.server },
-    config: { ...appState.config },
-    mappings: {
-      sources: { ...appState.mappings.sources },
-      combined: appState.mappings.combined,
-      loaded: appState.mappings.loaded,
-    },
-  };
+  return JSON.parse(JSON.stringify(appState));
 }
 
 // Direct state access for backward compatibility
 export const state = appState;
+
+// Backend session helpers
+export function markBackendSessionLost() {
+  appState.backend.sessionExists = false;
+  appState.backend.sessionCheckedAt = Date.now();
+  notifyStateChange();
+}
