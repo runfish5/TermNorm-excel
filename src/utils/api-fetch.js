@@ -2,7 +2,7 @@
 // CENTRALIZED API COMMUNICATION - All fetch() calls go through here
 
 import { showError, showSuccess, showProcessing } from "./error-display.js";
-import { state, markBackendSessionLost } from "../shared-services/state-machine.manager.js";
+import { state } from "../shared-services/state-machine.manager.js";
 
 /**
  * Smart fetch wrapper - handles ALL complexity
@@ -34,11 +34,6 @@ export async function apiFetch(url, options = {}) {
     }
 
     // HTTP error but server is up
-    // Special case: 503 from matcher endpoints = session expired
-    if (response.status === 503 && (url.includes('/research-and-match') || url.includes('/update-matcher'))) {
-      markBackendSessionLost();
-    }
-
     showError(response.status, data.message || data.detail);
     return null;
 

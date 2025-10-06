@@ -1,16 +1,16 @@
 """
-Research Pipeline API - /research-and-match endpoint with embedded orchestration logic
+Research Pipeline API - /research-and-match endpoint (stateless)
 """
 import json
 import logging
 import time
+import re
 from pathlib import Path
 from pprint import pprint
-from collections import Counter
-from typing import Dict, Any
+from collections import Counter, defaultdict
+from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request, Body
 
-from api.matcher_setup import get_token_matcher
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
 from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
@@ -27,23 +27,65 @@ with open(_schema_path, 'r') as f:
     ENTITY_SCHEMA = json.load(f)
 
 
+class TokenLookupMatcher:
+    """Stateless token-based matcher (created on-the-fly per request)"""
+
+    def __init__(self, terms: List[str]):
+        self.deduplicated_terms = list(set(terms))
+        self.token_term_lookup = self._build_index()
+
+    def _tokenize(self, text):
+        return set(re.findall(r'[a-zA-Z0-9]+', str(text).lower()))
+
+    def _build_index(self):
+        index = defaultdict(set)
+        for i, term in enumerate(self.deduplicated_terms):
+            for token in self._tokenize(term):
+                index[token].add(i)
+        return index
+
+    def match(self, query):
+        query_tokens = self._tokenize(query)
+        if not query_tokens:
+            return []
+
+        # Find candidates
+        candidates = set()
+        for token in query_tokens:
+            candidates.update(self.token_term_lookup.get(token, set()))
+
+        # Score candidates
+        scores = []
+        for i in candidates:
+            term_tokens = self._tokenize(self.deduplicated_terms[i])
+            shared_token_count = len(query_tokens & term_tokens)
+            if shared_token_count > 0:
+                score = shared_token_count / len(term_tokens)
+                scores.append((self.deduplicated_terms[i], score))
+
+        return sorted(scores, key=lambda x: x[1], reverse=True)
+
+
 @router.post("/research-and-match")
-async def research_and_match(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
-    """Research a query and rank candidates using LLM + token matching"""
+async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Research a query and rank candidates using LLM + token matching (stateless)"""
     user_id = request.state.user_id
-    project_id = payload.get("project_id", "default")
     query = payload.get("query", "")
-    logger.info(f"[PIPELINE] User {user_id}, project {project_id}: Started for query: '{query}'")
+    terms = payload.get("terms", [])
+
+    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms")
     start_time = time.time()
 
-    # Get user's token matcher for this project
-    token_matcher = get_token_matcher(user_id, project_id)
-    if token_matcher is None:
-        logger.error(f"[MISSING MAPPING INDEXES] User {user_id}, project {project_id}: TokenLookupMatcher not initialized")
+    # Validate terms provided
+    if not terms:
         raise HTTPException(
-            status_code=503,
-            detail="Matcher not initialized - reload configuration files"
+            status_code=400,
+            detail="No terms provided - include terms array in request payload"
         )
+
+    # Create matcher on-the-fly (stateless)
+    token_matcher = TokenLookupMatcher(terms)
+    logger.info(f"[PIPELINE] Created TokenLookupMatcher with {len(token_matcher.deduplicated_terms)} unique terms")
 
     # Step 1: Research
     logger.info("[PIPELINE] Step 1: Researching")

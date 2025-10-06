@@ -15,7 +15,6 @@ from config.middleware import setup_middleware
 from core.logging import setup_logging
 from api import (
     system_router,
-    matcher_router,
     research_router
 )
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
@@ -50,8 +49,7 @@ setup_middleware(app)
 
 # Include routers - Streamlined API structure
 app.include_router(system_router)      # Health checks, connection test, activity logging
-app.include_router(matcher_router)     # /update-matcher endpoint
-app.include_router(research_router)    # /research-and-match pipeline
+app.include_router(research_router)    # /research-and-match pipeline (stateless)
 
 
 @app.on_event("startup")
@@ -75,9 +73,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on application shutdown"""
-    from core.user_manager import cleanup_all_sessions
-    session_count = cleanup_all_sessions()
-    logger.info(f"Shutting down TermNorm Backend API - Cleared {session_count} sessions")
+    logger.info("Shutting down TermNorm Backend API")
 
 
 if __name__ == "__main__":

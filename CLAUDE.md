@@ -51,20 +51,19 @@ Navigate to `backend-api/` directory first:
 **Data Processing Layer**
 - `data-processing/mapping.processor.js` - Excel data loading and mapping processing
 
-### Backend Structure - Ultra-lean Architecture
+### Backend Structure - Stateless Architecture
 ```
 backend-api/
-├── main.py                    # FastAPI application with 3 routers + lifespan management
+├── main.py                    # FastAPI application with 2 routers + lifespan management
 ├── config/                    # Centralized configuration and middleware
 │   ├── users.json            # User authentication with IP-based access control
 │   ├── middleware.py         # IP authentication middleware
 │   └── settings.py           # Application settings
 ├── api/                       # API endpoints
 │   ├── system.py             # Health checks and activity logging
-│   ├── research_pipeline.py  # /research-and-match endpoint (core pipeline)
-│   └── matcher_setup.py      # /update-matcher, /session-state endpoints (per-user, per-project)
+│   └── research_pipeline.py  # /research-and-match endpoint (stateless - creates matcher on-the-fly)
 ├── core/                      # Core functionality
-│   ├── user_manager.py       # Multi-user session management with per-project isolation
+│   ├── user_manager.py       # IP-based authentication (no session management)
 │   ├── llm_providers.py      # LLM provider configuration
 │   └── logging.py            # Logging setup
 ├── research_and_rank/         # Research and ranking implementation
@@ -81,14 +80,14 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: Frontend caches mappings for fast exact/fuzzy matching. Backend stores TokenLookupMatcher for LLM research. Simple loading states: idle → loading → synced | error.
+**State Management (Frontend Only)**: Frontend is the single source of truth for mappings. State stored in `state.mappings.combined` for fast exact/fuzzy matching. Simple loading states: idle → loading → synced | error. Backend is stateless - no sessions, no TTL, no synchronization complexity.
 
-**Frontend/Backend Session Sync**:
-- Frontend tracks backend session state (`state.backend.sessionExists`)
-- Health checks performed before major actions (tracking activation, LLM calls)
-- Backend sessions expire after 24h TTL - user must reload mappings when expired
-- `state.server.online` updated on every API call for real-time server status
-- Graceful degradation: Exact/fuzzy matching works offline, LLM requires backend session
+**Stateless Backend Architecture**:
+- Backend receives terms array with each `/research-and-match` request
+- Creates `TokenLookupMatcher` on-the-fly per request, uses it, discards it
+- Zero session management = zero TTL tracking = zero health checks
+- Pure function architecture: `(query, terms) → ranked_candidates`
+- Each request is independent and self-contained
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
@@ -97,7 +96,7 @@ backend-api/
 
 **Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`.
 
-**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, error handling, and LED updates. Authentication is IP-based via `users.json` with hot-reload. Each workbook gets isolated matcher - session keys use format `{user_id}:{workbook_name}`. Multiple workbooks can be open simultaneously without term conflation.
+**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, error handling, and LED updates. Authentication is IP-based via `users.json` with hot-reload.
 
 **Error Handling**: Centralized error display via `error-display.js`. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
 
@@ -170,47 +169,34 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 3. **Development Certificates**: Office add-in requires HTTPS certificates (handled by office-addin-dev-certs)
 4. **Python Environment**: Backend requires Python virtual environment with FastAPI dependencies
 
-## Multi-User & Per-Project Architecture
+## Multi-User Architecture
 
 **Authentication**: IP-based authentication via `config/users.json`. No frontend API keys required. Users identified by IP address with hot-reload capability.
 
-**Session Management**:
-- Per-user, per-project isolation using tuple keys: `(user_id, project_id)`
-- Project ID derived from workbook name (e.g., "Book 76", "Excel add-in xyz.xlsx")
-- Each workbook gets its own TokenLookupMatcher instance on backend
+**Stateless Backend**: No session management. Backend is a pure compute service:
+- Each `/research-and-match` request receives `{query, terms}` payload
+- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
+- No persistent state = no TTL = no session expiration
+- Multiple users can make concurrent requests without interference
+
+**Frontend State Management**:
+- Frontend caches mappings in `state.mappings.combined` for instant exact/fuzzy matching
 - Each workbook gets isolated tracker instance on frontend
-- TTL-based session expiration (24 hours default) with lazy cleanup on access
-- Sessions auto-expire after inactivity - no scheduled cleanup tasks needed
-
-**State Management**:
-- Frontend caches mappings in memory for instant exact/fuzzy matching
-- Backend stores TokenLookupMatcher for expensive LLM research calls
-- Simple states: idle → loading → synced | error
-- Health check on first load verifies backend session exists
-- No periodic reconciliation - frontend cache and backend serve different purposes
-- Multi-workbook support via isolated tracker instances per workbook
-
-**Example Session Keys**:
-- User "admin" with "Book 76" → `admin:Book 76`
-- User "john" with "DataSet.xlsx" → `john:DataSet.xlsx`
-- Same user, different workbooks → separate isolated matchers
+- Simple loading states: idle → loading → synced | error
+- User loads mappings at session start - terms sent with each LLM request
 
 ## Code Quality Standards
 
 **Pragmatic Implementation**: Code prioritizes working solutions over architectural purity. Patterns are adopted when they solve actual problems, not for theoretical benefits.
 
-**Clear Separation**: Frontend caches data for performance. Backend stores data for LLM processing. No attempt to "synchronize" - they serve different purposes.
+**Stateless Backend**: Backend has zero state management. Frontend is the single source of truth for mappings. This eliminates synchronization complexity entirely.
 
 **Maintainability**: Code is organized into focused modules with clear responsibilities. Complexity is added only when needed.
 
 ## Known Limitations
 
-1. **Backend Session TTL**: Sessions expire after 24 hours. If Excel stays open longer, reload mappings to enable LLM research. Exact/fuzzy matching continues to work.
+1. **State Deep Clone**: `getState()` uses `JSON.parse(JSON.stringify())` for deep cloning. Functions and special objects (Date, Map, Set) are not preserved in the clone.
 
-2. **Manual Session Recovery**: When backend session expires, user must manually reload mappings. No automatic session recreation.
+2. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
 
-3. **State Deep Clone**: `getState()` uses `JSON.parse(JSON.stringify())` for deep cloning. Functions and special objects (Date, Map, Set) are not preserved in the clone.
-
-4. **Health Check Latency**: Health checks called before tracking activation and LLM calls add ~100ms latency per check.
-
-5. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
+3. **LLM Request Payload Size**: Each LLM request sends full terms array (~50KB for 1000 terms). Trade-off: slightly larger payloads for zero state management complexity.

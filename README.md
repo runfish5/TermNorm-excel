@@ -213,17 +213,11 @@ The backend supports multiple concurrent users with IP-based authentication. Eac
 }
 ```
 
-**Sessions:**
-- Users are authenticated by IP address
-- Each user gets isolated sessions per workbook
-- All sessions cleared at midnight daily
-- Changes to users.json are hot-reloaded (no restart needed)
-
-**Per-Project Isolation:**
-- Each Excel workbook gets its own isolated matcher
-- Open multiple workbooks simultaneously without term conflation
-- Session keys: `{user_id}:{workbook_name}`
-- Example: User "admin" can work on "Book 76" and "DataSet.xlsx" simultaneously with separate matchers
+**Stateless Architecture:**
+- Users authenticated by IP address (hot-reloaded from users.json)
+- No backend sessions - each request is independent
+- Frontend sends terms array with each LLM request
+- Multiple users can make concurrent requests without interference
 
 ### Cloud/Production Server Setup
 

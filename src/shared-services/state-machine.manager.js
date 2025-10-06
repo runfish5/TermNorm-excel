@@ -23,12 +23,6 @@ const appState = {
     apiKey: "",
     lastChecked: null,
   },
-  backend: {
-    sessionExists: false,
-    sessionCheckedAt: null,
-    sessionCreatedAt: null,
-    termCount: 0,
-  },
   config: {
     loaded: false,
     data: null,
@@ -73,11 +67,11 @@ export function setConfig(config) {
 }
 
 /**
- * Load Mapping Source - Simplified
+ * Load Mapping Source - Simplified (stateless backend)
  *
  * Steps:
  * 1. Set status to loading
- * 2. Load data (Excel + send to backend)
+ * 2. Load data from Excel
  * 3. Cache result in frontend state
  * 4. Combine all sources
  */
@@ -100,21 +94,14 @@ export async function loadMappingSource(index, loadFunction, params) {
     setStatus("Loading mapping table...");
     notifyStateChange();
 
-    // Execute load operation (reads Excel, sends to backend)
+    // Execute load operation (reads Excel only - no backend sync)
     const result = await loadFunction(params);
 
     // Update frontend cache
     source.status = "synced";
     source.data = result;
 
-    // Update backend session state (matcher was created/updated on backend)
-    appState.backend.sessionExists = true;
-    appState.backend.sessionCheckedAt = Date.now();
-    if (index === 0) {
-      appState.backend.sessionCreatedAt = Date.now();
-    }
     const termCount = Object.keys(result.reverse || {}).length;
-    appState.backend.termCount += termCount;
 
     // Combine all synced sources
     combineMappingSources();
@@ -168,58 +155,6 @@ function combineMappingSources() {
 }
 
 /**
- * Check if backend session exists
- * Called before major actions (tracking activation, LLM calls)
- * Updates state and returns result
- */
-export async function checkBackendSession() {
-  try {
-    const projectId = appState.config.data?.workbook || "default";
-    const params = new URLSearchParams({ project_id: projectId });
-    const response = await fetch(`${getHost()}/session-health?${params}`, {
-      method: "GET",
-      headers: getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Health check failed: ${response.statusText}`);
-    }
-
-    const health = await response.json();
-
-    // Update state
-    appState.backend.sessionExists = health.exists;
-    appState.backend.sessionCheckedAt = Date.now();
-    if (health.exists) {
-      appState.backend.termCount = health.term_count || 0;
-    }
-    notifyStateChange();
-
-    return {
-      exists: health.exists,
-      needsReload: !health.exists && appState.mappings.loaded,
-      message: health.exists
-        ? `Backend session active (${health.term_count} terms)`
-        : "Backend session expired - reload mappings to enable LLM research"
-    };
-
-  } catch (error) {
-    console.error("Backend health check failed:", error);
-
-    // Server might be down - mark session as unknown
-    appState.backend.sessionExists = false;
-    appState.backend.sessionCheckedAt = Date.now();
-    notifyStateChange();
-
-    return {
-      exists: false,
-      needsReload: false,
-      message: `Cannot reach backend: ${error.message}`
-    };
-  }
-}
-
-/**
  * Clear all mapping sources
  */
 export function clearMappings() {
@@ -239,10 +174,3 @@ export function getState() {
 
 // Direct state access for backward compatibility
 export const state = appState;
-
-// Backend session helpers
-export function markBackendSessionLost() {
-  appState.backend.sessionExists = false;
-  appState.backend.sessionCheckedAt = Date.now();
-  notifyStateChange();
-}
