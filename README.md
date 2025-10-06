@@ -195,7 +195,7 @@ If you have problems running the sample, take the following steps:
 
 ### Multi-User Setup
 
-The backend supports multiple concurrent users with IP-based authentication. Each user has isolated sessions.
+The backend supports multiple concurrent users with IP-based authentication. Stateless backend - each request is independent. No session management.
 
 **Add users** - Edit `backend-api/config/users.json`:
 ```json

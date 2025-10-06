@@ -1,14 +1,15 @@
 /**
- * State Manager - Frontend Cache + Backend Source of Truth
+ * State Manager - Frontend-Only State with Stateless Backend
  *
  * Architecture:
- * 1. Frontend caches mappings for fast exact/fuzzy matching
- * 2. Backend stores TokenLookupMatcher for LLM research
- * 3. Health check on load verifies backend has data (no periodic reconciliation)
+ * 1. Frontend caches mappings in memory for fast exact/fuzzy matching
+ * 2. Backend receives terms array with each /research-and-match request
+ * 3. Backend creates TokenLookupMatcher on-the-fly, uses it, discards it
  * 4. Simple loading states: idle → loading → synced | error
+ * 5. No backend sessions, no TTL, no health checks
  */
 
-import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { showStatus } from "../utils/error-display.js";
 
 // Global State - Simplified
 const appState = {
@@ -35,29 +36,14 @@ const appState = {
   },
 };
 
-let statusCallback = null;
 let stateChangeCallbacks = [];
-
-export function onStatusChange(callback) {
-  statusCallback = callback;
-}
 
 export function onStateChange(callback) {
   stateChangeCallbacks.push(callback);
 }
 
-function notifyStatus() {
-  statusCallback?.(appState.ui);
-}
-
 function notifyStateChange() {
   stateChangeCallbacks.forEach((cb) => cb(appState));
-}
-
-export function setStatus(message, isError = false) {
-  appState.ui.statusMessage = message;
-  appState.ui.isError = isError;
-  notifyStatus();
 }
 
 export function setConfig(config) {
@@ -91,7 +77,7 @@ export async function loadMappingSource(index, loadFunction, params) {
     // Set loading state
     source.status = "loading";
     source.error = null;
-    setStatus("Loading mapping table...");
+    showStatus("Loading mapping table...");
     notifyStateChange();
 
     // Execute load operation (reads Excel only - no backend sync)
@@ -106,7 +92,7 @@ export async function loadMappingSource(index, loadFunction, params) {
     // Combine all synced sources
     combineMappingSources();
 
-    setStatus(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
+    showStatus(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
     notifyStateChange();
 
     return result;
@@ -116,7 +102,7 @@ export async function loadMappingSource(index, loadFunction, params) {
     source.error = error.message;
     source.data = null;
 
-    setStatus(`❌ Failed to load mapping ${index + 1}: ${error.message}`, true);
+    showStatus(`❌ Failed to load mapping ${index + 1}: ${error.message}`, true);
     notifyStateChange();
 
     throw error;
