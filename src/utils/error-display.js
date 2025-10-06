@@ -51,6 +51,15 @@ export function showProcessing(message = "Processing...") {
   updateUI(message, false, "green");
 }
 
+/**
+ * General status update - Drop-in replacement for old setStatus()
+ * @param {string} message - Status message to display
+ * @param {boolean} isError - Whether this is an error (red text, yellow LED)
+ */
+export function showStatus(message, isError = false) {
+  updateUI(message, isError, isError ? "yellow" : "green");
+}
+
 // ============================================
 // PRIVATE - DOM manipulation
 // ============================================

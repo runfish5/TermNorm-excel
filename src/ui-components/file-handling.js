@@ -6,9 +6,10 @@ import {
   setupMappingConfigEvents,
   loadMappingConfigData,
 } from "./mapping-config-functions.js";
-import { state, setStatus, setConfig } from "../shared-services/state-machine.manager.js";
+import { state, setConfig } from "../shared-services/state-machine.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
+import { showStatus } from "../utils/error-display.js";
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
 
 export function buildConfigErrorMessage(error, configData) {
@@ -55,11 +56,11 @@ export async function loadStaticConfig() {
     await ensureUISetup();
     await reloadMappingModules();
 
-    setStatus(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+    showStatus(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
     const configData = state.config.raw;
     const errorMessage = buildConfigErrorMessage(error, configData);
-    setStatus(errorMessage, true);
+    showStatus(errorMessage, true);
     throw error;
   }
 }
@@ -110,7 +111,7 @@ function handleDrop(e) {
 
 function openFileDialog() {
   // Immediate feedback that dialog was clicked
-  setStatus("Opening file dialog...");
+  showStatus("Opening file dialog...");
 
   const input = document.createElement("input");
   input.type = "file";
@@ -118,10 +119,10 @@ function openFileDialog() {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setStatus(`File selected: ${file.name} - Processing...`);
+      showStatus(`File selected: ${file.name} - Processing...`);
       await processFile(file);
     } else {
-      setStatus("No file selected", true);
+      showStatus("No file selected", true);
     }
   };
   input.click();
@@ -129,10 +130,10 @@ function openFileDialog() {
 
 async function processFile(file) {
   if (!file.name.endsWith(".json")) {
-    return setStatus("Please select a JSON configuration file", true);
+    return showStatus("Please select a JSON configuration file", true);
   }
 
-  setStatus(`Processing file: ${file.name}`);
+  showStatus(`Processing file: ${file.name}`);
 
   try {
     const text = await file.text();
@@ -143,7 +144,7 @@ async function processFile(file) {
       error instanceof SyntaxError
         ? `Invalid JSON file - ${error.message}`
         : `File processing failed - ${error.message}`;
-    setStatus(message, true);
+    showStatus(message, true);
   }
 }
 
@@ -170,9 +171,9 @@ async function loadConfigData(configData, fileName) {
     await ensureUISetup();
     await reloadMappingModules();
 
-    setStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    showStatus(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
   } catch (error) {
-    setStatus(error.message, true);
+    showStatus(error.message, true);
   }
 }
 
@@ -231,7 +232,7 @@ export async function reloadMappingModules() {
 
       return { element, getMappings: moduleAPI.getMappings, index };
     } catch (initError) {
-      setStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
+      showStatus(`Module ${index + 1} init failed: ${initError.message}`, true);
       return { element: null, getMappings: () => ({ forward: {}, reverse: {}, metadata: null }), index };
     }
   });
@@ -266,7 +267,7 @@ function updateJsonDump() {
 function updateGlobalStatus() {
   const loaded = Object.keys(state.mappings.sources || {}).length,
     total = window.mappingModules?.length || 0;
-  setStatus(
+  showStatus(
     loaded === 0
       ? "Ready to load mapping configurations..."
       : loaded === total

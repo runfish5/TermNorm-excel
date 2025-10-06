@@ -2,11 +2,12 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state, setStatus, onStatusChange, onStateChange } from "../shared-services/state-machine.manager.js";
+import { state, onStateChange } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
+import { showStatus } from "../utils/error-display.js";
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -37,13 +38,13 @@ Office.onReady(async (info) => {
 
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
     if (!getApiKey()?.trim())
-      return setStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
+      return showStatus("API key is required to activate tracking. Please set your API key in Settings.", true);
     e.target.disabled = true;
     e.target.textContent = "Activating...";
     try {
       await startLiveTracking();
     } catch (error) {
-      setStatus(`Activation failed: ${error.message}`, true);
+      showStatus(`Activation failed: ${error.message}`, true);
     } finally {
       e.target.disabled = false;
       e.target.textContent = "Activate Tracking";
@@ -57,16 +58,6 @@ Office.onReady(async (info) => {
     if (navTab) {
       e.preventDefault();
       showView(navTab.getAttribute("data-view"));
-    }
-  });
-
-  onStatusChange((ui) => {
-    const statusElement = document.getElementById("main-status-message");
-    if (statusElement) {
-      statusElement.textContent = ui.statusMessage;
-      statusElement.style.color = ui.isError ? "#D83B01" : "";
-    } else {
-      console.warn("Status element not found:", ui.statusMessage);
     }
   });
 
@@ -98,7 +89,7 @@ Office.onReady(async (info) => {
     Object.assign(window, { state, mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
-    setStatus(`Initialization failed: ${error.message}`, true);
+    showStatus(`Initialization failed: ${error.message}`, true);
   }
 });
 
@@ -108,28 +99,28 @@ async function startLiveTracking() {
 
   // Validation: Config and mappings
   if (!config || !mappings || (!mappings.forward && !mappings.reverse)) {
-    return setStatus("Error: Config or mappings missing - load configuration first", true);
+    return showStatus("Error: Config or mappings missing - load configuration first", true);
   }
 
   // Validation: Server online (for LLM features)
   if (!state.server.online) {
-    return setStatus("Warning: Server offline - only exact/fuzzy matching will work", false);
+    return showStatus("Warning: Server offline - only exact/fuzzy matching will work", false);
   }
 
   try {
     const termCount = Object.keys(mappings.reverse || {}).length;
     await startTracking(config, mappings);
-    setStatus(`✅ Tracking active with ${termCount} terms (exact/fuzzy/LLM matching enabled)`);
+    showStatus(`✅ Tracking active with ${termCount} terms (exact/fuzzy/LLM matching enabled)`);
     showView("results");
   } catch (error) {
-    setStatus(`Error: ${error.message}`, true);
+    showStatus(`Error: ${error.message}`, true);
   }
 }
 
 async function renewPromptHandler() {
   const config = state.config.data;
-  if (!config) return setStatus("Config not loaded", true);
+  if (!config) return showStatus("Config not loaded", true);
 
   const mappings = state.mappings.combined;
-  await renewPrompt(mappings, config, (msg, isError) => setStatus(msg, isError));
+  await renewPrompt(mappings, config, (msg, isError) => showStatus(msg, isError));
 }
