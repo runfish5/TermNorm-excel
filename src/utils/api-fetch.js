@@ -19,10 +19,7 @@ export async function apiFetch(url, options = {}) {
   showProcessing(options.processingMessage || "Processing...");
 
   try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(options.timeout || 30000),
-      ...options
-    });
+    const response = await fetch(url, options);
 
     // Parse JSON
     const data = await response.json();
@@ -30,7 +27,7 @@ export async function apiFetch(url, options = {}) {
     // Success case
     if (response.ok) {
       showSuccess(data.message || "Operation successful");
-      return data.data || data;
+      return data.data ?? null;
     }
 
     // Error case - pass status code and message to error handler
@@ -38,8 +35,10 @@ export async function apiFetch(url, options = {}) {
     return null;
 
   } catch (error) {
-    // Network error - no status code (server offline, timeout, etc.)
-    showError(0, error.message);
+    // Network error: server offline, DNS failure, no network, CORS, etc.
+    // Browser's native messages vary ("Failed to fetch", "NetworkError", etc.)
+    // Provide consistent, user-friendly message instead
+    showError(0, "Server offline - Check backend is running on port 8000");
     return null;
   }
 }

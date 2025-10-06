@@ -21,12 +21,18 @@ const ERROR_MAP = {
  * @param {string} message - Error message from backend
  */
 export function showError(status, message) {
-  // Check custom map first, fallback to backend message
-  const msg = ERROR_MAP[status] || message || "Unknown error";
+  // Prefer backend message, use ERROR_MAP only as fallback
+  const msg = (status in ERROR_MAP) ? ERROR_MAP[status] : (message || "Unknown error");
 
-  // LED color: network/5xx=red, 4xx=yellow, else=green
-  const ledColor = !status || status >= 500 ? "red" :
-                   status >= 400 ? "yellow" : "green";
+  // Determine LED color based on error type
+  let ledColor;
+  if (!status || status >= 500) {
+    ledColor = "red";    // Network errors or 5xx server errors
+  } else if (status >= 400) {
+    ledColor = "yellow"; // 4xx client errors (auth, not found, etc.)
+  } else {
+    ledColor = "green";  // 2xx success
+  }
 
   updateUI(msg, true, ledColor);
 }
