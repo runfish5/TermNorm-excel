@@ -2,7 +2,7 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state, setStatus, onStatusChange, onStateChange } from "../shared-services/state-machine.manager.js";
+import { state, setStatus, onStatusChange, onStateChange, checkBackendSession } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { getApiKey } from "../utils/server-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
@@ -106,13 +106,31 @@ async function startLiveTracking() {
   const config = state.config.data;
   const mappings = state.mappings.combined;
 
+  // Validation: Config and mappings
   if (!config || !mappings || (!mappings.forward && !mappings.reverse)) {
-    return setStatus("Error: Config or mappings missing", true);
+    return setStatus("Error: Config or mappings missing - load configuration first", true);
+  }
+
+  // Validation: Server online
+  if (!state.server.online) {
+    return setStatus("Error: Server offline - check backend is running", true);
+  }
+
+  // Validation: Backend session exists (health check)
+  setStatus("Checking backend session...");
+  const health = await checkBackendSession();
+
+  if (!health.exists) {
+    return setStatus(
+      "Backend session expired - reload mapping tables to enable LLM research. " +
+      "Exact/fuzzy matching will still work.",
+      true
+    );
   }
 
   try {
     await startTracking(config, mappings);
-    setStatus("Tracking active");
+    setStatus(`Tracking active - Backend session has ${state.backend.termCount} terms`);
     showView("results");
   } catch (error) {
     setStatus(`Error: ${error.message}`, true);

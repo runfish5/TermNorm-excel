@@ -6,7 +6,7 @@ import {
   setupMappingConfigEvents,
   loadMappingConfigData,
 } from "./mapping-config-functions.js";
-import { state, setStatus, setConfig, displayStatus } from "../shared-services/state-machine.manager.js";
+import { state, setStatus, setConfig } from "../shared-services/state-machine.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 // Ultra-simple vanilla drag/drop - works in both local and cloud Excel
