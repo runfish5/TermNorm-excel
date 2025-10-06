@@ -16,6 +16,7 @@ from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
+from utils.responses import success_response, error_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,7 +42,10 @@ async def research_and_match(request: Request, payload: Dict[str, str] = Body(..
         logger.error(f"[MISSING MAPPING INDEXES] User {user_id}, project {project_id}: TokenLookupMatcher not initialized")
         raise HTTPException(
             status_code=503,
-            detail="Matcher not initialized - reload configuration files"
+            detail=error_response(
+                "Matcher not initialized - reload configuration files",
+                code=503
+            )
         )
 
     # Step 1: Research
@@ -74,15 +78,21 @@ async def research_and_match(request: Request, payload: Dict[str, str] = Body(..
     logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
 
-    response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, query)
+    llm_response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, query)
     total_time = round(time.time() - start_time, 2)
-    response['total_time'] = total_time
 
-    # Add success status message for frontend
-    num_candidates = len(response.get('ranked_candidates', []))
-    response['status_message'] = f"✅ Research completed - Found {num_candidates} matches in {total_time}s"
+    # Build standardized response
+    num_candidates = len(llm_response.get('ranked_candidates', []))
+    result = success_response(
+        message=f"Research completed - Found {num_candidates} matches in {total_time}s",
+        data={
+            "ranked_candidates": llm_response.get('ranked_candidates', []),
+            "llm_provider": llm_response.get('llm_provider'),
+            "total_time": total_time
+        }
+    )
 
     logger.info(YELLOW)
-    logger.info(json.dumps(response, indent=2))
+    logger.info(json.dumps(result, indent=2))
     logger.info(RESET)
-    return response
+    return result

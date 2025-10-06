@@ -23,8 +23,9 @@ async def user_auth_middleware(request: Request, call_next):
             return JSONResponse(
                 status_code=403,
                 content={
-                    "error": "Forbidden",
-                    "message": f"IP {client_ip} not authorized. Contact admin."
+                    "status": "error",
+                    "message": f"IP {client_ip} not authorized - check backend users.json",
+                    "code": 403
                 }
             )
 

@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, HTTPException, Request, Body
 
 from core.user_manager import get_session, create_session
+from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -157,25 +158,28 @@ async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) 
         elapsed = time.time() - start
         logger.info(f"User {user_id}, project {project_id}: TokenLookupMatcher created in {elapsed:.2f}s")
 
-        response = {
-            "status": "matcher_created",
-            "setup_time": elapsed,
-            "total_terms": len(matcher.complete_term_dataset),
-            "unique_terms": len(matcher.deduplicated_terms),
-            "duplicates_removed": len(matcher.complete_term_dataset) - len(matcher.deduplicated_terms),
-            "status_message": f"✅ Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s",
-            "session_state": get_session_state(user_id, project_id)  # Include state snapshot
-        }
-        return response
+        return success_response(
+            message=f"Matcher initialized - {len(matcher.deduplicated_terms)} unique terms loaded in {elapsed:.2f}s",
+            data={
+                "operation": "matcher_created",
+                "setup_time": elapsed,
+                "total_terms": len(matcher.complete_term_dataset),
+                "unique_terms": len(matcher.deduplicated_terms),
+                "duplicates_removed": len(matcher.complete_term_dataset) - len(matcher.deduplicated_terms),
+                "session_state": get_session_state(user_id, project_id)
+            }
+        )
     else:
         # Append to existing matcher
         session.matcher.append_terms(terms)
         elapsed = time.time() - start
-        response = {
-            "status": "terms_appended",
-            "append_time": elapsed,
-            "total_unique_terms": len(session.matcher.deduplicated_terms),
-            "status_message": f"✅ Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms",
-            "session_state": get_session_state(user_id, project_id)  # Include state snapshot
-        }
-        return response
+
+        return success_response(
+            message=f"Terms appended - {len(session.matcher.deduplicated_terms)} total unique terms",
+            data={
+                "operation": "terms_appended",
+                "append_time": elapsed,
+                "total_unique_terms": len(session.matcher.deduplicated_terms),
+                "session_state": get_session_state(user_id, project_id)
+            }
+        )

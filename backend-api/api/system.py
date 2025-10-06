@@ -9,6 +9,7 @@ from pathlib import Path
 
 from config.environment import get_connection_info
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -29,13 +30,15 @@ async def test_connection() -> Dict[str, Any]:
     """Test API connection and return environment info"""
     connection_type, connection_url, environment = get_connection_info()
 
-    return {
-        "status": "OK",
-        "provider": LLM_PROVIDER,
-        "connection_type": connection_type,
-        "connection_url": connection_url,
-        "environment": environment
-    }
+    return success_response(
+        message="Server online",
+        data={
+            "provider": LLM_PROVIDER,
+            "connection_type": connection_type,
+            "connection_url": connection_url,
+            "environment": environment
+        }
+    )
 
 
 @router.post("/log-activity")
@@ -47,4 +50,4 @@ async def log_activity(entry: Dict[str, Any]) -> Dict[str, str]:
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
-    return {"status": "logged"}
+    return success_response(message="Activity logged")

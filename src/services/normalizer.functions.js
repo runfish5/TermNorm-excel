@@ -1,7 +1,9 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { setStatus, getState } from "../shared-services/state-machine.manager.js";
+import { getState } from "../shared-services/state-machine.manager.js";
+import { showError, showSuccess } from "../utils/error-display.js";
+import { apiPost } from "../utils/api-fetch.js";
 
 export function getCachedMatch(value, forward, reverse) {
   const val = String(value || "").trim();
@@ -39,81 +41,38 @@ export async function findTokenMatch(value) {
   const val = String(value || "").trim();
   if (!val) return null;
 
-  try {
-    setStatus("Starting mapping process...");
+  const state = getState();
+  const data = await apiPost(
+    `${getHost()}/research-and-match`,
+    {
+      query: val,
+      project_id: state.config.data?.workbook || "default"
+    },
+    getHeaders()
+  );
 
-    const state = getState();
-    const headers = getHeaders();
-    const apiEndpoint = `${getHost()}/research-and-match`;
-    const response = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({
-        query: val,
-        project_id: state.config.data?.workbook || "default"
-      }),
-    });
+  if (!data) return null;
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        setStatus("❌ API key invalid - check your key", true);
-        return null;
-      }
-
-      if (response.status === 503) {
-        try {
-          const errorData = await response.json();
-          if (errorData.detail) {
-            setStatus(`⚠️ ${errorData.detail}`, true);
-            return null;
-          }
-        } catch (e) {
-          // If we can't parse the response, fall through to generic 503 error
-        }
-      }
-
-      setStatus(`❌ API Error: ${response.status} ${response.statusText} (API)`, true);
-      return null;
-    }
-
-    const responseData = await response.json();
-    if (!responseData.ranked_candidates?.length) {
-      setStatus("No matches found", true);
-      return null;
-    }
-
-    const best = responseData.ranked_candidates[0];
-    if (!best) {
-      setStatus("ranked_candidates has wrong schema or empty", true);
-      return null;
-    }
-
-    // Use backend status message if available, fallback to custom message
-    if (responseData.status_message) {
-      setStatus(responseData.status_message);
-    } else {
-      setStatus(`Found match:\n- ${best.candidate} \n- Total time: ${responseData.total_time} s`);
-    }
-    return {
-      target: best.candidate,
-      method: "ProfileRank",
-      confidence: best.relevance_score,
-      candidates: responseData.ranked_candidates,
-      total_time: responseData.total_time,
-      llm_provider: responseData.llm_provider,
-    };
-  } catch (error) {
-    console.error("Token match error:", error);
-    let errorMessage = "❌ Connection failed: " + error.message;
-    if (error.name === "AbortError") {
-      errorMessage = "Backend server timeout - ensure server is running on port 8000";
-    } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
-      errorMessage = "Backend server not accessible - ensure server is running on port 8000";
-    }
-
-    setStatus(errorMessage, true);
+  // Check if we have candidates
+  if (!data.ranked_candidates?.length) {
+    showSuccess("No matches found");
     return null;
   }
+
+  const best = data.ranked_candidates[0];
+  if (!best) {
+    showSuccess("No valid candidates");
+    return null;
+  }
+
+  return {
+    target: best.candidate,
+    method: "ProfileRank",
+    confidence: best.relevance_score,
+    candidates: data.ranked_candidates,
+    total_time: data.total_time,
+    llm_provider: data.llm_provider
+  };
 }
 
 export async function processTermNormalization(value, forward, reverse) {
@@ -123,13 +82,13 @@ export async function processTermNormalization(value, forward, reverse) {
   // Verify backend state before processing
   const state = getState();
   if (!state.mappings.loaded) {
-    setStatus("❌ Mapping tables not loaded - please load mapping tables first", true);
+    showError(0, "Mapping tables not loaded - please load mapping tables first");
     return null;
   }
 
   const syncedSources = Object.values(state.mappings.sources).filter((s) => s.status === "synced");
   if (syncedSources.length === 0) {
-    setStatus("❌ No mapping tables synced with backend - please reload mapping tables", true);
+    showError(0, "No mapping tables synced with backend - please reload mapping tables");
     return null;
   }
 

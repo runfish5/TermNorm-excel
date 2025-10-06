@@ -1,12 +1,14 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
-import { state, setStatus, clearMappings } from "../shared-services/state-machine.manager.js";
+import { state, clearMappings } from "../shared-services/state-machine.manager.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { apiPost } from "../utils/api-fetch.js";
+
 // Inlined column utility
 function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
-import { getHost, getHeaders } from "../utils/server-utilities.js";
 
 // Parameter validation
 function validateParams(params) {
@@ -73,49 +75,22 @@ export function processMappings(data, sourceColumn, targetColumn) {
   };
 }
 
-// Simplified token matcher update with timeout and error handling
+// Simplified token matcher update
 async function updateTokenMatcher(terms) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+  const data = await apiPost(
+    `${getHost()}/update-matcher`,
+    {
+      terms,
+      project_id: state.config.data?.workbook || "default"
+    },
+    getHeaders()
+  );
 
-  try {
-    const response = await fetch(`${getHost()}/update-matcher`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({
-        terms,
-        project_id: state.config.data?.workbook || "default"
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Authentication failed (403): ${errorData.message || 'IP not authorized - check backend users.json'}`);
-      }
-      throw new Error(`Token matcher failed (${response.status}): ${response.statusText}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    // Re-throw if already formatted
-    if (error.message.includes("Authentication failed") || error.message.includes("403")) {
-      throw error;
-    }
-
-    let errorMessage = "❌ Connection failed: " + error.message;
-    if (error.name === "AbortError") {
-      errorMessage = "Backend server timeout - ensure server is running on port 8000";
-    } else if (error.message.includes("fetch") || error.message.includes("Failed to fetch")) {
-      errorMessage = "Backend server not accessible - ensure server is running on port 8000";
-    }
-    throw new Error(errorMessage);
+  if (!data) {
+    throw new Error("Matcher update failed");
   }
+
+  return data;
 }
 
 // Excel data loading functions (inlined from excel-integration.js)

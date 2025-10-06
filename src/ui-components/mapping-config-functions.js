@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
 import { state, setStatus } from "../shared-services/state-machine.manager.js";
 import { loadMappingSource } from "../shared-services/state-machine.manager.js";
+import { showError } from "../utils/error-display.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
   return `
@@ -159,14 +160,9 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       }
     } catch (error) {
       mappings = { forward: {}, reverse: {}, metadata: null };
-      // Provide specific error messages based on error type
-      let errorMessage = error.message;
-      if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
-        errorMessage = "❌ Authentication failed - Your IP is not authorized. Check backend users.json";
-      } else if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
-        errorMessage = "❌ Server offline - Please start the backend server and refresh connection";
-      }
-      setStatus(errorMessage, true);
+      // Error already handled by response-handler in mapping.processor
+      // Just display it
+      setStatus(error.message, true);
     }
   }
 
