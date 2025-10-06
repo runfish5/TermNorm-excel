@@ -209,14 +209,34 @@
     margin-left: 10px;
     cursor: pointer;
     flex-shrink: 0;
+    transition: background-color 0.3s ease;
 }
 
+/* LED color states - controlled by error-display.js */
+.status-led.green {
+    background-color: #107C10;
+    box-shadow: 0 0 4px #107C10;
+}
+
+.status-led.yellow {
+    background-color: #FFB900;
+    box-shadow: 0 0 4px #FFB900;
+}
+
+.status-led.red {
+    background-color: #D83B01;
+    box-shadow: 0 0 4px #D83B01;
+}
+
+/* Legacy support - map old classes to new */
 .status-led.online {
-    background-color: #5cb85c;
+    background-color: #107C10;
+    box-shadow: 0 0 4px #107C10;
 }
 
 .status-led.offline {
-    background-color: #d9534f;
+    background-color: #D83B01;
+    box-shadow: 0 0 4px #D83B01;
 }
 
 /* Network Mode Toggle */
