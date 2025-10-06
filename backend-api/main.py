@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 # Load .env file BEFORE importing modules that read environment variables
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 import logging
 
 from config import settings
@@ -29,6 +30,19 @@ app = FastAPI(
     title=settings.api_title,
     description=f"{settings.api_description} - Uses {LLM_PROVIDER.upper()} ({LLM_MODEL})"
 )
+
+# Custom HTTPException handler - standardize error format
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Convert HTTPException to standardized error format"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "message": exc.detail,
+            "code": exc.status_code
+        }
+    )
 
 # Setup middleware
 setup_middleware(app)

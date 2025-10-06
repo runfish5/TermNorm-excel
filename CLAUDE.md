@@ -40,10 +40,12 @@ Navigate to `backend-api/` directory first:
 - `ui-components/mapping-config-functions.js` - Mapping table UI management
 
 **Utility Layer: Helper Functions**
+- `utils/api-fetch.js` - Centralized API communication wrapper (all fetch() calls)
+- `utils/error-display.js` - Centralized error/status UI updates
+- `utils/server-utilities.js` - Server connection and status
 - `utils/column-utilities.js` - Column mapping and validation
 - `utils/cell-utilities.js` - Cell value processing and change detection
 - `utils/activity-logger.js` - Session logging
-- `utils/server-utilities.js` - Server connection and status
 - `utils/app-utilities.js` - Application utilities (UI layout, Excel integration, color management)
 
 **Data Processing Layer**
@@ -71,7 +73,8 @@ backend-api/
 │   ├── call_llm_for_ranking.py
 │   └── correct_candidate_strings.py
 └── utils/                     # Utility functions
-    └── utils.py              # Helper functions and color constants
+    ├── utils.py              # Helper functions and color constants
+    └── responses.py          # Standardized API response format
 ```
 
 ### Key Integration Points
@@ -87,7 +90,9 @@ backend-api/
 
 **Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`.
 
-**API Communication**: Frontend communicates with Python backend via REST API calls using consolidated server utilities (`getHost()`, `getHeaders()`, `checkServerStatus()`). Authentication is IP-based via `users.json` with hot-reload. Each workbook gets isolated matcher - session keys use format `{user_id}:{workbook_name}`. Multiple workbooks can be open simultaneously without term conflation.
+**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, error handling, and LED updates. Authentication is IP-based via `users.json` with hot-reload. Each workbook gets isolated matcher - session keys use format `{user_id}:{workbook_name}`. Multiple workbooks can be open simultaneously without term conflation.
+
+**Error Handling**: Centralized error display via `error-display.js`. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
 
 ## Architecture Principles
 

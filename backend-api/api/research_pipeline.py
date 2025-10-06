@@ -16,7 +16,7 @@ from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
-from utils.responses import success_response, error_response
+from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -42,10 +42,7 @@ async def research_and_match(request: Request, payload: Dict[str, str] = Body(..
         logger.error(f"[MISSING MAPPING INDEXES] User {user_id}, project {project_id}: TokenLookupMatcher not initialized")
         raise HTTPException(
             status_code=503,
-            detail=error_response(
-                "Matcher not initialized - reload configuration files",
-                code=503
-            )
+            detail="Matcher not initialized - reload configuration files"
         )
 
     # Step 1: Research
