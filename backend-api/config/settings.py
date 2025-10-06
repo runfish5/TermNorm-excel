@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # Note: "/" (root health check) is intentionally public
     protected_paths: List[str] = [
         "/session-state",
+        "/session-health",
         "/update-matcher",
         "/research-and-match",
         "/test-connection",

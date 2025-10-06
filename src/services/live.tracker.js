@@ -3,7 +3,7 @@ import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
-import { getRelevanceColor, PROCESSING_COLORS } from "../utils/app-utilities.js";
+import { getRelevanceColor, PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 
 // Activity logging
@@ -26,23 +26,17 @@ function logActivity(source, target, method, confidence, total_time, llm_provide
   }).catch((err) => console.warn("Log failed:", err));
 }
 
-// Live tracking state
-let trackingState = {
-  active: false,
-  handler: null,
-  columnMap: new Map(),
-  cellValues: new Map(),
-  mappings: null,
-  config: null,
-};
+// Multi-workbook tracking state - each workbook gets isolated tracker
+const activeTrackers = new Map(); // workbookId → TrackerState
 
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
 
-  // Build column map directly inline
-  // Fix: Excel's getUsedRange().getRow(0) returns partial headers starting from first used column
-  // Solution: Use getRangeByIndexes(0, 0, 1, lastCol+1) to get complete header row from column A
-  trackingState.columnMap = await Excel.run(async (ctx) => {
+  // Get workbook identifier for this tracker instance
+  const workbookId = await getCurrentWorkbookName();
+
+  // Build column map
+  const columnMap = await Excel.run(async (ctx) => {
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
     const usedRange = ws.getUsedRange(true);
     usedRange.load("columnIndex, columnCount");
@@ -58,21 +52,41 @@ export async function startTracking(config, mappings) {
     return buildColumnMap(headerNames, config.column_map);
   });
 
-  trackingState.mappings = mappings;
-  trackingState.config = config;
+  // Create tracker instance for this workbook
+  const tracker = {
+    active: true,
+    handler: null,
+    columnMap,
+    cellValues: new Map(),
+    mappings,
+    config,
+    workbookId,
+  };
 
+  // Remove existing tracker if any
+  const existingTracker = activeTrackers.get(workbookId);
+  if (existingTracker?.handler) {
+    await Excel.run(async (ctx) => {
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      ws.onChanged.remove(existingTracker.handler);
+      await ctx.sync();
+    });
+  }
+
+  // Setup change handler with tracker context
   await Excel.run(async (ctx) => {
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    if (trackingState.handler) ws.onChanged.remove(trackingState.handler);
-    trackingState.handler = ws.onChanged.add(handleWorksheetChange);
+    tracker.handler = ws.onChanged.add((event) => handleWorksheetChange(event, tracker));
     await ctx.sync();
   });
 
-  trackingState.active = true;
+  // Store tracker
+  activeTrackers.set(workbookId, tracker);
+  console.log(`✓ Tracking started for workbook: ${workbookId}`);
 }
 
-const handleWorksheetChange = async (e) => {
-  if (!trackingState.active) return;
+const handleWorksheetChange = async (e, tracker) => {
+  if (!tracker.active) return;
 
   await Excel.run(async (ctx) => {
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
@@ -90,7 +104,7 @@ const handleWorksheetChange = async (e) => {
       for (let c = 0; c < columnCount; c++) {
         const row = rowIndex + r;
         const col = columnIndex + c;
-        const targetCol = trackingState.columnMap.get(col);
+        const targetCol = tracker.columnMap.get(col);
         const value = values[r][c];
 
         if (row > 0 && targetCol && value) {
@@ -98,11 +112,11 @@ const handleWorksheetChange = async (e) => {
           const cleanValue = cleanCellValue(value);
 
           // Only process if value actually changed
-          if (hasValueChanged(trackingState.cellValues, cellKey, cleanValue)) {
-            trackingState.cellValues.set(cellKey, cleanValue);
+          if (hasValueChanged(tracker.cellValues, cellKey, cleanValue)) {
+            tracker.cellValues.set(cellKey, cleanValue);
             // Mark cell as pending
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
-            tasks.push(() => processCell(ws, row, col, targetCol, cleanValue));
+            tasks.push(() => processCell(ws, row, col, targetCol, cleanValue, tracker));
           }
         }
       }
@@ -115,12 +129,12 @@ const handleWorksheetChange = async (e) => {
   });
 };
 
-async function processCell(ws, row, col, targetCol, value) {
+async function processCell(ws, row, col, targetCol, value, tracker) {
   try {
     const result = await processTermNormalization(
       value,
-      trackingState.mappings.forward,
-      trackingState.mappings.reverse
+      tracker.mappings.forward,
+      tracker.mappings.reverse
     );
 
     if (result?.candidates) {
@@ -177,6 +191,28 @@ async function applyChoiceToCell(ws, row, col, targetCol, value, choice) {
   });
 }
 
-export function stopTracking() {
-  trackingState.active = false;
+export async function stopTracking(workbookId) {
+  if (!workbookId) {
+    workbookId = await getCurrentWorkbookName();
+  }
+
+  const tracker = activeTrackers.get(workbookId);
+  if (tracker) {
+    tracker.active = false;
+
+    if (tracker.handler) {
+      await Excel.run(async (ctx) => {
+        const ws = ctx.workbook.worksheets.getActiveWorksheet();
+        ws.onChanged.remove(tracker.handler);
+        await ctx.sync();
+      });
+    }
+
+    activeTrackers.delete(workbookId);
+    console.log(`✓ Tracking stopped for workbook: ${workbookId}`);
+  }
+}
+
+export function getActiveTrackers() {
+  return Array.from(activeTrackers.keys());
 }

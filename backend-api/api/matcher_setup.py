@@ -107,6 +107,35 @@ async def get_current_session_state(request: Request, project_id: str = "default
     return get_session_state(user_id, project_id)
 
 
+@router.get("/session-health")
+async def get_session_health(request: Request, project_id: str = "default") -> Dict[str, Any]:
+    """
+    Health check endpoint for frontend to verify session state.
+    Called once on startup instead of periodic reconciliation.
+    """
+    user_id = request.state.user_id
+    session = get_session(user_id, project_id)
+
+    if session is None:
+        return {
+            "exists": False,
+            "term_count": 0,
+            "last_accessed": None,
+            "age_seconds": None
+        }
+
+    matcher = session.matcher
+    age_seconds = time.time() - session.last_accessed
+
+    return {
+        "exists": True,
+        "term_count": len(matcher.deduplicated_terms),
+        "last_accessed": session.last_accessed,
+        "age_seconds": round(age_seconds, 2),
+        "ttl_seconds": session.ttl_seconds
+    }
+
+
 @router.post("/update-matcher")
 async def update_matcher(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Per-user, per-project matcher management"""
