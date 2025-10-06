@@ -22,33 +22,32 @@ Navigate to `backend-api/` directory first:
 
 ## Architecture
 
-### Frontend Architecture: Function-First Design
+### Frontend Architecture: Service-Based Design
 
 **Core Application Layer**
-- `taskpane/taskpane.js` - Application orchestrator with pure function delegation
-- `shared-services/state-machine.manager.js` - Backend-first state machine with transaction pattern
+- `taskpane/taskpane.js` - Application orchestrator coordinating services
+- `shared-services/state-machine.manager.js` - State manager with frontend caching
 
-**Service Layer: Specialized Processing**
-- `services/live.tracker.js` - Real-time cell monitoring (utilities extracted to utils/)
-- `services/normalizer.functions.js` - Pure functions for term normalization pipeline
+**Service Layer: Business Logic**
+- `services/live.tracker.js` - Multi-workbook cell monitoring with isolated trackers
+- `services/normalizer.functions.js` - Term normalization pipeline (exact → fuzzy → LLM)
 - `services/normalizer.fuzzy.js` - Fuzzy matching algorithms
 
-**UI Layer: Function-Based Components**
-- `ui-components/` - Pure functions for UI operations (no classes)
-- `ui-components/view-manager.js` - Direct DOM manipulation functions
-- `ui-components/file-handling.js` - Drag & drop with extracted configuration logic
-- `ui-components/mapping-config-functions.js` - Pure functions for mapping UI
+**UI Layer: Component Functions**
+- `ui-components/` - UI component functions (DOM manipulation)
+- `ui-components/view-manager.js` - View switching logic
+- `ui-components/file-handling.js` - Drag & drop configuration loading
+- `ui-components/mapping-config-functions.js` - Mapping table UI management
 
-**Utility Layer: Single-Purpose Modules**
-- `utils/column-utilities.js` - Column mapping and validation functions
+**Utility Layer: Helper Functions**
+- `utils/column-utilities.js` - Column mapping and validation
 - `utils/cell-utilities.js` - Cell value processing and change detection
-- `utils/activity-logger.js` - Session logging and backend communication
-- `utils/config-processor.js` - Pure functions for configuration validation
-- `utils/server-utilities.js` - Consolidated server configuration and status management
-- `utils/app-utilities.js` - Consolidated application utilities (UI layout, Excel integration, color management, version display)
+- `utils/activity-logger.js` - Session logging
+- `utils/server-utilities.js` - Server connection and status
+- `utils/app-utilities.js` - Application utilities (UI layout, Excel integration, color management)
 
 **Data Processing Layer**
-- `data-processing/mapping.processor.js` - Streamlined mapping with direct validation
+- `data-processing/mapping.processor.js` - Excel data loading and mapping processing
 
 ### Backend Structure - Ultra-lean Architecture
 ```
@@ -79,7 +78,7 @@ backend-api/
 
 **Central Orchestration**: `taskpane.js` serves as the main application coordinator, with configuration loading now extracted to `config-processor.js` pure functions and file handling modularized in `file-handling.js`.
 
-**State Management**: Backend-first architecture with explicit state machine (IDLE → LOADING → VERIFYING → SYNCED → ERROR). Frontend uses transaction pattern - every operation verified with backend before updating state. No optimistic updates. State tracked via `appState.mappings.totalBackendTerms`. Periodic reconciliation (30s) detects backend restarts or data loss.
+**State Management**: Frontend caches mappings for fast exact/fuzzy matching. Backend stores TokenLookupMatcher for LLM research. Simple loading states: idle → loading → synced | error. Health check called once on mapping load (no periodic reconciliation). Frontend and backend serve different purposes - no state "synchronization" needed.
 
 **Configuration System**: Project configurations are processed using pure functions in `config-processor.js` for validation and workbook selection, with drag & drop handling in `file-handling.js`. Configurations define:
 - Column mappings (input → output columns)
@@ -90,21 +89,17 @@ backend-api/
 
 **API Communication**: Frontend communicates with Python backend via REST API calls using consolidated server utilities (`getHost()`, `getHeaders()`, `checkServerStatus()`). Authentication is IP-based via `users.json` with hot-reload. Each workbook gets isolated matcher - session keys use format `{user_id}:{workbook_name}`. Multiple workbooks can be open simultaneously without term conflation.
 
-## Exemplary Architecture Principles
+## Architecture Principles
 
-**IMPORTANT**: This codebase demonstrates industry best practices through systematic architectural decisions:
+**Service-Based Design**: Business logic organized into service modules with clear responsibilities.
 
-**Function-First Design**: Utilities are implemented as pure functions with single responsibilities.
+**Direct State Access**: State accessed via `state.server.online` for simplicity. No getters/setters unless needed.
 
+**Minimal Abstraction**: Direct function calls (`getHost()`) instead of object wrappers. Add abstraction only when multiple implementations exist.
 
-**Direct Property Access**: Functional state management uses direct property manipulation (`state.server.online`) instead of complex path resolution, reducing cognitive overhead and improving performance while maintaining backward compatibility.
+**Central Coordination**: `taskpane.js` orchestrates services while delegating specialized work to dedicated modules.
 
-**Minimal Abstraction Layers**: Prefer direct function calls over object wrappers (e.g., `getHost()` vs `ServerConfig.getHost()`), eliminating unnecessary indirection and improving code clarity.
-
-
-**Central Coordination**: `taskpane.js` focuses on orchestration while delegating to specialized modules, maintaining clear separation of concerns without over-engineering.
-
-When making changes, preserve this streamlined approach and resist over-engineering patterns.
+**Pragmatic Approach**: Code is practical and functional. Prioritize working solutions over architectural purity.
 
 ## Event Task Flowchart
 
@@ -168,29 +163,30 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 **Authentication**: IP-based authentication via `config/users.json`. No frontend API keys required. Users identified by IP address with hot-reload capability.
 
 **Session Management**:
-- Per-user, per-project isolation using composite keys: `{user_id}:{project_id}`
+- Per-user, per-project isolation using tuple keys: `(user_id, project_id)`
 - Project ID derived from workbook name (e.g., "Book 76", "Excel add-in xyz.xlsx")
-- Each workbook gets its own TokenLookupMatcher instance
-- Users can work on multiple projects simultaneously without term conflation
-- Automatic midnight cleanup of all sessions (clears all user sessions daily)
+- Each workbook gets its own TokenLookupMatcher instance on backend
+- Each workbook gets isolated tracker instance on frontend
+- TTL-based session expiration (24 hours default) with lazy cleanup on access
+- Sessions auto-expire after inactivity - no scheduled cleanup tasks needed
 
 **State Management**:
-- Backend is single source of truth - frontend verifies every operation
-- Explicit state machine: IDLE → LOADING → VERIFYING → SYNCED → ERROR
-- Transaction pattern with rollback on failures
-- No optimistic updates - always verify before updating frontend state
-- Periodic reconciliation (30s) detects backend restarts or data loss
-- State tracked via `appState.mappings.totalBackendTerms`
+- Frontend caches mappings in memory for instant exact/fuzzy matching
+- Backend stores TokenLookupMatcher for expensive LLM research calls
+- Simple states: idle → loading → synced | error
+- Health check on first load verifies backend session exists
+- No periodic reconciliation - frontend cache and backend serve different purposes
+- Multi-workbook support via isolated tracker instances per workbook
 
 **Example Session Keys**:
 - User "admin" with "Book 76" → `admin:Book 76`
 - User "john" with "DataSet.xlsx" → `john:DataSet.xlsx`
 - Same user, different workbooks → separate isolated matchers
 
-## Code Quality & Maintainability Standards
+## Code Quality Standards
 
-This codebase demonstrates industry best practices through systematic refactoring:
+**Pragmatic Implementation**: Code prioritizes working solutions over architectural purity. Patterns are adopted when they solve actual problems, not for theoretical benefits.
 
-**Comment Minimization**: Removed redundant explanatory comments while preserving essential technical documentation, following clean code principles for improved readability.
+**Clear Separation**: Frontend caches data for performance. Backend stores data for LLM processing. No attempt to "synchronize" - they serve different purposes.
 
-**Simplified State Management**: Backend-first architecture eliminates frontend-backend state divergence, improving reliability and developer experience.
+**Maintainability**: Code is organized into focused modules with clear responsibilities. Complexity is added only when needed.
