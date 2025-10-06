@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { getState, checkBackendSession } from "../shared-services/state-machine.manager.js";
+import { getState } from "../shared-services/state-machine.manager.js";
 import { showError, showSuccess } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
@@ -43,20 +43,19 @@ export async function findTokenMatch(value) {
 
   const state = getState();
 
-  // Health check before LLM call
-  if (!state.backend.sessionExists) {
-    const health = await checkBackendSession();
-    if (!health.exists) {
-      showError(503, health.message);
-      return null;
-    }
+  // Extract terms from cached mappings
+  const terms = state.mappings.combined?.reverse ? Object.keys(state.mappings.combined.reverse) : [];
+
+  if (!terms.length) {
+    showError(0, "No terms available - load mappings first");
+    return null;
   }
 
   const data = await apiPost(
     `${getHost()}/research-and-match`,
     {
       query: val,
-      project_id: state.config.data?.workbook || "default"
+      terms: terms
     },
     getHeaders()
   );

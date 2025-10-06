@@ -1,8 +1,5 @@
 // data-processing/mapping.processor.js
 import * as XLSX from "xlsx";
-import { state, clearMappings } from "../shared-services/state-machine.manager.js";
-import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { apiPost } from "../utils/api-fetch.js";
 
 // Inlined column utility
 function findColumnIndex(headers, columnName) {
@@ -75,24 +72,6 @@ export function processMappings(data, sourceColumn, targetColumn) {
   };
 }
 
-// Simplified token matcher update
-async function updateTokenMatcher(terms) {
-  const data = await apiPost(
-    `${getHost()}/update-matcher`,
-    {
-      terms,
-      project_id: state.config.data?.workbook || "default"
-    },
-    getHeaders()
-  );
-
-  if (!data) {
-    throw new Error("Matcher update failed");
-  }
-
-  return data;
-}
-
 // Excel data loading functions (inlined from excel-integration.js)
 async function loadCurrentWorksheetData(sheetName) {
   return await Excel.run(async (context) => {
@@ -120,18 +99,13 @@ async function loadWorksheetData({ useCurrentFile, sheetName, externalFile }) {
     : await loadExternalWorksheetData(externalFile, sheetName);
 }
 
-// Main function - much simpler
+// Main function - simplified (stateless backend)
 export async function loadAndProcessMappings(customParams) {
   // Validate params, load data, process mappings
   const params = validateParams(customParams);
   const data = await loadWorksheetData(params);
   const result = processMappings(data, params.sourceColumn, params.targetColumn);
 
-  // Update backend matcher - let errors bubble up to transaction handler
-  const matcherResponse = await updateTokenMatcher(Object.keys(result.reverse));
-
-  // Attach backend response to result for verification
-  result.backendResponse = matcherResponse;
-
+  // No backend sync needed - terms sent on-demand with each LLM request
   return result;
 }

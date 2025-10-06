@@ -153,30 +153,11 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       handleMappingSuccess(mappings);
       onMappingLoaded?.(index, mappings, mappings);
       element.open = false;
-
-      // Health check after first mapping load
-      if (index === 0) {
-        await performHealthCheck();
-      }
     } catch (error) {
       mappings = { forward: {}, reverse: {}, metadata: null };
       // Error already handled by response-handler in mapping.processor
       // Just display it
       setStatus(error.message, true);
-    }
-  }
-
-  async function performHealthCheck() {
-    try {
-      const { checkBackendHealth } = await import("../shared-services/state-machine.manager.js");
-      const health = await checkBackendHealth();
-
-      if (health.exists) {
-        const ageMinutes = Math.floor(health.age_seconds / 60);
-        console.log(`✓ Backend session healthy: ${health.term_count} terms, age: ${ageMinutes}m`);
-      }
-    } catch (error) {
-      console.warn("Health check failed:", error.message);
     }
   }
 
