@@ -32,6 +32,7 @@
 .file-row input[type="text"] {
     flex: 1;
     min-width: 150px;
+    box-sizing: border-box;
 }
 
 .file-row button {
@@ -46,7 +47,7 @@
 
 .columns > div {
     flex: 1;
-    min-width: 300px;
+    min-width: 200px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -59,7 +60,8 @@
 
 .columns > div input {
     flex: 1;
-    min-width: 120px;
+    min-width: 80px;
+    box-sizing: border-box;
 }
 
 .radio-group {
