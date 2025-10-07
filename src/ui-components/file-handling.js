@@ -36,6 +36,17 @@ export async function loadStaticConfig() {
       state.config.raw = configData;
     }
 
+    // Load global backend URL (if specified)
+    if (configData.backend_url) {
+      state.server.host = configData.backend_url;
+
+      // Update UI to show loaded URL
+      const serverUrlInput = document.getElementById("server-url-input");
+      if (serverUrlInput) {
+        serverUrlInput.value = configData.backend_url;
+      }
+    }
+
     // Inline validation - check structure
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
@@ -150,6 +161,17 @@ async function processFile(file) {
 
 async function loadConfigData(configData, fileName) {
   try {
+    // Load global backend URL (if specified)
+    if (configData.backend_url) {
+      state.server.host = configData.backend_url;
+
+      // Update UI to show loaded URL
+      const serverUrlInput = document.getElementById("server-url-input");
+      if (serverUrlInput) {
+        serverUrlInput.value = configData.backend_url;
+      }
+    }
+
     // Inline validation and selection
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config format - missing excel-projects structure");
