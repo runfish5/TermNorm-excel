@@ -89,7 +89,9 @@
 
                                 <p class="settings-note" style="margin-top: 15px;"><strong>Permanent URL Change:</strong></p>
                                 <ol class="settings-list" style="line-height: 1.8;">
-                                    <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)</li>
+                                    <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)
+                                        <button id="copy-path-btn-2" style="background: none; border: none; cursor: pointer; font-size: 11px; padding: 2px 4px; margin-left: 4px;" title="Copy path">📋</button>
+                                    </li>
                                     <li>Open the <code>config</code> folder</li>
                                     <li>Open <code>app.config.json</code> in Notepad</li>
                                     <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>

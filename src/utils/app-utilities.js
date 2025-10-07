@@ -66,14 +66,17 @@ export function initializeProjectPathDisplay() {
   const pathEl = document.getElementById("config-path-display");
   if (pathEl) pathEl.textContent = projectPath;
 
-  const copyBtn = document.getElementById("copy-path-btn");
-  if (copyBtn) {
-    copyBtn.onclick = () => {
-      navigator.clipboard.writeText(projectPath);
-      copyBtn.textContent = "✓";
-      setTimeout(() => {
-        copyBtn.textContent = "📋";
-      }, 1500);
-    };
-  }
+  // Setup both copy buttons with the same functionality
+  ["copy-path-btn", "copy-path-btn-2"].forEach((btnId) => {
+    const copyBtn = document.getElementById(btnId);
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(projectPath);
+        copyBtn.textContent = "✓";
+        setTimeout(() => {
+          copyBtn.textContent = "📋";
+        }, 1500);
+      };
+    }
+  });
 }
