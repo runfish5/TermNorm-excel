@@ -13,8 +13,14 @@
 
 .content {
     width: 100%;
-    padding: 10px;
+    padding: 5px;
     margin-top: calc(var(--nav-bar-height) + var(--status-bar-height, 47px));
+}
+
+/* Override Fabric's large margins on ms-welcome__section */
+.ms-welcome__section {
+    margin: 0 !important;
+    padding: 0 5px !important;
 }
 
 /* Navigation */
