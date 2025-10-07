@@ -3,7 +3,7 @@ import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { state, onStateChange } from "../shared-services/state-machine.manager.js";
-import { initializeVersionDisplay, updateContentMargin } from "../utils/app-utilities.js";
+import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showStatus } from "../utils/error-display.js";
@@ -27,6 +27,7 @@ Office.onReady(async (info) => {
   setupServerEvents();
   checkServerStatus();
   initializeVersionDisplay();
+  initializeProjectPathDisplay();
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
     content &&

@@ -43,6 +43,7 @@ const commitDate = "2025-10-07 13:02";
 const branch = "master";
 const repository = "runfish5/excel-entity-standardizer";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
+const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
 
 export function initializeVersionDisplay() {
   const versionEl = document.getElementById("version-number");
@@ -59,4 +60,20 @@ export function initializeVersionDisplay() {
 
   const bundleEl = document.getElementById("version-bundle-size");
   if (bundleEl) bundleEl.textContent = "N/A";
+}
+
+export function initializeProjectPathDisplay() {
+  const pathEl = document.getElementById("config-path-display");
+  if (pathEl) pathEl.textContent = projectPath;
+
+  const copyBtn = document.getElementById("copy-path-btn");
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(projectPath);
+      copyBtn.textContent = "✓";
+      setTimeout(() => {
+        copyBtn.textContent = "📋";
+      }, 1500);
+    };
+  }
 }
