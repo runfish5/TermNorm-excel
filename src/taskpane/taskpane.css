@@ -340,14 +340,14 @@
 
 /* Settings Groups */
 .settings-group {
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     border: 1px solid #e1e1e1;
     border-radius: 6px;
     background: #fafafa;
 }
 
 .settings-group-header {
-    padding: 12px 15px;
+    padding: 6px 8px;
     cursor: pointer;
     background: #f0f0f0;
     border-bottom: 1px solid #e1e1e1;
@@ -367,7 +367,7 @@
 }
 
 .settings-group-content {
-    padding: 15px;
+    padding: 8px;
 }
 
 .server-config {
