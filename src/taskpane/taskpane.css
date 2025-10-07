@@ -191,6 +191,8 @@
     background-color: #f8fdff;
     box-shadow: 0 2px 8px rgba(0, 120, 215, 0.1);
     transition: all 0.3s ease;
+    box-sizing: border-box;
+    font-family: Consolas, 'Courier New', monospace;
 }
 
 .drop-zone.highlight {
