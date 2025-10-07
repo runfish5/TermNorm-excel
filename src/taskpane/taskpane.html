@@ -64,31 +64,49 @@
                 <details class="settings-group" open>
                     <summary class="settings-group-header">🖥️ Step 1: Start Backend Server</summary>
                     <div class="settings-group-content">
-                        <div class="server-config">
-                            <div class="settings-help">
-                                <p class="settings-note"><strong>Quick Start:</strong></p>
-                                <p class="settings-note">Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder</p>
-                                <p class="settings-note" style="margin-top: 4px; font-size: 10px; color: #666; display: flex; align-items: center; gap: 6px;">
-                                    <span id="config-path-display">Loading...</span>
-                                    <button id="copy-path-btn" style="background: none; border: none; cursor: pointer; font-size: 12px; padding: 2px 4px;" title="Copy path">📋</button>
-                                </p>
 
-                                <p class="settings-note" style="margin-top: 12px;"><strong>Manual Start:</strong></p>
-                                <p class="settings-note">Open terminal in <code>backend-api</code> folder and run:</p>
-                                <p class="settings-note"><code>python -m uvicorn main:app --reload</code></p>
+                        <!-- Quick Start Section -->
+                        <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 16px; border-left: 3px solid #0078d4;">
+                            <p style="margin: 0 0 8px 0; font-weight: 600; color: #323130;">Quick Start</p>
+                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #605e5c;">
+                                Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder
+                            </p>
+                            <p style="margin: 0; font-size: 10px; color: #666; display: flex; align-items: center; gap: 6px;">
+                                <span id="config-path-display">Loading...</span>
+                                <button id="copy-path-btn" style="background: none; border: none; cursor: pointer; font-size: 12px; padding: 2px 4px;" title="Copy path">📋</button>
+                            </p>
+                        </div>
 
-                                <p class="settings-note" style="margin-top: 15px;"><strong>Server URL:</strong></p>
+                        <!-- Manual Start Section -->
+                        <details style="margin-bottom: 16px;">
+                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                                <strong>Alternative:</strong> Manual Start
+                            </summary>
+                            <div style="padding: 8px 0 0 16px; font-size: 13px; color: #605e5c;">
+                                <p style="margin: 4px 0;">Open terminal in <code>backend-api</code> folder and run:</p>
+                                <p style="margin: 4px 0;"><code>python -m uvicorn main:app --reload</code></p>
                             </div>
+                        </details>
 
-                            <label class="server-label">
-                                <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                        <!-- Server URL Section -->
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #323130; font-size: 13px;">
+                                Server URL
                             </label>
+                            <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000"
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #d1d1d1; border-radius: 2px; font-size: 13px;">
+                            <p style="margin: 4px 0 0 0; font-size: 11px; color: #797775;">
+                                Change takes effect immediately (session only)
+                            </p>
+                        </div>
 
-                            <div class="settings-help" style="margin-top: 8px;">
-                                <p class="settings-note">Change takes effect immediately (session only)</p>
-
-                                <p class="settings-note" style="margin-top: 15px;"><strong>Permanent URL Change:</strong></p>
-                                <ol class="settings-list" style="line-height: 1.8;">
+                        <!-- Permanent URL Change Section -->
+                        <details>
+                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                                <strong>Advanced:</strong> Permanent URL Change
+                            </summary>
+                            <div style="padding: 8px 0 0 16px;">
+                                <ol style="margin: 0; padding-left: 20px; line-height: 1.8; font-size: 13px; color: #605e5c;">
                                     <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)
                                         <button id="copy-path-btn-2" style="background: none; border: none; cursor: pointer; font-size: 11px; padding: 2px 4px; margin-left: 4px;" title="Copy path">📋</button>
                                     </li>
@@ -99,13 +117,16 @@
                                     <li>Drag it into TermNorm again</li>
                                 </ol>
 
-                                <p class="settings-note" style="margin-top: 10px;"><strong>Examples:</strong></p>
-                                <p class="settings-note" style="font-size: 11px; color: #555;">
-                                    This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
-                                    Network computer: <code>"backend_url": "http://192.168.1.100:8000",</code>
-                                </p>
+                                <div style="margin-top: 10px; padding: 8px; background: #f3f2f1; border-radius: 2px;">
+                                    <p style="margin: 0 0 4px 0; font-weight: 600; font-size: 12px; color: #323130;">Examples:</p>
+                                    <p style="margin: 0; font-size: 11px; color: #605e5c; line-height: 1.6;">
+                                        This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
+                                        Network computer: <code>"backend_url": "http://192.168.1.100:8000",</code>
+                                    </p>
+                                </div>
                             </div>
-                        </div>
+                        </details>
+
                     </div>
                 </details>
 
