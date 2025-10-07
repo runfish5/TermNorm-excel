@@ -20,7 +20,12 @@
 /* Override Fabric's large margins on ms-welcome__section */
 .ms-welcome__section {
     margin: 0 !important;
-    padding: 0 5px !important;
+    padding: 0 !important;
+}
+
+.ms-welcome__section h3 {
+    margin: 8px 0 8px 0 !important;
+    padding: 0 8px !important;
 }
 
 /* Navigation */
@@ -340,7 +345,7 @@
 
 /* Settings Groups */
 .settings-group {
-    margin-bottom: 8px;
+    margin: 0 5px 8px 5px;
     border: 1px solid #e1e1e1;
     border-radius: 6px;
     background: #fafafa;
