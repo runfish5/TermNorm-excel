@@ -3,19 +3,11 @@
     --nav-bar-height: 40px;
 }
 
-/* Remove default browser margins */
-body {
-    margin: 0;
-    padding: 0;
-}
-
 .ms-welcome__main {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     flex: 1 0 0;
-    padding: 0;
-    margin: 0;
 }
 
 .content {
@@ -352,7 +344,6 @@ body {
 
 /* Settings Groups */
 .settings-group {
-    margin: 0 0 8px 0;
     border: 1px solid #e1e1e1;
     border-radius: 6px;
     background: #fafafa;
