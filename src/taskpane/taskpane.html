@@ -60,23 +60,79 @@
             <div class="ms-welcome__section">
                 <h3>Configuration & Mapping Setup</h3>
 
-                <!-- Ultra-simple drag and drop zone -->
-                <div id="drop-zone" class="drop-zone">
-                    Drop app.config.json files here
-                </div>
-                
-                <!-- Container for multiple mapping configurations -->
-                <div id="mapping-configs-container">
-                </div>
-                
-                <!-- Global Actions -->
-                <div class="global-actions">
-                </div>
-            </div>            
+                <!-- Step 1: Backend Server Configuration -->
+                <details class="settings-group" open>
+                    <summary class="settings-group-header">Step 1: Start Backend Server</summary>
+                    <div class="settings-group-content">
+                        <div class="server-config">
+                            <div class="settings-help">
+                                <p class="settings-note"><strong>Quick Start:</strong></p>
+                                <p class="settings-note">Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder</p>
 
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
-                <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
+                                <p class="settings-note" style="margin-top: 12px;"><strong>Manual Start:</strong></p>
+                                <p class="settings-note">Open terminal in <code>backend-api</code> folder and run:</p>
+                                <p class="settings-note"><code>python -m uvicorn main:app --reload</code></p>
+
+                                <p class="settings-note" style="margin-top: 15px;"><strong>Server URL:</strong></p>
+                            </div>
+
+                            <label class="server-label">
+                                <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                            </label>
+
+                            <div class="settings-help" style="margin-top: 8px;">
+                                <p class="settings-note">Change takes effect immediately (session only)</p>
+
+                                <p class="settings-note" style="margin-top: 15px;"><strong>Permanent URL Change:</strong></p>
+                                <ol class="settings-list" style="line-height: 1.8;">
+                                    <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)</li>
+                                    <li>Open the <code>config</code> folder</li>
+                                    <li>Open <code>app.config.json</code> in Notepad</li>
+                                    <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>
+                                    <li>Save the file</li>
+                                    <li>Drag it into TermNorm again</li>
+                                </ol>
+
+                                <p class="settings-note" style="margin-top: 10px;"><strong>Examples:</strong></p>
+                                <p class="settings-note" style="font-size: 11px; color: #555;">
+                                    This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
+                                    Network computer: <code>"backend_url": "http://192.168.1.100:8000",</code>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Step 2: Load Configuration -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">Step 2: Load Configuration File</summary>
+                    <div class="settings-group-content">
+                        <div id="drop-zone" class="drop-zone">
+                            Drop app.config.json files here
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Step 3: Load Mapping Files -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">Step 3: Load Mapping Files</summary>
+                    <div class="settings-group-content">
+                        <!-- Container for multiple mapping configurations -->
+                        <div id="mapping-configs-container">
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Step 4: Activate Tracking -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">Step 4: Activate Tracking</summary>
+                    <div class="settings-group-content">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
+                            <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
+                        </div>
+                    </div>
+                </details>
             </div>
             <div id="metadata-content" class="ms-welcome__section hidden">
                 <h3 class="ms-font-l">Processing Details</h3>
@@ -120,39 +176,6 @@
         <section id="settings-view" class="hidden content view-section">
             <div class="ms-welcome__section">
                 <h3>Settings & Configuration</h3>
-
-                <!-- Server Configuration Group -->
-                <details class="settings-group" open>
-                    <summary class="settings-group-header">Server Configuration</summary>
-                    <div class="settings-group-content">
-                        <div class="server-config">
-                            <label class="server-label">
-                                Server URL: <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
-                            </label>
-
-                            <div class="settings-help">
-                                <p class="settings-note"><strong>Quick Change (temporary):</strong></p>
-                                <p class="settings-note">Change the URL in the box above. Works right away, but resets when you close Excel.</p>
-
-                                <p class="settings-note" style="margin-top: 15px;"><strong>Permanent Change:</strong></p>
-                                <ol class="settings-list" style="line-height: 1.8;">
-                                    <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)</li>
-                                    <li>Open the <code>config</code> folder</li>
-                                    <li>Open <code>app.config.json</code> in Notepad</li>
-                                    <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>
-                                    <li>Save the file</li>
-                                    <li>Drag it into TermNorm again</li>
-                                </ol>
-
-                                <p class="settings-note" style="margin-top: 10px;"><strong>Examples:</strong></p>
-                                <p class="settings-note" style="font-size: 11px; color: #555;">
-                                    This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
-                                    Network computer: <code>"backend_url": "http://192.168.1.100:8000",</code>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </details>
 
                 <!-- Processing Options Group -->
                 <details class="settings-group">
