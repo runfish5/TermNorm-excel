@@ -180,6 +180,25 @@
                         <div id="drop-zone" class="drop-zone">
                             Drop app.config.json here or click to browse
                         </div>
+
+                        <!-- Manual Configuration Section -->
+                        <details>
+                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                                <strong>Configure New Project</strong>
+                            </summary>
+                            <div style="padding: 8px 0 0 0;">
+                                <p style="margin: 0 0 6px 0; font-size: 12px; color: #605e5c;">
+                                    Add new project by editing this file:
+                                </p>
+                                <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; margin-bottom: 8px; box-sizing: border-box;">
+                                    <code id="config-file-path" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
+                                    <button id="copy-config-file-path-btn" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                                </div>
+                                <p style="margin: 0; font-size: 11px; color: #797775;">
+                                    Template inside the file or <a href="https://github.com/runfish5/TermNorm-excel#2-create-your-configuration-file" target="_blank" style="color: #0078d4; text-decoration: none;">full guide on GitHub</a>
+                                </p>
+                            </div>
+                        </details>
                     </div>
                 </details>
 
