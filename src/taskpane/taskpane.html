@@ -91,27 +91,42 @@
                     <div class="settings-group-content">
 
                         <!-- Quick Start Section -->
-                        <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-bottom: 16px; border-left: 3px solid #0078d4;">
-                            <p style="margin: 0 0 8px 0; font-weight: 600; color: #323130;">Quick Start</p>
-                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #605e5c;">
-                                Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder
+                        <div style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px;">
+                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                                Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder:
                             </p>
-                            <p style="margin: 0; font-size: 10px; color: #666; display: flex; align-items: center; gap: 6px;">
-                                <span id="config-path-display">Loading...</span>
-                                <button id="copy-path-btn" style="background: none; border: none; cursor: pointer; font-size: 12px; padding: 2px 4px;" title="Copy path">📋</button>
-                            </p>
-                        </div>
-
+                            <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box;">
+                                <code id="config-path-display" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
+                                <button id="copy-path-btn" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            </div>
                         <!-- Manual Start Section -->
-                        <details style="margin-bottom: 16px;">
+                        <details>
                             <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
                                 <strong>Alternative:</strong> Manual Start
                             </summary>
-                            <div style="padding: 8px 0 0 16px; font-size: 13px; color: #605e5c;">
-                                <p style="margin: 4px 0;">Open terminal in <code>backend-api</code> folder and run:</p>
-                                <p style="margin: 4px 0;"><code>python -m uvicorn main:app --reload</code></p>
+                            <div style="padding: 8px 0 0 16px; font-size: 12px; color: #605e5c; line-height: 1.6;">
+                                <ol style="margin: 0; padding-left: 20px;">
+                                    <li style="margin-bottom: 8px;">Open terminal (Windows: <kbd>Win</kbd> key → type "cmd")</li>
+                                    <li style="margin-bottom: 8px;">Navigate to backend folder:<br>
+                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">cd [your-path]\TermNorm-excel\backend-api</code>
+                                    </li>
+                                    <li style="margin-bottom: 8px;">Activate virtual environment:<br>
+                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">.\venv\Scripts\activate</code>
+                                    </li>
+                                    <li style="margin-bottom: 8px;">Start server:<br>
+                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">python -m uvicorn main:app --reload</code>
+                                    </li>
+                                </ol>
+                                <p style="margin: 12px 0 0 0; font-size: 11px; color: #797775;">
+                                    For network access, use: <code>--host 0.0.0.0 --port 8000</code><br>
+                                    <a href="https://github.com/runfish5/TermNorm-excel#4-set-up-the-python-server" target="_blank" style="color: #0078d4; text-decoration: none;">📖 Full instructions on GitHub</a>
+                                </p>
                             </div>
                         </details>
+
+                        </div>
+
+
 
                         <!-- Server URL Section -->
                         <div style="margin-bottom: 16px;">
@@ -119,7 +134,7 @@
                                 Server URL
                             </label>
                             <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000"
-                                   style="width: 100%; padding: 6px 8px; border: 1px solid #d1d1d1; border-radius: 2px; font-size: 13px; box-sizing: border-box;">
+                                   style="padding: 6px 8px; border: 1px solid #d1d1d1; border-radius: 2px; font-size: 13px; box-sizing: border-box;">
                             <p style="margin: 4px 0 0 0; font-size: 11px; color: #797775; word-wrap: break-word;">
                                 Change takes effect immediately (session only)
                             </p>
@@ -130,13 +145,16 @@
                             <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
                                 <strong>Advanced:</strong> Permanent URL Change
                             </summary>
-                            <div style="padding: 8px 0 0 16px;">
-                                <ol style="margin: 0; padding-left: 20px; line-height: 1.8; font-size: 13px; color: #605e5c;">
-                                    <li>Go to the TermNorm folder (where you run <code>start-server-py-LLMs.bat</code>)
-                                        <button id="copy-path-btn-2" style="background: none; border: none; cursor: pointer; font-size: 11px; padding: 2px 4px; margin-left: 4px;" title="Copy path">📋</button>
-                                    </li>
-                                    <li>Open the <code>config</code> folder</li>
-                                    <li>Open <code>app.config.json</code> in Notepad</li>
+                            <div style="padding: 8px 0 0 0;">
+                                <p style="margin: 0 0 6px 0; font-size: 12px; color: #605e5c;">
+                                    Navigate to the config folder:
+                                </p>
+                                <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; margin-bottom: 12px; box-sizing: border-box;">
+                                    <code id="config-folder-path" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
+                                    <button id="copy-path-btn-2" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                                </div>
+                                <ol style="margin: 0; padding-left: 20px; line-height: 1.8; font-size: 12px; color: #605e5c;">
+                                    <li>Open <code>app.config.json</code> as text</li>
                                     <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>
                                     <li>Save the file</li>
                                     <li>Drag it into TermNorm again</li>
