@@ -1,323 +1,310 @@
-# Get Started with TermNorm in Excel
+# TermNorm - AI-Powered Terminology Normalization for Excel
 
-[[IMAGE OF OPENED Add-In taskpane on the side, and some standardized cells]]
+![TermNorm Excel Add-in Screenshot](assets/termnorm-screenshot.png)
 
-This is a basic Excel add-in that automatically standardizes terminology in Excel cells as you work, using configurable mappings and AI-powered matching. Monitor cells in real-time, apply standardization rules, and track processing activity with an intuitive interface.
+An Excel add-in that automatically standardizes terminology in real-time using configurable mappings and AI-powered matching. Monitor cells as you work, apply intelligent standardization rules, and track processing with an intuitive interface.
 
-The TermNorm Add-in is used for assigning one term to the best match of a user-defined set of reference names, and can also be used for classification.
+**Use Cases:** Assign free-form names to standardized terms, entity linking, classification, and data normalization workflows.
 
-The TermNorm Add-in integrates with a Python backend server for internet search to pass that info to a chat model requests to provide real-time term standardization.
-
-## Key Features
+## ✨ Key Features
 
 - **Real-time Cell Monitoring** - Automatically detects and processes cell changes
-- **AI-Powered Research & Matching** - Core `/research-and-match` endpoint performs web research + LLM ranking + token matching
-- **Intelligent Candidate Ranking** - Uses LLM integration to rank and evaluate terminology matches
-- **Clear Configuration** - Single file config management with drag & drop support
-- **Activity Tracking** - In-Excel view of processing history and ranked candidate results
-- **Persistent Logging** - Comprehensive logging of all mapping actions and decisions
-- **Flexible Mapping System** - Support for multiple mapping sources and reference files
-- **Color-Coded Results** - Visual feedback for normalization status and confidence levels
-- **Ultra-lean Backend** - Focused architecture with only essential endpoints for maximum performance
+- **AI-Powered Research & Matching** - Web research + LLM ranking + fuzzy matching pipeline
+- **Intelligent Candidate Ranking** - Multi-source matching with confidence scoring
+- **Simple Configuration** - Single JSON file with drag & drop support
+- **Activity Tracking** - In-Excel view of processing history and ranked candidates
+- **Persistent Logging** - Comprehensive audit trail of all mapping decisions
+- **Flexible Mapping System** - Multiple reference files with hot-reload capability
+- **Color-Coded Results** - Visual feedback for normalization status and confidence
+- **Multi-User Support** - IP-based authentication with stateless architecture
 
-## Quick Start
+## 🛠️ Technology Stack
+
+**Frontend**
+- Office JavaScript API (Excel integration)
+- Webpack (bundling & dev server)
+- Service-based architecture with state management
+
+**Backend**
+- Python FastAPI (high-performance async API)
+- LLM Integration (Groq/OpenAI with runtime switching)
+- Stateless request architecture (no session management)
+- IP-based authentication with hot-reload
+
+**Processing Pipeline**
+- Exact matching (cached lookups)
+- Fuzzy matching (similarity algorithms)
+- LLM-powered research (web + entity profiling)
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Microsoft Excel (desktop or Microsoft 365)
-- Python (latest version)
+- Microsoft Excel (Desktop or Microsoft 365)
+- Python 3.9+
+- LLM API key (Groq recommended, OpenAI supported)
 
 ### Installation
 
-1. **Install the Excel add-in** - Upload `manifest-cloud.xml` to Excel (365 Cloud) or sideload for desktop
-2. **Set up Python backend** - Activate venv and run `python -m uvicorn main:app --reload` in `backend-api/`
-3. **Configure your project** - Create and load `app.config.json` with your column mappings and reference files
-4. **Start tracking** - Click "Activate Tracking" to begin monitoring cells
-
-📖 **[Full Installation Guide](docs/INSTALLATION.md)** for detailed setup instructions
-
-## Documentation
-
-- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions for Excel add-in and Python backend
-- **[Usage Guide](docs/USAGE.md)** - How to use the add-in for term normalization
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues, multi-user setup, and production deployment
-- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Sample files, customization options, and community engagement
-
-## How It Works
-
-1. **Select a cell** in your configured input column
-2. **Type a term** and press Enter
-3. **Automatic normalization** - The system performs:
-   - Quick lookup for existing mappings
-   - Fuzzy matching for similar terms
-   - LLM-powered research and ranking (requires internet)
-4. **Review results** in the Tracking Results panel
-5. **Apply suggestions** to update the target column
-
-## Copyright
-
-Copyright (c) 2025 Runfish-data. All rights reserved. For more information, contact uniquedave@gmail.com with any additional questions or comments.
-
-
-# Get Started with TermNorm in Excel
-
-[[IMAGE OF OPENED Add-In taskpane on the side, and some standardized cells]]
-
-
-This is a basic Excel add-in that automatically standardizes terminology in Excel cells as you work, using configurable mappings and AI-powered matching. Monitor cells in real-time, apply standardization rules, and track processing activity with an intuitive interface.
-The TermNorm Add-in is used for assigning one term to the best match of a user-defined set of reference names, and can also be used for classification.
-The TermNorm Add-in integrates with a Python backend server for internet search to pass that info to a chat model requests to provide real-time term standardization.
-
-## Key Features
-
-- **Real-time Cell Monitoring** - Automatically detects and processes cell changes
-- **AI-Powered Research & Matching** - Core `/research-and-match` endpoint performs web research + LLM ranking + token matching
-- **Intelligent Candidate Ranking** - Uses LLM integration to rank and evaluate terminology matches
-- **Clear Configuration** - Single file config management with drag & drop support
-- **Activity Tracking** - In-Excel view of processing history and ranked candidate results
-- **Persistent Logging** - Comprehensive logging of all mapping actions and decisions
-- **Flexible Mapping System** - Support for multiple mapping sources and reference files
-- **Color-Coded Results** - Visual feedback for normalization status and confidence levels
-- **Ultra-lean Backend** - Focused architecture with only essential endpoints for maximum performance
-
-## How to run the TermNorm Add-In
-
-### Prerequisites
-
-- Microsoft Excel installed on your system or licence for the cloud version (Microsoft 365 subscription).
-- Python (latest version). Visit the Python.org site to download and install the right version for your operating system. To verify if you've already installed Python, run the command `python -v` in your terminal.
-
-### Add the add-in to Excel
-
-#### 365 Cloud setup
-1. Download the 'manifest-cloud.xml' from https://github.com/runfish5/TermNorm-excel/blob/master/manifest-cloud.xml
-
-2. In the Excel 'Home' tab, click on 'Add-ins', then 'My Add-ins', then 'Upload my Add-in' 
-
-3. In the popup, click on browse to pick the 'manifest-cloud.xml'
-
-4. Now the taskpane that is displayed in the image at the top should be visible. If not, you did something wrong, try solve it otherwise contact me.
-
-
-### Run the add-in
-
-#### Define your project configurations
-
-1. **Open your Excel workbook** where you want to use TermNorm.
-
-2. **Create your configuration file.**
-  - Create an `app.config.json` file as shown below
-      - To customize for your project, define your `"coumn_map"` and `"standard_mappings"`. You can add more than one.
-      - Every project configuraiton is stored inside the brackets here: `{"excel-projects": {<HERE>}}` and has the following structure:
-  - Include file paths, worksheet names, source and target columns for each mapping reference
-  - Example:
-  ```json
-
-  {
-    "excel-projects": {
-      "Book 32.xlsx": {
-        "column_map": {
-          "name_of_your_input_column": "name_of_mapped_output_column",
-          "b": "b_std"
-        },
-        "default_std_suffix": "standardized",
-        "standard_mappings": [
-          {
-            "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
-            "worksheet": "Materials",
-            "source_column": "",
-            "target_column": "ISO"
-          },
-          {
-            "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
-            "worksheet": "Processing",
-            "source_column": "",
-            "target_column": "BFO"
-          }
-        ]
-      }
-    }
-  }
-  ```
-
-3. **Load your configuration.**
-   For 365 Cloud environment:
-   - In the TermNorm interface, locate the drag-and-drop field
-   - Drop your `app.config.json` file into the field
-   - The configuration will appear in the user interface
-
-   For local Excel
-   - Save your `app.config.json` at `C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\config\app.config.json`
-   - Use the **Load Config** button to reload existing configuration
-
-
-4. **Set up the Python server.**
-   - Open the terminal using `windows-key` and type 'cmd' in the search, click on 'command prompt'.
-   - Navigate to the `\OfficeAddinApps\TermNorm-excel\backend-api` directory
-      ```bash
-      cd C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api
-      ```
-   - Create and activate a virtual environment:
-     ```bash
-     .\venv\Scripts\activate
-     ```
-
-   - **Configure users** (for multi-user access):
-     Edit `backend-api/config/users.json` to add allowed IPs:
-     ```json
-     {
-       "users": {
-         "admin": {
-           "email": "admin@company.com",
-           "allowed_ips": ["127.0.0.1"]
-         }
-       }
-     }
-     ```
-
-   - **Configure LLM provider**:
-     Set Groq or OpenAI API keys in your environment for research-and-match functionality
-
-   - **Start the Python server**
-      - Local Development (default: `http://127.0.0.1:8000`)
-      ```bash
-      python -m uvicorn main:app --reload
-      ```
-
-      - Network based (team/production):
-      ```bash
-      python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      ```
-
-   - **Configure Server URL in Excel** (if needed):
-      - Open TermNorm → **Settings** tab
-      - Update "Server URL" field to match your backend location:
-        - Local: `http://127.0.0.1:8000` (default)
-        - Network: `http://192.168.1.100:8000` (example)
-        - Production: `https://api.yourcompany.com`
-      - No save button needed - updates instantly
-
-6. **Load mapping files.**
-   - For each Excel reference file, click **Browse**
-   - Select the corresponding Excel file
-   - Click **Load Mapping Table**
-   - Repeat for all reference files
-
----
-Note: Setup complete
-
-#### Start tracking
-
-7. **Activate tracking.**
-   - Navigate to **Load Configuration**
-   - Click the **Activate Tracking** button
-
-8. **Trouble shoting.**
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
-- Wait for user instruction before running any validation or testing commands
-
-
-
-## Use the TermNorm add-in
-
-1. **Select a cell** in your predefined columns within the current worksheet.
-2. **Type a term** that you want to standardize.
-3. **Press Enter** to trigger the normalization process.
-4. The system will automatically perform:
-   - Quick lookup for existing mappings
-   - Fuzzy matching for similar terms
-   - Advanced search with indexing and API requests (requires internet)
-5. it will update the target_column automatically. 
-6. View results in the **Tracking Results** panel. The taskpane should now show under 'Tracking Results>Candidate Ranked' a table with the best candidates. You can select any better one and then click "apply-first" to update the target_column.
-
-When a term is standardized, it will also create an entry in the *log*-file (`C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api\logs\activity.jsonl`). And when you click "apply-first", it will also log it.
-
-7. Switch between **History** and **Candidate Ranked** views
-
-## Explore sample files
-
-These are the important files in the sample project.
-<THIS IS A DUMMY>
-```
-| manifest.xml                  Manifest file
-| src/                          Add-in source code
-|   | taskpane/
-|   |   | taskpane.css          Task pane style
-|   |   | taskpane.html         Task pane entry HTML
-|   |   | taskpane.js           Office JS API calls and add-in logic
-| webpack.config.js             Webpack config
+**1. Clone the repository**
+```bash
+git clone https://github.com/runfish5/TermNorm-excel.git
+cd TermNorm-excel
 ```
 
-## Troubleshooting
+**2. Set up Python backend**
+```bash
+cd backend-api
+python -m venv venv
+.\venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
 
-If you have problems running the sample, take the following steps:
+**3. Configure environment**
+```bash
+# Set your LLM provider API key
+setx GROQ_API_KEY "your_api_key_here"
+```
 
-- Read the sys-status message.
-- Check server status by clicking on the server-status-led and subsequently hover over it. if the server is online, it should turn green.
-- **Close any open instances of Excel.**
-- **Stop the Python server** by pressing `Ctrl+C` in the terminal where it's running.
-- **Check your configuration file** - verify JSON syntax in `app.config.json`.
-- **Verify file paths** - ensure all mapping reference files exist at the specified locations.
-- **Try running again.**
+**4. Start backend server**
+```bash
+# Local development
+python -m uvicorn main:app --reload
 
-### Multi-User Setup
+# Network/production
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-The backend supports multiple concurrent users with IP-based authentication. Stateless backend - each request is independent. No session management.
+**5. Install Excel add-in**
+- **Microsoft 365**: Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
+- **Desktop Excel**: Sideload `manifest.xml` via Trust Center settings
 
-**Add users** - Edit `backend-api/config/users.json`:
+📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide](CLIENT_INSTALLATION.md)**
+
+## ⚙️ Configuration
+
+TermNorm uses a single JSON configuration file that defines column mappings and reference data sources.
+
+### Example `app.config.json`
+
 ```json
 {
-  "users": {
-    "admin": {
-      "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "192.168.1.134"]
-    },
-    "john": {
-      "email": "john@company.com",
-      "allowed_ips": ["192.168.1.100"]
+  "excel-projects": {
+    "MyWorkbook.xlsx": {
+      "column_map": {
+        "FreeText_Column": "Standardized_Column",
+        "Material_Input": "Material_ISO"
+      },
+      "default_std_suffix": "standardized",
+      "standard_mappings": [
+        {
+          "mapping_reference": "C:\\Reference\\Materials.xlsx",
+          "worksheet": "StandardTerms",
+          "source_column": "",
+          "target_column": "ISO_Standard"
+        },
+        {
+          "mapping_reference": "C:\\Reference\\Processes.xlsx",
+          "worksheet": "ProcessList",
+          "source_column": "",
+          "target_column": "BFO_Term"
+        }
+      ]
     }
   }
 }
 ```
 
-**Stateless Architecture:**
-- Users authenticated by IP address (hot-reloaded from users.json)
-- No backend sessions - each request is independent
-- Frontend sends terms array with each LLM request
-- Multiple users can make concurrent requests without interference
+### Loading Configuration
 
-### Cloud/Production Server Setup
+**Microsoft 365**: Drag & drop `app.config.json` into the TermNorm task pane
 
-For production deployment:
+**Desktop Excel**: Save config to `config/app.config.json` and click **Load Config**
 
-1. **Add users with their actual IPs** in `backend-api/config/users.json`
+### Multi-User Setup
 
-2. **Start network server:**
-   ```bash
-   python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+Edit `backend-api/config/users.json` to add users:
 
-If you still have problems, see {{TROUBLESHOOT_DOCS_PLACEHOLDER}} or create a GitHub issue and we'll help you.
+```json
+{
+  "users": {
+    "admin": {
+      "email": "admin@company.com",
+      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
+    },
+    "user2": {
+      "email": "user2@company.com",
+      "allowed_ips": ["192.168.1.101"]
+    }
+  }
+}
+```
 
-## Make code changes
+**Hot-reload enabled** - No server restart required when adding users.
 
-Once you understand the sample, make it your own! All the information about {{TERMNORM_DOCUMENTATION_PLACEHOLDER}} is found in our official documentation. You can also explore more samples in {{SAMPLES_LOCATION_PLACEHOLDER}}.
+## 💡 How It Works
 
-Key areas for customization:
-- **Configuration mappings** - Add or modify column mappings in `app.config.json`
-- **Reference files** - Update Excel files with your standardization data
-- **API integrations** - Configure external services for advanced search
-- **Fuzzy matching parameters** - Adjust similarity thresholds
+```
+User Input (Excel Cell)
+    ↓
+1. Quick Lookup (cached exact matches)
+    ↓
+2. Fuzzy Matching (similarity algorithms)
+    ↓
+3. LLM Research (web + entity profiling)
+    ↓
+Ranked Candidates with Confidence Scores
+    ↓
+Auto-apply or Manual Selection
+    ↓
+Logging & State Update
+```
 
-If you edit the configuration as part of your changes, validate your JSON syntax using {{JSON_VALIDATOR_PLACEHOLDER}}.
+### Processing Pipeline
 
-## Engage with the team
+1. **Exact Match**: Instant lookup from cached mappings
+2. **Fuzzy Match**: Token-based similarity with configurable thresholds
+3. **LLM Research**: Web search → entity profiling → candidate ranking
+4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
 
-Did you experience any problems with the sample? Create an issue and we'll help you out.
+### Stateless Backend Architecture
 
-Want to learn more about new features and best practices for {{PLATFORM_NAME_PLACEHOLDER}}? Join the {{COMMUNITY_CALL_PLACEHOLDER}}.
+- Each `/research-and-match` request receives `{query, terms}` payload
+- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
+- No session management = no TTL = no expiration issues
+- Pure function architecture: `(query, terms) → ranked_candidates`
 
-## Copyright
+## 📚 Documentation
 
-Copyright (c) 2025 Runfish-data. All rights reserved. For more information, contact uniquedave@gmail.com with any additional questions or comments.
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
+- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
+- **[Client Installation](CLIENT_INSTALLATION.md)** - Standalone deployment guide
+
+## 🏗️ Architecture
+
+### Frontend Structure
+
+```
+src/
+├── taskpane/              # Application orchestrator
+├── services/              # Business logic layer
+│   ├── live.tracker.js    # Multi-workbook cell monitoring
+│   ├── normalizer.functions.js  # Normalization pipeline
+│   └── normalizer.fuzzy.js      # Fuzzy matching
+├── ui-components/         # UI component functions
+├── utils/                 # Helper utilities
+│   ├── api-fetch.js       # Centralized API communication
+│   ├── error-display.js   # Message display system
+│   └── server-utilities.js     # Server connection management
+└── shared-services/       # State management
+    └── state-machine.manager.js
+```
+
+### Backend Structure
+
+```
+backend-api/
+├── main.py                # FastAPI app + routers
+├── config/                # Configuration & middleware
+│   ├── users.json         # IP-based authentication
+│   └── middleware.py      # Auth middleware
+├── api/                   # API endpoints
+│   ├── system.py          # Health & logging
+│   └── research_pipeline.py    # Research & match endpoint
+├── core/                  # Core functionality
+│   ├── llm_providers.py   # LLM configuration
+│   └── user_manager.py    # Authentication
+└── research_and_rank/     # Matching algorithms
+```
+
+## 🔧 Development
+
+### Running Tests
+
+```bash
+# Backend tests
+cd backend-api
+pytest
+
+# Frontend development server
+npm run dev-server
+```
+
+### Key Development Commands
+
+```bash
+# Backend
+cd backend-api
+.\venv\Scripts\activate
+python -m uvicorn main:app --reload
+
+# Frontend (webpack dev server runs automatically)
+npm start
+```
+
+## 🤝 Contributing
+
+Contributions welcome! This project uses a pragmatic, service-based architecture with minimal abstraction.
+
+**Code Quality Standards:**
+- Prioritize working solutions over architectural purity
+- Direct function calls preferred over object wrappers
+- Add abstraction only when multiple implementations exist
+- See [CLAUDE.md](CLAUDE.md) for architecture principles
+
+## 📋 Use Cases
+
+- **Entity Linking**: Match free-text entities to standardized knowledge bases
+- **Data Normalization**: Standardize product names, material codes, process terms
+- **Classification**: Assign categories to unstructured text
+- **Terminology Management**: Maintain consistent terminology across documents
+- **Data Quality**: Clean and standardize data entry in real-time
+
+## 🚨 Troubleshooting
+
+### Server Not Connecting
+
+1. Check server status: `http://127.0.0.1:8000/health`
+2. Verify Server URL in Settings tab
+3. Check IP permissions in `backend-api/config/users.json`
+4. Restart backend server
+
+### LLM Requests Failing
+
+1. Verify API key is set: `echo %GROQ_API_KEY%`
+2. Check internet connection
+3. Verify API quota/credits
+4. Check backend logs for detailed errors
+
+### Configuration Not Loading
+
+1. Validate JSON syntax: https://jsonlint.com
+2. Check workbook name matches Excel filename exactly
+3. Verify file paths use double backslashes: `C:\\Path\\File.xlsx`
+4. Reload configuration
+
+📖 **[Full Troubleshooting Guide](docs/TROUBLESHOOTING.md)**
+
+## 🎯 Known Limitations
+
+- **Single Excel Instance Per Project**: Each file runs isolated add-in instance
+- **LLM Request Payload**: Sends full terms array (~50KB for 1000 terms)
+  - Trade-off: Larger payloads for zero state management complexity
+
+## 📄 License
+
+Copyright (c) 2025 Runfish-data. All rights reserved.
+
+For more information or commercial licensing, contact:
+- Email: uniqued4ve@gmail.com
+- Phone: +41 77 218 12 45
+
+## 🌟 Acknowledgments
+
+Built with Office JavaScript API, FastAPI, and modern LLM providers (Groq/OpenAI).
+
+---
+
+**Made with ❤️ by Runfish-data** | [GitHub](https://github.com/runfish5/TermNorm-excel) | [Issues](https://github.com/runfish5/TermNorm-excel/issues)
