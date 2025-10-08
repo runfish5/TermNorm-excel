@@ -67,10 +67,15 @@ export function initializeProjectPathDisplay() {
   // Display path with single backslashes for readability
   if (pathEl) pathEl.textContent = projectPath.replace(/\\\\/g, "\\");
 
-  // Display config folder path (for Advanced section)
+  // Display config folder path (for Advanced section in Step 1)
   const configPathEl = document.getElementById("config-folder-path");
   const configPath = projectPath.replace(/\\\\/g, "\\") + "\\config";
   if (configPathEl) configPathEl.textContent = configPath;
+
+  // Display config file path (for Manual Configuration in Step 2)
+  const configFilePathEl = document.getElementById("config-file-path");
+  const configFilePath = configPath + "\\app.config.json";
+  if (configFilePathEl) configFilePathEl.textContent = configFilePath;
 
   // Setup copy button for main path
   const copyBtn1 = document.getElementById("copy-path-btn");
@@ -85,7 +90,7 @@ export function initializeProjectPathDisplay() {
     };
   }
 
-  // Setup copy button for config path
+  // Setup copy button for config folder path
   const copyBtn2 = document.getElementById("copy-path-btn-2");
   if (copyBtn2) {
     copyBtn2.onclick = () => {
@@ -94,6 +99,19 @@ export function initializeProjectPathDisplay() {
       copyBtn2.textContent = "✓";
       setTimeout(() => {
         copyBtn2.textContent = originalText;
+      }, 1500);
+    };
+  }
+
+  // Setup copy button for config file path
+  const copyBtn3 = document.getElementById("copy-config-file-path-btn");
+  if (copyBtn3) {
+    copyBtn3.onclick = () => {
+      navigator.clipboard.writeText(configFilePath);
+      const originalText = copyBtn3.textContent;
+      copyBtn3.textContent = "✓";
+      setTimeout(() => {
+        copyBtn3.textContent = originalText;
       }, 1500);
     };
   }
