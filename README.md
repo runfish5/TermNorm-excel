@@ -45,39 +45,39 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
 1. **Open your Excel workbook** where you want to use TermNorm.
 
 2. **Create your configuration file.**
-   - Create an `app.config.json` file as shown below
+  - Create an `app.config.json` file as shown below
       - To customize for your project, define your `"coumn_map"` and `"standard_mappings"`. You can add more than one.
       - Every project configuraiton is stored inside the brackets here: `{"excel-projects": {<HERE>}}` and has the following structure:
-   - Include file paths, worksheet names, source and target columns for each mapping reference
-   - Example:
-   ```json
+  - Include file paths, worksheet names, source and target columns for each mapping reference
+  - Example:
+  ```json
 
-{
-  "excel-projects": {
-    "Book 32.xlsx": {
-      "column_map": {
-        "name_of_your_input_column": "name_of_mapped_output_column",
-        "b": "b_std"
-      },
-      "default_std_suffix": "standardized",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
-          "worksheet": "Materials",
-          "source_column": "",
-          "target_column": "ISO"
+  {
+    "excel-projects": {
+      "Book 32.xlsx": {
+        "column_map": {
+          "name_of_your_input_column": "name_of_mapped_output_column",
+          "b": "b_std"
         },
-        {
-          "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
-          "worksheet": "Processing",
-          "source_column": "",
-          "target_column": "BFO"
-        }
-      ]
+        "default_std_suffix": "standardized",
+        "standard_mappings": [
+          {
+            "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
+            "worksheet": "Materials",
+            "source_column": "",
+            "target_column": "ISO"
+          },
+          {
+            "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
+            "worksheet": "Processing",
+            "source_column": "",
+            "target_column": "BFO"
+          }
+        ]
+      }
     }
   }
-}
-   ```
+  ```
 
 3. **Load your configuration.**
    For 365 Cloud environment:

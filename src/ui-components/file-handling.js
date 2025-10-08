@@ -275,7 +275,6 @@ function updateJsonDump() {
     Object.entries(sources).map(([index, source]) => ({
       sourceIndex: +index + 1,
       status: source.status,
-      backendSynced: source.backendSynced,
       forwardMappings: Object.keys(source.data?.forward || {}).length,
       reverseMappings: Object.keys(source.data?.reverse || {}).length,
       metadata: source.data?.metadata,

@@ -45,26 +45,3 @@ export function saveSetting(key, value, currentSettings) {
     throw error;
   }
 }
-
-/**
- * Save all settings to localStorage
- */
-export function saveAllSettings(settings) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch (error) {
-    console.error("Failed to save settings to localStorage:", error);
-    throw error;
-  }
-}
-
-/**
- * Clear all settings (reset to defaults)
- */
-export function clearSettings() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error("Failed to clear settings:", error);
-  }
-}

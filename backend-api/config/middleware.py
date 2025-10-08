@@ -31,10 +31,7 @@ async def user_auth_middleware(request: Request, call_next):
 
         # Inject user context into request
         request.state.user_id = user_id
-
-        # Only log for non-polling endpoints (reduce noise from periodic session-state checks)
-        if not request.url.path.startswith("/session-state"):
-            logger.info(f"[USER_AUTH] Request from user {user_id} (IP: {client_ip})")
+        logger.info(f"[USER_AUTH] Request from user {user_id} (IP: {client_ip})")
 
     response = await call_next(request)
     return response

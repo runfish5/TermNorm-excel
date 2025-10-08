@@ -2,9 +2,7 @@ import { showMessage } from "./error-display.js";
 import { state } from "../shared-services/state-machine.manager.js";
 
 export async function apiFetch(url, options = {}) {
-  if (!options.silent) {
-    showMessage(options.processingMessage || "Processing...");
-  }
+  showMessage(options.processingMessage || "Processing...");
 
   try {
     const response = await fetch(url, options);

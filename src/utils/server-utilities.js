@@ -1,5 +1,4 @@
 import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
-import { apiPost } from "./api-fetch.js";
 
 export function getHost() {
   return state.server.host || "http://127.0.0.1:8000";
@@ -25,13 +24,24 @@ export async function checkServerStatus() {
       return;
     }
 
-    const data = await apiPost(`${host}/test-connection`, {}, getHeaders(), { silent: true });
+    try {
+      const response = await fetch(`${host}/test-connection`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
 
-    if (data) {
-      state.server.online = true;
-      state.server.host = host;
-      state.server.info = data || {};
-    } else {
+      if (response.ok) {
+        state.server.online = true;
+        state.server.host = host;
+        state.server.info = data.data || {};
+      } else {
+        state.server.online = false;
+        state.server.host = host;
+        state.server.info = {};
+      }
+    } catch (error) {
       state.server.online = false;
       state.server.host = host;
       state.server.info = {};
