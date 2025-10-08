@@ -2,6 +2,67 @@
 
 [[IMAGE OF OPENED Add-In taskpane on the side, and some standardized cells]]
 
+This is a basic Excel add-in that automatically standardizes terminology in Excel cells as you work, using configurable mappings and AI-powered matching. Monitor cells in real-time, apply standardization rules, and track processing activity with an intuitive interface.
+
+The TermNorm Add-in is used for assigning one term to the best match of a user-defined set of reference names, and can also be used for classification.
+
+The TermNorm Add-in integrates with a Python backend server for internet search to pass that info to a chat model requests to provide real-time term standardization.
+
+## Key Features
+
+- **Real-time Cell Monitoring** - Automatically detects and processes cell changes
+- **AI-Powered Research & Matching** - Core `/research-and-match` endpoint performs web research + LLM ranking + token matching
+- **Intelligent Candidate Ranking** - Uses LLM integration to rank and evaluate terminology matches
+- **Clear Configuration** - Single file config management with drag & drop support
+- **Activity Tracking** - In-Excel view of processing history and ranked candidate results
+- **Persistent Logging** - Comprehensive logging of all mapping actions and decisions
+- **Flexible Mapping System** - Support for multiple mapping sources and reference files
+- **Color-Coded Results** - Visual feedback for normalization status and confidence levels
+- **Ultra-lean Backend** - Focused architecture with only essential endpoints for maximum performance
+
+## Quick Start
+
+### Prerequisites
+
+- Microsoft Excel (desktop or Microsoft 365)
+- Python (latest version)
+
+### Installation
+
+1. **Install the Excel add-in** - Upload `manifest-cloud.xml` to Excel (365 Cloud) or sideload for desktop
+2. **Set up Python backend** - Activate venv and run `python -m uvicorn main:app --reload` in `backend-api/`
+3. **Configure your project** - Create and load `app.config.json` with your column mappings and reference files
+4. **Start tracking** - Click "Activate Tracking" to begin monitoring cells
+
+📖 **[Full Installation Guide](docs/INSTALLATION.md)** for detailed setup instructions
+
+## Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions for Excel add-in and Python backend
+- **[Usage Guide](docs/USAGE.md)** - How to use the add-in for term normalization
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues, multi-user setup, and production deployment
+- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Sample files, customization options, and community engagement
+
+## How It Works
+
+1. **Select a cell** in your configured input column
+2. **Type a term** and press Enter
+3. **Automatic normalization** - The system performs:
+   - Quick lookup for existing mappings
+   - Fuzzy matching for similar terms
+   - LLM-powered research and ranking (requires internet)
+4. **Review results** in the Tracking Results panel
+5. **Apply suggestions** to update the target column
+
+## Copyright
+
+Copyright (c) 2025 Runfish-data. All rights reserved. For more information, contact uniquedave@gmail.com with any additional questions or comments.
+
+
+# Get Started with TermNorm in Excel
+
+[[IMAGE OF OPENED Add-In taskpane on the side, and some standardized cells]]
+
 
 This is a basic Excel add-in that automatically standardizes terminology in Excel cells as you work, using configurable mappings and AI-powered matching. Monitor cells in real-time, apply standardization rules, and track processing activity with an intuitive interface.
 The TermNorm Add-in is used for assigning one term to the best match of a user-defined set of reference names, and can also be used for classification.
