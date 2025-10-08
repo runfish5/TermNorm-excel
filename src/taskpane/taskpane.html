@@ -281,6 +281,27 @@
                     </div>
                 </details>
 
+                <!-- LLM Provider Configuration Group -->
+                <details class="settings-group">
+                    <summary class="settings-group-header">🤖 LLM Provider Configuration</summary>
+                    <div class="settings-group-content">
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label for="llm-provider-select" style="display: block; margin-bottom: 4px; font-weight: 600;">Provider:</label>
+                                <select id="llm-provider-select" style="width: 100%; padding: 6px; border: 1px solid #d1d1d1; border-radius: 3px;">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="llm-model-input" style="display: block; margin-bottom: 4px; font-weight: 600;">Model:</label>
+                                <input type="text" id="llm-model-input" placeholder="Enter model name" style="width: 100%; padding: 6px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box;">
+                            </div>
+                            <button id="apply-llm-settings" class="ms-Button ms-Button--primary" style="align-self: flex-start;">Apply Settings</button>
+                            <p style="margin: 0; font-size: 12px; color: #666;">Only providers with configured API keys are shown.</p>
+                        </div>
+                    </div>
+                </details>
+
                 <!-- Processing Options Group -->
                 <details class="settings-group">
                     <summary class="settings-group-header">Processing Options</summary>
