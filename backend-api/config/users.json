@@ -2,7 +2,7 @@
   "users": {
     "admin": {
       "email": "admin@company.com",
-      "allowed_ips": [ "192.168.1.134"]
+      "allowed_ips": ["127.0.0.1", "192.168.1.134"]
     },
     "user_001": {
       "email": "john@company.com",
