@@ -1,5 +1,6 @@
 import { showMessage } from "./error-display.js";
 import { state } from "../shared-services/state-machine.manager.js";
+import { getHost } from "./server-utilities.js";
 
 export async function apiFetch(url, options = {}) {
   const silent = options.silent;
@@ -7,8 +8,11 @@ export async function apiFetch(url, options = {}) {
 
   if (!silent) showMessage(options.processingMessage || "Processing...");
 
+  // Handle relative vs absolute URLs
+  const fullUrl = url.startsWith("http") ? url : `${getHost()}${url}`;
+
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(fullUrl, options);
     const data = await response.json();
 
     state.server.online = true;
