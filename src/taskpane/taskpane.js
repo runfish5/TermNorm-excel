@@ -7,6 +7,7 @@ import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMa
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showStatus } from "../utils/error-display.js";
+import { updateLED, setupLED } from "../utils/led-indicator.js";
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -25,7 +26,9 @@ Office.onReady(async (info) => {
 
   setupFileHandling();
   setupServerEvents();
+  setupLED();
   checkServerStatus();
+  updateLED();
   initializeVersionDisplay();
   initializeProjectPathDisplay();
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
@@ -60,12 +63,12 @@ Office.onReady(async (info) => {
   });
 
   onStateChange((newState) => {
-    // Log state changes for debugging
     console.log("State changed:", {
       mappingsLoaded: newState.mappings.loaded,
       sourceCount: Object.keys(newState.mappings.sources).length,
       syncedCount: Object.values(newState.mappings.sources).filter((s) => s.status === "synced").length,
     });
+    updateLED();
   });
 
   window.showView = showView;
