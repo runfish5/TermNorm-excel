@@ -3,12 +3,13 @@ System API - Health checks, connection testing, and activity logging
 """
 import logging
 import json
-from typing import Dict, Any
-from fastapi import APIRouter
+import os
+from typing import Dict, Any, List
+from fastapi import APIRouter, Body
 from pathlib import Path
 
 from config.environment import get_connection_info
-from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+from core import llm_providers
 from utils.responses import success_response
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def read_root() -> Dict[str, Any]:
     """API health check endpoint"""
     return {
         "status": "API running",
-        "llm": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "llm": f"{llm_providers.LLM_PROVIDER}/{llm_providers.LLM_MODEL}",
         "endpoints": ["/research-and-match", "/test-connection", "/log-activity"]
     }
 
@@ -33,7 +34,7 @@ async def test_connection() -> Dict[str, Any]:
     return success_response(
         message="Server online",
         data={
-            "provider": LLM_PROVIDER,
+            "provider": llm_providers.LLM_PROVIDER,
             "connection_type": connection_type,
             "connection_url": connection_url,
             "environment": environment
@@ -51,3 +52,47 @@ async def log_activity(entry: Dict[str, Any]) -> Dict[str, str]:
         f.write(json.dumps(entry) + "\n")
 
     return success_response(message="Activity logged")
+
+
+@router.get("/llm-providers")
+async def get_llm_providers() -> Dict[str, Any]:
+    """Get available LLM providers and current configuration"""
+    available_providers: List[str] = []
+
+    if os.getenv("GROQ_API_KEY"):
+        available_providers.append("groq")
+    if os.getenv("OPENAI_API_KEY"):
+        available_providers.append("openai")
+    if os.getenv("ANTHROPIC_API_KEY"):
+        available_providers.append("anthropic")
+
+    return success_response(
+        message="LLM providers retrieved",
+        data={
+            "available_providers": available_providers,
+            "current_provider": llm_providers.LLM_PROVIDER,
+            "current_model": llm_providers.LLM_MODEL
+        }
+    )
+
+
+@router.post("/set-llm-provider")
+async def set_llm_provider(payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
+    """Set LLM provider and model (runtime configuration)"""
+    provider = payload.get("provider")
+    model = payload.get("model")
+
+    if not provider or not model:
+        return {"status": "error", "message": "Missing provider or model"}
+
+    # Update environment variables and reload module
+    os.environ["LLM_PROVIDER"] = provider
+    os.environ["LLM_MODEL"] = model
+    llm_providers.LLM_PROVIDER = provider
+    llm_providers.LLM_MODEL = model
+
+    logger.info(f"LLM provider changed to {provider}/{model}")
+    return success_response(
+        message=f"LLM provider set to {provider}",
+        data={"provider": provider, "model": model}
+    )

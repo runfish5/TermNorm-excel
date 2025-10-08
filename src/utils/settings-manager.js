@@ -45,3 +45,21 @@ export function saveSetting(key, value, currentSettings) {
     throw error;
   }
 }
+
+/**
+ * Load available LLM providers from backend
+ */
+export async function loadAvailableProviders() {
+  const { apiGet } = await import("./api-fetch.js");
+  const response = await apiGet("/llm-providers", {}, true); // silent = true
+  return response;
+}
+
+/**
+ * Set LLM provider and model on backend
+ */
+export async function saveLlmProvider(provider, model) {
+  const { apiPost } = await import("./api-fetch.js");
+  const response = await apiPost("/set-llm-provider", { provider, model });
+  return response;
+}

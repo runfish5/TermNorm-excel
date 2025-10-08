@@ -81,11 +81,15 @@ Office.onReady(async (info) => {
 
   document.getElementById("renew-prompt")?.addEventListener("click", () => renewPromptHandler());
 
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", async (e) => {
     const navTab = e.target.closest(".nav-tab");
     if (navTab) {
       e.preventDefault();
-      showView(navTab.getAttribute("data-view"));
+      const viewName = navTab.getAttribute("data-view");
+      showView(viewName);
+      if (viewName === "settings") {
+        await initializeLlmSettings();
+      }
     }
   });
 
@@ -210,4 +214,45 @@ async function renewPromptHandler() {
 
   const mappings = state.mappings.combined;
   await renewPrompt(mappings, config, (msg, isError) => showMessage(msg, isError ? "error" : "info"));
+}
+
+async function initializeLlmSettings() {
+  const providerSelect = document.getElementById("llm-provider-select");
+  const modelInput = document.getElementById("llm-model-input");
+  const applyBtn = document.getElementById("apply-llm-settings");
+
+  try {
+    const { loadAvailableProviders, saveLlmProvider } = await import("../utils/settings-manager.js");
+    const data = await loadAvailableProviders();
+
+    if (!data || !data.available_providers) {
+      providerSelect.innerHTML = '<option value="">Server offline</option>';
+      modelInput.disabled = true;
+      applyBtn.disabled = true;
+      return;
+    }
+
+    providerSelect.innerHTML = data.available_providers.map(p =>
+      `<option value="${p}" ${p === data.current_provider ? 'selected' : ''}>${p}</option>`
+    ).join('');
+    modelInput.value = data.current_model || '';
+    modelInput.disabled = false;
+    applyBtn.disabled = false;
+
+    applyBtn.onclick = async () => {
+      const provider = providerSelect.value;
+      const model = modelInput.value.trim();
+      if (!provider || !model) return showMessage("Provider and model required", "error");
+
+      try {
+        await saveLlmProvider(provider, model);
+        showMessage(`LLM provider set to ${provider}`, "success");
+      } catch (err) {
+        showMessage(`Failed to set provider: ${err.message}`, "error");
+      }
+    };
+  } catch (error) {
+    console.error("Failed to initialize LLM settings:", error);
+    providerSelect.innerHTML = '<option value="">Error loading</option>';
+  }
 }
