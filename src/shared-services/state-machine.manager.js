@@ -180,13 +180,5 @@ export function saveSetting(key, value) {
   notifyStateChange();
 }
 
-/**
- * Get current state (deep cloned read-only copy)
- * Uses JSON for simplicity - breaks functions/Dates but we don't store those
- */
-export function getState() {
-  return JSON.parse(JSON.stringify(appState));
-}
-
-// Direct state access for backward compatibility
+// Direct state access (preferred approach per architecture principles)
 export const state = appState;

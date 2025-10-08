@@ -1,30 +1,39 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { getState } from "../shared-services/state-machine.manager.js";
+import { state } from "../shared-services/state-machine.manager.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
-export function getCachedMatch(value, forward, reverse) {
-  const val = String(value || "").trim();
-  if (!val) return null;
+// Fuzzy matching thresholds (0.0 - 1.0 similarity score)
+const FUZZY_FORWARD_THRESHOLD = 0.7;  // Higher threshold for forward mappings (more strict)
+const FUZZY_REVERSE_THRESHOLD = 0.5;  // Lower threshold for reverse mappings (more lenient)
 
-  if (val in forward) {
-    const mapping = forward[val];
+// Normalize value to trimmed string (handles Excel cell types: string, number, null, etc.)
+function normalizeValue(value) {
+  return value ? String(value).trim() : "";
+}
+
+export function getCachedMatch(value, forward, reverse) {
+  const normalized = normalizeValue(value);
+  if (!normalized) return null;
+
+  if (normalized in forward) {
+    const mapping = forward[normalized];
     return {
       target: typeof mapping === "string" ? mapping : mapping.target,
       method: "cached",
       confidence: 1.0,
     };
   }
-  return val in reverse ? { target: val, method: "cached", confidence: 1.0 } : null;
+  return normalized in reverse ? { target: normalized, method: "cached", confidence: 1.0 } : null;
 }
 
 export function findFuzzyMatch(value, forward, reverse) {
-  const val = String(value || "").trim();
-  if (!val) return null;
+  const normalized = normalizeValue(value);
+  if (!normalized) return null;
 
-  const fwd = findBestMatch(val, forward, 0.7);
+  const fwd = findBestMatch(normalized, forward, FUZZY_FORWARD_THRESHOLD);
   if (fwd) {
     return {
       target: typeof fwd.value === "string" ? fwd.value : fwd.value.target,
@@ -33,15 +42,13 @@ export function findFuzzyMatch(value, forward, reverse) {
     };
   }
 
-  const rev = findBestMatch(val, reverse, 0.5);
+  const rev = findBestMatch(normalized, reverse, FUZZY_REVERSE_THRESHOLD);
   return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score } : null;
 }
 
 export async function findTokenMatch(value) {
-  const val = String(value || "").trim();
-  if (!val) return null;
-
-  const state = getState();
+  const normalized = normalizeValue(value);
+  if (!normalized) return null;
 
   // Extract terms from cached mappings
   const terms = state.mappings.combined?.reverse ? Object.keys(state.mappings.combined.reverse) : [];
@@ -54,7 +61,7 @@ export async function findTokenMatch(value) {
   const data = await apiPost(
     `${getHost()}/research-and-match`,
     {
-      query: val,
+      query: normalized,
       terms: terms
     },
     getHeaders()
@@ -85,24 +92,23 @@ export async function findTokenMatch(value) {
 }
 
 export async function processTermNormalization(value, forward, reverse) {
-  const val = String(value || "").trim();
-  if (!val) return null;
+  const normalized = normalizeValue(value);
+  if (!normalized) return null;
 
   // Verify mappings loaded (server status checked in findTokenMatch if needed)
-  const state = getState();
   if (!state.mappings.loaded) {
     showMessage("Mapping tables not loaded - load configuration first", "error");
     return null;
   }
 
   // Try cached first
-  const cached = getCachedMatch(val, forward, reverse);
+  const cached = getCachedMatch(normalized, forward, reverse);
   if (cached) return cached;
 
   // Try fuzzy matching before expensive API call
-  const fuzzy = findFuzzyMatch(val, forward, reverse);
+  const fuzzy = findFuzzyMatch(normalized, forward, reverse);
   if (fuzzy) return fuzzy;
 
   // Fallback to research API for advanced matching
-  return await findTokenMatch(val);
+  return await findTokenMatch(normalized);
 }

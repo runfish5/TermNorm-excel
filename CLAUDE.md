@@ -40,12 +40,13 @@ Navigate to `backend-api/` directory first:
 - `ui-components/mapping-config-functions.js` - Mapping table UI management
 
 **Utility Layer: Helper Functions**
-- `utils/api-fetch.js` - Centralized API communication wrapper (all fetch() calls, supports silent mode)
+- `utils/api-fetch.js` - Centralized API communication wrapper (all fetch() calls)
 - `utils/error-display.js` - Centralized message display via `showMessage(text, type)`
 - `utils/led-indicator.js` - Server status LED indicator (setup, updates, click handlers)
 - `utils/matcher-indicator.js` - Matcher status dashboard (forward/reverse counts, capabilities)
+- `utils/offline-warning.js` - Offline mode warning visibility management
 - `utils/settings-manager.js` - Settings persistence via localStorage
-- `utils/server-utilities.js` - Server connection and status (promise-based checking)
+- `utils/server-utilities.js` - Server connection and status (promise-based checking, direct fetch for health)
 - `utils/column-utilities.js` - Column mapping and validation
 - `utils/cell-utilities.js` - Cell value processing and change detection
 - `utils/activity-logger.js` - Session logging
@@ -99,9 +100,9 @@ backend-api/
 
 **Cell Monitoring**: Live tracking functions (`startTracking()`, `stopTracking()`) monitor Excel worksheet changes and trigger normalization using pure functions from `normalizer.functions.js`. Concurrent activation attempts are prevented via guard in `startTracking()` to avoid duplicate event handlers.
 
-**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, and error handling. Authentication is IP-based via `users.json` with hot-reload. Server status checks are promise-based - concurrent checks wait for the same promise to avoid stale status data.
+**API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, and error handling. Authentication is IP-based via `users.json` with hot-reload. Server status checks use direct `fetch()` to avoid UI message pollution and are promise-based - concurrent checks wait for the same promise to avoid stale status data.
 
-**UI Status Updates**: Status messages handled by `error-display.js` via single `showMessage(text, type)` function. LED indicator managed separately by `led-indicator.js` (`updateLED()`, `setupLED()`). Matcher status dashboard in `matcher-indicator.js` shows forward/reverse term counts with clickable details. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format. API calls support silent mode for background operations (e.g., health checks).
+**UI Status Updates**: Status messages handled by `error-display.js` via single `showMessage(text, type)` function. LED indicator managed separately by `led-indicator.js` (`updateLED()`, `setupLED()`). Offline mode warning handled by `offline-warning.js` (`updateOfflineModeWarning()`). Matcher status dashboard in `matcher-indicator.js` shows forward/reverse term counts with clickable details. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
 
 ## Architecture Principles
 
@@ -198,8 +199,6 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 
 ## Known Limitations
 
-1. **State Deep Clone**: `getState()` uses `JSON.parse(JSON.stringify())` for deep cloning. Functions and special objects (Date, Map, Set) are not preserved in the clone.
+1. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
 
-2. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
-
-3. **LLM Request Payload Size**: Each LLM request sends full terms array (~50KB for 1000 terms). Trade-off: slightly larger payloads for zero state management complexity.
+2. **LLM Request Payload Size**: Each LLM request sends full terms array (~50KB for 1000 terms). Trade-off: slightly larger payloads for zero state management complexity.

@@ -1,5 +1,5 @@
 import { state } from "../shared-services/state-machine.manager.js";
-import { updateOfflineModeWarning } from "../taskpane/taskpane.js";
+import { updateOfflineModeWarning } from "./offline-warning.js";
 
 export function updateMatcherIndicator() {
   const indicator = document.getElementById("matcher-status-indicator");

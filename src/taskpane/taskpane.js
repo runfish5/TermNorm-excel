@@ -173,17 +173,6 @@ function updateButtonStates() {
   }
 }
 
-export function updateOfflineModeWarning() {
-  const warning = document.getElementById("offline-mode-warning");
-  if (!warning) return;
-
-  if (state.settings?.requireServerOnline === false) {
-    warning.classList.remove("hidden");
-  } else {
-    warning.classList.add("hidden");
-  }
-}
-
 async function startLiveTracking() {
   await checkServerStatus();
 

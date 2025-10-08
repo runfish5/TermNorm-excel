@@ -21,7 +21,7 @@ def read_root() -> Dict[str, Any]:
     return {
         "status": "API running",
         "llm": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "endpoints": ["/update-matcher", "/research-and-match", "/test-connection", "/log-activity"]
+        "endpoints": ["/research-and-match", "/test-connection", "/log-activity"]
     }
 
 
