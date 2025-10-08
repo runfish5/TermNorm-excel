@@ -1,12 +1,19 @@
-// led-indicator.js - Server status LED indicator
 import { state } from "../shared-services/state-machine.manager.js";
+import { updateOfflineModeWarning } from "../taskpane/taskpane.js";
 
 export function updateLED() {
   const led = document.getElementById("server-status-led");
+  const textElement = document.getElementById("server-status-text");
   if (!led) return;
 
   led.className = state.server.online ? "status-led green" : "status-led red";
-  led.title = state.server.online ? "Server: Online" : "Server: Offline";
+  led.title = "Click to refresh";
+
+  if (textElement) {
+    textElement.textContent = state.server.online ? "Online" : "Offline";
+  }
+
+  updateOfflineModeWarning();
 }
 
 export function setupLED() {

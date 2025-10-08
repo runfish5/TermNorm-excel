@@ -2,7 +2,7 @@
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { getState } from "../shared-services/state-machine.manager.js";
-import { showError, showSuccess } from "../utils/error-display.js";
+import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
 export function getCachedMatch(value, forward, reverse) {
@@ -47,7 +47,7 @@ export async function findTokenMatch(value) {
   const terms = state.mappings.combined?.reverse ? Object.keys(state.mappings.combined.reverse) : [];
 
   if (!terms.length) {
-    showError(0, "No terms available - load mappings first");
+    showMessage("No terms available - load mappings first", "error");
     return null;
   }
 
@@ -64,13 +64,13 @@ export async function findTokenMatch(value) {
 
   // Check if we have candidates
   if (!data.ranked_candidates?.length) {
-    showSuccess("No matches found");
+    showMessage("No matches found");
     return null;
   }
 
   const best = data.ranked_candidates[0];
   if (!best) {
-    showSuccess("No valid candidates");
+    showMessage("No valid candidates");
     return null;
   }
 
@@ -91,7 +91,7 @@ export async function processTermNormalization(value, forward, reverse) {
   // Verify mappings loaded (server status checked in findTokenMatch if needed)
   const state = getState();
   if (!state.mappings.loaded) {
-    showError(0, "Mapping tables not loaded - load configuration first");
+    showMessage("Mapping tables not loaded - load configuration first", "error");
     return null;
   }
 

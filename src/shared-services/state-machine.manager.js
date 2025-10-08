@@ -9,7 +9,9 @@
  * 5. No backend sessions, no TTL, no health checks
  */
 
-import { showStatus } from "../utils/error-display.js";
+import { showMessage } from "../utils/error-display.js";
+import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
+import { checkServerStatus } from "../utils/server-utilities.js";
 
 // Global State - Simplified
 const appState = {
@@ -22,6 +24,7 @@ const appState = {
     online: false,
     host: null,
     lastChecked: null,
+    info: {},  // Server connection info (provider, environment, etc.)
   },
   config: {
     loaded: false,
@@ -33,6 +36,10 @@ const appState = {
     combined: null,  // Combined forward/reverse mappings cache
     loaded: false,
   },
+  settings: {
+    requireServerOnline: true,  // Default: server required for operations
+    loaded: false,
+  },
 };
 
 let stateChangeCallbacks = [];
@@ -41,7 +48,7 @@ export function onStateChange(callback) {
   stateChangeCallbacks.push(callback);
 }
 
-function notifyStateChange() {
+export function notifyStateChange() {
   stateChangeCallbacks.forEach((cb) => cb(appState));
 }
 
@@ -61,6 +68,14 @@ export function setConfig(config) {
  * 4. Combine all sources
  */
 export async function loadMappingSource(index, loadFunction, params) {
+  await checkServerStatus();
+
+  if (appState.settings.requireServerOnline && !appState.server.online) {
+    const error = "Server connection required to load mappings (disable in Settings for offline mode)";
+    showMessage(`❌ ${error}`, "error");
+    throw new Error(error);
+  }
+
   // Initialize source state if needed
   if (!appState.mappings.sources[index]) {
     appState.mappings.sources[index] = {
@@ -73,11 +88,9 @@ export async function loadMappingSource(index, loadFunction, params) {
   const source = appState.mappings.sources[index];
 
   try {
-    // Set loading state
     source.status = "loading";
     source.error = null;
-    showStatus("Loading mapping table...");
-    notifyStateChange();
+    showMessage("Loading mapping table...");
 
     // Execute load operation (reads Excel only - no backend sync)
     const result = await loadFunction(params);
@@ -88,20 +101,18 @@ export async function loadMappingSource(index, loadFunction, params) {
 
     const termCount = Object.keys(result.reverse || {}).length;
 
-    // Combine all synced sources
     combineMappingSources();
 
-    showStatus(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
+    showMessage(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
     notifyStateChange();
 
     return result;
   } catch (error) {
-    // Set error state
     source.status = "error";
     source.error = error.message;
     source.data = null;
 
-    showStatus(`❌ Failed to load mapping ${index + 1}: ${error.message}`, true);
+    showMessage(`❌ Failed to load mapping ${index + 1}: ${error.message}`, "error");
     notifyStateChange();
 
     throw error;
@@ -146,6 +157,26 @@ export function clearMappings() {
   appState.mappings.sources = {};
   appState.mappings.combined = null;
   appState.mappings.loaded = false;
+  notifyStateChange();
+}
+
+/**
+ * Initialize settings from localStorage
+ * Call this during app startup
+ */
+export function initializeSettings() {
+  const settings = loadSettings();
+  appState.settings = { ...settings, loaded: true };
+  notifyStateChange();
+  return settings;
+}
+
+/**
+ * Update a single setting and persist to localStorage
+ */
+export function saveSetting(key, value) {
+  const updated = persistSetting(key, value, appState.settings);
+  appState.settings = { ...updated, loaded: true };
   notifyStateChange();
 }
 

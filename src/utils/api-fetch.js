@@ -1,22 +1,9 @@
-// utils/api-fetch.js
-import { showError, showSuccess, showProcessing } from "./error-display.js";
+import { showMessage } from "./error-display.js";
 import { state } from "../shared-services/state-machine.manager.js";
 
-/**
- * Smart fetch wrapper - handles ALL complexity
- * - Updates LED to green immediately (shows server is being contacted)
- * - Parses JSON automatically
- * - Handles errors automatically
- * - Returns clean data or null
- *
- * @param {string} url - Full URL to fetch
- * @param {Object} options - Fetch options (method, body, headers, silent, etc.)
- * @returns {Promise<Object|null>} - Response data or null on error
- */
 export async function apiFetch(url, options = {}) {
-  // Show processing state immediately - LED turns green NOW (unless silent mode)
   if (!options.silent) {
-    showProcessing(options.processingMessage || "Processing...");
+    showMessage(options.processingMessage || "Processing...");
   }
 
   try {
@@ -27,18 +14,18 @@ export async function apiFetch(url, options = {}) {
     state.server.lastChecked = Date.now();
 
     if (response.ok) {
-      showSuccess(data.message || "Operation successful");
+      showMessage(data.message || "Operation successful");
       return data.data ?? null;
     }
 
-    showError(response.status, data.message || data.detail);
+    showMessage(data.message || data.detail, "error");
     return null;
 
   } catch (error) {
     state.server.online = false;
     state.server.lastChecked = Date.now();
 
-    showError(0, "Server offline - Check backend is running on port 8000");
+    showMessage("Server offline - Check backend is running on port 8000", "error");
     return null;
   }
 }
