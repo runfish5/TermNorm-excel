@@ -40,8 +40,9 @@ Navigate to `backend-api/` directory first:
 - `ui-components/mapping-config-functions.js` - Mapping table UI management
 
 **Utility Layer: Helper Functions**
-- `utils/api-fetch.js` - Centralized API communication wrapper (all fetch() calls)
-- `utils/error-display.js` - Centralized error/status UI updates
+- `utils/api-fetch.js` - Centralized API communication wrapper (all fetch() calls, supports silent mode)
+- `utils/error-display.js` - Centralized error/status message display
+- `utils/led-indicator.js` - Server status LED indicator (setup, updates, click handlers)
 - `utils/server-utilities.js` - Server connection and status
 - `utils/column-utilities.js` - Column mapping and validation
 - `utils/cell-utilities.js` - Cell value processing and change detection
@@ -98,7 +99,7 @@ backend-api/
 
 **API Communication**: All backend communication flows through `api-fetch.js` wrapper (`apiFetch()`, `apiPost()`, `apiGet()`). This centralizes fetch calls, JSON parsing, and error handling. Authentication is IP-based via `users.json` with hot-reload.
 
-**UI Status Updates**: All status messages and LED updates go through `error-display.js` (`showStatus()`, `showError()`, `showSuccess()`, `showProcessing()`). Single source of truth for UI feedback - LED and message always synchronized. Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format.
+**UI Status Updates**: Status messages handled by `error-display.js` (`showStatus()`, `showError()`, `showSuccess()`, `showProcessing()`). LED indicator managed separately by `led-indicator.js` (`updateLED()`, `setupLED()`). Network errors (server offline) handled in `api-fetch.js` catch block. HTTP errors use ERROR_MAP for frontend overrides (403, 503) or backend messages for other codes. Backend returns standardized format: `{status: "success|error", message: "...", data: {...}}` via `responses.py` utilities. Custom HTTPException handler in `main.py` ensures consistent error format. API calls support silent mode for background operations (e.g., health checks).
 
 ## Architecture Principles
 

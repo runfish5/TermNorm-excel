@@ -21,58 +21,59 @@ const ERROR_MAP = {
  * @param {string} message - Error message from backend
  */
 export function showError(status, message) {
-  // Prefer backend message, use ERROR_MAP only as fallback
   const msg = (status in ERROR_MAP) ? ERROR_MAP[status] : (message || "Unknown error");
 
-  // Determine LED color based on error type
   let ledColor;
   if (!status || status >= 500) {
-    ledColor = "red";    // Network errors or 5xx server errors
+    ledColor = "red";
   } else if (status >= 400) {
-    ledColor = "yellow"; // 4xx client errors (auth, not found, etc.)
+    ledColor = "yellow";
   } else {
-    ledColor = "green";  // 2xx success
+    ledColor = "green";
   }
 
-  updateUI(msg, true, ledColor);
-}
-
-/**
- * Show success message
- */
-export function showSuccess(message) {
-  updateUI(message, false, "green");
-}
-
-/**
- * Show processing state (LED turns green immediately)
- */
-export function showProcessing(message = "Processing...") {
-  updateUI(message, false, "green");
-}
-
-/**
- * General status update - Drop-in replacement for old setStatus()
- * @param {string} message - Status message to display
- * @param {boolean} isError - Whether this is an error (red text, yellow LED)
- */
-export function showStatus(message, isError = false) {
-  updateUI(message, isError, isError ? "yellow" : "green");
-}
-
-// ============================================
-// PRIVATE - DOM manipulation
-// ============================================
-
-function updateUI(message, isError, ledColor) {
   const statusEl = document.getElementById("main-status-message");
   if (statusEl) {
-    statusEl.textContent = message;
-    statusEl.style.color = isError ? "#D83B01" : "";
+    statusEl.textContent = msg;
+    statusEl.style.color = "#D83B01";
   }
 
   const led = document.getElementById("server-status-led");
   if (led) {
     led.className = `status-led ${ledColor}`;
+  }
+}
+
+export function showSuccess(message) {
+  const statusEl = document.getElementById("main-status-message");
+  if (statusEl) {
+    statusEl.textContent = message;
+    statusEl.style.color = "";
+  }
+
+  const led = document.getElementById("server-status-led");
+  if (led) {
+    led.className = "status-led green";
+  }
+}
+
+export function showProcessing(message = "Processing...") {
+  const statusEl = document.getElementById("main-status-message");
+  if (statusEl) {
+    statusEl.textContent = message;
+    statusEl.style.color = "";
+  }
+
+  const led = document.getElementById("server-status-led");
+  if (led) {
+    led.className = "status-led green";
+  }
+}
+
+export function showStatus(message, isError = false) {
+  const statusEl = document.getElementById("main-status-message");
+  if (statusEl) {
+    statusEl.textContent = message;
+    statusEl.style.color = isError ? "#D83B01" : "";
   }
 }

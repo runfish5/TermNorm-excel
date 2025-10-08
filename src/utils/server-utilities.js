@@ -1,9 +1,7 @@
 // utils/server-utilities.js
-// Consolidated server configuration and status management
 import { state } from "../shared-services/state-machine.manager.js";
 import { apiPost } from "./api-fetch.js";
 
-// Server configuration functions
 export function getHost() {
   return state.server.host || "http://127.0.0.1:8000";
 }
@@ -12,7 +10,6 @@ export function getHeaders() {
   return { "Content-Type": "application/json" };
 }
 
-// Server status management
 let isCheckingServer = false;
 
 export async function checkServerStatus() {
@@ -26,15 +23,13 @@ export async function checkServerStatus() {
     return;
   }
 
-  const data = await apiPost(`${host}/test-connection`, {}, getHeaders());
+  const data = await apiPost(`${host}/test-connection`, {}, getHeaders(), { silent: true });
 
   if (data) {
-    // Success
     state.server.online = true;
     state.server.host = host;
     state.server.info = data || {};
   } else {
-    // Error (already shown by apiPost)
     state.server.online = false;
     state.server.host = host;
     state.server.info = {};
@@ -44,19 +39,9 @@ export async function checkServerStatus() {
 }
 
 export function setupServerEvents() {
-  // Set initial server host
   const backendUrl = getHost();
   state.server.host = backendUrl;
 
-  // LED click to refresh status
-  document.addEventListener("click", (e) => {
-    if (e.target.closest("#server-status-led")) {
-      e.preventDefault();
-      checkServerStatus();
-    }
-  });
-
-  // Server URL input
   const serverUrlInput = document.getElementById("server-url-input");
   if (serverUrlInput) {
     serverUrlInput.addEventListener("input", (e) => {
