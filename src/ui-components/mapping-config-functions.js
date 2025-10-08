@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
 import { state } from "../shared-services/state-machine.manager.js";
 import { loadMappingSource } from "../shared-services/state-machine.manager.js";
-import { showError, showStatus } from "../utils/error-display.js";
+import { showMessage } from "../utils/error-display.js";
 
 export function createMappingConfigHTML(mappingConfig, index) {
   return `
@@ -88,7 +88,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
         element.querySelector(".file-path-display").value = file.name;
         element.querySelector(".external-file").checked = true;
         element.querySelector(".external-file-section").classList.remove("hidden");
-        showStatus(`Reading ${file.name}...`);
+        showMessage(`Reading ${file.name}...`);
         loadSheets(true);
       }
     }
@@ -104,14 +104,14 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       const sheets = isExternal ? await getWorksheetNames(externalFile) : await getWorksheetNames();
 
       setDropdown(sheets);
-      showStatus(`${sheets.length} worksheets found${isExternal ? ` in ${externalFile.name}` : ""}`);
+      showMessage(`${sheets.length} worksheets found${isExternal ? ` in ${externalFile.name}` : ""}`);
 
       if (mappingConfig.worksheet) {
         selectWorksheet(mappingConfig.worksheet);
       }
     } catch (error) {
       setDropdown(["Error loading worksheets"], true);
-      showStatus(`Error: ${error.message}`);
+      showMessage(`Error: ${error.message}`, "error");
     }
   }
 
@@ -130,7 +130,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
     const dropdown = element.querySelector(".worksheet-dropdown");
     if (name && dropdown && Array.from(dropdown.options).some((opt) => opt.value === name)) {
       dropdown.value = name;
-      showStatus(`Selected: ${name}`);
+      showMessage(`Selected: ${name}`);
     }
   }
 
@@ -157,7 +157,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       mappings = { forward: {}, reverse: {}, metadata: null };
       // Error already handled by response-handler in mapping.processor
       // Just display it
-      showStatus(error.message, true);
+      showMessage(error.message, "error");
     }
   }
 
@@ -170,7 +170,7 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
 
     if (serverWarning) message += " - Server unavailable";
 
-    showStatus(message);
+    showMessage(message);
 
     const filename = externalFile?.name || "Current Excel file";
     element.querySelector(".filename-display").textContent = ` - ${filename}`;
@@ -209,7 +209,7 @@ export function loadMappingConfigData(element, mappingConfig) {
     element.querySelector(".external-file-section").classList.remove("hidden");
     const fileName = mappingConfig.mapping_reference?.split(/[\\/]/).pop();
     element.querySelector(".file-path-display").value = fileName;
-    showStatus(`Config expects: ${fileName}`);
+    showMessage(`Config expects: ${fileName}`);
     // setDropdown will be handled by event system
   } else {
     // loadSheets will be handled by event system

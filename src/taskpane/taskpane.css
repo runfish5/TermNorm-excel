@@ -107,34 +107,59 @@
 .nav-header img {
     margin-right: 10px;
 }
-#main-status-message {
-    white-space: pre-wrap; /* Preserves newlines and spaces */
-}
-
-/* Status Bar*/
+/* Status Bar - Two-row layout */
 .status-bar {
     position: fixed;
     top: var(--nav-bar-height);
     width: 100%;
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping */
-    align-items: flex-start;
-    padding: 12px 20px;
-    background: #f3f3f3;
-    border-bottom: 1px solid #eee;
-    min-height: auto; /* Dynamic height */
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
     z-index: 1000;
-    justify-content: center;
-
 }
 
-.status-label {
-    margin-right: 10px;
-    font-weight: bold;
-    white-space: nowrap; /* Keep label on one line */
+/* Row 1: Main status message */
+.status-message {
+    font-size: 13px;
+    color: #333;
+    white-space: pre-wrap;
+    line-height: 1.4;
 }
-.status-error { color: #d9534f; }
-.status-success { color: #5cb85c; }
+
+.status-error { color: #F44336; }
+.status-success { color: #4CAF50; }
+
+/* Row 2: System status components */
+.system-status-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 12px;
+}
+
+/* Individual status component (Backend, Data Cache) */
+.status-component {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.component-label {
+    font-weight: 600;
+    color: #666;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-text {
+    font-size: 12px;
+    color: #333;
+    font-weight: 500;
+}
 
 
 /* Buttons */
@@ -215,43 +240,35 @@
     box-shadow: 0 4px 12px rgba(0, 120, 215, 0.2);
 }
 
-/* Server Status LED */
+/* Server Status LED - Simple traffic light colors */
 .status-led {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background-color: #ccc;
-    margin-left: 10px;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background-color 0.3s ease;
 }
 
-/* LED color states - controlled by error-display.js */
 .status-led.green {
-    background-color: #107C10;
-    box-shadow: 0 0 4px #107C10;
+    background-color: #4CAF50;
 }
 
 .status-led.yellow {
-    background-color: #FFB900;
-    box-shadow: 0 0 4px #FFB900;
+    background-color: #FFC107;
 }
 
 .status-led.red {
-    background-color: #D83B01;
-    box-shadow: 0 0 4px #D83B01;
+    background-color: #F44336;
 }
 
-/* Legacy support - map old classes to new */
+/* Legacy support */
 .status-led.online {
-    background-color: #107C10;
-    box-shadow: 0 0 4px #107C10;
+    background-color: #4CAF50;
 }
 
 .status-led.offline {
-    background-color: #D83B01;
-    box-shadow: 0 0 4px #D83B01;
+    background-color: #F44336;
 }
 
 /* Network Mode Toggle */
@@ -452,6 +469,87 @@
 .version-value[title] {
     cursor: help;
     border-bottom: 1px dotted #999;
+}
+
+/* Matcher Indicator - Simple vanilla design */
+.matcher-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    border: 1px solid;
+    user-select: none;
+    background-color: #fff;
+}
+
+/* Matcher color states - simple traffic light */
+.matcher-indicator.ready {
+    border-color: #4CAF50;
+    color: #2e7d32;
+}
+
+.matcher-indicator.limited {
+    border-color: #FFC107;
+    color: #f57c00;
+}
+
+.matcher-indicator.not-ready {
+    border-color: #F44336;
+    color: #c62828;
+}
+
+.indicator-icon {
+    font-size: 11px;
+}
+
+.indicator-counts {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.indicator-label {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* Persistent Offline Mode Warning */
+.warning-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background-color: #FFF4E5;
+    border: 2px solid #FF9800;
+    color: #E65100;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.warning-icon {
+    font-size: 12px;
+}
+
+.warning-text {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Button disabled state with reason */
+.ms-Button.disabled-with-reason {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ms-Button.disabled-with-reason:hover {
+    background-color: inherit;
+    transform: none;
 }
 
 /* Utilities */

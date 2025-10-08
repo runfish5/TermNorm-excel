@@ -50,9 +50,34 @@
         </div>
         
         <div class="status-bar">
-            <span class="ms-font-s status-label">SYS-STATUS:</span>
-            <div id="main-status-message" class="ms-font-s">Ready to load configuration...</div>
-            <div id="server-status-led" class="status-led" title="Server: Checking..."></div>
+            <!-- Row 1: Main status message -->
+            <div id="main-status-message" class="status-message">Ready to load configuration...</div>
+
+            <!-- Row 2: System components with clear labels -->
+            <div class="system-status-row">
+                <!-- Backend Server Component -->
+                <div class="status-component">
+                    <span class="component-label">Backend:</span>
+                    <div id="server-status-led" class="status-led" title="Click to refresh"></div>
+                    <span id="server-status-text" class="status-text">Checking...</span>
+                </div>
+
+                <!-- Mappings Component -->
+                <div class="status-component">
+                    <span class="component-label">Mappings:</span>
+                    <div id="matcher-status-indicator" class="matcher-indicator not-ready" data-status="not-ready" title="Click for details">
+                        <span class="indicator-icon">📊</span>
+                        <span class="indicator-counts">0/0</span>
+                        <span class="indicator-label">Not loaded</span>
+                    </div>
+                </div>
+
+                <!-- Persistent Offline Mode Warning -->
+                <div id="offline-mode-warning" class="warning-badge hidden" title="Click to open Settings">
+                    <span class="warning-icon">⚠️</span>
+                    <span class="warning-text">OFFLINE MODE</span>
+                </div>
+            </div>
         </div>
 
         <!-- SETUP VIEW (Progressive Configuration Flow) -->
@@ -203,6 +228,21 @@
         <section id="settings-view" class="hidden content view-section">
             <div class="ms-welcome__section">
                 <h3>Settings & Configuration</h3>
+
+                <!-- Connection Requirements Group -->
+                <details class="settings-group" open>
+                    <summary class="settings-group-header">🔌 Connection Requirements</summary>
+                    <div class="settings-group-content">
+                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                            <input type="checkbox" id="require-server-online" checked style="cursor: pointer;">
+                            <span style="flex: 1;">Require server connection for mapping operations</span>
+                        </label>
+                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                            <strong>When enabled (default):</strong> Loading mappings and activating tracking will fail if backend server is offline.<br>
+                            <strong>When disabled:</strong> Offline mode allows exact/fuzzy matching (LLM features unavailable).
+                        </p>
+                    </div>
+                </details>
 
                 <!-- Processing Options Group -->
                 <details class="settings-group">

@@ -2,12 +2,13 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
-import { state, onStateChange } from "../shared-services/state-machine.manager.js";
+import { state, onStateChange, initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
-import { showStatus } from "../utils/error-display.js";
+import { showMessage } from "../utils/error-display.js";
 import { updateLED, setupLED } from "../utils/led-indicator.js";
+import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -24,13 +25,39 @@ Office.onReady(async (info) => {
   sideloadMsg.style.display = "none";
   appBody.style.display = "flex";
 
+  // Initialize settings from localStorage
+  initializeSettings();
+
   setupFileHandling();
   setupServerEvents();
   setupLED();
+  setupMatcherIndicator();
   checkServerStatus();
   updateLED();
+  updateMatcherIndicator();
   initializeVersionDisplay();
   initializeProjectPathDisplay();
+
+  // Setup settings checkbox handler
+  const requireServerCheckbox = document.getElementById("require-server-online");
+  if (requireServerCheckbox) {
+    requireServerCheckbox.checked = state.settings.requireServerOnline;
+    requireServerCheckbox.addEventListener("change", (e) => {
+      saveSetting("requireServerOnline", e.target.checked);
+      updateButtonStates();
+      updateLED();
+      updateMatcherIndicator();
+      showMessage(`Server requirement ${e.target.checked ? "enabled" : "disabled"}`);
+    });
+  }
+
+  const offlineWarning = document.getElementById("offline-mode-warning");
+  if (offlineWarning) {
+    offlineWarning.addEventListener("click", () => {
+      showView("settings");
+      showMessage("Offline mode active - re-enable server requirement in Connection Requirements");
+    });
+  }
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
     content &&
@@ -45,7 +72,7 @@ Office.onReady(async (info) => {
     try {
       await startLiveTracking();
     } catch (error) {
-      showStatus(`Activation failed: ${error.message}`, true);
+      showMessage(`Activation failed: ${error.message}`, "error");
     } finally {
       e.target.disabled = false;
       e.target.textContent = "Activate Tracking";
@@ -69,6 +96,8 @@ Office.onReady(async (info) => {
       syncedCount: Object.values(newState.mappings.sources).filter((s) => s.status === "synced").length,
     });
     updateLED();
+    updateMatcherIndicator();
+    updateButtonStates();
   });
 
   window.showView = showView;
@@ -90,38 +119,106 @@ Office.onReady(async (info) => {
     Object.assign(window, { state, mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
-    showStatus(`Initialization failed: ${error.message}`, true);
+    showMessage(`Initialization failed: ${error.message}`, "error");
   }
 });
 
-async function startLiveTracking() {
-  const config = state.config.data;
-  const mappings = state.mappings.combined;
+function canActivateTracking() {
+  const { config, mappings, server, settings } = state;
 
-  // Validation: Config and mappings
-  if (!config || !mappings || (!mappings.forward && !mappings.reverse)) {
-    return showStatus("Error: Config or mappings missing - load configuration first", true);
+  if (!config.loaded) {
+    return { allowed: false, reason: "Configuration not loaded - load config file first" };
   }
 
-  // Validation: Server online (for LLM features)
-  if (!state.server.online) {
-    return showStatus("Warning: Server offline - only exact/fuzzy matching will work", false);
+  if (!mappings.loaded || !mappings.combined) {
+    return { allowed: false, reason: "Mappings not loaded - load mapping files first" };
+  }
+
+  const forward = mappings.combined?.forward || {};
+  const reverse = mappings.combined?.reverse || {};
+  if (Object.keys(forward).length === 0 && Object.keys(reverse).length === 0) {
+    return { allowed: false, reason: "No mapping data available - check mapping files" };
+  }
+
+  if (settings.requireServerOnline && !server.online) {
+    return {
+      allowed: false,
+      reason: "Server connection required (change in Settings to allow offline mode)"
+    };
+  }
+
+  if (!server.online) {
+    return {
+      allowed: true,
+      warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)"
+    };
+  }
+
+  return { allowed: true };
+}
+
+function updateButtonStates() {
+  const activateBtn = document.getElementById("setup-map-tracking");
+  if (!activateBtn) return;
+
+  const validation = canActivateTracking();
+  activateBtn.disabled = !validation.allowed;
+
+  if (!validation.allowed) {
+    activateBtn.title = validation.reason;
+    activateBtn.classList.add("disabled-with-reason");
+  } else {
+    activateBtn.title = "Start live cell tracking";
+    activateBtn.classList.remove("disabled-with-reason");
+  }
+}
+
+export function updateOfflineModeWarning() {
+  const warning = document.getElementById("offline-mode-warning");
+  if (!warning) return;
+
+  if (state.settings?.requireServerOnline === false) {
+    warning.classList.remove("hidden");
+  } else {
+    warning.classList.add("hidden");
+  }
+}
+
+async function startLiveTracking() {
+  await checkServerStatus();
+
+  const validation = canActivateTracking();
+
+  if (!validation.allowed) {
+    return showMessage(`❌ ${validation.reason}`, "error");
+  }
+
+  if (validation.warning) {
+    showMessage(validation.warning);
   }
 
   try {
+    const config = state.config.data;
+    const mappings = state.mappings.combined;
     const termCount = Object.keys(mappings.reverse || {}).length;
+
     await startTracking(config, mappings);
-    showStatus(`✅ Tracking active with ${termCount} terms (exact/fuzzy/LLM matching enabled)`);
+
+    const status = state.server.online
+      ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)`
+      : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`;
+
+    showMessage(status);
     showView("results");
   } catch (error) {
-    showStatus(`Error: ${error.message}`, true);
+    showMessage(`Error: ${error.message}`, "error");
   }
 }
 
 async function renewPromptHandler() {
   const config = state.config.data;
-  if (!config) return showStatus("Config not loaded", true);
+  if (!config) return showMessage("Config not loaded", "error");
 
   const mappings = state.mappings.combined;
-  await renewPrompt(mappings, config, (msg, isError) => showStatus(msg, isError));
+  await renewPrompt(mappings, config, (msg, isError) => showMessage(msg, isError ? "error" : "info"));
 }

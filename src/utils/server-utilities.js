@@ -1,5 +1,4 @@
-// utils/server-utilities.js
-import { state } from "../shared-services/state-machine.manager.js";
+import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
 import { apiPost } from "./api-fetch.js";
 
 export function getHost() {
@@ -10,32 +9,42 @@ export function getHeaders() {
   return { "Content-Type": "application/json" };
 }
 
-let isCheckingServer = false;
+let serverCheckPromise = null;
 
 export async function checkServerStatus() {
-  if (isCheckingServer) return;
-
-  isCheckingServer = true;
-  const host = getHost();
-
-  if (!host) {
-    isCheckingServer = false;
-    return;
+  if (serverCheckPromise) {
+    return serverCheckPromise;
   }
 
-  const data = await apiPost(`${host}/test-connection`, {}, getHeaders(), { silent: true });
+  serverCheckPromise = (async () => {
+    const host = getHost();
 
-  if (data) {
-    state.server.online = true;
-    state.server.host = host;
-    state.server.info = data || {};
-  } else {
-    state.server.online = false;
-    state.server.host = host;
-    state.server.info = {};
+    if (!host) {
+      state.server.online = false;
+      notifyStateChange();
+      return;
+    }
+
+    const data = await apiPost(`${host}/test-connection`, {}, getHeaders(), { silent: true });
+
+    if (data) {
+      state.server.online = true;
+      state.server.host = host;
+      state.server.info = data || {};
+    } else {
+      state.server.online = false;
+      state.server.host = host;
+      state.server.info = {};
+    }
+
+    notifyStateChange();
+  })();
+
+  try {
+    await serverCheckPromise;
+  } finally {
+    serverCheckPromise = null;
   }
-
-  isCheckingServer = false;
 }
 
 export function setupServerEvents() {

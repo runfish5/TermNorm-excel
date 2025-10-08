@@ -28,6 +28,7 @@ function logActivity(source, target, method, confidence, total_time, llm_provide
 
 // Multi-workbook tracking state - each workbook gets isolated tracker
 const activeTrackers = new Map(); // workbookId → TrackerState
+const activationInProgress = new Set(); // workbookId → activation guard
 
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
@@ -35,54 +36,66 @@ export async function startTracking(config, mappings) {
   // Get workbook identifier for this tracker instance
   const workbookId = await getCurrentWorkbookName();
 
-  // Build column map
-  const columnMap = await Excel.run(async (ctx) => {
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    const usedRange = ws.getUsedRange(true);
-    usedRange.load("columnIndex, columnCount");
-    await ctx.sync();
-
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
-    const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
-    const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
-    headers.load("values");
-    await ctx.sync();
-
-    const headerNames = headers.values[0].map((h) => String(h || "").trim());
-    return buildColumnMap(headerNames, config.column_map);
-  });
-
-  // Create tracker instance for this workbook
-  const tracker = {
-    active: true,
-    handler: null,
-    columnMap,
-    cellValues: new Map(),
-    mappings,
-    config,
-    workbookId,
-  };
-
-  // Remove existing tracker if any
-  const existingTracker = activeTrackers.get(workbookId);
-  if (existingTracker?.handler) {
-    await Excel.run(async (ctx) => {
-      const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      ws.onChanged.remove(existingTracker.handler);
-      await ctx.sync();
-    });
+  // Prevent concurrent activation for same workbook
+  if (activationInProgress.has(workbookId)) {
+    console.warn(`Tracking activation already in progress for ${workbookId}`);
+    return;
   }
 
-  // Setup change handler with tracker context
-  await Excel.run(async (ctx) => {
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    tracker.handler = ws.onChanged.add((event) => handleWorksheetChange(event, tracker));
-    await ctx.sync();
-  });
+  activationInProgress.add(workbookId);
 
-  // Store tracker
-  activeTrackers.set(workbookId, tracker);
-  console.log(`✓ Tracking started for workbook: ${workbookId}`);
+  try {
+    // Build column map
+    const columnMap = await Excel.run(async (ctx) => {
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      const usedRange = ws.getUsedRange(true);
+      usedRange.load("columnIndex, columnCount");
+      await ctx.sync();
+
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
+      const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
+      headers.load("values");
+      await ctx.sync();
+
+      const headerNames = headers.values[0].map((h) => String(h || "").trim());
+      return buildColumnMap(headerNames, config.column_map);
+    });
+
+    // Create tracker instance for this workbook
+    const tracker = {
+      active: true,
+      handler: null,
+      columnMap,
+      cellValues: new Map(),
+      mappings,
+      config,
+      workbookId,
+    };
+
+    // Remove existing tracker if any
+    const existingTracker = activeTrackers.get(workbookId);
+    if (existingTracker?.handler) {
+      await Excel.run(async (ctx) => {
+        const ws = ctx.workbook.worksheets.getActiveWorksheet();
+        ws.onChanged.remove(existingTracker.handler);
+        await ctx.sync();
+      });
+    }
+
+    // Setup change handler with tracker context
+    await Excel.run(async (ctx) => {
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      tracker.handler = ws.onChanged.add((event) => handleWorksheetChange(event, tracker));
+      await ctx.sync();
+    });
+
+    // Store tracker
+    activeTrackers.set(workbookId, tracker);
+    console.log(`✓ Tracking started for workbook: ${workbookId}`);
+  } finally {
+    activationInProgress.delete(workbookId);
+  }
 }
 
 const handleWorksheetChange = async (e, tracker) => {
