@@ -1,6 +1,8 @@
 # TermNorm - AI-Powered Terminology Normalization for Excel
 
-![TermNorm Excel Add-in Screenshot](assets/termnorm-screenshot.png)
+<p align="center">
+  <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Screenshot" width="800">
+</p>
 
 An Excel add-in that automatically standardizes terminology in real-time using configurable mappings and AI-powered matching. Monitor cells as you work, apply intelligent standardization rules, and track processing with an intuitive interface.
 
