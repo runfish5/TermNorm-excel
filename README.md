@@ -18,23 +18,37 @@ An Excel add-in that automatically standardizes terminology in real-time using c
 - **Color-Coded Results** - Visual feedback for normalization status and confidence
 - **Multi-User Support** - IP-based authentication with stateless architecture
 
-## 🛠️ Technology Stack
+## 💡 How It Works
 
-**Frontend**
-- Office JavaScript API (Excel integration)
-- Webpack (bundling & dev server)
-- Service-based architecture with state management
+```
+User Input (Excel Cell)
+    ↓
+1. Quick Lookup (cached exact matches)
+    ↓
+2. Fuzzy Matching (similarity algorithms)
+    ↓
+3. LLM Research (web + entity profiling)
+    ↓
+Ranked Candidates with Confidence Scores
+    ↓
+Auto-apply or Manual Selection
+    ↓
+Logging & State Update
+```
 
-**Backend**
-- Python FastAPI (high-performance async API)
-- LLM Integration (Groq/OpenAI with runtime switching)
-- Stateless request architecture (no session management)
-- IP-based authentication with hot-reload
+### Processing Pipeline
 
-**Processing Pipeline**
-- Exact matching (cached lookups)
-- Fuzzy matching (similarity algorithms)
-- LLM-powered research (web + entity profiling)
+1. **Exact Match**: Instant lookup from cached mappings
+2. **Fuzzy Match**: Token-based similarity with configurable thresholds
+3. **LLM Research**: Web search → entity profiling → candidate ranking
+4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
+
+### Stateless Backend Architecture
+
+- Each `/research-and-match` request receives `{query, terms}` payload
+- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
+- No session management = no TTL = no expiration issues
+- Pure function architecture: `(query, terms) → ranked_candidates`
 
 ## 🚀 Quick Start
 
@@ -151,38 +165,6 @@ Edit `backend-api/config/users.json` to add users:
 
 **Hot-reload enabled** - No server restart required when adding users.
 
-## 💡 How It Works
-
-```
-User Input (Excel Cell)
-    ↓
-1. Quick Lookup (cached exact matches)
-    ↓
-2. Fuzzy Matching (similarity algorithms)
-    ↓
-3. LLM Research (web + entity profiling)
-    ↓
-Ranked Candidates with Confidence Scores
-    ↓
-Auto-apply or Manual Selection
-    ↓
-Logging & State Update
-```
-
-### Processing Pipeline
-
-1. **Exact Match**: Instant lookup from cached mappings
-2. **Fuzzy Match**: Token-based similarity with configurable thresholds
-3. **LLM Research**: Web search → entity profiling → candidate ranking
-4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
-
-### Stateless Backend Architecture
-
-- Each `/research-and-match` request receives `{query, terms}` payload
-- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
-- No session management = no TTL = no expiration issues
-- Pure function architecture: `(query, terms) → ranked_candidates`
-
 ## 📚 Documentation
 
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
@@ -190,6 +172,24 @@ Logging & State Update
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
 - **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
 - **[Client Installation](CLIENT_INSTALLATION.md)** - Standalone deployment guide
+
+## 🛠️ Technology Stack
+
+**Frontend**
+- Office JavaScript API (Excel integration)
+- Webpack (bundling & dev server)
+- Service-based architecture with state management
+
+**Backend**
+- Python FastAPI (high-performance async API)
+- LLM Integration (Groq/OpenAI with runtime switching)
+- Stateless request architecture (no session management)
+- IP-based authentication with hot-reload
+
+**Processing Pipeline**
+- Exact matching (cached lookups)
+- Fuzzy matching (similarity algorithms)
+- LLM-powered research (web + entity profiling)
 
 ## 🏗️ Architecture
 
