@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TermNorm Excel Add-in</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo img { width: 64px; height: 64px; }
+        h1 { color: #0078d4; text-align: center; }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .files { background: #f8f9fa; padding: 15px; border-radius: 4px; }
+        a { color: #0078d4; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 8px 0; }
+        .status { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="assets/icon-64.png" alt="TermNorm Logo">
+        </div>
+        <h1>TermNorm Excel Add-in</h1>
+        
+        <div class="info">
+            <p><strong>📋 Deployment Status:</strong> <span class="status">✅ Successfully Deployed</span></p>
+            <p><strong>🌐 GitHub Pages URL:</strong> <a href="https://runfish5.github.io/TermNorm-excel/">https://runfish5.github.io/TermNorm-excel/</a></p>
+        </div>
+
+        <h2>📁 Available Files</h2>
+        <div class="files">
+            <ul>
+                <li>📄 <a href="taskpane.html">taskpane.html</a> - Main add-in interface</li>
+                <li>📄 <a href="manifest-cloud.xml">manifest-cloud.xml</a> - Cloud deployment manifest</li>
+                <li>📄 <a href="manifest.xml">manifest.xml</a> - Local development manifest</li>
+                <li>📂 <a href="assets/">assets/</a> - Icons and images</li>
+            </ul>
+        </div>
+
+        <h2>🚀 How to Use</h2>
+        <p><strong>For Cloud Excel:</strong></p>
+        <ol>
+            <li>Download <a href="manifest-cloud.xml">manifest-cloud.xml</a></li>
+            <li>Open Excel Online</li>
+            <li>Go to Insert → Office Add-ins → Upload My Add-in</li>
+            <li>Upload the manifest-cloud.xml file</li>
+        </ol>
+
+        <h2>📖 Documentation</h2>
+        <p>View the full deployment guide in the <a href="https://github.com/runfish5/TermNorm-excel">GitHub repository</a>.</p>
+    </div>
+</body>
+</html>
