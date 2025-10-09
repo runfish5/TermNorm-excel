@@ -52,30 +52,39 @@ git clone https://github.com/runfish5/TermNorm-excel.git
 cd TermNorm-excel
 ```
 
-**2. Set up Python backend**
+**2. Start backend server**
+
+Simply run the automated setup script:
+```bash
+start-server-py-LLMs.bat
+```
+
+The script will:
+- ✅ Set up virtual environment automatically
+- ✅ Install all dependencies
+- ✅ Configure API keys interactively
+- ✅ Choose deployment type (Local or Network)
+- ✅ Run diagnostics and start server
+
+<details>
+<summary>Manual setup (alternative)</summary>
+
 ```bash
 cd backend-api
 python -m venv venv
-.\venv\Scripts\activate  # Windows
+.\venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-**3. Configure environment**
-```bash
-# Set your LLM provider API key
+# Set API key
 setx GROQ_API_KEY "your_api_key_here"
+
+# Start server
+python -m uvicorn main:app --reload                              # Local
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 ```
+</details>
 
-**4. Start backend server**
-```bash
-# Local development
-python -m uvicorn main:app --reload
-
-# Network/production
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**5. Install Excel add-in**
+**3. Install Excel add-in**
 - **Microsoft 365**: Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
 - **Desktop Excel**: Sideload `manifest.xml` via Trust Center settings
 
