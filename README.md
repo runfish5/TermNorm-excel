@@ -43,12 +43,22 @@ Logging & State Update
 3. **LLM Research**: Web search → entity profiling → candidate ranking
 4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
 
-### Stateless Backend Architecture
 
-- Each `/research-and-match` request receives `{query, terms}` payload
-- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
-- No session management = no TTL = no expiration issues
-- Pure function architecture: `(query, terms) → ranked_candidates`
+## 📋 Use Cases
+
+- **Entity Linking**: Match free-text entities to standardized knowledge bases
+- **Data Normalization**: Standardize product names, material codes, process terms
+- **Classification**: Assign categories to unstructured text
+- **Terminology Management**: Maintain consistent terminology across documents
+- **Data Quality**: Clean and standardize data entry in real-time
+
+## 📚 Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
+- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
+- **[Client Installation](CLIENT_INSTALLATION.md)** - Standalone deployment guide
 
 ## 🚀 Quick Start
 
@@ -165,14 +175,6 @@ Edit `backend-api/config/users.json` to add users:
 
 **Hot-reload enabled** - No server restart required when adding users.
 
-## 📚 Documentation
-
-- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
-- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
-- **[Client Installation](CLIENT_INSTALLATION.md)** - Standalone deployment guide
-
 ## 🛠️ Technology Stack
 
 **Frontend**
@@ -190,6 +192,14 @@ Edit `backend-api/config/users.json` to add users:
 - Exact matching (cached lookups)
 - Fuzzy matching (similarity algorithms)
 - LLM-powered research (web + entity profiling)
+
+### Stateless Backend Architecture
+
+- Each `/research-and-match` request receives `{query, terms}` payload
+- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
+- No session management = no TTL = no expiration issues
+- Pure function architecture: `(query, terms) → ranked_candidates`
+
 
 ## 🏗️ Architecture
 
@@ -263,13 +273,6 @@ Contributions welcome! This project uses a pragmatic, service-based architecture
 - Add abstraction only when multiple implementations exist
 - See [CLAUDE.md](CLAUDE.md) for architecture principles
 
-## 📋 Use Cases
-
-- **Entity Linking**: Match free-text entities to standardized knowledge bases
-- **Data Normalization**: Standardize product names, material codes, process terms
-- **Classification**: Assign categories to unstructured text
-- **Terminology Management**: Maintain consistent terminology across documents
-- **Data Quality**: Clean and standardize data entry in real-time
 
 ## 🚨 Troubleshooting
 
