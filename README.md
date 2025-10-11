@@ -265,17 +265,6 @@ python -m uvicorn main:app --reload
 npm start
 ```
 
-## 🤝 Contributing
-
-Contributions welcome! This project uses a pragmatic, service-based architecture with minimal abstraction.
-
-**Code Quality Standards:**
-- Prioritize working solutions over architectural purity
-- Direct function calls preferred over object wrappers
-- Add abstraction only when multiple implementations exist
-- See [CLAUDE.md](CLAUDE.md) for architecture principles
-
-
 ## 🚨 Troubleshooting
 
 ### Server Not Connecting
@@ -309,15 +298,14 @@ Contributions welcome! This project uses a pragmatic, service-based architecture
 
 ## 📄 License
 
-Copyright (c) 2025 Runfish-data. All rights reserved.
+Open Source
 
-For more information or commercial licensing, contact:
-- Email: uniqued4ve@gmail.com
-- Phone: +41 77 218 12 45
+## 🤝 Code Quality Standards
 
-## 🌟 Acknowledgments
+- **See [CLAUDE.md](CLAUDE.md) for architecture principles**
 
-Built with Office JavaScript API, FastAPI, and modern LLM providers (Groq/OpenAI).
+This project uses a pragmatic, service-based architecture with minimal abstraction.
+
 
 ---
 
