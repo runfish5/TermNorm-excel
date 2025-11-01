@@ -165,6 +165,23 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
                 else:
                     scrape_errors.append(urls[i])
 
+        # BACKUP: If all failed but more URLs available, try the rest
+        if not scraped_content and len(urls) > max_sites * 2:
+            remaining_urls = urls[max_sites * 2:]
+            print(f"{MAGENTA}[WEB_SCRAPE] First batch failed - trying {len(remaining_urls)} more URLs...{RESET}")
+
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(scrape_url, url, content_char_limit) for url in remaining_urls]
+                for i, future in enumerate(futures):
+                    result = future.result()
+                    if result:
+                        scraped_content.append(result)
+                        print(f"{MAGENTA}[WEB_SCRAPE] ✓ Scraped {len(scraped_content)}/{max_sites}: {result['title'][:50]}{RESET}")
+                        if len(scraped_content) >= max_sites:
+                            break
+                    else:
+                        scrape_errors.append(remaining_urls[i])
+
         if scraped_content:
             print(f"{MAGENTA}[WEB_SCRAPE] ✓ Results: {len(scraped_content)} successful, {len(scrape_errors)} failed{RESET}")
         else:
