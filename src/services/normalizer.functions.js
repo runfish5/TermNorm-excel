@@ -69,6 +69,13 @@ export async function findTokenMatch(value) {
 
   if (!data) return null;
 
+  // Update web search warning (persistent until success)
+  if (data.web_search_status) {
+    import("../utils/web-search-warning.js").then(m =>
+      m.updateWebSearchWarning(data.web_search_status, data.web_search_error)
+    );
+  }
+
   // Check if we have candidates
   if (!data.ranked_candidates?.length) {
     showMessage("No matches found");
@@ -87,7 +94,8 @@ export async function findTokenMatch(value) {
     confidence: best.relevance_score,
     candidates: data.ranked_candidates,
     total_time: data.total_time,
-    llm_provider: data.llm_provider
+    llm_provider: data.llm_provider,
+    web_search_status: data.web_search_status
   };
 }
 

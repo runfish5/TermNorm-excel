@@ -193,6 +193,10 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
 
+    # Check if web search succeeded by examining scraped_sources
+    scraped_sources = profile_debug["inputs"]["scraped_sources"]
+    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
+
     # Build standardized response
     num_candidates = len(llm_response.get('ranked_candidates', []))
     result = success_response(
@@ -200,7 +204,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         data={
             "ranked_candidates": llm_response.get('ranked_candidates', []),
             "llm_provider": llm_response.get('llm_provider'),
-            "total_time": total_time
+            "total_time": total_time,
+            "web_search_status": "failed" if web_search_failed else "success",
+            "web_search_error": scraped_sources.get("error") if web_search_failed else None
         }
     )
 

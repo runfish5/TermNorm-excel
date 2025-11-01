@@ -160,6 +160,7 @@ async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
     const target = result?.target || "No matches found";
     const confidence = result?.confidence || 0;
     const method = result?.method || (result ? "match" : "no_match");
+    const webSearchStatus = result?.web_search_status;
 
     await Excel.run(async (ctx) => {
       ctx.runtime.enableEvents = false;
@@ -175,7 +176,7 @@ async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
       ctx.runtime.enableEvents = true;
     });
 
-    addActivity(value, target, method, confidence);
+    addActivity(value, target, method, confidence, webSearchStatus);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
