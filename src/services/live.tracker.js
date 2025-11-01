@@ -26,9 +26,9 @@ function logActivity(source, target, method, confidence, total_time, llm_provide
   }).catch((err) => console.warn("Log failed:", err));
 }
 
-// Multi-workbook tracking state - each workbook gets isolated tracker
-const activeTrackers = new Map(); // workbookId → TrackerState
-const activationInProgress = new Set(); // workbookId → activation guard
+const activeTrackers = new Map();
+const activationInProgress = new Set();
+const processingCells = new Set();
 
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
@@ -45,7 +45,7 @@ export async function startTracking(config, mappings) {
   activationInProgress.add(workbookId);
 
   try {
-    // Build column map
+    processingCells.clear();
     const columnMap = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       const usedRange = ws.getUsedRange(true);
@@ -124,12 +124,13 @@ const handleWorksheetChange = async (e, tracker) => {
           const cellKey = createCellKey(row, col);
           const cleanValue = cleanCellValue(value);
 
-          // Only process if value actually changed
+          if (processingCells.has(cellKey)) continue;
+
           if (hasValueChanged(tracker.cellValues, cellKey, cleanValue)) {
             tracker.cellValues.set(cellKey, cleanValue);
-            // Mark cell as pending
+            processingCells.add(cellKey);
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
-            tasks.push(() => processCell(ws, row, col, targetCol, cleanValue, tracker));
+            tasks.push(() => processCell(ws, row, col, targetCol, cleanValue, tracker, cellKey));
           }
         }
       }
@@ -142,7 +143,7 @@ const handleWorksheetChange = async (e, tracker) => {
   });
 };
 
-async function processCell(ws, row, col, targetCol, value, tracker) {
+async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
   try {
     const result = await processTermNormalization(
       value,
@@ -160,29 +161,46 @@ async function processCell(ws, row, col, targetCol, value, tracker) {
     const confidence = result?.confidence || 0;
     const method = result?.method || (result ? "match" : "no_match");
 
-    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+    await Excel.run(async (ctx) => {
+      ctx.runtime.enableEvents = false;
 
-    tgtCell.values = [[target]];
-    tgtCell.format.fill.color = getRelevanceColor(confidence);
-    srcCell.format.fill.clear();
+      const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+      const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+
+      tgtCell.values = [[target]];
+      tgtCell.format.fill.color = getRelevanceColor(confidence);
+      srcCell.format.fill.clear();
+
+      await ctx.sync();
+      ctx.runtime.enableEvents = true;
+    });
 
     addActivity(value, target, method, confidence);
     logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
   } catch (error) {
-    handleCellError(ws, row, col, targetCol, value, error);
+    await handleCellError(row, col, targetCol, value, error);
+  } finally {
+    processingCells.delete(cellKey);
   }
 }
 
-function handleCellError(ws, row, col, targetCol, value, error) {
+async function handleCellError(row, col, targetCol, value, error) {
   const errorMsg = error instanceof Error ? error.message : String(error);
 
-  const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-  const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+  await Excel.run(async (ctx) => {
+    ctx.runtime.enableEvents = false;
 
-  srcCell.format.fill.color = PROCESSING_COLORS.ERROR;
-  tgtCell.values = [[errorMsg]];
-  tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
+
+    srcCell.format.fill.color = PROCESSING_COLORS.ERROR;
+    tgtCell.values = [[errorMsg]];
+    tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
+
+    await ctx.sync();
+    ctx.runtime.enableEvents = true;
+  });
 
   addActivity(value, errorMsg, "error", 0);
   logActivity(value, errorMsg, "error", 0, 0, undefined);
@@ -190,18 +208,22 @@ function handleCellError(ws, row, col, targetCol, value, error) {
 
 async function applyChoiceToCell(ws, row, col, targetCol, value, choice) {
   await Excel.run(async (ctx) => {
-    const srcCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, col, 1, 1);
-    const tgtCell = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(row, targetCol, 1, 1);
+    ctx.runtime.enableEvents = false;
+
+    const activeWs = ctx.workbook.worksheets.getActiveWorksheet();
+    const srcCell = activeWs.getRangeByIndexes(row, col, 1, 1);
+    const tgtCell = activeWs.getRangeByIndexes(row, targetCol, 1, 1);
 
     tgtCell.values = [[choice.candidate]];
     tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
     srcCell.format.fill.clear();
 
-    addActivity(value, choice.candidate, "UserChoice", choice.relevance_score);
-    logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
-
     await ctx.sync();
+    ctx.runtime.enableEvents = true;
   });
+
+  addActivity(value, choice.candidate, "UserChoice", choice.relevance_score);
+  logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 }
 
 export async function stopTracking(workbookId) {
@@ -222,6 +244,7 @@ export async function stopTracking(workbookId) {
     }
 
     activeTrackers.delete(workbookId);
+    processingCells.clear();
     console.log(`✓ Tracking stopped for workbook: ${workbookId}`);
   }
 }
