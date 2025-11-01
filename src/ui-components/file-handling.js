@@ -10,7 +10,12 @@ import { state, setConfig } from "../shared-services/state-machine.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 import { showMessage } from "../utils/error-display.js";
-// Ultra-simple vanilla drag/drop - works in both local and cloud Excel
+
+function setStepStates(s1, s2, s3, s4) {
+  document.querySelectorAll('#setup-view .settings-group').forEach((el, i) => {
+    el.open = [s1, s2, s3, s4][i];
+  });
+}
 
 export function buildConfigErrorMessage(error, configData) {
   let message = `Config failed: ${error.message}`;
@@ -68,10 +73,12 @@ export async function loadStaticConfig() {
     await reloadMappingModules();
 
     showMessage(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+    setStepStates(false, false, true, true);
   } catch (error) {
     const configData = state.config.raw;
     const errorMessage = buildConfigErrorMessage(error, configData);
     showMessage(errorMessage, "error");
+    setStepStates(false, true, false, true);
     throw error;
   }
 }
@@ -194,8 +201,10 @@ async function loadConfigData(configData, fileName) {
     await reloadMappingModules();
 
     showMessage(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    setStepStates(false, false, true, true);
   } catch (error) {
     showMessage(error.message, "error");
+    setStepStates(false, true, false, true);
   }
 }
 
