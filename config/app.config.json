@@ -3,8 +3,8 @@
   "excel-projects": {
     "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
       "column_map": {
-        "a": "a_std",
-        "b": "b_std"
+        "ana": "ana_std",
+        "bob": "bob_std"
       },
       "default_std_suffix": "standardized",
       "standard_mappings": [
