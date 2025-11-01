@@ -235,15 +235,30 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
     if verbose:
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
 
-    # Always return debug info
+    # Always return debug info with metadata only (no full content)
     if scraped_content:
-        sources = scraped_content
+        sources = {
+            "sources_fetched": [{'title': item['title'], 'url': item['url']} for item in scraped_content],
+            "search_method": "DuckDuckGo w/ Bing fallback",
+            "method_parameters": {
+                "query": query,
+                "max_sites": max_sites,
+                "content_char_limit": content_char_limit,
+                "raw_content_limit": raw_content_limit
+            }
+        }
     else:
         sources = {
             "error": "web_scraping_failed",
             "search_attempts": search_log,
             "scrape_failures": len(scrape_errors),
-            "fallback": "LLM knowledge only"
+            "fallback": "LLM knowledge only",
+            "method_parameters": {
+                "query": query,
+                "max_sites": max_sites,
+                "content_char_limit": content_char_limit,
+                "raw_content_limit": raw_content_limit
+            }
         }
 
     debug_info = {"inputs": {"scraped_sources": sources}}
