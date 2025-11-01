@@ -31,8 +31,8 @@ RANKING_SCHEMA = {
 }
 
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
-    """Rank candidates using LLM and return standardized structure"""
-    
+    """Rank candidates using LLM and return (result, debug_info) tuple"""
+
     # matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(match_results[:20]))
     available_results = list(match_results[:20])
     sample_size = min(len(available_results), 20)  
@@ -102,25 +102,29 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
     if corrected and 'ranked_candidates' in corrected:
         candidates = corrected['ranked_candidates']
         print(f"\n[PIPELINE] Success! Found {len(candidates)} matches.")
-        
+
         for i, c in enumerate(candidates[:3]):
             core_score = c.get('core_concept_score', 0.0)
             spec_score = c.get('spec_score', 0.0)
             print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (core: {core_score:.1f}, spec: {spec_score:.1f})")
-        
-        return {
+
+        result = {
             "query": query,
             "total_matches": len(candidates),
             "research_performed": True,
             "ranked_candidates": candidates,
             "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         }
-    
+        debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
+        return result, debug_info
+
     print(f"[WARNING] Unexpected results format: {type(corrected)}")
-    return {
+    result = {
         "query": query,
         "total_matches": 0,
         "research_performed": True,
         "ranked_candidates": [],
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
     }
+    debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
+    return result, debug_info
