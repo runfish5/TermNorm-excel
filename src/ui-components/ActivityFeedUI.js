@@ -35,7 +35,7 @@ export function init(containerId = "activity-feed") {
   return true;
 }
 
-export function add(source, target, method, confidence) {
+export function add(source, target, method, confidence, webSearchStatus) {
   if (!tableBody) {
     const initSuccess = init();
     if (!initSuccess || !tableBody) {
@@ -48,13 +48,19 @@ export function add(source, target, method, confidence) {
     const placeholder = tableBody?.querySelector(".placeholder-row");
     if (placeholder) placeholder.remove();
 
+    // Build method display text with web search status indicator
+    let methodText = method ? method.toUpperCase() : "-";
+    if (webSearchStatus === "failed" && method === "ProfileRank") {
+      methodText = `⚠️ ${methodText} (web scrape ∅)`;
+    }
+
     const row = document.createElement("tr");
     row.className = `activity-row ${method}`;
     row.innerHTML = `
               <td class="time">${new Date().toLocaleTimeString()}</td>
               <td class="source">${source || "-"}</td>
               <td class="target">${target || "-"}</td>
-              <td class="method">${method ? method.toUpperCase() : "-"}</td>
+              <td class="method">${methodText}</td>
               <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
           `;
 
