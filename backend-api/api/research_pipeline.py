@@ -27,6 +27,38 @@ with open(_schema_path, 'r') as f:
     ENTITY_SCHEMA = json.load(f)
 
 
+def _prioritize_errors(record):
+    """Check for errors in training record and move to first position if detected"""
+
+    def _find_and_extract_error(obj, path=[]):
+        """Recursively find error dict in nested structure"""
+        if isinstance(obj, dict):
+            # Check if this dict contains an 'error' key
+            if "error" in obj:
+                return obj, path
+            # Recurse into nested dicts
+            for key, value in obj.items():
+                result, error_path = _find_and_extract_error(value, path + [key])
+                if result:
+                    return result, error_path
+        return None, []
+
+    # Search for error in record
+    error_info, error_path = _find_and_extract_error(record)
+
+    if error_info:
+        # Navigate to parent and pop the error
+        parent = record
+        for key in error_path[:-1]:
+            parent = parent[key]
+        parent.pop(error_path[-1])
+
+        # Merge with error_info first, then rest of record
+        return {**error_info, **record}
+
+    return record
+
+
 class TokenLookupMatcher:
     """Stateless token-based matcher (created on-the-fly per request)"""
 
@@ -149,6 +181,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             "output": ranked_candidates
         }
     }
+
+    # Check for errors and move to first position if detected
+    training_record = _prioritize_errors(training_record)
 
     # Write to activity.jsonl
     logs_dir = Path("logs")
