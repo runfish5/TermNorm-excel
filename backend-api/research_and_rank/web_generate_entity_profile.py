@@ -109,6 +109,68 @@ def _search_engine(engine_name, search_url, headers, query_label, log):
         log.append(msg)
     return []
 
+def _searxng_fallback(query, num_results=20, log=None):
+    """
+    SearXNG meta-search fallback - queries 70+ engines simultaneously
+    Use when DuckDuckGo and Bing both fail
+    """
+    # Try multiple public instances for reliability
+    searx_instances = [
+        'https://searx.be',
+        'https://searx.tiekoetter.com',
+        'https://searx.ninja'
+    ]
+
+    for instance in searx_instances:
+        try:
+            msg = f"Trying SearXNG instance: {instance}"
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            if log:
+                log.append(msg)
+
+            response = requests.get(
+                f"{instance}/search",
+                params={
+                    'q': query,
+                    'format': 'json',
+                    'language': 'en',
+                    'safesearch': 0
+                },
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get('results', [])
+                urls = [r['url'] for r in results[:num_results] if 'url' in r and r['url'].startswith('http')]
+
+                msg = f"SearXNG ({instance}) found {len(urls)} URLs"
+                print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+                if log:
+                    log.append(msg)
+
+                if urls:  # If we got results, return them
+                    return urls
+            else:
+                msg = f"SearXNG instance {instance} returned {response.status_code}"
+                print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+                if log:
+                    log.append(msg)
+
+        except Exception as e:
+            msg = f"SearXNG instance {instance} failed: {str(e)}"
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            if log:
+                log.append(msg)
+            continue
+
+    msg = "All SearXNG instances failed"
+    print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+    if log:
+        log.append(msg)
+    return []
+
 async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
@@ -147,6 +209,19 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
             print(f"{MAGENTA}[WEB_SCRAPE] Retrying Bing with: '{enriched}'{RESET}")
             search_log.append(f"Retrying Bing with: '{enriched}'")
             urls = _search_engine("Bing", f"https://www.bing.com/search?q={quote_plus(enriched)}&setlang=en&mkt=en-US", headers, enriched, search_log)
+
+    # FINAL FALLBACK: If DDG and Bing both failed, use SearXNG meta-search
+    if not urls:
+        print(f"{MAGENTA}[WEB_SCRAPE] DDG and Bing failed - trying SearXNG meta-search...{RESET}")
+        search_log.append("Trying SearXNG meta-search (final fallback)...")
+        urls = _searxng_fallback(query, num_results=20, log=search_log)
+
+        # Try enriched query with SearXNG if still no results
+        if not urls:
+            enriched = f"{query} material properties technical specifications"
+            print(f"{MAGENTA}[WEB_SCRAPE] SearXNG retry with: '{enriched}'{RESET}")
+            search_log.append(f"SearXNG retry with: '{enriched}'")
+            urls = _searxng_fallback(enriched, num_results=20, log=search_log)
     
     scraped_content = []
     scrape_errors = []
@@ -252,11 +327,20 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
     if verbose:
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
 
+    # Determine which search method was used
+    search_method = "DuckDuckGo → Bing → SearXNG fallback"
+    if "SearXNG" in " ".join(search_log):
+        search_method = "SearXNG meta-search (DDG/Bing failed)"
+    elif "Bing" in " ".join(search_log):
+        search_method = "Bing fallback (DDG failed)"
+    else:
+        search_method = "DuckDuckGo"
+
     # Always return debug info with metadata only (no full content)
     if scraped_content:
         sources = {
             "sources_fetched": [{'title': item['title'], 'url': item['url']} for item in scraped_content],
-            "search_method": "DuckDuckGo w/ Bing fallback",
+            "search_method": search_method,
             "method_parameters": {
                 "query": query,
                 "max_sites": max_sites,
