@@ -72,7 +72,6 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     user_id = request.state.user_id
     query = payload.get("query", "")
     terms = payload.get("terms", [])
-
     logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms")
     start_time = time.time()
 
@@ -87,9 +86,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     token_matcher = TokenLookupMatcher(terms)
     logger.info(f"[PIPELINE] Created TokenLookupMatcher with {len(token_matcher.deduplicated_terms)} unique terms")
 
-    # Step 1: Research
+    # Step 1: Research (always returns tuple)
     logger.info("[PIPELINE] Step 1: Researching")
-    entity_profile = await web_generate_entity_profile(
+    entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         max_sites=7,
         schema=ENTITY_SCHEMA,
@@ -113,12 +112,51 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
     logger.info(f"Match completed in {time.time() - match_start:.2f}s")
 
-    # Step 3: LLM ranking
+    # Step 3: LLM ranking (always returns tuple)
     logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
     profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
+    llm_response, ranking_debug = await call_llm_for_ranking(
+        profile_info, entity_profile, candidate_results, query
+    )
 
-    llm_response = await call_llm_for_ranking(profile_info, entity_profile, candidate_results, query)
     total_time = round(time.time() - start_time, 2)
+
+    # Save training record
+    from datetime import datetime
+    from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+
+    # Get top ranked candidate for quick overview
+    ranked_candidates = llm_response.get('ranked_candidates', [])
+    target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches found"
+
+    training_record = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "source": query,
+        "target": target,
+        "method": "ProfileRank",
+        "total_time": total_time,
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "stage1_profiling": {
+            "inputs": {
+                "scraped_sources": profile_debug["inputs"]["scraped_sources"]
+            },
+            "output": entity_profile
+        },
+        "stage2_ranking": {
+            "inputs": {
+                "token_matched_candidates": ranking_debug["inputs"]["token_matched_candidates"]
+            },
+            "output": ranked_candidates
+        }
+    }
+
+    # Write to activity.jsonl
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(training_record) + "\n")
+
+    logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
 
     # Build standardized response
     num_candidates = len(llm_response.get('ranked_candidates', []))

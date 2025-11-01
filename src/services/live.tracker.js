@@ -176,7 +176,8 @@ async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
     });
 
     addActivity(value, target, method, confidence);
-    logActivity(value, target, method, confidence, result?.total_time || 0, result?.llm_provider);
+    // Note: Automatic logging removed - training records now captured in backend
+    // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
     await handleCellError(row, col, targetCol, value, error);
   } finally {

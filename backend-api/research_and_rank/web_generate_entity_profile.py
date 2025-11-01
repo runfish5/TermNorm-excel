@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from core.llm_providers import llm_call
-from utils.utils import CYAN, RED, RESET
+from utils.utils import CYAN, MAGENTA, RED, RESET
 import re
 import asyncio
 
@@ -69,52 +69,122 @@ def scrape_url(url, char_limit):
         logger.error(f"Scraping failed for {url}: {e}")
         return None
 
+def _search_engine(engine_name, search_url, headers, query_label, log):
+    """Helper: Try search engine and return URLs"""
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        msg = f"{engine_name} status: {response.status_code}"
+        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        log.append(msg)
+
+        if response.status_code == 202:
+            msg = f"{engine_name} returned 202, retrying..."
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            log.append(msg)
+            time.sleep(2)
+            response = requests.get(search_url, headers=headers, timeout=15)
+            msg = f"{engine_name} retry status: {response.status_code}"
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            log.append(msg)
+
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            if 'duckduckgo' in search_url:
+                urls = [l.get('href') for l in soup.find_all('a', class_='result__a')
+                        if l.get('href') and l.get('href').startswith('http')]
+            else:  # Bing
+                urls = [l.get('href') for l in soup.find_all('a', href=True)
+                       if l.get('href') and l.get('href').startswith('http') and 'bing.com' not in l.get('href')]
+            msg = f"{engine_name} found {len(urls)} URLs"
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            log.append(msg)
+            return urls
+        else:
+            msg = f"{engine_name} failed, status: {response.status_code}"
+            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+            log.append(msg)
+    except Exception as e:
+        msg = f"{engine_name} failed: {str(e)}"
+        print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+        log.append(msg)
+    return []
+
 async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
-    
+
     start_time = time.time()
     time.sleep(1)
-    
-    english_headers = {
+    search_log = []  # Track all search attempts
+
+    headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept-Language': 'en-US,en;q=0.9'
     }
-    
-    search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en&lr=lang_en"
-    search_response = requests.get(search_url, headers=english_headers, timeout=10)
-    
-    if search_response.status_code == 202:
-        time.sleep(2)
-        search_response = requests.get(search_url, headers=english_headers, timeout=15)
-    
-    search_soup = BeautifulSoup(search_response.content, 'html.parser')
-    urls = [link.get('href') for link in search_soup.find_all('a', class_='result__a') 
-            if link.get('href') and link.get('href').startswith('http')]
-    
+
+    # Try DuckDuckGo
+    print(f"{MAGENTA}[WEB_SCRAPE] Searching DuckDuckGo for: '{query}'{RESET}")
+    ddg_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en&lr=lang_en"
+    urls = _search_engine("DuckDuckGo", ddg_url, headers, query, search_log)
+
+    # If DDG returns 0 URLs, try enriched query
     if not urls:
-        try:
-            bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
-            bing_response = requests.get(bing_url, headers=english_headers, timeout=10)
-            bing_soup = BeautifulSoup(bing_response.content, 'html.parser')
-            urls = [link.get('href') for link in bing_soup.find_all('a', href=True)
-                   if link.get('href') and link.get('href').startswith('http') and 'bing.com' not in link.get('href')][:max_sites * 4]
-        except Exception as e:
-            logger.error(f"Bing fallback search failed for '{query}': {e}")
+        enriched = f"{query} material properties"
+        print(f"{MAGENTA}[WEB_SCRAPE] Retrying with: '{enriched}'{RESET}")
+        search_log.append(f"Retrying with enriched query: '{enriched}'")
+        urls = _search_engine("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={quote_plus(enriched)}&kl=us-en&lr=lang_en", headers, enriched, search_log)
+
+    # If still no URLs, try Bing
+    if not urls:
+        print(f"{MAGENTA}[WEB_SCRAPE] Trying Bing fallback...{RESET}")
+        search_log.append("Trying Bing fallback...")
+        bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
+        urls = _search_engine("Bing", bing_url, headers, query, search_log)
+
+        # If Bing returns 0 URLs, try enriched
+        if not urls:
+            enriched = f"{query} technical specifications"
+            print(f"{MAGENTA}[WEB_SCRAPE] Retrying Bing with: '{enriched}'{RESET}")
+            search_log.append(f"Retrying Bing with: '{enriched}'")
+            urls = _search_engine("Bing", f"https://www.bing.com/search?q={quote_plus(enriched)}&setlang=en&mkt=en-US", headers, enriched, search_log)
     
     scraped_content = []
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(scrape_url, url, content_char_limit) for url in urls[:max_sites * 2]]
-        for future in futures:
-            result = future.result()
-            if result:
-                scraped_content.append(result)
-                if len(scraped_content) >= max_sites:
-                    break
+    scrape_errors = []
+
+    if urls:
+        print(f"{MAGENTA}[WEB_SCRAPE] Attempting to scrape {min(len(urls), max_sites * 2)} URLs...{RESET}")
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(scrape_url, url, content_char_limit) for url in urls[:max_sites * 2]]
+            for i, future in enumerate(futures):
+                result = future.result()
+                if result:
+                    scraped_content.append(result)
+                    print(f"{MAGENTA}[WEB_SCRAPE] ✓ Scraped {len(scraped_content)}/{max_sites}: {result['title'][:50]}{RESET}")
+                    if len(scraped_content) >= max_sites:
+                        break
+                else:
+                    scrape_errors.append(urls[i])
+
+        if scraped_content:
+            print(f"{MAGENTA}[WEB_SCRAPE] ✓ Results: {len(scraped_content)} successful, {len(scrape_errors)} failed{RESET}")
+        else:
+            print(f"{RED}[WEB_SCRAPE] ✗ All scraping failed! {len(scrape_errors)} attempts{RESET}")
+
+        if scrape_errors:
+            print(f"{MAGENTA}[WEB_SCRAPE] Failed URLs sample: {scrape_errors[:3]}{RESET}")
+    else:
+        print(f"{RED}[WEB_SCRAPE] ✗ No URLs found for query: '{query}'{RESET}")
     
-    combined_text = f"Research about: {query}\n\n" + "\n\n".join(
-        [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
-    )[:raw_content_limit]
+    # If scraping failed, add generic domain keywords to help LLM
+    if not scraped_content:
+        # Extract potential domain keywords from query
+        keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
+        fallback_context = f"Query contains terms: {', '.join(keywords[:8])}"
+        combined_text = f"Research about: {query}\n\n{fallback_context}"
+    else:
+        combined_text = f"Research about: {query}\n\n" + "\n\n".join(
+            [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
+        )[:raw_content_limit]
     
     format_string = generate_format_string_from_schema(schema)
     
@@ -164,5 +234,17 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
     
     if verbose:
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
-    
-    return result
+
+    # Always return debug info
+    if scraped_content:
+        sources = scraped_content
+    else:
+        sources = {
+            "error": "web_scraping_failed",
+            "search_attempts": search_log,
+            "scrape_failures": len(scrape_errors),
+            "fallback": "LLM knowledge only"
+        }
+
+    debug_info = {"inputs": {"scraped_sources": sources}}
+    return result, debug_info
