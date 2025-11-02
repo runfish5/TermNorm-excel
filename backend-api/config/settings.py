@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     groq_api_key: Optional[str] = Field(None, alias="GROQ_API_KEY")
     openai_api_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")
 
+    # Search API Configuration
+    brave_search_api_key: Optional[str] = Field(None, alias="BRAVE_SEARCH_API_KEY")
+
     # Server Configuration
     host: str = "127.0.0.1"
     port: int = 8000

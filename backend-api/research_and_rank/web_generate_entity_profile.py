@@ -9,6 +9,7 @@ from core.llm_providers import llm_call
 from utils.utils import CYAN, MAGENTA, RED, RESET
 import re
 import asyncio
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 def generate_format_string_from_schema(schema):
@@ -109,10 +110,79 @@ def _search_engine(engine_name, search_url, headers, query_label, log):
         log.append(msg)
     return []
 
+def _brave_search(query, num_results=20, log=None):
+    """
+    Brave Search API - Primary search method (requires API key)
+    Free tier: 2,000 queries/month, 1 query/second
+    Get key at: https://api-dashboard.search.brave.com/register
+    Set in .env: BRAVE_SEARCH_API_KEY=your_key
+    """
+    api_key = settings.brave_search_api_key
+    if not api_key:
+        msg = "Brave Search API key not configured (set BRAVE_SEARCH_API_KEY in .env)"
+        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        if log:
+            log.append(msg)
+        return []
+
+    try:
+        msg = f"Trying Brave Search API for: '{query}'"
+        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        if log:
+            log.append(msg)
+
+        headers = {
+            'X-Subscription-Token': api_key,
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip'
+        }
+
+        response = requests.get(
+            'https://api.search.brave.com/res/v1/web/search',
+            params={
+                'q': query,
+                'count': num_results,
+                'search_lang': 'en',
+                'country': 'US'
+            },
+            headers=headers,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get('web', {}).get('results', [])
+            urls = [r['url'] for r in results if 'url' in r and r['url'].startswith('http')]
+
+            msg = f"Brave Search found {len(urls)} URLs"
+            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            if log:
+                log.append(msg)
+
+            return urls
+        elif response.status_code == 429:
+            msg = f"Brave Search rate limit exceeded (free tier: 2000/month, 1/sec)"
+            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+            if log:
+                log.append(msg)
+        else:
+            msg = f"Brave Search failed with status {response.status_code}"
+            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+            if log:
+                log.append(msg)
+
+    except Exception as e:
+        msg = f"Brave Search failed: {str(e)}"
+        print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+        if log:
+            log.append(msg)
+
+    return []
+
 def _searxng_fallback(query, num_results=20, log=None):
     """
     SearXNG meta-search fallback - queries 70+ engines simultaneously
-    Use when DuckDuckGo and Bing both fail
+    Use when Brave Search is unavailable or rate limited
     """
     # Try multiple public instances for reliability
     searx_instances = [
@@ -184,44 +254,60 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         'Accept-Language': 'en-US,en;q=0.9'
     }
 
-    # Try DuckDuckGo
-    print(f"{MAGENTA}[WEB_SCRAPE] Searching DuckDuckGo for: '{query}'{RESET}")
-    ddg_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en&lr=lang_en"
-    urls = _search_engine("DuckDuckGo", ddg_url, headers, query, search_log)
+    # FALLBACK CHAIN: Brave → SearXNG → DuckDuckGo → Bing
+    # Brave (if API key configured) → SearXNG (no key) → DDG/Bing scraping (preserved for future)
+    # Get Brave key: https://api-dashboard.search.brave.com/register (2k free queries/month)
 
-    # If DDG returns 0 URLs, try enriched query
-    if not urls:
+    # 1. PRIMARY: Try Brave Search API (if configured)
+    urls = _brave_search(query, num_results=20, log=search_log)
+
+    # Try enriched query with Brave if initial fails
+    if not urls and settings.brave_search_api_key:
         enriched = f"{query} material properties"
-        print(f"{MAGENTA}[WEB_SCRAPE] Retrying with: '{enriched}'{RESET}")
-        search_log.append(f"Retrying with enriched query: '{enriched}'")
-        urls = _search_engine("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={quote_plus(enriched)}&kl=us-en&lr=lang_en", headers, enriched, search_log)
+        print(f"{MAGENTA}[WEB_SCRAPE] Brave retry with: '{enriched}'{RESET}")
+        search_log.append(f"Brave retry with enriched query: '{enriched}'")
+        urls = _brave_search(enriched, num_results=20, log=search_log)
 
-    # If still no URLs, try Bing
+    # 2. FALLBACK 1: Try SearXNG meta-search (no API key required)
     if not urls:
-        print(f"{MAGENTA}[WEB_SCRAPE] Trying Bing fallback...{RESET}")
-        search_log.append("Trying Bing fallback...")
-        bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
-        urls = _search_engine("Bing", bing_url, headers, query, search_log)
-
-        # If Bing returns 0 URLs, try enriched
-        if not urls:
-            enriched = f"{query} technical specifications"
-            print(f"{MAGENTA}[WEB_SCRAPE] Retrying Bing with: '{enriched}'{RESET}")
-            search_log.append(f"Retrying Bing with: '{enriched}'")
-            urls = _search_engine("Bing", f"https://www.bing.com/search?q={quote_plus(enriched)}&setlang=en&mkt=en-US", headers, enriched, search_log)
-
-    # FINAL FALLBACK: If DDG and Bing both failed, use SearXNG meta-search
-    if not urls:
-        print(f"{MAGENTA}[WEB_SCRAPE] DDG and Bing failed - trying SearXNG meta-search...{RESET}")
-        search_log.append("Trying SearXNG meta-search (final fallback)...")
+        print(f"{MAGENTA}[WEB_SCRAPE] Trying SearXNG meta-search...{RESET}")
+        search_log.append("Trying SearXNG meta-search (fallback 1)...")
         urls = _searxng_fallback(query, num_results=20, log=search_log)
 
-        # Try enriched query with SearXNG if still no results
+        # Try enriched query with SearXNG if initial fails
         if not urls:
             enriched = f"{query} material properties technical specifications"
             print(f"{MAGENTA}[WEB_SCRAPE] SearXNG retry with: '{enriched}'{RESET}")
             search_log.append(f"SearXNG retry with: '{enriched}'")
             urls = _searxng_fallback(enriched, num_results=20, log=search_log)
+
+    # 3. FALLBACK 2: Try DuckDuckGo scraping (rate limited)
+    if not urls:
+        print(f"{MAGENTA}[WEB_SCRAPE] Trying DuckDuckGo fallback...{RESET}")
+        search_log.append("Trying DuckDuckGo fallback (fallback 2)...")
+        ddg_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en&lr=lang_en"
+        urls = _search_engine("DuckDuckGo", ddg_url, headers, query, search_log)
+
+        # Try enriched query with DDG if initial fails
+        if not urls:
+            enriched = f"{query} material properties"
+            print(f"{MAGENTA}[WEB_SCRAPE] DuckDuckGo retry with: '{enriched}'{RESET}")
+            search_log.append(f"DuckDuckGo retry with: '{enriched}'")
+            urls = _search_engine("DuckDuckGo", f"https://html.duckduckgo.com/html/?q={quote_plus(enriched)}&kl=us-en&lr=lang_en", headers, enriched, search_log)
+
+    # 4. FALLBACK 3: Try Bing scraping (final fallback)
+    if not urls:
+        print(f"{MAGENTA}[WEB_SCRAPE] Trying Bing fallback...{RESET}")
+        search_log.append("Trying Bing fallback (fallback 3)...")
+        bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en&mkt=en-US"
+        urls = _search_engine("Bing", bing_url, headers, query, search_log)
+
+        # Try enriched query with Bing if initial fails
+        if not urls:
+            enriched = f"{query} technical specifications"
+            print(f"{MAGENTA}[WEB_SCRAPE] Bing retry with: '{enriched}'{RESET}")
+            search_log.append(f"Bing retry with: '{enriched}'")
+            urls = _search_engine("Bing", f"https://www.bing.com/search?q={quote_plus(enriched)}&setlang=en&mkt=en-US", headers, enriched, search_log)
     
     scraped_content = []
     scrape_errors = []
@@ -328,13 +414,17 @@ REMEMBER: Every term must be followed by its US/GB variant if different. Return 
         print(f"✅ Generated profile with {len(result)-1} fields | {len(scraped_content)} sources | {processing_time:.1f}s")
 
     # Determine which search method was used
-    search_method = "DuckDuckGo → Bing → SearXNG fallback"
-    if "SearXNG" in " ".join(search_log):
-        search_method = "SearXNG meta-search (DDG/Bing failed)"
-    elif "Bing" in " ".join(search_log):
-        search_method = "Bing fallback (DDG failed)"
+    log_str = " ".join(search_log)
+    if "Brave Search found" in log_str:
+        search_method = "Brave Search API"
+    elif "SearXNG" in log_str and "found" in log_str:
+        search_method = "SearXNG meta-search (Brave unavailable/failed)"
+    elif "DuckDuckGo found" in log_str:
+        search_method = "DuckDuckGo scraping (Brave & SearXNG failed)"
+    elif "Bing found" in log_str:
+        search_method = "Bing scraping (all other methods failed)"
     else:
-        search_method = "DuckDuckGo"
+        search_method = "Fallback chain: Brave → SearXNG → DDG → Bing"
 
     # Always return debug info with metadata only (no full content)
     if scraped_content:

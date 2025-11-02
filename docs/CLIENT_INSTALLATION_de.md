@@ -109,6 +109,18 @@ setx GROQ_API_KEY "ihr_groq_api_key_hier"
 setx OPENAI_API_KEY "ihr_openai_api_key_hier"
 ```
 
+**Web-Suche konfigurieren (Optional):**
+
+Für zuverlässige Web-Recherche können Sie Brave Search API aktivieren (2.000 kostenlose Anfragen/Monat):
+1. Registrieren Sie sich bei: https://api-dashboard.search.brave.com/register
+2. Erstellen Sie einen API Key
+3. Fügen Sie den Key in `backend-api\.env` hinzu:
+   ```
+   BRAVE_SEARCH_API_KEY=ihr_brave_api_key_hier
+   ```
+
+Falls nicht konfiguriert, verwendet das System automatisch kostenlose Alternativen: SearXNG → DuckDuckGo → Bing.
+
 **Wichtig:** Nach Setzen der Umgebungsvariablen müssen Sie die Kommandozeile neu öffnen.
 
 ### Schritt 6: Backend-Server starten
