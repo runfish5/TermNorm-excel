@@ -11,6 +11,10 @@ TermNorm is an Excel add-in that provides real-time terminology normalization us
 
 The add-in monitors Excel cells in real-time, applies configurable mapping rules, and provides AI-powered term suggestions through integration with LLM providers (Groq/OpenAI).
 
+## Client Distribution Strategy
+
+**Version Control:** `master` branch is for development (unstable). Clients receive email notifications with specific release links (e.g. v1.0.0) from https://github.com/runfish5/TermNorm-excel/releases. Release branches (`release/v1.x.x`) are immutable and stable. Only create releases from tested, stable code.
+
 ## Development Commands
 
 ### Backend (Python API)

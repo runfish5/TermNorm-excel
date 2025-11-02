@@ -60,7 +60,8 @@ Logging & State Update
 - **[Usage Guide](docs/USAGE.md)** - How to use the add-in
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
 - **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
-- **[Client Installation](CLIENT_INSTALLATION.md)** - Standalone deployment guide
+- **[Client Installation (German)](docs/CLIENT_INSTALLATION_de.md)** - Standalone deployment guide
+- **[Release Guide](docs/RELEASE_GUIDE.md)** - Best practices for distributing to clients
 
 ## 🚀 Quick Start
 

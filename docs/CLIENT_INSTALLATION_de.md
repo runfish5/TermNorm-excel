@@ -1,5 +1,63 @@
 # TermNorm Excel Add-in - Installationsanleitung für Ihren Server
 
+## ⚠️ WICHTIGE HINWEISE UND HAFTUNGSAUSSCHLUSS
+
+> **BITTE SORGFÄLTIG LESEN, BEVOR SIE FORTFAHREN**
+
+### Produktstatus und Zuverlässigkeit
+
+Dieses Add-in ist eine **experimentelle Software in aktiver Entwicklung**. Bitte beachten Sie:
+
+- ✅ Kernfunktionalität ist implementiert und getestet
+- ⚠️ Performance-Optimierungen sind noch in Arbeit
+- 🔄 Updates und Änderungen können jederzeit erfolgen
+- 🧪 Verwenden Sie dies **nicht** für kritische Produktionsdaten ohne umfangreiche eigene Tests
+
+### Haftungsausschluss
+
+**KEINE GARANTIE**: Diese Software wird "wie besehen" ohne Garantien jeglicher Art bereitgestellt:
+
+- ❌ **Keine Verantwortung für Datenverlust, Fehler oder Schäden**
+- ❌ **Keine Garantie für Verfügbarkeit, Zuverlässigkeit oder Korrektheit**
+- ❌ **Keine Haftung für falsche KI-Vorschläge oder Normalisierungen**
+- ✅ **Nutzen Sie das System auf eigenes Risiko**
+
+**WICHTIG**:
+- 📋 **Erstellen Sie IMMER Backups Ihrer Daten vor der Nutzung**
+- 🔍 **Überprüfen Sie ALLE automatischen Normalisierungen manuell**
+- 🚫 **Verlassen Sie sich NICHT blind auf KI-Vorschläge**
+- ⚖️ **Die Verantwortung für Datenqualität liegt bei Ihnen**
+
+### Datenschutz und API-Nutzung
+
+- 🌐 LLM-Anfragen werden an externe Provider (Groq/OpenAI) gesendet
+- 📤 Ihre Eingabedaten werden zur Verarbeitung an diese Dienste übertragen
+- 🔒 Stellen Sie sicher, dass dies Ihren Datenschutzrichtlinien entspricht
+- ⚠️ Verwenden Sie **keine sensiblen oder vertraulichen Daten** ohne Genehmigung
+
+### Support und Weiterentwicklung
+
+- 💬 Support ist **nicht garantiert** und erfolgt nach bestem Bemühen
+- 🐛 Fehler können auftreten - dokumentieren Sie diese bitte
+- 📧 Kontakt: uniqued4ve@gmail.com (Antwort nicht garantiert)
+- 🔄 Dieses Projekt ist Open Source ohne SLA oder Wartungsgarantie
+
+**Wenn Sie mit diesen Bedingungen nicht einverstanden sind, verwenden Sie diese Software bitte nicht.**
+
+---
+
+## Versionskontrolle und Sicherheit
+
+WICHTIG - Verwenden Sie nur offizielle Releases:
+
+Sie erhalten eine Email-Benachrichtigung mit einem spezifischen Release-Link (z.B. v1.0.0) für jede neue Version. Laden Sie Dateien ausschließlich von diesem angegebenen Release herunter: https://github.com/runfish5/TermNorm-excel/releases
+
+Verwenden Sie NICHT den master Branch oder andere Branches - diese sind für Entwicklung und nicht getestet. Release-Branches (release/v1.x.x) sind unveränderlich (immutable) und stabil. Dies schützt vor unbemerkten Code-Änderungen und gewährleistet Nachvollziehbarkeit.
+
+Aktualisieren Sie nur wenn Sie eine Email-Benachrichtigung erhalten haben. Geben Sie bei Support-Anfragen immer Ihre Versionsnummer an (siehe <Version> in manifest.xml).
+
+---
+
 ## Überblick
 
 Diese Anleitung führt Sie durch die Installation des TermNorm Excel Add-ins auf Ihrem Server. Das Add-in besteht aus zwei Komponenten:
@@ -169,12 +227,46 @@ Das Add-in unterstützt zwei Deployment-Optionen:
 6. Klicken Sie **Hochladen**
 
 **Für Excel Desktop (lokal):**
-1. Öffnen Sie Excel
-2. Gehen Sie zu: **Datei** → **Optionen** → **Trust Center** → **Trust Center-Einstellungen**
-3. Wählen Sie **Vertrauenswürdige Add-in-Kataloge**
-4. Fügen Sie den Pfad zum Manifest-Ordner hinzu
-5. Setzen Sie Häkchen bei "Im Menü anzeigen"
-6. Klicken Sie OK und starten Sie Excel neu
+
+> **⚠️ WICHTIGER HINWEIS - Sideloading nur für Excel Desktop**
+>
+> Die "Upload my Add-in" Option funktioniert **nur in Excel für das Web**, nicht in der Desktop-Version. Für die Desktop-Version müssen Sie die **Sideloading-Methode** über Netzwerkfreigabe verwenden.
+
+#### Methode 1: Sideloading über Netzwerkfreigabe (empfohlen für Desktop)
+
+**Schritt 1: Netzwerkfreigabe erstellen (einmalig)**
+1. Einen Ordner auf dem Computer erstellen (z.B. `C:\OfficeAddIns`)
+2. Rechtsklick auf den Ordner → **Eigenschaften** → **Freigabe-Tab** → **Freigeben**
+3. Sich selbst hinzufügen und **Freigeben** klicken
+4. Den vollständigen Netzwerkpfad notieren (z.B. `\\COMPUTERNAME\OfficeAddIns`)
+
+**Schritt 2: Vertrauenswürdigen Katalog einrichten (einmalig)**
+1. Excel öffnen
+2. **Datei** → **Optionen** → **Trust Center** → **Einstellungen für das Trust Center**
+3. **Vertrauenswürdige Add-In-Kataloge** auswählen
+4. Den vollständigen Netzwerkpfad einfügen (z.B. `\\COMPUTERNAME\OfficeAddIns`)
+5. **Katalog hinzufügen** klicken
+6. Das Häkchen bei **Im Menü anzeigen** setzen
+7. **OK** klicken und Excel neu starten
+
+**Schritt 3: Manifest-Datei herunterladen**
+1. Laden Sie die `manifest.xml` von GitHub herunter:
+   - **Direkt-Link**: https://github.com/runfish5/TermNorm-excel/blob/master/manifest.xml
+   - Klicken Sie auf **Raw** → Rechtsklick → **Speichern unter**
+   - Oder klonen Sie das gesamte Repository (siehe Teil 1, Schritt 1)
+
+**Schritt 4: Add-In installieren**
+1. Die heruntergeladene `manifest.xml` Datei in den freigegebenen Ordner kopieren (z.B. `C:\OfficeAddIns\`)
+2. Excel öffnen
+3. **Start** → **Add-Ins** → **Erweitert** (oder **Weitere Add-Ins**)
+4. **FREIGEGEBENER ORDNER** oben im Dialog auswählen
+5. Das Add-in auswählen und auf **Hinzufügen** klicken
+
+#### Methode 2: Alternative für Mac (nur macOS)
+Auf Mac können Sie die `manifest.xml` direkt in folgenden Ordner kopieren:
+```
+/Users/<username>/Library/Containers/com.Microsoft.Excel/Data/Documents/Wef
+```
 
 ### Schritt 3: Add-in öffnen
 
