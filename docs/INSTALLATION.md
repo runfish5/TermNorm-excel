@@ -1,5 +1,17 @@
 # Installation Guide
 
+## Version Control and Security
+
+IMPORTANT - Use only official releases:
+
+You will receive an email notification with a specific release link (e.g. v1.0.0) for each new version. Download files exclusively from the provided release: https://github.com/runfish5/TermNorm-excel/releases
+
+Do NOT use the master branch or other branches - these are for development and untested. Release branches (release/v1.x.x) are immutable and stable. This protects against unnoticed code changes and ensures traceability.
+
+Only update when you receive an email notification. Always provide your version number for support requests (see <Version> in manifest.xml).
+
+---
+
 ## Prerequisites
 
 - Microsoft Excel installed on your system or licence for the cloud version (Microsoft 365 subscription).
@@ -15,6 +27,48 @@
 3. In the popup, click on browse to pick the 'manifest-cloud.xml'
 
 4. Now the taskpane that is displayed in the image at the top should be visible. If not, you did something wrong, try solve it otherwise contact me.
+
+### Desktop Excel setup (Sideloading)
+
+> **⚠️ IMPORTANT NOTE - Sideloading for Excel Desktop Only**
+>
+> The "Upload my Add-in" option **only works in Excel for the Web**, not in the Desktop version. For Desktop Excel, you must use the **sideloading method** via network share.
+
+#### Method 1: Sideloading via Network Share (recommended for Desktop)
+
+**Step 1: Create Network Share (one-time setup)**
+1. Create a folder on your computer (e.g., `C:\OfficeAddIns`)
+2. Right-click on the folder → **Properties** → **Sharing tab** → **Share**
+3. Add yourself and click **Share**
+4. Note the full network path (e.g., `\\COMPUTERNAME\OfficeAddIns`)
+
+**Step 2: Configure Trusted Catalog (one-time setup)**
+1. Open Excel
+2. **File** → **Options** → **Trust Center** → **Trust Center Settings**
+3. Select **Trusted Add-in Catalogs**
+4. Enter the full network path (e.g., `\\COMPUTERNAME\OfficeAddIns`)
+5. Click **Add catalog**
+6. Check **Show in Menu**
+7. Click **OK** and restart Excel
+
+**Step 3: Download Manifest File**
+1. Download the `manifest.xml` from GitHub:
+   - **Direct link**: https://github.com/runfish5/TermNorm-excel/blob/master/manifest.xml
+   - Click **Raw** → Right-click → **Save as**
+   - Or clone the entire repository (see Prerequisites)
+
+**Step 4: Install Add-in**
+1. Copy the downloaded `manifest.xml` to your shared folder (e.g., `C:\OfficeAddIns\`)
+2. Open Excel
+3. **Home** → **Add-ins** → **More Add-ins**
+4. Select **SHARED FOLDER** at the top of the dialog
+5. Select the add-in and click **Add**
+
+#### Method 2: Alternative for Mac (macOS only)
+On Mac, you can copy the `manifest.xml` directly to:
+```
+/Users/<username>/Library/Containers/com.Microsoft.Excel/Data/Documents/Wef
+```
 
 
 ## Run the add-in
