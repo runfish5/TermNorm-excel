@@ -6,7 +6,34 @@
 
 An Excel add-in that automatically standardizes terminology in real-time using configurable mappings and AI-powered matching. Monitor cells as you work, apply intelligent standardization rules, and track processing with an intuitive interface.
 
-**Use Cases:** Assign free-form names to standardized terms, entity linking, classification, and data normalization workflows.
+## 📋 Use Cases
+Assign free-form names to standardized terms, entity linking, classification, and data normalization workflows.
+
+
+- **Entity Linking**: Match free-text entities to standardized knowledge bases
+- **Data Normalization**: Standardize product names, material codes, process terms
+- **Classification**: Assign categories to unstructured text
+- **Terminology Management**: Maintain consistent terminology across documents
+- **Data Quality**: Clean and standardize data entry in real-time
+
+
+## 📋 Processing Pipeline
+
+1. **Exact Match**: Instant lookup from cached mappings
+2. **Fuzzy Match**: Token-based similarity with configurable thresholds
+3. **LLM Research**: Web search → entity profiling → candidate ranking
+4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
+
+
+## 📚 Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
+- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
+- **[Client Installation (German)](docs/CLIENT_INSTALLATION_de.md)** - Standalone deployment guide
+- **[Release Guide](docs/RELEASE_GUIDE.md)** - Best practices for distributing to clients
+
 
 ## ✨ Key Features
 
@@ -20,48 +47,8 @@ An Excel add-in that automatically standardizes terminology in real-time using c
 - **Color-Coded Results** - Visual feedback for normalization status and confidence
 - **Multi-User Support** - IP-based authentication with stateless architecture
 
-## 💡 How It Works
-
-```
-User Input (Excel Cell)
-    ↓
-1. Quick Lookup (cached exact matches)
-    ↓
-2. Fuzzy Matching (similarity algorithms)
-    ↓
-3. LLM Research (web + entity profiling)
-    ↓
-Ranked Candidates with Confidence Scores
-    ↓
-Auto-apply or Manual Selection
-    ↓
-Logging & State Update
-```
-
-### Processing Pipeline
-
-1. **Exact Match**: Instant lookup from cached mappings
-2. **Fuzzy Match**: Token-based similarity with configurable thresholds
-3. **LLM Research**: Web search → entity profiling → candidate ranking
-4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
 
 
-## 📋 Use Cases
-
-- **Entity Linking**: Match free-text entities to standardized knowledge bases
-- **Data Normalization**: Standardize product names, material codes, process terms
-- **Classification**: Assign categories to unstructured text
-- **Terminology Management**: Maintain consistent terminology across documents
-- **Data Quality**: Clean and standardize data entry in real-time
-
-## 📚 Documentation
-
-- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
-- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
-- **[Client Installation (German)](docs/CLIENT_INSTALLATION_de.md)** - Standalone deployment guide
-- **[Release Guide](docs/RELEASE_GUIDE.md)** - Best practices for distributing to clients
 
 ## 🚀 Quick Start
 
@@ -177,6 +164,24 @@ Edit `backend-api/config/users.json` to add users:
 ```
 
 **Hot-reload enabled** - No server restart required when adding users.
+
+## 💡 How It Works
+
+```
+User Input (Excel Cell)
+    ↓
+1. Quick Lookup (cached exact matches)
+    ↓
+2. Fuzzy Matching (similarity algorithms)
+    ↓
+3. LLM Research (web + entity profiling)
+    ↓
+Ranked Candidates with Confidence Scores
+    ↓
+Auto-apply or Manual Selection
+    ↓
+Logging & State Update
+```
 
 ## 🛠️ Technology Stack
 
