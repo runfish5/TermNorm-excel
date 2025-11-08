@@ -76,7 +76,6 @@ start-server-py-LLMs.bat
 The script will:
 - ✅ Set up virtual environment automatically
 - ✅ Install all dependencies
-- ✅ Configure API keys interactively
 - ✅ Choose deployment type (Local or Network)
 - ✅ Run diagnostics and start server
 
