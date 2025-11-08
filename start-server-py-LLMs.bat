@@ -4,8 +4,8 @@ setlocal enabledelayedexpansion
 :: ===============================================
 :: CONFIGURATION PARAMETERS
 :: ===============================================
+:: Authentication: Uses IP-based authentication via backend-api/config/users.json
 set "DEFAULT_BACKEND_PATH=C:\Users\dsacc\OfficeAddinApps\TermNorm-excel\backend-api"
-set "DEFAULT_API_KEY=mycatlikesfish"
 set "DEFAULT_VENV_PATH=C:\Users\dsacc\venvs\termnorm-backend"
 set "DEFAULT_DEPLOYMENT=network"
 
@@ -34,7 +34,7 @@ echo ^| %YELLOW%[2]%RESET% Network/Cloud (accessible remotely)  ^|
 echo.
 set /p deploy_choice="%BLUE%>%RESET% Enter choice (%YELLOW%1%RESET% or %YELLOW%2%RESET%): "
 
-:: Set deployment type and get API key
+:: Set deployment type
 if "%deploy_choice%"=="1" (
     set deployment_type=local
     echo Selected: %BOLD%%GREEN%Local deployment%RESET%
@@ -42,12 +42,6 @@ if "%deploy_choice%"=="1" (
     set deployment_type=network
     echo Selected: %BOLD%%GREEN%Network deployment%RESET%
 )
-
-echo.
-echo +-- API CONFIGURATION ---------------------+
-set /p api_key="%BLUE%^>%RESET% API Key [default: %CYAN%!DEFAULT_API_KEY!%RESET%]: "
-if "%api_key%"=="" set api_key=!DEFAULT_API_KEY!
-echo Using API Key: %BOLD%%YELLOW%!api_key!%RESET%
 
 :: Backend directory setup
 echo.
@@ -127,9 +121,6 @@ if errorlevel 1 (
     echo %YELLOW%[WARNING]%RESET% Some requirements may have failed to install
 )
 
-:: Set environment variable
-set TERMNORM_API_KEY=!api_key!
-
 :: Basic diagnostics
 echo.
 echo ===============================================
@@ -168,10 +159,10 @@ echo              Server Launch
 echo ===============================================
 echo.
 echo +-- CONFIGURATION SUMMARY -----------------+
-echo ^| API Key:     %BOLD%%YELLOW%!api_key!%RESET%
 echo ^| Deployment:  %BOLD%%GREEN%!deployment_type!%RESET%
 echo ^| Directory:   %BOLD%%CYAN%!backend_path!%RESET%
 echo ^| Virtual Env: %BOLD%%CYAN%!GLOBAL_VENV_PATH!%RESET%
+echo ^| Auth:        IP-based (config/users.json)
 echo +-------------------------------------------+
 echo.
 echo.

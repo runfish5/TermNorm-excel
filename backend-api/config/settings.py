@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     """Centralized application settings using Pydantic"""
 
     # API Configuration
-    api_key: Optional[str] = Field(None, alias="TERMNORM_API_KEY")
     api_title: str = "LLM Processing API"
     api_description: str = "TermNorm Excel Add-in Backend API"
 
