@@ -310,9 +310,17 @@
 
                 <!-- Processing Options Group -->
                 <details class="settings-group">
-                    <summary class="settings-group-header">Processing Options</summary>
+                    <summary class="settings-group-header">⚡ Processing Options</summary>
                     <div class="settings-group-content">
-                        <div class="processing-options">
+                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                            <input type="checkbox" id="use-brave-api" checked style="cursor: pointer;">
+                            <span style="flex: 1;">Use Brave Search API (if configured)</span>
+                        </label>
+                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                            <strong>When enabled (default):</strong> Uses Brave Search API as primary web scraper if API key configured.<br>
+                            <strong>When disabled:</strong> Tests fallback chain (SearXNG → DuckDuckGo → Bing) without Brave.
+                        </p>
+                        <div class="processing-options" style="margin-top: 12px;">
                             <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
                         </div>
                     </div>
