@@ -12,6 +12,86 @@ If you have problems running the sample, take the following steps:
 - **Verify file paths** - ensure all mapping reference files exist at the specified locations.
 - **Try running again.**
 
+## Backend Server Issues
+
+### Server Appears to Hang / No Response from Endpoints
+
+**Symptoms:**
+- Backend terminal shows no new logs
+- Endpoints don't respond (e.g., `/test-connection`, `/docs` hang forever)
+- Frontend LED indicator stays red (offline)
+- Browser requests never complete
+
+**Critical Diagnostic - Press Ctrl+C:**
+
+Press `Ctrl+C` in the backend terminal to flush buffered logs and reveal what's happening:
+
+- **If logs appear** (especially `OPTIONS /test-connection HTTP/1.1` requests): Server was stuck processing CORS preflight requests
+- **If no logs appear**: Server is completely hung during startup
+
+**Fix:**
+1. Kill the hung process completely (press Ctrl+C multiple times if needed)
+2. Check for stale connections: `netstat -ano | findstr ":8000"`
+3. If port is still in use, kill the process: `taskkill /F /PID <pid>`
+4. Restart fresh with `start-server-py-LLMs.bat`
+
+### Port 8000 Already in Use
+
+**Check what's using the port:**
+```bash
+netstat -ano | findstr ":8000"
+```
+
+**Kill stale Python process:**
+```bash
+# Find PID from netstat output, then:
+taskkill /F /PID <pid>
+```
+
+### CORS Preflight Requests Hanging
+
+**Symptom:** After pressing Ctrl+C, you see many stuck OPTIONS requests:
+```
+INFO:     127.0.0.1:65086 - "OPTIONS /test-connection HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59464 - "OPTIONS /test-connection HTTP/1.1" 200 OK
+```
+
+**Cause:** Server has accumulated stale socket connections (CLOSE_WAIT state) that block new requests.
+
+**Fix:** Restart server with clean state (see steps above).
+
+## Frontend Add-in Issues
+
+### "Load Mapping Table" Button Does Nothing
+
+**Troubleshooting steps:**
+1. Check LED indicator - if red, backend is offline (see Backend Server Issues above)
+2. Open browser console (`F12` in Excel task pane) - look for JavaScript errors or network failures
+3. Check Settings tab - verify "Require server connection" setting
+4. If offline mode is acceptable, uncheck "Require server connection" to work with exact/fuzzy matching only
+
+### Add-in Not Working After Sideload
+
+**Symptoms:**
+- Add-in loads but buttons don't respond
+- Missing UI elements compared to source code
+- Strange behavior after switching between sideload and dev mode
+
+**Fix:**
+1. **Rebuild dist folder:** `npm run build`
+2. **Clear Excel cache:**
+   - Close ALL Excel instances completely
+   - Clear Office add-in cache (varies by OS)
+3. **Restart Excel** and reload add-in
+4. **For development:** Use `npm start` (dev mode) instead of sideload - it serves fresh files with hot reload
+
+### UI Shows Outdated Content
+
+If the add-in UI doesn't match the latest code changes:
+1. Rebuild: `npm run build`
+2. Hard refresh in Excel task pane (if available)
+3. Or restart Excel completely
+
 ## Multi-User Setup
 
 The backend supports multiple concurrent users with IP-based authentication. Stateless backend - each request is independent. No session management.
