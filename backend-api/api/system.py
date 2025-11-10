@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body
 from pathlib import Path
 
 from config.environment import get_connection_info
+from config.settings import settings
 from core import llm_providers
 from utils.responses import success_response
 
@@ -95,4 +96,19 @@ async def set_llm_provider(payload: Dict[str, str] = Body(...)) -> Dict[str, Any
     return success_response(
         message=f"LLM provider set to {provider}",
         data={"provider": provider, "model": model}
+    )
+
+
+@router.post("/set-brave-api")
+async def set_brave_api(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]:
+    """Toggle Brave Search API usage (for testing fallbacks)"""
+    enabled = payload.get("enabled", True)
+
+    # Update runtime setting
+    settings.use_brave_api = enabled
+
+    logger.info(f"Brave API {'enabled' if enabled else 'disabled'}")
+    return success_response(
+        message=f"Brave API {'enabled' if enabled else 'disabled'}",
+        data={"use_brave_api": enabled}
     )

@@ -38,7 +38,7 @@ Office.onReady(async (info) => {
   initializeVersionDisplay();
   initializeProjectPathDisplay();
 
-  // Setup settings checkbox handler
+  // Setup settings checkbox handlers
   const requireServerCheckbox = document.getElementById("require-server-online");
   if (requireServerCheckbox) {
     requireServerCheckbox.checked = state.settings.requireServerOnline;
@@ -48,6 +48,26 @@ Office.onReady(async (info) => {
       updateLED();
       updateMatcherIndicator();
       showMessage(`Server requirement ${e.target.checked ? "enabled" : "disabled"}`);
+    });
+  }
+
+  const useBraveApiCheckbox = document.getElementById("use-brave-api");
+  if (useBraveApiCheckbox) {
+    useBraveApiCheckbox.checked = state.settings.useBraveApi;
+    useBraveApiCheckbox.addEventListener("change", async (e) => {
+      const enabled = e.target.checked;
+      saveSetting("useBraveApi", enabled);
+
+      // Update backend setting
+      try {
+        const { setBraveApi } = await import("../utils/settings-manager.js");
+        await setBraveApi(enabled);
+        showMessage(`Brave API ${enabled ? "enabled" : "disabled (testing fallbacks)"}`);
+      } catch (error) {
+        showMessage(`Failed to update Brave API setting: ${error.message}`, "error");
+        // Revert checkbox on error
+        e.target.checked = !enabled;
+      }
     });
   }
 

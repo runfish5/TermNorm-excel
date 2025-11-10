@@ -8,7 +8,8 @@ const STORAGE_KEY = "termnorm_settings";
  */
 export function getDefaultSettings() {
   return {
-    requireServerOnline: true,  // NEW DEFAULT: Server required for operations
+    requireServerOnline: true,  // Server required for operations
+    useBraveApi: true,           // Use Brave Search API if configured (toggle for testing fallbacks)
   };
 }
 
@@ -61,5 +62,14 @@ export async function loadAvailableProviders() {
 export async function saveLlmProvider(provider, model) {
   const { apiPost } = await import("./api-fetch.js");
   const response = await apiPost("/set-llm-provider", { provider, model });
+  return response;
+}
+
+/**
+ * Toggle Brave Search API on backend
+ */
+export async function setBraveApi(enabled) {
+  const { apiPost } = await import("./api-fetch.js");
+  const response = await apiPost("/set-brave-api", { enabled });
   return response;
 }

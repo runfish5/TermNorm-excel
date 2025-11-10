@@ -174,7 +174,11 @@ The add-in requires an `app.config.json` file in the `config/` directory with th
 
 1. **Multi-User Setup**: Configure `backend-api/config/users.json` with user IDs, emails, and allowed IPs. Hot-reload supported - no restart needed when adding users.
 2. **LLM Provider**: Configure Groq or OpenAI API keys in backend environment variables for research-and-match functionality
-3. **Web Search (Optional)**: Configure `BRAVE_SEARCH_API_KEY` in `.env` for reliable web search (2k free queries/month). If not configured, system uses fallback: SearXNG → DuckDuckGo → Bing. Get key at: https://api-dashboard.search.brave.com/register
+3. **Web Search Configuration**:
+   - **Brave Search API (Optional)**: Configure `BRAVE_SEARCH_API_KEY` in `.env` for reliable web search (2k free queries/month). Get key at: https://api-dashboard.search.brave.com/register
+   - **Brave API Toggle**: Control via `USE_BRAVE_API=true/false` in `.env` (default: true) or toggle in Settings UI under "Processing Options"
+   - **Fallback Chain**: When Brave disabled/unconfigured, system uses: SearXNG → DuckDuckGo → Bing
+   - **Testing Fallbacks**: Disable Brave API toggle in Settings to test fallback reliability without removing API key
 4. **Development Certificates**: Office add-in requires HTTPS certificates (handled by office-addin-dev-certs)
 5. **Python Environment**: Backend requires Python virtual environment with FastAPI dependencies
 
