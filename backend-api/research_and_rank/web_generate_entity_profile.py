@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from core.llm_providers import llm_call
-from utils.utils import CYAN, MAGENTA, RED, RESET
+from utils.utils import CYAN, MAGENTA, RED, RESET, YELLOW, GREEN, BOLD
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -406,7 +406,36 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     print(CYAN)
     print(prompt)
     print(RESET)
-    
+
+    # Debug: Print prompt statistics
+    print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} {GREEN}Total prompt length: {len(prompt):,} characters{RESET}")
+
+    # Calculate template/instruction portion (everything before "RESEARCH DATA:")
+    research_data_marker = "RESEARCH DATA:"
+    if research_data_marker in prompt:
+        template_end_idx = prompt.index(research_data_marker)
+        template_length = template_end_idx
+        research_data_length = len(prompt) - template_end_idx
+        template_pct = (template_length / len(prompt)) * 100
+        research_pct = (research_data_length / len(prompt)) * 100
+
+        print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} Template/instructions: {template_length:,} chars ({template_pct:.1f}%)")
+        print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} Research data section: {research_data_length:,} chars ({research_pct:.1f}%)")
+
+    # Show individual site content lengths
+    if scraped_content:
+        print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} Sites included: {len(scraped_content)}")
+        for i, item in enumerate(scraped_content, 1):
+            # Content is truncated to 500 chars per site in _build_research_prompt
+            content_length = min(len(item['content']), 500)
+            title_length = len(item['title'])
+            total_site_length = content_length + title_length
+            print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET}   - Site {i} ({item['title'][:40]}...): {total_site_length:,} chars (title: {title_length}, content: {content_length})")
+    else:
+        print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} No scraped content - using fallback context")
+
+    print()  # Blank line for readability
+
     messages = [{"role": "user", "content": prompt}]
     result = await llm_call(messages=messages, temperature=0.3, max_tokens=1800, output_format="json")
     
