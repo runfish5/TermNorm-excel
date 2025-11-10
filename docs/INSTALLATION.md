@@ -150,6 +150,19 @@ On Mac, you can copy the `manifest.xml` directly to:
    - **Configure LLM provider**:
      Set Groq or OpenAI API keys in your environment for research-and-match functionality
 
+   - **Configure Web Search (Optional)**:
+     For reliable web research, configure Brave Search API (2,000 free queries/month):
+     1. Register at: https://api-dashboard.search.brave.com/register
+     2. Create an API key
+     3. Add to `backend-api\.env` file:
+        ```
+        BRAVE_SEARCH_API_KEY=your_brave_api_key_here
+        ```
+
+     **IMPORTANT:** After adding or changing the Brave API key in `.env`, you must **restart the Python server** for changes to take effect.
+
+     If not configured, the system uses fallback providers: SearXNG → DuckDuckGo → Bing.
+
    - **Start the Python server**
       - Local Development (default: `http://127.0.0.1:8000`)
       ```bash
