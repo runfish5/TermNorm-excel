@@ -179,7 +179,9 @@ Für zuverlässige Web-Recherche können Sie Brave Search API aktivieren (2.000 
 
 Falls nicht konfiguriert, verwendet das System automatisch kostenlose Alternativen: SearXNG → DuckDuckGo → Bing.
 
-**Wichtig:** Nach Setzen der Umgebungsvariablen müssen Sie die Kommandozeile neu öffnen.
+**WICHTIG:** Nach dem Hinzufügen oder Ändern des Brave API Keys in der `.env`-Datei müssen Sie den **Python-Server neu starten**, damit die Änderungen wirksam werden.
+
+**Hinweis:** Nach Setzen der Umgebungsvariablen mit `setx` müssen Sie die Kommandozeile neu öffnen.
 
 ### Schritt 6: Backend-Server starten
 
