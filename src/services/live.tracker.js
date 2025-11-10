@@ -130,7 +130,8 @@ const handleWorksheetChange = async (e, tracker) => {
             tracker.cellValues.set(cellKey, cleanValue);
             processingCells.add(cellKey);
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
-            tasks.push(() => processCell(ws, row, col, targetCol, cleanValue, tracker, cellKey));
+            // Each processCell creates its own Excel context for immediate updates
+            tasks.push(() => processCell(row, col, targetCol, cleanValue, tracker, cellKey));
           }
         }
       }
@@ -139,11 +140,11 @@ const handleWorksheetChange = async (e, tracker) => {
 
     // Execute all processing tasks
     for (const task of tasks) await task();
-    await ctx.sync();
   });
 };
 
-async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
+// Creates independent Excel.run context - do not pass worksheet objects or updates will batch
+async function processCell(row, col, targetCol, value, tracker, cellKey) {
   try {
     const result = await processTermNormalization(
       value,
@@ -153,7 +154,7 @@ async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
 
     if (result?.candidates) {
       addCandidate(value, result, {
-        applyChoice: (choice) => applyChoiceToCell(ws, row, col, targetCol, value, choice),
+        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice),
       });
     }
 
@@ -165,6 +166,7 @@ async function processCell(ws, row, col, targetCol, value, tracker, cellKey) {
     await Excel.run(async (ctx) => {
       ctx.runtime.enableEvents = false;
 
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
       const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
       const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
@@ -208,13 +210,13 @@ async function handleCellError(row, col, targetCol, value, error) {
   logActivity(value, errorMsg, "error", 0, 0, undefined);
 }
 
-async function applyChoiceToCell(ws, row, col, targetCol, value, choice) {
+async function applyChoiceToCell(row, col, targetCol, value, choice) {
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
 
-    const activeWs = ctx.workbook.worksheets.getActiveWorksheet();
-    const srcCell = activeWs.getRangeByIndexes(row, col, 1, 1);
-    const tgtCell = activeWs.getRangeByIndexes(row, targetCol, 1, 1);
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
+    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
     tgtCell.values = [[choice.candidate]];
     tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
