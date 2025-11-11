@@ -1,7 +1,11 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
+from prompts.prompt_loader import get_prompt_loader
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 GREEN = '\033[92m'
 RESET = '\033[0m'
@@ -30,19 +34,44 @@ RANKING_SCHEMA = {
     "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
 }
 
-async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
+async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, prompt_version="latest"):
     """Rank candidates using LLM and return (result, debug_info) tuple"""
 
     # matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(match_results[:20]))
     available_results = list(match_results[:20])
-    sample_size = min(len(available_results), 20)  
+    sample_size = min(len(available_results), 20)
     random_20 = random.sample(available_results, sample_size) if available_results else []
     matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
-    
-    prompt = f"""You are a candidate evaluation expert.
 
-TASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)  
+    # Load versioned prompt or use default
+    try:
+        prompt_loader = get_prompt_loader()
+        prompt_data = prompt_loader.load_prompt('candidate_ranking', prompt_version)
+
+        # Format main prompt
+        prompt = prompt_loader.format_prompt(
+            prompt_data,
+            query=query,
+            core_concept=core_concept,
+            profile_info=profile_info,
+            matches=matches
+        )
+
+        # Add JSON format instructions if available
+        json_format = prompt_data.get('json_format_instruction', '')
+        if json_format:
+            enhanced_prompt = f"{prompt}\n\n{json_format}"
+        else:
+            enhanced_prompt = prompt
+
+        print(f"[RANKING] Using prompt v{prompt_data['version']}: {prompt_data.get('name', 'Unknown')}")
+    except Exception as e:
+        # Fallback to hardcoded prompt if versioned prompt fails
+        logger.warning(f"Failed to load versioned prompt, using default: {e}")
+        prompt = f"""You are a candidate evaluation expert.
+
+TASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)
 - Summarize the profile in 1-2 sentences capturing key details
 - Describe what the core concept "{core_concept}" fundamentally is and identify its foundational category - this represents the fundamental intent, all other profile terms are modifying specifiers
 
@@ -61,15 +90,12 @@ CRITICAL: If core concept and candidate belong to different foundational categor
 ## PROFILE:
 {profile_info}
 
-## CANDIDATES: 
+## CANDIDATES:
 {matches}
 
 Evaluate semantic alignment with core concept "{core_concept}" first, then specification matching."""
 
-    print(GREEN + prompt + RESET)
-    
-    # Use json mode instead of schema mode for better reliability with Groq
-    enhanced_prompt = f"""{prompt}
+        enhanced_prompt = f"""{prompt}
 
 IMPORTANT: Return a valid JSON response matching this exact structure:
 {{
@@ -88,6 +114,8 @@ IMPORTANT: Return a valid JSON response matching this exact structure:
 }}
 
 Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
+
+    print(GREEN + prompt + RESET)
 
     ranking_result = await llm_call(
         messages=[{"role": "user", "content": enhanced_prompt}],

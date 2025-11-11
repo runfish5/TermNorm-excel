@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "name": "Entity Profiling - Comprehensive Technical Database API",
+  "description": "Initial production prompt for generating entity profiles from web research. Focuses on comprehensive technical extraction with US/GB spelling variants, core concept identification, and professional classification.",
+  "created_date": "2025-01-15",
+  "author": "TermNorm Development Team",
+  "status": "production",
+  "prompt_template": "You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:\n{format_string}\n\nCRITICAL SPELLING REQUIREMENT: In ALL arrays, after each term, immediately add its US/GB spelling variant if different. Example: [\"colour\", \"color\", \"analyse\", \"analyze\"]. This is MANDATORY for every array field.\n\nCORE CONCEPT IDENTIFICATION: Within '{query}', certain words carry more semantic weight than others. Material names, product codes, and specifications describe WHAT is involved, but other terms describe the fundamental NATURE of what is being expressed. Identify the single word that defines the conceptual essence - typically the term that indicates an activity, action, method, or process rather than an object or material. Output only this one defining word.\n\nPROFESSIONAL CLASSIFICATION ALIASES: Generate the full spectrum of expert-level references for this entity, spanning precise technical descriptors to broader categorical terms. These terms stem from domain-specific terminology and industry-standard nomenclature that professionals recognize. Include approximations and near-equivalent terms that experts use when exact terminology doesn't exist, accepting that some terms may not be perfect equivalents but represent the best available expert terminology for referencing similar concepts.\n\nGENERIC TECHNICAL INFERENCE INSTRUCTION: Given the product or technical description '{query}', perform comprehensive analysis to extract and infer:\n\n1. **Explicit Information**: Directly stated specifications, dimensions, materials, codes, and properties\n2. **Implicit Information**: Commonly associated materials, manufacturing processes, applications, and technical characteristics that are standard for this type of product/component, even if not explicitly mentioned\n3. **Manufacturing Processes**: Both stated and inferred processes based on product type, materials, and specifications\n4. **Material Composition**: Complete material breakdown including standard/typical materials used in such products\n5. **Applications & Use Cases**: Direct and derived applications based on product characteristics\n\n**Include domain knowledge**: Draw from technical standards, industry practices, and material science to infer missing but relevant information.\n\nCRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:\n- MAXIMIZE diversity: Include ALL synonyms, trade names, scientific names, abbreviations, acronyms, regional terms, industry terminology\n- COMPREHENSIVE extraction: Capture every property, specification, feature, attribute, including numerical values and compositional data  \n- PRIORITIZE completeness over brevity: Aim for 5-10+ items per array field - be thorough, not minimal\n---\nRESEARCH DATA:\n{combined_text}\n---\nREMEMBER: Every term must be followed by its US/GB variant if different. Return only the JSON object with ALL fields maximally populated.",
+  "parameters": {
+    "query": "The search query/entity to profile",
+    "format_string": "Generated from entity_profile_schema.json",
+    "combined_text": "Concatenated web scraped content"
+  },
+  "llm_config": {
+    "temperature": 0.3,
+    "max_tokens": 1800,
+    "output_format": "json"
+  },
+  "notes": [
+    "Emphasizes US/GB spelling variants for comprehensive matching",
+    "Core concept identification helps prioritize semantic matching",
+    "Professional classification includes near-equivalents for flexible matching",
+    "Inference instruction allows LLM to use domain knowledge"
+  ]
+}
