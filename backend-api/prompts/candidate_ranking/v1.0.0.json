@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "name": "Candidate Ranking - Core Concept Alignment",
+  "description": "Initial production prompt for ranking candidates based on core concept (70%) and specifications (30%). Prioritizes semantic alignment with fundamental intent over specification details.",
+  "created_date": "2025-01-15",
+  "author": "TermNorm Development Team",
+  "status": "production",
+  "prompt_template": "You are a candidate evaluation expert.\n\nTASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)  \n- Summarize the profile in 1-2 sentences capturing key details\n- Describe what the core concept \"{core_concept}\" fundamentally is and identify its foundational category - this represents the fundamental intent, all other profile terms are modifying specifiers\n\nTASK 2: Score each candidate (0-5 scale)\n- Core concept score: semantic alignment with fundamental intent \"{core_concept}\" - candidates must match the same foundational category to score above 2\n- Specification score: match with profile modifying specifiers\n- Prioritize core concept alignment over specification details\n\nCRITICAL: If core concept and candidate belong to different foundational categories (e.g. process vs material, object vs method), core concept score must be 0-2 regardless of relatedness. Match the core concept exactly as stated - do not add words or interpret it as a compound concept with additional terms.\n\n### QUERY:\n{query}\n### CORE CONCEPT:\n{core_concept}\n\n## PROFILE:\n{profile_info}\n\n## CANDIDATES: \n{matches}\n\nEvaluate semantic alignment with core concept \"{core_concept}\" first, then specification matching.",
+  "json_format_instruction": "IMPORTANT: Return a valid JSON response matching this exact structure:\n{\n  \"profile_summary\": \"Brief 1-2 sentence summary of the profile\",\n  \"core_concept_description\": \"What the core concept fundamentally is\",\n  \"ranked_candidates\": [\n    {\n      \"candidate\": \"exact candidate string\",\n      \"core_concept_score\": 0.0,\n      \"spec_score\": 0.0,\n      \"evaluation_reasoning\": \"Brief explanation without quotes or backslashes\",\n      \"key_match_factors\": [\"factor1\", \"factor2\"],\n      \"spec_gaps\": [\"gap1\", \"gap2\"]\n    }\n  ]\n}\n\nEnsure all strings are properly escaped and avoid complex punctuation in reasoning.",
+  "parameters": {
+    "query": "Original user query",
+    "core_concept": "Extracted core concept from entity profile",
+    "profile_info": "Formatted entity profile string",
+    "matches": "Candidate list from token matching"
+  },
+  "llm_config": {
+    "temperature": 0,
+    "max_tokens": 4000,
+    "output_format": "json"
+  },
+  "scoring_rules": {
+    "core_concept_weight": 0.7,
+    "specification_weight": 0.3,
+    "core_concept_scale": "0-5 (must match foundational category to score >2)",
+    "spec_score_scale": "0-5 (match with profile modifying specifiers)"
+  },
+  "notes": [
+    "70% weight on core concept alignment enforces semantic correctness",
+    "Category mismatch constraint prevents false positives (e.g., process vs material)",
+    "Exact core concept matching prevents over-interpretation",
+    "Random sampling of 20 candidates reduces bias from token matching order"
+  ]
+}

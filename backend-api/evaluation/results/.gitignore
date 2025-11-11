@@ -1,0 +1,4 @@
+# Evaluation results (generated, not committed)
+*.json
+*.txt
+*.log

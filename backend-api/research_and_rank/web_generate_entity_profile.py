@@ -10,6 +10,7 @@ from utils.utils import CYAN, MAGENTA, RED, RESET
 import re
 import asyncio
 from config.settings import settings
+from prompts.prompt_loader import get_prompt_loader
 
 logger = logging.getLogger(__name__)
 def generate_format_string_from_schema(schema):
@@ -241,7 +242,7 @@ def _searxng_fallback(query, num_results=20, log=None):
         log.append(msg)
     return []
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False, prompt_version="latest"):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
@@ -364,9 +365,24 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
             [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
         )[:raw_content_limit]
     
+    # Load versioned prompt or use default
     format_string = generate_format_string_from_schema(schema)
-    
-    prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
+
+    try:
+        prompt_loader = get_prompt_loader()
+        prompt_data = prompt_loader.load_prompt('entity_profiling', prompt_version)
+        prompt = prompt_loader.format_prompt(
+            prompt_data,
+            query=query,
+            format_string=format_string,
+            combined_text=combined_text
+        )
+        if verbose:
+            print(f"[PROFILING] Using prompt v{prompt_data['version']}: {prompt_data.get('name', 'Unknown')}")
+    except Exception as e:
+        # Fallback to hardcoded prompt if versioned prompt fails
+        logger.warning(f"Failed to load versioned prompt, using default: {e}")
+        prompt = f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
 {format_string}
 
 CRITICAL SPELLING REQUIREMENT: In ALL arrays, after each term, immediately add its US/GB spelling variant if different. Example: ["colour", "color", "analyse", "analyze"]. This is MANDATORY for every array field.
@@ -387,7 +403,7 @@ GENERIC TECHNICAL INFERENCE INSTRUCTION: Given the product or technical descript
 
 CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
 - MAXIMIZE diversity: Include ALL synonyms, trade names, scientific names, abbreviations, acronyms, regional terms, industry terminology
-- COMPREHENSIVE extraction: Capture every property, specification, feature, attribute, including numerical values and compositional data  
+- COMPREHENSIVE extraction: Capture every property, specification, feature, attribute, including numerical values and compositional data
 - PRIORITIZE completeness over brevity: Aim for 5-10+ items per array field - be thorough, not minimal
 ---
 RESEARCH DATA:
