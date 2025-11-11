@@ -1,0 +1,10 @@
+# Registry System Requirements
+
+# Core dependencies
+pydantic>=2.0.0           # Schema validation and data models
+jsonlines>=3.1.0          # JSONL format support (OpenAI Evals standard)
+
+# Optional dependencies (likely already installed in backend-api)
+# These are used by the broader backend but not strictly required for registry
+# pandas>=2.0.0           # For data analysis and querying
+# mlflow>=2.16.0          # For MLflow compatibility (future integration)
