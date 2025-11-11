@@ -1,0 +1,67 @@
+[
+  {
+    "query": "stainless steel pipe",
+    "terms": [
+      "steel pipe",
+      "stainless tube",
+      "metal conduit",
+      "ss pipe",
+      "stainless piping",
+      "steel tubing"
+    ],
+    "expected_match": "stainless piping",
+    "category": "materials"
+  },
+  {
+    "query": "carbon fiber composite",
+    "terms": [
+      "carbon composite",
+      "fiber reinforced polymer",
+      "CFRP",
+      "composite material",
+      "carbon fiber",
+      "fiber composite"
+    ],
+    "expected_match": "carbon fiber",
+    "category": "materials"
+  },
+  {
+    "query": "laser welding",
+    "terms": [
+      "welding",
+      "laser joining",
+      "fusion welding",
+      "laser bonding",
+      "beam welding",
+      "laser weld"
+    ],
+    "expected_match": "laser weld",
+    "category": "processes"
+  },
+  {
+    "query": "aluminum alloy 6061",
+    "terms": [
+      "aluminum 6061",
+      "alloy 6061",
+      "AL6061",
+      "6061 aluminum",
+      "aluminum alloy",
+      "6061-T6"
+    ],
+    "expected_match": "6061 aluminum",
+    "category": "materials"
+  },
+  {
+    "query": "ISO 9001 certification",
+    "terms": [
+      "ISO certification",
+      "9001 standard",
+      "ISO 9001",
+      "quality certification",
+      "ISO standard",
+      "9001 certified"
+    ],
+    "expected_match": "ISO 9001",
+    "category": "standards"
+  }
+]

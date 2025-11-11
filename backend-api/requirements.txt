@@ -8,3 +8,5 @@ python-dotenv
 regex
 googlesearch-python
 beautifulsoup4
+mlflow==2.16.2
+pandas
