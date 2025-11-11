@@ -19,6 +19,13 @@ evaluation/
 ├── adapters/               # Framework integration adapters
 │   ├── mlflow_adapter.py  # MLflow tracking wrapper
 │   └── __init__.py
+├── scorers/                # MLflow-compatible scorers (NEW)
+│   ├── standard_scorers.py # MRR, Hit@K, NDCG@K scorers
+│   ├── llm_judge.py       # LLM-as-judge semantic evaluation
+│   └── __init__.py
+├── optimizers/             # Prompt optimization (NEW)
+│   ├── simple_prompt_optimizer.py # Basic variant generator
+│   └── __init__.py
 ├── experiments/            # Experiment definitions
 │   └── __init__.py
 ├── configs/                # Experiment configurations
@@ -29,6 +36,7 @@ evaluation/
 │   └── __init__.py
 ├── scripts/                # Execution scripts
 │   ├── run_experiment.py  # Main experiment runner
+│   ├── mlflow_evaluation_demo.py # MLflow integration demo (NEW)
 │   └── extract_test_cases.py # Parse activity logs
 ├── analysis/               # Post-experiment analysis
 │   └── __init__.py
@@ -56,9 +64,37 @@ mlflow --version
 
 ## Quick Start
 
-### Option 1: Run Experiments (Without Starting Server)
+### Option 1: Run MLflow Evaluation Demo (Recommended for Testing Framework)
 
-The fastest way to test prompt variants using direct script execution:
+The new MLflow integration demo provides a complete evaluation workflow:
+
+```bash
+cd backend-api
+
+# Load environment
+# Windows:
+.\venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Run baseline evaluation
+python evaluation/scripts/mlflow_evaluation_demo.py --mode baseline
+```
+
+This will:
+1. Load test cases from `evaluation/configs/test_datasets.json`
+2. Run each test case through the pipeline
+3. Calculate MRR, Hit@5, NDCG@5 using MLflow scorers
+4. Track all results in MLflow
+5. Save detailed results CSV
+
+**Other modes:**
+- `--mode optimize`: Run baseline + prompt optimization demo
+- `--mode compare`: Compare multiple variants side-by-side
+
+### Option 2: Run Experiments (Original Script)
+
+The original experiment runner for batch testing:
 
 ```bash
 cd backend-api
@@ -79,7 +115,7 @@ This will:
 3. Track all parameters and metrics in MLflow
 4. Calculate aggregate statistics (MRR, Hit@K, etc.)
 
-### Option 2: Track Production Requests (With Server Running)
+### Option 3: Track Production Requests (With Server Running)
 
 To track all production API requests automatically:
 
@@ -220,6 +256,88 @@ Test cases in `configs/test_datasets.json` should follow this structure:
 - `category`: Query category for analysis
 - `source_timestamp`: When the test case was created
 - `source_web_search_status`: Original web search status
+
+## MLflow Integration Components (New)
+
+### Scorers
+
+The framework now includes MLflow-compatible scorers for evaluation:
+
+#### Standard IR Scorers
+
+Located in `evaluation/scorers/standard_scorers.py`:
+
+```python
+from evaluation.scorers import mrr_scorer, hit_at_5_scorer, ndcg_at_5_scorer
+
+# Use in evaluation
+scores = mrr_scorer(outputs, expectations)
+```
+
+- **`mrr_scorer`**: Mean Reciprocal Rank scorer
+- **`hit_at_5_scorer`**: Hit@5 scorer (factory for custom K)
+- **`ndcg_at_5_scorer`**: NDCG@5 scorer (factory for custom K)
+
+All scorers accept pandas DataFrames and return Series of scores.
+
+#### LLM-as-Judge Scorer
+
+Located in `evaluation/scorers/llm_judge.py`:
+
+```python
+from evaluation.scorers import llm_judge_scorer
+
+# Uses LLM to evaluate semantic correctness
+scores = llm_judge_scorer(outputs, expectations)
+```
+
+Features:
+- Uses LLM to judge semantic equivalence
+- More nuanced than exact string matching
+- Returns scores 0.0-1.0 based on semantic similarity
+- Falls back to fuzzy matching if LLM fails
+
+### Prompt Optimizer
+
+Located in `evaluation/optimizers/simple_prompt_optimizer.py`:
+
+```python
+from evaluation.optimizers import SimplePromptOptimizer
+
+optimizer = SimplePromptOptimizer(num_variants=3)
+results = optimizer.optimize(predict_fn, train_data, scorers)
+```
+
+**Current Capabilities:**
+- Generates prompt variant configurations
+- Tests different scoring weight balances (70/30, 80/20, 60/40, 50/50)
+- Tests different instruction styles (strict_core, balanced, spec_aware)
+
+**Limitation:**
+The simple optimizer generates variant *configurations* but doesn't automatically apply them to prompts. To test variants:
+1. Run optimizer to see suggested configurations
+2. Manually modify prompts in `research_and_rank/call_llm_for_ranking.py`
+3. Run evaluations for each variant
+4. Compare in MLflow UI
+
+**Future Enhancement:** Dynamic prompt templating for automatic variant application.
+
+### Evaluation Demo Script
+
+Located in `evaluation/scripts/mlflow_evaluation_demo.py`:
+
+Complete workflow demonstrating MLflow integration:
+
+```bash
+# Baseline evaluation
+python evaluation/scripts/mlflow_evaluation_demo.py --mode baseline
+
+# Run optimization demo
+python evaluation/scripts/mlflow_evaluation_demo.py --mode optimize --variants 3
+
+# Compare multiple variants
+python evaluation/scripts/mlflow_evaluation_demo.py --mode compare
+```
 
 ## Metrics Explained
 
