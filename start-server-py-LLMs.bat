@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Detect python command (python or py)
+python --version >nul 2>nul && set "PYTHON_CMD=python" || set "PYTHON_CMD=py"
+
 :: ===============================================
 :: CONFIGURATION PARAMETERS
 :: ===============================================
@@ -92,7 +95,7 @@ if not exist "C:\Users\dsacc\venvs\" (
 :: Check/create virtual environment
 if not exist "!GLOBAL_VENV_PATH!" (
     echo %BLUE%^>%RESET% Creating virtual environment at: %BOLD%%CYAN%!GLOBAL_VENV_PATH!%RESET%
-    python -m venv "!GLOBAL_VENV_PATH!"
+    !PYTHON_CMD! -m venv "!GLOBAL_VENV_PATH!"
     if errorlevel 1 (
         echo %RED%[ERROR]%RESET% Failed to create virtual environment
         pause
