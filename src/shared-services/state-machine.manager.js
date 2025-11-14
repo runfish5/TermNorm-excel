@@ -40,6 +40,10 @@ const appState = {
     requireServerOnline: true,  // Default: server required for operations
     loaded: false,
   },
+  webSearch: {
+    status: "idle",  // "idle" | "success" | "failed"
+    error: null,     // Error message from last failed search
+  },
 };
 
 let stateChangeCallbacks = [];

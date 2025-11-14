@@ -9,6 +9,7 @@ import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handl
 import { showMessage } from "../utils/error-display.js";
 import { updateLED, setupLED } from "../utils/led-indicator.js";
 import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
+import { updateWarnings } from "../utils/warning-manager.js";
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -35,6 +36,7 @@ Office.onReady(async (info) => {
   checkServerStatus();
   updateLED();
   updateMatcherIndicator();
+  updateWarnings();  // Initial warning update after settings load
   initializeVersionDisplay();
   initializeProjectPathDisplay();
 
@@ -121,6 +123,7 @@ Office.onReady(async (info) => {
     });
     updateLED();
     updateMatcherIndicator();
+    updateWarnings();  // Update warnings on state changes
     updateButtonStates();
   });
 

@@ -1,5 +1,4 @@
 import { state } from "../shared-services/state-machine.manager.js";
-import { updateOfflineModeWarning } from "./offline-warning.js";
 
 export function updateMatcherIndicator() {
   const indicator = document.getElementById("matcher-status-indicator");
@@ -41,8 +40,6 @@ export function updateMatcherIndicator() {
   indicator.className = `matcher-indicator ${status}`;
   indicator.title = title;
   indicator.setAttribute("data-status", status);
-
-  updateOfflineModeWarning();
 }
 
 export function setupMatcherIndicator() {

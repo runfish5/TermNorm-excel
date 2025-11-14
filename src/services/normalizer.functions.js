@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state } from "../shared-services/state-machine.manager.js";
+import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
@@ -58,6 +58,11 @@ export async function findTokenMatch(value) {
     return null;
   }
 
+  // Clear previous web search warnings (new request starting)
+  state.webSearch.status = "idle";
+  state.webSearch.error = null;
+  notifyStateChange();  // Trigger warning update (clears previous failures)
+
   const data = await apiPost(
     `${getHost()}/research-and-match`,
     {
@@ -69,11 +74,11 @@ export async function findTokenMatch(value) {
 
   if (!data) return null;
 
-  // Update web search warning (persistent until success)
+  // Update web search state from API response
   if (data.web_search_status) {
-    import("../utils/web-search-warning.js").then(m =>
-      m.updateWebSearchWarning(data.web_search_status, data.web_search_error)
-    );
+    state.webSearch.status = data.web_search_status;
+    state.webSearch.error = data.web_search_error || null;
+    notifyStateChange();  // Trigger warning update on success/failure
   }
 
   // Check if we have candidates
