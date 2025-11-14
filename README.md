@@ -1,10 +1,14 @@
 # TermNorm - AI-Powered Terminology Normalization for Excel
 
 <p align="center">
-  <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Screenshot" width="600">
+  <img src="assets/llm-research-ranking-workflow-overview.png" alt="LLM Research & Ranking Workflow" width="600">
 </p>
 
-An Excel add-in that automatically standardizes terminology in real-time using configurable mappings and AI-powered matching. Monitor cells as you work, apply intelligent standardization rules, and track processing with an intuitive interface.
+**Excel Add-in + Python Server Architecture**
+
+This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. While the pattern works for any Excel automation scenario requiring server-side processing, this implementation specifically tackles **database identifier assignment**: matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
+
+The workflow diagram above shows the Python/FastAPI backend pipeline that powers real-time terminology normalization directly within Excel.
 
 ## 📋 Use Cases
 Assign free-form names to standardized terms, entity linking, classification, and data normalization workflows.
@@ -46,6 +50,12 @@ Assign free-form names to standardized terms, entity linking, classification, an
 - **Flexible Mapping System** - Multiple reference files with hot-reload capability
 - **Color-Coded Results** - Visual feedback for normalization status and confidence
 - **Multi-User Support** - IP-based authentication with stateless architecture
+
+### Interface Preview
+
+<p align="center">
+  <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Interface" width="600">
+</p>
 
 
 
