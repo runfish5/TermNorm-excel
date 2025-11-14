@@ -4,39 +4,16 @@
   <img src="assets/llm-research-ranking-workflow-overview.png" alt="LLM Research & Ranking Workflow" width="600">
 </p>
 
-**Excel Add-in + Python Server Architecture**
-
-This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. While the pattern works for any Excel automation scenario requiring server-side processing, this implementation specifically tackles **database identifier assignment**: matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
-
 The workflow diagram above shows the Python/FastAPI backend pipeline that powers real-time terminology normalization directly within Excel.
 
-## 📋 Use Cases
-Assign free-form names to standardized terms, entity linking, classification, and data normalization workflows.
-
-
-- **Entity Linking**: Match free-text entities to standardized knowledge bases
-- **Data Normalization**: Standardize product names, material codes, process terms
-- **Classification**: Assign categories to unstructured text
-- **Terminology Management**: Maintain consistent terminology across documents
-- **Data Quality**: Clean and standardize data entry in real-time
-
-
-## 📋 Processing Pipeline
-
-1. **Exact Match**: Instant lookup from cached mappings
-2. **Fuzzy Match**: Token-based similarity with configurable thresholds
-3. **LLM Research**: Web search → entity profiling → candidate ranking
-4. **Ranking**: Multi-factor scoring (semantic similarity, token overlap, web context)
-
+This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
 
 ## 📚 Documentation
 
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
 - **[Usage Guide](docs/USAGE.md)** - How to use the add-in
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
-- **[Code Exploration](docs/CODE_EXPLORATION.md)** - Architecture & customization
 - **[Client Installation (German)](docs/CLIENT_INSTALLATION_de.md)** - Standalone deployment guide
-- **[Release Guide](docs/RELEASE_GUIDE.md)** - Best practices for distributing to clients
 
 
 ## ✨ Key Features
@@ -57,8 +34,29 @@ Assign free-form names to standardized terms, entity linking, classification, an
   <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Interface" width="600">
 </p>
 
+## 📋 Use Cases
 
+- **Data Normalization & Entity Linking**: Standardize product names, material codes, process terms, and match free-text entities to standardized knowledge bases
+- **Classification & Terminology Management**: Assign categories to unstructured text and maintain consistent terminology across documents
+- **Database Identifier Assignment**: Assign free-form names to standardized database identifiers
 
+## 💡 How It Works
+
+```
+User Input (Excel Cell)
+    ↓
+1. Quick Lookup (cached exact matches)
+    ↓
+2. Fuzzy Matching (similarity algorithms)
+    ↓
+3. LLM Research (web + entity profiling)
+    ↓
+Ranked Candidates with Confidence Scores
+    ↓
+Auto-apply or Manual Selection
+    ↓
+Logging & State Update
+```
 
 ## 🚀 Quick Start
 
@@ -79,6 +77,8 @@ cd TermNorm-excel
 **2. Start backend server**
 
 Simply double-click `start-server-py-LLMs.bat` in the project directory.
+
+**Note:** Changes to `backend-api/config/users.json` are hot-reloaded automatically (no server restart needed).
 
 <details>
 <summary>What does the script do?</summary>
@@ -173,52 +173,6 @@ Edit `backend-api/config/users.json` to add users:
 }
 ```
 
-**Hot-reload enabled** - No server restart required when adding users.
-
-## 💡 How It Works
-
-```
-User Input (Excel Cell)
-    ↓
-1. Quick Lookup (cached exact matches)
-    ↓
-2. Fuzzy Matching (similarity algorithms)
-    ↓
-3. LLM Research (web + entity profiling)
-    ↓
-Ranked Candidates with Confidence Scores
-    ↓
-Auto-apply or Manual Selection
-    ↓
-Logging & State Update
-```
-
-## 🛠️ Technology Stack
-
-**Frontend**
-- Office JavaScript API (Excel integration)
-- Webpack (bundling & dev server)
-- Service-based architecture with state management
-
-**Backend**
-- Python FastAPI (high-performance async API)
-- LLM Integration (Groq/OpenAI with runtime switching)
-- Stateless request architecture (no session management)
-- IP-based authentication with hot-reload
-
-**Processing Pipeline**
-- Exact matching (cached lookups)
-- Fuzzy matching (similarity algorithms)
-- LLM-powered research (web + entity profiling)
-
-### Stateless Backend Architecture
-
-- Each `/research-and-match` request receives `{query, terms}` payload
-- Creates `TokenLookupMatcher` on-the-fly, uses it, discards it
-- No session management = no TTL = no expiration issues
-- Pure function architecture: `(query, terms) → ranked_candidates`
-
-
 ## 🏗️ Architecture
 
 ### Frontend Structure
@@ -254,31 +208,6 @@ backend-api/
 │   ├── llm_providers.py   # LLM configuration
 │   └── user_manager.py    # Authentication
 └── research_and_rank/     # Matching algorithms
-```
-
-## 🔧 Development
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend-api
-pytest
-
-# Frontend development server
-npm run dev-server
-```
-
-### Key Development Commands
-
-```bash
-# Backend
-cd backend-api
-.\.venv\Scripts\activate
-python -m uvicorn main:app --reload
-
-# Frontend (webpack dev server runs automatically)
-npm start
 ```
 
 ## 🚨 Troubleshooting

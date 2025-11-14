@@ -18,11 +18,13 @@ The add-in monitors Excel cells in real-time, applies configurable mapping rules
 ## Development Commands
 
 ### Backend (Python API)
-Navigate to `backend-api/` directory first:
-- `.\venv\Scripts\activate` - Activate Python virtual environment
+**Recommended**: Double-click `start-server-py-LLMs.bat` in the project root for automated setup.
+
+**Manual commands** (navigate to `backend-api/` directory first):
+- `.\.venv\Scripts\activate` - Activate Python virtual environment
 - `python -m uvicorn main:app --reload` - Start development server (localhost:8000)
 - `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload` - Start network server
-- Configure user IPs in `config/users.json` for authentication
+- Configure user IPs in `config/users.json` for authentication (hot-reload enabled)
 
 ## Architecture
 
