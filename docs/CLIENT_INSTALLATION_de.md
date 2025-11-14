@@ -1,48 +1,24 @@
 # TermNorm Excel Add-in - Installationsanleitung für Ihren Server
 
-## ⚠️ WICHTIGE HINWEISE UND HAFTUNGSAUSSCHLUSS
+## ⚠️ WICHTIGE HINWEISE
 
-> **BITTE SORGFÄLTIG LESEN, BEVOR SIE FORTFAHREN**
+> **Bitte lesen Sie diese Hinweise vor der Nutzung**
 
-### Produktstatus und Zuverlässigkeit
+**Produktstatus:** Experimentelle Software in aktiver Entwicklung
+- ✅ Kernfunktionalität implementiert und getestet
+- ⚠️ Nicht für kritische Produktionsdaten ohne umfangreiche Tests
 
-Dieses Add-in ist eine **experimentelle Software in aktiver Entwicklung**. Bitte beachten Sie:
+**Haftungsausschluss:** Software wird "wie besehen" ohne Garantien bereitgestellt
+- 📋 **Erstellen Sie IMMER Backups vor der Nutzung**
+- 🔍 **Überprüfen Sie alle KI-Vorschläge manuell**
+- ⚖️ **Verantwortung für Datenqualität liegt beim Nutzer**
 
-- ✅ Kernfunktionalität ist implementiert und getestet
-- ⚠️ Performance-Optimierungen sind noch in Arbeit
-- 🔄 Updates und Änderungen können jederzeit erfolgen
-- 🧪 Verwenden Sie dies **nicht** für kritische Produktionsdaten ohne umfangreiche eigene Tests
+**Datenschutz:** LLM-Anfragen werden an externe Provider (Groq/OpenAI) gesendet
+- Stellen Sie sicher, dass dies Ihren Datenschutzrichtlinien entspricht
+- Verwenden Sie keine sensiblen Daten ohne Genehmigung
 
-### Haftungsausschluss
-
-**KEINE GARANTIE**: Diese Software wird "wie besehen" ohne Garantien jeglicher Art bereitgestellt:
-
-- ❌ **Keine Verantwortung für Datenverlust, Fehler oder Schäden**
-- ❌ **Keine Garantie für Verfügbarkeit, Zuverlässigkeit oder Korrektheit**
-- ❌ **Keine Haftung für falsche KI-Vorschläge oder Normalisierungen**
-- ✅ **Nutzen Sie das System auf eigenes Risiko**
-
-**WICHTIG**:
-- 📋 **Erstellen Sie IMMER Backups Ihrer Daten vor der Nutzung**
-- 🔍 **Überprüfen Sie ALLE automatischen Normalisierungen manuell**
-- 🚫 **Verlassen Sie sich NICHT blind auf KI-Vorschläge**
-- ⚖️ **Die Verantwortung für Datenqualität liegt bei Ihnen**
-
-### Datenschutz und API-Nutzung
-
-- 🌐 LLM-Anfragen werden an externe Provider (Groq/OpenAI) gesendet
-- 📤 Ihre Eingabedaten werden zur Verarbeitung an diese Dienste übertragen
-- 🔒 Stellen Sie sicher, dass dies Ihren Datenschutzrichtlinien entspricht
-- ⚠️ Verwenden Sie **keine sensiblen oder vertraulichen Daten** ohne Genehmigung
-
-### Support und Weiterentwicklung
-
-- 💬 Support ist **nicht garantiert** und erfolgt nach bestem Bemühen
-- 🐛 Fehler können auftreten - dokumentieren Sie diese bitte
-- 📧 Kontakt: uniqued4ve@gmail.com (Antwort nicht garantiert)
-- 🔄 Dieses Projekt ist Open Source ohne SLA oder Wartungsgarantie
-
-**Wenn Sie mit diesen Bedingungen nicht einverstanden sind, verwenden Sie diese Software bitte nicht.**
+**Support:** Open Source Projekt - Support nach bestem Bemühen, keine Garantie
+- Kontakt: uniqued4ve@gmail.com
 
 ---
 
@@ -98,109 +74,76 @@ cd TermNorm-excel
 3. Entpacken Sie das ZIP-Archiv an gewünschtem Ort
 4. Öffnen Sie die Kommandozeile (Windows-Taste → "cmd" → Enter)
 
-### Schritt 2: Python Virtual Environment erstellen
+### Schritt 2: Backend-Server starten (EMPFOHLEN)
+
+Doppelklicken Sie einfach auf die Datei `start-server-py-LLMs.bat` im TermNorm-excel Verzeichnis.
+
+<details>
+<summary>Was macht das Skript?</summary>
+
+Das Skript übernimmt automatisch:
+- ✅ Virtual Environment einrichten
+- ✅ Alle Abhängigkeiten installieren
+- ✅ Deployment-Typ wählen (Lokal oder Netzwerk)
+- ✅ Diagnose durchführen und Server starten
+</details>
+
+<details>
+<summary>Manuelle Installation (für Fortgeschrittene oder Problembehandlung)</summary>
 
 Navigieren Sie zum Backend-Verzeichnis:
 ```bash
 cd C:\<PFAD_ZUM_PROJEKT>\TermNorm-excel\backend-api
 ```
 
-Erstellen Sie das Virtual Environment:
+Erstellen und aktivieren Sie das Virtual Environment:
 ```bash
 python -m venv .venv
-```
-
-Aktivieren Sie das Virtual Environment:
-```bash
 .\.venv\Scripts\activate
-```
-
-Sie sollten nun `(venv)` am Anfang Ihrer Kommandozeile sehen.
-
-### Schritt 3: Python-Abhängigkeiten installieren
-
-```bash
 pip install -r requirements.txt
 ```
 
-### Schritt 4: Benutzer-Konfiguration einrichten
+Server starten:
+- Lokal: `python -m uvicorn main:app --reload`
+- Netzwerk: `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
+</details>
 
-Bearbeiten Sie die Datei `backend-api\config\users.json`:
+**Server-Status prüfen:**
+Öffnen Sie im Browser: `http://127.0.0.1:8000/health`
+Sie sollten sehen: `{"status": "healthy"}`
 
+### Schritt 3: Authentifizierung und API-Keys konfigurieren (Einmalig)
+
+**Benutzer hinzufügen** (für Multi-User-Zugriff):
+Bearbeiten Sie `backend-api\config\users.json`:
 ```json
 {
   "users": {
     "admin": {
       "email": "ihre.email@firma.com",
-      "allowed_ips": ["127.0.0.1"]
-    },
-    "jungbluth": {
-      "email": "jungbluth@firma.com",
-      "allowed_ips": ["192.168.1.100", "192.168.1.101"]
+      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
     }
   }
 }
 ```
 
-**Wichtig:**
-- Ersetzen Sie IP-Adressen mit den tatsächlichen IPs Ihrer Benutzer
-- Für lokale Tests verwenden Sie `127.0.0.1`
-- Für Netzwerk-Zugriff finden Sie Ihre IP mit: `ipconfig` (Windows-Kommandozeile)
-
-**Hot-Reload:** Änderungen an `users.json` werden automatisch übernommen - kein Server-Neustart erforderlich.
-
-### Schritt 5: LLM-Provider konfigurieren
-
-Das System unterstützt **Groq** (empfohlen, schnell & günstig) oder **OpenAI**.
-
-**Groq API Key einrichten:**
-1. Registrieren Sie sich bei: https://console.groq.com
-2. Erstellen Sie einen API Key
-3. Setzen Sie die Umgebungsvariable (Windows):
-
+**LLM API Key setzen** (erforderlich):
 ```bash
 setx GROQ_API_KEY "ihr_groq_api_key_hier"
 ```
 
-**OpenAI API Key einrichten (Alternative):**
-```bash
-setx OPENAI_API_KEY "ihr_openai_api_key_hier"
-```
-
 **Web-Suche konfigurieren (Optional):**
-
-Für zuverlässige Web-Recherche können Sie Brave Search API aktivieren (2.000 kostenlose Anfragen/Monat):
-1. Registrieren Sie sich bei: https://api-dashboard.search.brave.com/register
-2. Erstellen Sie einen API Key
-3. Fügen Sie den Key in `backend-api\.env` hinzu:
+Für zuverlässige Web-Recherche, konfigurieren Sie Brave Search API (2.000 kostenlose Anfragen/Monat):
+1. Registrieren: https://api-dashboard.search.brave.com/register
+2. Key in `backend-api\.env` hinzufügen:
    ```
    BRAVE_SEARCH_API_KEY=ihr_brave_api_key_hier
    ```
+3. **Server neu starten** nach Konfigurationsänderungen
 
-Falls nicht konfiguriert, verwendet das System automatisch kostenlose Alternativen: SearXNG → DuckDuckGo → Bing.
+Falls nicht konfiguriert: System verwendet SearXNG → DuckDuckGo → Bing.
 
-**WICHTIG:** Nach dem Hinzufügen oder Ändern des Brave API Keys in der `.env`-Datei müssen Sie den **Python-Server neu starten**, damit die Änderungen wirksam werden.
-
-**Hinweis:** Nach Setzen der Umgebungsvariablen mit `setx` müssen Sie die Kommandozeile neu öffnen.
-
-### Schritt 6: Backend-Server starten
-
-**Für lokale Entwicklung:**
-```bash
-python -m uvicorn main:app --reload
-```
-Server läuft auf: `http://127.0.0.1:8000`
-
-**Für Netzwerk-Zugriff (empfohlen für Team):**
-```bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-Server läuft auf: `http://<SERVER_IP>:8000`
-
-**Server-Status prüfen:**
-Öffnen Sie im Browser: `http://127.0.0.1:8000/health`
-
-Sie sollten sehen: `{"status": "healthy"}`
+**Hinweis:** Nach `setx` Kommandozeile neu öffnen oder Server neu starten.
 
 ---
 

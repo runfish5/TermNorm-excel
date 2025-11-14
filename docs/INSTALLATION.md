@@ -123,65 +123,74 @@ On Mac, you can copy the `manifest.xml` directly to:
    - Use the **Load Config** button to reload existing configuration
 
 
-4. **Set up the Python server.**
-   - Open the terminal using `windows-key` and type 'cmd' in the search, click on 'command prompt'.
-   - Navigate to the `\OfficeAddinApps\TermNorm-excel\backend-api` directory
-      ```bash
-      cd C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api
-      ```
-   - Create and activate a virtual environment:
+4. **Start the Python server (RECOMMENDED).**
+
+   Simply double-click the `start-server-py-LLMs.bat` file in the TermNorm-excel directory.
+
+   <details>
+   <summary>What does the script do?</summary>
+
+   The script automatically:
+   - ✅ Sets up virtual environment
+   - ✅ Installs all dependencies
+   - ✅ Chooses deployment type (Local or Network)
+   - ✅ Runs diagnostics and starts server
+   </details>
+
+   <details>
+   <summary>Manual setup (for advanced users or troubleshooting)</summary>
+
+   - Navigate to the backend directory:
+     ```bash
+     cd C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api
+     ```
+   - Create and activate virtual environment:
      ```bash
      python -m venv .venv
      .\.venv\Scripts\activate
+     pip install -r requirements.txt
      ```
+   - Start server:
+     - Local: `python -m uvicorn main:app --reload`
+     - Network: `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
+   </details>
 
-   - **Configure users** (for multi-user access):
+5. **Configure authentication and API keys (one-time setup).**
+
+   - **Add users** (for multi-user access):
      Edit `backend-api/config/users.json` to add allowed IPs:
      ```json
      {
        "users": {
          "admin": {
            "email": "admin@company.com",
-           "allowed_ips": ["127.0.0.1"]
+           "allowed_ips": ["127.0.0.1", "192.168.1.100"]
          }
        }
      }
      ```
 
-   - **Configure LLM provider**:
-     Set Groq or OpenAI API keys in your environment for research-and-match functionality
+   - **Set LLM API key** (required):
+     ```bash
+     setx GROQ_API_KEY "your_api_key_here"
+     ```
 
    - **Configure Web Search (Optional)**:
      For reliable web research, configure Brave Search API (2,000 free queries/month):
      1. Register at: https://api-dashboard.search.brave.com/register
-     2. Create an API key
-     3. Add to `backend-api\.env` file:
+     2. Add key to `backend-api\.env`:
         ```
         BRAVE_SEARCH_API_KEY=your_brave_api_key_here
         ```
+     3. **Restart server** after configuration changes
 
-     **IMPORTANT:** After adding or changing the Brave API key in `.env`, you must **restart the Python server** for changes to take effect.
+     If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bing.
 
-     If not configured, the system uses fallback providers: SearXNG → DuckDuckGo → Bing.
-
-   - **Start the Python server**
-      - Local Development (default: `http://127.0.0.1:8000`)
-      ```bash
-      python -m uvicorn main:app --reload
-      ```
-
-      - Network based (team/production):
-      ```bash
-      python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-      ```
-
-   - **Configure Server URL in Excel** (if needed):
-      - Open TermNorm → **Settings** tab
-      - Update "Server URL" field to match your backend location:
-        - Local: `http://127.0.0.1:8000` (default)
-        - Network: `http://192.168.1.100:8000` (example)
-        - Production: `https://api.yourcompany.com`
-      - No save button needed - updates instantly
+   - **Configure Server URL in Excel** (if using network deployment):
+     - Open TermNorm → **Settings** tab
+     - Update "Server URL" to match your backend:
+       - Local: `http://127.0.0.1:8000` (default)
+       - Network: `http://192.168.1.100:8000` (your server IP)
 
 6. **Load mapping files.**
    - For each Excel reference file, click **Browse**
