@@ -26,12 +26,8 @@ export function showLoadingIndicator(message = "Processing...") {
 
   indicator.innerHTML = `
     <div class="sandclock-container">
-      <div class="sandclock">
-        <div class="sandclock-top"></div>
-        <div class="sandclock-sand"></div>
-        <div class="sandclock-bottom"></div>
-      </div>
       <span class="loading-message">${message}</span>
+      <span class="hourglass-emoji">⏳</span>
     </div>
   `;
 

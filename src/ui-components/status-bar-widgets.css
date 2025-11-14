@@ -27,88 +27,34 @@
     gap: 12px;
 }
 
-.sandclock {
-    position: relative;
-    width: 24px;
-    height: 32px;
+.hourglass-emoji {
+    font-size: 24px;
     display: inline-block;
-    animation: rotate-sandclock 2s linear infinite;
+    animation: rotate-stepped 2s steps(5) infinite;
 }
 
-/* Sandclock top chamber */
-.sandclock-top {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-top: 12px solid #666;
-}
-
-/* Sandclock middle (sand) */
-.sandclock-sand {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 3px;
-    height: 8px;
-    background: #FFB74D;
-    border-radius: 1px;
-    animation: sand-fall 1.5s ease-in-out infinite;
-}
-
-/* Sandclock bottom chamber */
-.sandclock-bottom {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-bottom: 12px solid #666;
-}
-
-/* Loading message text */
 .loading-message {
     font-size: 13px;
     color: #333;
     font-weight: 500;
 }
 
-/* Rotation animation for sandclock */
-@keyframes rotate-sandclock {
+/* Stepped rotation animation for hourglass emoji */
+@keyframes rotate-stepped {
     0% {
         transform: rotate(0deg);
     }
-    50% {
-        transform: rotate(0deg);
+    25% {
+        transform: rotate(45deg);
     }
-    55% {
-        transform: rotate(180deg);
+    50% {
+        transform: rotate(90deg);
+    }
+    75% {
+        transform: rotate(135deg);
     }
     100% {
         transform: rotate(180deg);
-    }
-}
-
-/* Sand falling animation */
-@keyframes sand-fall {
-    0% {
-        opacity: 1;
-        transform: translate(-50%, -8px);
-    }
-    50% {
-        opacity: 0.8;
-    }
-    100% {
-        opacity: 0;
-        transform: translate(-50%, 4px);
     }
 }
 
