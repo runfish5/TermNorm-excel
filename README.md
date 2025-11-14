@@ -84,8 +84,8 @@ The script will:
 
 ```bash
 cd backend-api
-python -m venv venv
-.\venv\Scripts\activate
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 
 # Set API key
@@ -263,7 +263,7 @@ npm run dev-server
 ```bash
 # Backend
 cd backend-api
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 python -m uvicorn main:app --reload
 
 # Frontend (webpack dev server runs automatically)
