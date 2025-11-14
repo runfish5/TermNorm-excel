@@ -1,5 +1,4 @@
 import { state } from "../shared-services/state-machine.manager.js";
-import { updateOfflineModeWarning } from "./offline-warning.js";
 
 export function updateLED() {
   const led = document.getElementById("server-status-led");
@@ -12,8 +11,6 @@ export function updateLED() {
   if (textElement) {
     textElement.textContent = state.server.online ? "Online" : "Offline";
   }
-
-  updateOfflineModeWarning();
 }
 
 export function setupLED() {
