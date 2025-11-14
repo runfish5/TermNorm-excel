@@ -120,6 +120,13 @@ backend-api/
 
 **Pragmatic Approach**: Code is practical and functional. Prioritize working solutions over architectural purity.
 
+**CSS Organization**: Styles are separated by scope:
+- `taskpane.css` (456 lines) - Global layout, navigation, buttons, forms, and core app structure
+- `status-bar-widgets.css` (223 lines) - Reusable status bar widgets (loading indicator, LED, matcher indicator, offline warning)
+- `ActivityFeedUI.css`, `CandidateRankingUI.css`, `mapping-config-modules.css` - Full-view container components
+
+Widget components (small, reusable UI elements like status indicators) are grouped separately from full-view containers (entire screens/panels).
+
 ## Event Task Flowchart
 
 The TermNorm add-in follows a structured event-driven workflow:

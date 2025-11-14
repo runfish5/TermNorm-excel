@@ -6,7 +6,7 @@ export async function apiFetch(url, options = {}) {
   const silent = options.silent;
   delete options.silent; // Remove before fetch
 
-  if (!silent) showMessage(options.processingMessage || "Processing...");
+  if (!silent) showMessage(options.processingMessage || "Processing...", "processing");
 
   // Handle relative vs absolute URLs
   const fullUrl = url.startsWith("http") ? url : `${getHost()}${url}`;
