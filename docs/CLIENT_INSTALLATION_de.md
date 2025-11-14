@@ -107,12 +107,12 @@ cd C:\<PFAD_ZUM_PROJEKT>\TermNorm-excel\backend-api
 
 Erstellen Sie das Virtual Environment:
 ```bash
-python -m venv venv
+python -m venv .venv
 ```
 
 Aktivieren Sie das Virtual Environment:
 ```bash
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 ```
 
 Sie sollten nun `(venv)` am Anfang Ihrer Kommandozeile sehen.
@@ -395,7 +395,7 @@ Falls die automatische Zuordnung nicht passt:
 ```bash
 # Virtual Environment erneut aktivieren
 cd backend-api
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 
 # Dependencies neu installieren
 pip install --upgrade -r requirements.txt

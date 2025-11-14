@@ -159,7 +159,8 @@ The TermNorm Add-in integrates with a Python backend server for internet search 
       ```
    - Create and activate a virtual environment:
      ```bash
-     .\venv\Scripts\activate
+     python -m venv .venv
+     .\.venv\Scripts\activate
      ```
 
    - **Configure users** (for multi-user access):
