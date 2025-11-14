@@ -78,16 +78,17 @@ cd TermNorm-excel
 
 **2. Start backend server**
 
-Simply run the automated setup script:
-```bash
-start-server-py-LLMs.bat
-```
+Simply double-click `start-server-py-LLMs.bat` in the project directory.
 
-The script will:
-- ✅ Set up virtual environment automatically
-- ✅ Install all dependencies
-- ✅ Choose deployment type (Local or Network)
-- ✅ Run diagnostics and start server
+<details>
+<summary>What does the script do?</summary>
+
+The script automatically:
+- ✅ Sets up virtual environment
+- ✅ Installs all dependencies
+- ✅ Chooses deployment type (Local or Network)
+- ✅ Runs diagnostics and starts server
+</details>
 
 <details>
 <summary>Manual setup (alternative)</summary>
