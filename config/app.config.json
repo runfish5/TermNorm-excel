@@ -1,6 +1,20 @@
 {
   "backend_url": "http://127.0.0.1:8000",
   "excel-projects": {
+    "YourWorkbook.xlsx": {
+      "column_map": {
+        "InputColumn": "OutputColumn"
+      },
+      "default_std_suffix": "standardized",
+      "standard_mappings": [
+        {
+          "mapping_reference": "C:\\Users\\Public\\Documents\\TermNorm\\reference-file.xlsx",
+          "worksheet": "Sheet1",
+          "source_column": "SourceColumn",
+          "target_column": "TargetColumn"
+        }
+      ]
+    },
     "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
       "column_map": {
         "ana": "ana_std",
