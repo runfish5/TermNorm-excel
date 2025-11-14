@@ -1,0 +1,223 @@
+/* Status Bar Widget Components
+ * Reusable utility widgets used within the status bar:
+ * - Loading Indicator (animated sandclock)
+ * - Status LED (server connection indicator)
+ * - Matcher Indicator (term matching capabilities)
+ * - Offline Warning Badge
+ */
+
+/* ===================================
+   Loading Indicator
+   =================================== */
+
+.loading-indicator {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.loading-indicator.visible {
+    display: block;
+    opacity: 1;
+}
+
+.sandclock-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sandclock {
+    position: relative;
+    width: 24px;
+    height: 32px;
+    display: inline-block;
+    animation: rotate-sandclock 2s linear infinite;
+}
+
+/* Sandclock top chamber */
+.sandclock-top {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 12px solid #666;
+}
+
+/* Sandclock middle (sand) */
+.sandclock-sand {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 8px;
+    background: #FFB74D;
+    border-radius: 1px;
+    animation: sand-fall 1.5s ease-in-out infinite;
+}
+
+/* Sandclock bottom chamber */
+.sandclock-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 12px solid #666;
+}
+
+/* Loading message text */
+.loading-message {
+    font-size: 13px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Rotation animation for sandclock */
+@keyframes rotate-sandclock {
+    0% {
+        transform: rotate(0deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+    55% {
+        transform: rotate(180deg);
+    }
+    100% {
+        transform: rotate(180deg);
+    }
+}
+
+/* Sand falling animation */
+@keyframes sand-fall {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -8px);
+    }
+    50% {
+        opacity: 0.8;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, 4px);
+    }
+}
+
+/* ===================================
+   Status LED
+   =================================== */
+
+.status-led {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ccc;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.status-led.green {
+    background-color: #4CAF50;
+}
+
+.status-led.yellow {
+    background-color: #FFC107;
+}
+
+.status-led.red {
+    background-color: #F44336;
+}
+
+/* Legacy support */
+.status-led.online {
+    background-color: #4CAF50;
+}
+
+.status-led.offline {
+    background-color: #F44336;
+}
+
+/* ===================================
+   Matcher Indicator
+   =================================== */
+
+.matcher-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    border: 1px solid;
+    user-select: none;
+    background-color: #fff;
+}
+
+/* Matcher color states - simple traffic light */
+.matcher-indicator.ready {
+    border-color: #4CAF50;
+    color: #2e7d32;
+}
+
+.matcher-indicator.limited {
+    border-color: #FFC107;
+    color: #f57c00;
+}
+
+.matcher-indicator.not-ready {
+    border-color: #F44336;
+    color: #c62828;
+}
+
+.indicator-icon {
+    font-size: 11px;
+}
+
+.indicator-counts {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.indicator-label {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* ===================================
+   Offline Warning Badge
+   =================================== */
+
+.warning-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background-color: #FFF4E5;
+    border: 2px solid #FF9800;
+    color: #E65100;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.warning-icon {
+    font-size: 12px;
+}
+
+.warning-text {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

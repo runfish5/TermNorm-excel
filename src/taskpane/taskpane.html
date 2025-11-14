@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
+    <link href="../ui-components/status-bar-widgets.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/ActivityFeedUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/CandidateRankingUI.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/mapping-config-modules.css" rel="stylesheet" type="text/css" />
@@ -50,7 +51,10 @@
         </div>
         
         <div class="status-bar">
-            <!-- Row 1: Main status message -->
+            <!-- Row 1: Loading indicator (hidden by default) -->
+            <div id="loading-indicator" class="loading-indicator"></div>
+
+            <!-- Row 2: Main status message -->
             <div id="main-status-message" class="status-message">Ready to load configuration...</div>
 
             <!-- Row 2: System components with clear labels -->
