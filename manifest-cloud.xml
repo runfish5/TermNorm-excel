@@ -2,15 +2,14 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>5c2fb0a9-f3b1-4d46-8641-c2896f6785d5</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Contoso</ProviderName>
+  <ProviderName>Runfish Data</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="TermNorm Add-in_0"/>
   <Description DefaultValue="A template to get started."/>
   <IconUrl DefaultValue="https://runfish5.github.io/TermNorm-excel/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://runfish5.github.io/TermNorm-excel/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://www.contoso.com/help"/>
+  <SupportUrl DefaultValue="https://github.com/runfish5/TermNorm-excel/issues"/>
   <AppDomains>
-    <AppDomain>https://www.contoso.com</AppDomain>
     <AppDomain>https://runfish5.github.io</AppDomain>
   </AppDomains>
   <Hosts>
