@@ -50,25 +50,15 @@ export async function findTokenMatch(value) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
 
-  // Extract terms from cached mappings
-  const terms = state.mappings.combined?.reverse ? Object.keys(state.mappings.combined.reverse) : [];
-
-  if (!terms.length) {
-    showMessage("No terms available - load mappings first", "error");
-    return null;
-  }
-
   // Clear previous web search warnings (new request starting)
   state.webSearch.status = "idle";
   state.webSearch.error = null;
   notifyStateChange();  // Trigger warning update (clears previous failures)
 
+  // Backend session already initialized with terms when mappings loaded
   const data = await apiPost(
     `${getHost()}/research-and-match`,
-    {
-      query: normalized,
-      terms: terms
-    },
+    { query: normalized },
     getHeaders()
   );
 

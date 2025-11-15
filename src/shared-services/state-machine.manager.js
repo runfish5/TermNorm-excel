@@ -1,17 +1,17 @@
 /**
- * State Manager - Frontend-Only State with Stateless Backend
+ * State Manager - Frontend State with Session-Based Backend
  *
  * Architecture:
  * 1. Frontend caches mappings in memory for fast exact/fuzzy matching
- * 2. Backend receives terms array with each /research-and-match request
- * 3. Backend creates TokenLookupMatcher on-the-fly, uses it, discards it
+ * 2. Frontend initializes backend session with terms array when mappings load
+ * 3. Backend stores terms in user session, subsequent requests are lightweight
  * 4. Simple loading states: idle → loading → synced | error
- * 5. No backend sessions, no TTL, no health checks
  */
 
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
-import { checkServerStatus } from "../utils/server-utilities.js";
+import { checkServerStatus, getHost, getHeaders } from "../utils/server-utilities.js";
+import { apiPost } from "../utils/api-fetch.js";
 
 // Global State - Simplified
 const appState = {
@@ -105,7 +105,7 @@ export async function loadMappingSource(index, loadFunction, params) {
 
     const termCount = Object.keys(result.reverse || {}).length;
 
-    combineMappingSources();
+    await combineMappingSources();
 
     showMessage(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
     notifyStateChange();
@@ -124,9 +124,32 @@ export async function loadMappingSource(index, loadFunction, params) {
 }
 
 /**
- * Combine all synced mapping sources into frontend cache
+ * Initialize backend session with terms array
  */
-function combineMappingSources() {
+async function initializeBackendSession(terms) {
+  try {
+    const data = await apiPost(
+      `${getHost()}/session/init-terms`,
+      { terms },
+      getHeaders()
+    );
+
+    if (data) {
+      console.log(`Backend session initialized with ${terms.length} terms`);
+      return true;
+    }
+  } catch (error) {
+    console.warn("Failed to initialize backend session:", error.message);
+    // Non-fatal - backend operations will fail but frontend caching still works
+    return false;
+  }
+}
+
+/**
+ * Combine all synced mapping sources into frontend cache
+ * Also initializes backend session with terms
+ */
+async function combineMappingSources() {
   const syncedSources = Object.values(appState.mappings.sources).filter(
     (s) => s.status === "synced" && s.data
   );
@@ -152,6 +175,12 @@ function combineMappingSources() {
 
   appState.mappings.combined = combined;
   appState.mappings.loaded = true;
+
+  // Initialize backend session with terms
+  const terms = Object.keys(combined.reverse || {});
+  if (terms.length > 0) {
+    await initializeBackendSession(terms);
+  }
 }
 
 /**

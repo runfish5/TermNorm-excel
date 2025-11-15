@@ -26,11 +26,11 @@ setx GROQ_API_KEY "your_key"              # Required for LLM features
 
 ## Architecture
 
-**Design Philosophy:** Hybrid caching architecture
+**Design Philosophy:** Session-based architecture
 - Frontend caches all mappings in memory (no backend database)
-- Backend caches `TokenLookupMatcher` per user (hash-based invalidation)
+- Backend stores terms in user sessions (initialized when mappings load)
 - Service-based organization with pure functions (minimal OOP)
-- Terms array sent with requests; backend caches to avoid rebuilding matcher
+- Lightweight requests after initial session setup
 
 ### Frontend Structure (Excel Add-in)
 
@@ -94,15 +94,16 @@ backend-api/
 ```
 
 **Key Concepts:**
-- **Per-User Caching**: `TokenLookupMatcher` cached per user, invalidated when terms change
+- **Session Storage**: User sessions store terms array (initialized when mappings load)
 - **Matching Pipeline**: Token filtering → Web research + LLM profiling → LLM ranking
 - **Auth**: IP allowlist in `users.json` (hot-reloaded), no passwords/tokens
 
 **Data Flow:**
 ```
+Config load → POST /session/init-terms {terms[]} → Backend stores in session
 Cell edit → onChanged event → Cached match check → Fuzzy match (local)
-→ POST /research-and-match {query, terms[]} → Backend: TokenLookup + Web + LLM
-→ ranked_candidates[] → Display UI + Write cell → Log activity
+→ POST /research-and-match {query} → Backend retrieves terms from session
+→ TokenLookup + Web + LLM → ranked_candidates[] → Display UI + Write cell
 ```
 
 ## Configuration
