@@ -60,7 +60,7 @@ cd C:\path\to\TermNorm-excel
 
 Then run:
 ```bash
-build-http.bat
+scripts\deployment\build-http.bat
 ```
 
 This rebuilds the `dist/` folder with URLs pointing to `http://localhost:8080/`.
@@ -78,7 +78,7 @@ Replace `C:\path\to\TermNorm-excel` with your actual project path and `SERVERNAM
 
 Run as Administrator:
 ```bash
-setup-iis.bat
+scripts\deployment\setup-iis.bat
 ```
 
 This script automatically:
@@ -139,8 +139,8 @@ The add-in loads from `http://SERVERNAME:8080/` (or localhost if configured that
 
 When you update `config/app.config.json`:
 
-1. **Rebuild**: Run `build-http.bat`
-2. **Redeploy**: Run `setup-iis.bat` (as Administrator)
+1. **Rebuild**: Run `scripts\deployment\build-http.bat`
+2. **Redeploy**: Run `scripts\deployment\setup-iis.bat` (as Administrator)
 3. **Refresh**: Users restart Excel to load updated configuration
 
 The configuration file is bundled into the JavaScript during build, so rebuild + redeploy is required for config changes to take effect.
@@ -152,7 +152,7 @@ The configuration file is bundled into the JavaScript during build, so rebuild +
 If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpane.html`:
 
 - The files are in a user folder that IIS cannot access
-- Solution: `setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
+- Solution: `scripts\deployment\setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
 
 **Add-in doesn't appear in SHARED FOLDER**
 
@@ -291,7 +291,7 @@ On Mac, you can copy the `manifest.xml` directly to:
 
 4. **Start the Python server (RECOMMENDED).**
 
-   Simply double-click the `start-server-py-LLMs.bat` file in the TermNorm-excel directory.
+   Simply double-click the `scripts\start-server-py-LLMs.bat` file in the TermNorm-excel directory.
 
    <details>
    <summary>What does the script do?</summary>

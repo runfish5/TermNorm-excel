@@ -1,8 +1,8 @@
 @echo off
 REM Build TermNorm for HTTP (localhost:8080)
 
-REM Change to the script's directory
-cd /d "%~dp0"
+REM Change to the project root directory (two levels up from scripts\deployment\)
+cd /d "%~dp0\..\.."
 
 echo ============================================
 echo   Build TermNorm for HTTP
