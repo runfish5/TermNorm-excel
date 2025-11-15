@@ -114,6 +114,53 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 
 📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide](CLIENT_INSTALLATION.md)**
 
+---
+
+## 🖥️ Windows Server Deployment (Internal Network)
+
+**For deploying to Windows Server for internal/enterprise use:**
+
+This is the **standard Microsoft-recommended approach** for internal network deployment using:
+- ✅ **IIS** (built into Windows Server) for static file hosting
+- ✅ **Network shared folder catalog** for sideloading
+- ✅ **HTTP hosting** on internal network (HTTPS optional)
+
+### Quick Setup (3 Steps):
+
+**1. Build for HTTP deployment**
+
+From the project directory:
+```bash
+cd C:\path\to\TermNorm-excel
+build-http.bat
+```
+This rebuilds `dist/` with URLs pointing to `http://localhost:8080/`
+
+**2. Deploy to IIS** *(run as Administrator)*
+```bash
+setup-iis.bat
+```
+This automatically:
+- Creates IIS website at `C:\inetpub\wwwroot\termnorm\`
+- Configures HTTP hosting on port 8080
+- Tests the deployment
+
+**3. Sideload in Excel**
+- Copy manifest: `copy C:\inetpub\wwwroot\termnorm\manifest.xml C:\OfficeAddIns\`
+- In Excel: **Insert → Get Add-ins → SHARED FOLDER → TermNorm**
+
+### Configuration Updates
+
+When you edit `config/app.config.json`:
+1. Navigate to project directory: `cd C:\path\to\TermNorm-excel`
+2. Run `build-http.bat` to rebuild with new config
+3. Run `setup-iis.bat` to redeploy to IIS
+4. Restart Excel to load updated configuration
+
+📖 **[Detailed Windows Deployment Guide](docs/INSTALLATION.md#windows-server-deployment)**
+
+---
+
 ## ⚙️ Configuration
 
 TermNorm uses a single JSON configuration file that defines column mappings and reference data sources.

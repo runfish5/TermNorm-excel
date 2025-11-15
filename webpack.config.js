@@ -6,8 +6,14 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 const path = require("path");
 
+// Development and Production URLs
+// - Development: Always localhost:3000 (webpack dev server)
+// - Production: Controlled by DEPLOYMENT_URL environment variable
+//   * Default (no env var): GitHub Pages → https://runfish5.github.io/TermNorm-excel/
+//   * Local Windows: build-local.bat → https://localhost:8443/termnorm/
+//   * Custom: set DEPLOYMENT_URL=https://your-server.com/path/ && npm run build
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://runfish5.github.io/TermNorm-excel/"; // Production deployment on GitHub Pages
+const urlProd = process.env.DEPLOYMENT_URL || "https://runfish5.github.io/TermNorm-excel/";
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
