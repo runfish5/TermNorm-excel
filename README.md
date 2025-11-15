@@ -76,7 +76,7 @@ cd TermNorm-excel
 
 **2. Start backend server**
 
-Run `scripts\start-server-py-LLMs.bat` in the project directory.
+Run `start-server-py-LLMs.bat` in the project directory.
 
 **Note:** Changes to `backend-api/config/users.json` are hot-reloaded automatically (no server restart needed).
 
