@@ -62,7 +62,8 @@ Logging & State Update
 ### Prerequisites
 
 - Microsoft Excel (Desktop or Microsoft 365)
-- Python 3.9+
+- **Node.js 16+** (required for frontend build)
+- **Python 3.9+** (for backend server)
 - LLM API key (Groq recommended, OpenAI supported)
 
 ### Installation
@@ -75,7 +76,7 @@ cd TermNorm-excel
 
 **2. Start backend server**
 
-Simply double-click `scripts\start-server-py-LLMs.bat` in the project directory.
+Run `scripts\start-server-py-LLMs.bat` in the project directory.
 
 **Note:** Changes to `backend-api/config/users.json` are hot-reloaded automatically (no server restart needed).
 
@@ -108,55 +109,25 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 </details>
 
 **3. Install Excel add-in**
-- **Microsoft 365**: Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
-- **Desktop Excel**: Sideload `manifest.xml` via Trust Center settings
+
+- **Microsoft 365** (Simple): Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
+- **Desktop Excel** (Complex): Requires network deployment. See [Desktop Excel Deployment](#desktop-excel-deployment-network-sideloading) below for full setup.
 
 📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide](CLIENT_INSTALLATION.md)**
 
 ---
 
-## 🖥️ Windows Server Deployment (Internal Network)
+## 🖥️ Desktop Excel Deployment (Network Sideloading)
 
-**For deploying to Windows Server for internal/enterprise use:**
+Desktop Excel cannot use the simple cloud upload method. Instead, it requires hosting the add-in on an internal web server (IIS) and distributing the manifest via network shared folder. Users then configure their Trust Center to access the shared catalog.
 
-This is the **standard Microsoft-recommended approach** for internal network deployment using:
-- ✅ **IIS** (built into Windows Server) for static file hosting
-- ✅ **Network shared folder catalog** for sideloading
-- ✅ **HTTP hosting** on internal network (HTTPS optional)
+**This process involves:**
+- Building the frontend for HTTP deployment
+- Deploying to IIS (Windows Server)
+- Setting up network share for manifest distribution
+- Configuring Trust Center on each user's Excel
 
-### Quick Setup (3 Steps):
-
-**1. Build for HTTP deployment**
-
-From the project directory:
-```bash
-cd C:\path\to\TermNorm-excel
-scripts\deployment\build-http.bat
-```
-This rebuilds `dist/` with URLs pointing to `http://localhost:8080/`
-
-**2. Deploy to IIS** *(run as Administrator)*
-```bash
-scripts\deployment\setup-iis.bat
-```
-This automatically:
-- Creates IIS website at `C:\inetpub\wwwroot\termnorm\`
-- Configures HTTP hosting on port 8080
-- Tests the deployment
-
-**3. Sideload in Excel**
-- Copy manifest: `copy C:\inetpub\wwwroot\termnorm\manifest.xml C:\OfficeAddIns\`
-- In Excel: **Insert → Get Add-ins → SHARED FOLDER → TermNorm**
-
-### Configuration Updates
-
-When you edit `config/app.config.json`:
-1. Navigate to project directory: `cd C:\path\to\TermNorm-excel`
-2. Run `scripts\deployment\build-http.bat` to rebuild with new config
-3. Run `scripts\deployment\setup-iis.bat` to redeploy to IIS
-4. Restart Excel to load updated configuration
-
-📖 **[Detailed Windows Deployment Guide](docs/INSTALLATION.md#windows-server-deployment)**
+📖 **[Complete deployment guide with step-by-step instructions](docs/INSTALLATION.md#windows-server-deployment)**
 
 ---
 
