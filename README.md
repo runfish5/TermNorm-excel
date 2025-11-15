@@ -76,7 +76,7 @@ cd TermNorm-excel
 
 **2. Start backend server**
 
-Simply double-click `start-server-py-LLMs.bat` in the project directory.
+Simply double-click `scripts\start-server-py-LLMs.bat` in the project directory.
 
 **Note:** Changes to `backend-api/config/users.json` are hot-reloaded automatically (no server restart needed).
 
@@ -132,13 +132,13 @@ This is the **standard Microsoft-recommended approach** for internal network dep
 From the project directory:
 ```bash
 cd C:\path\to\TermNorm-excel
-build-http.bat
+scripts\deployment\build-http.bat
 ```
 This rebuilds `dist/` with URLs pointing to `http://localhost:8080/`
 
 **2. Deploy to IIS** *(run as Administrator)*
 ```bash
-setup-iis.bat
+scripts\deployment\setup-iis.bat
 ```
 This automatically:
 - Creates IIS website at `C:\inetpub\wwwroot\termnorm\`
@@ -153,8 +153,8 @@ This automatically:
 
 When you edit `config/app.config.json`:
 1. Navigate to project directory: `cd C:\path\to\TermNorm-excel`
-2. Run `build-http.bat` to rebuild with new config
-3. Run `setup-iis.bat` to redeploy to IIS
+2. Run `scripts\deployment\build-http.bat` to rebuild with new config
+3. Run `scripts\deployment\setup-iis.bat` to redeploy to IIS
 4. Restart Excel to load updated configuration
 
 📖 **[Detailed Windows Deployment Guide](docs/INSTALLATION.md#windows-server-deployment)**

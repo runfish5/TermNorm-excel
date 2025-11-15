@@ -18,7 +18,7 @@ The add-in monitors Excel cells in real-time, applies configurable mapping rules
 ## Development Commands
 
 ### Backend (Python API)
-**Recommended**: Double-click `start-server-py-LLMs.bat` in the project root for automated setup.
+**Recommended**: Double-click `scripts\start-server-py-LLMs.bat` in the project root for automated setup.
 
 **Manual commands** (navigate to `backend-api/` directory first):
 - `.\.venv\Scripts\activate` - Activate Python virtual environment

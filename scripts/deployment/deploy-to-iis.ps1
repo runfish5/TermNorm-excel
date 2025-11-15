@@ -14,7 +14,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 Write-Host ""
 
 try {
-    $sourcePath = Join-Path $PSScriptRoot "dist"
+    # Navigate to project root (two levels up from scripts\deployment\)
+    $sourcePath = Join-Path $PSScriptRoot "..\..\dist"
     $destPath = "C:\inetpub\wwwroot\termnorm"
     $siteName = "TermNorm"
 

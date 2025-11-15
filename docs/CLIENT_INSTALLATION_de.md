@@ -76,7 +76,7 @@ cd TermNorm-excel
 
 ### Schritt 2: Backend-Server starten (EMPFOHLEN)
 
-Doppelklicken Sie einfach auf die Datei `start-server-py-LLMs.bat` im TermNorm-excel Verzeichnis.
+Doppelklicken Sie einfach auf die Datei `scripts\start-server-py-LLMs.bat` im TermNorm-excel Verzeichnis.
 
 <details>
 <summary>Was macht das Skript?</summary>
