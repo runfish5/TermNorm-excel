@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/update-version.js
+// scripts/build/update-version.js
 // Updates version.js with current git information
 
 const { execSync } = require('child_process');
@@ -41,7 +41,7 @@ function getGitInfo() {
 
 function updateVersionFile() {
   const gitInfo = getGitInfo();
-  const versionPath = path.join(__dirname, '..', 'src', 'utils', 'app-utilities.js');
+  const versionPath = path.join(__dirname, '..', '..', 'src', 'utils', 'app-utilities.js');
   
   console.log('Updating app-utilities.js with git info:', gitInfo);
   
