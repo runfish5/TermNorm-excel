@@ -291,7 +291,7 @@ On Mac, you can copy the `manifest.xml` directly to:
 
 4. **Start the Python server (RECOMMENDED).**
 
-   Simply double-click the `scripts\start-server-py-LLMs.bat` file in the TermNorm-excel directory.
+   Simply double-click the `start-server-py-LLMs.bat` file in the TermNorm-excel directory.
 
    <details>
    <summary>What does the script do?</summary>

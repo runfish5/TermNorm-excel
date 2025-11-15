@@ -33,7 +33,7 @@ Press `Ctrl+C` in the backend terminal to flush buffered logs and reveal what's 
 1. Kill the hung process completely (press Ctrl+C multiple times if needed)
 2. Check for stale connections: `netstat -ano | findstr ":8000"`
 3. If port is still in use, kill the process: `taskkill /F /PID <pid>`
-4. Restart fresh with `scripts\start-server-py-LLMs.bat`
+4. Restart fresh with `start-server-py-LLMs.bat`
 
 ### Port 8000 Already in Use
 

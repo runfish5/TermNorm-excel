@@ -15,7 +15,7 @@ npm run validate            # Validate manifest.xml
 
 **Backend:**
 ```bash
-scripts\start-server-py-LLMs.bat                                 # Automated setup (Windows)
+start-server-py-LLMs.bat                                         # Automated setup (Windows)
 python -m uvicorn main:app --reload                              # Local (127.0.0.1:8000)
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 
@@ -26,10 +26,11 @@ setx GROQ_API_KEY "your_key"              # Required for LLM features
 
 ## Architecture
 
-**Design Philosophy:** Stateless architecture with frontend-managed state
-- Frontend caches all mappings in memory (no backend sessions/database)
+**Design Philosophy:** Hybrid caching architecture
+- Frontend caches all mappings in memory (no backend database)
+- Backend caches `TokenLookupMatcher` per user (hash-based invalidation)
 - Service-based organization with pure functions (minimal OOP)
-- Trade-off: Send full terms array (~50KB) per LLM request to avoid backend state complexity
+- Terms array sent with requests; backend caches to avoid rebuilding matcher
 
 ### Frontend Structure (Excel Add-in)
 
@@ -93,7 +94,7 @@ backend-api/
 ```
 
 **Key Concepts:**
-- **Stateless Processing**: `TokenLookupMatcher` created per request, used once, discarded
+- **Per-User Caching**: `TokenLookupMatcher` cached per user, invalidated when terms change
 - **Matching Pipeline**: Token filtering → Web research + LLM profiling → LLM ranking
 - **Auth**: IP allowlist in `users.json` (hot-reloaded), no passwords/tokens
 

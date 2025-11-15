@@ -60,7 +60,7 @@ def _prioritize_errors(record):
 
 
 class TokenLookupMatcher:
-    """Stateless token-based matcher (created on-the-fly per request)"""
+    """Token-based matcher with per-user caching"""
 
     def __init__(self, terms: List[str]):
         self.deduplicated_terms = list(set(terms))
@@ -98,6 +98,48 @@ class TokenLookupMatcher:
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
 
+class MatcherCache:
+    """Simple in-memory cache for TokenLookupMatcher per user"""
+
+    def __init__(self):
+        # Structure: {user_id: {"terms_hash": hash, "matcher": TokenLookupMatcher}}
+        self.cache = {}
+
+    def get_matcher(self, user_id: str, terms: List[str]) -> TokenLookupMatcher:
+        """Get cached matcher or create new one if terms changed"""
+        # Create hash of terms array (sorted set for consistency)
+        terms_hash = hash(tuple(sorted(set(terms))))
+
+        # Check cache
+        if user_id in self.cache:
+            cached = self.cache[user_id]
+            if cached["terms_hash"] == terms_hash:
+                logger.info(f"[CACHE HIT] User {user_id}: Using cached TokenLookupMatcher")
+                return cached["matcher"]
+
+        # Cache miss or new user - create matcher
+        logger.info(f"[CACHE MISS] User {user_id}: Creating new TokenLookupMatcher")
+        matcher = TokenLookupMatcher(terms)
+
+        # Store in cache
+        self.cache[user_id] = {
+            "terms_hash": terms_hash,
+            "matcher": matcher
+        }
+
+        return matcher
+
+    def clear_user_cache(self, user_id: str):
+        """Clear cache for specific user"""
+        if user_id in self.cache:
+            del self.cache[user_id]
+            logger.info(f"[CACHE] Cleared cache for user {user_id}")
+
+
+# Initialize matcher cache at module level
+matcher_cache = MatcherCache()
+
+
 @router.post("/research-and-match")
 async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Research a query and rank candidates using LLM + token matching (stateless)"""
@@ -114,9 +156,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             detail="No terms provided - include terms array in request payload"
         )
 
-    # Create matcher on-the-fly (stateless)
-    token_matcher = TokenLookupMatcher(terms)
-    logger.info(f"[PIPELINE] Created TokenLookupMatcher with {len(token_matcher.deduplicated_terms)} unique terms")
+    # Get cached matcher or create new one
+    token_matcher = matcher_cache.get_matcher(user_id, terms)
+    logger.info(f"[PIPELINE] TokenLookupMatcher ready with {len(token_matcher.deduplicated_terms)} unique terms")
 
     # Step 1: Research (always returns tuple)
     logger.info("[PIPELINE] Step 1: Researching")
