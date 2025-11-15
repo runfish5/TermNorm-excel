@@ -17,6 +17,172 @@ Only update when you receive an email notification. Always provide your version 
 - Microsoft Excel installed on your system or licence for the cloud version (Microsoft 365 subscription).
 - Python (latest version). Visit the Python.org site to download and install the right version for your operating system. To verify if you've already installed Python, run the command `python -v` in your terminal.
 
+---
+
+## Windows Server Deployment
+
+**For IT administrators deploying to Windows Server for internal/enterprise use**
+
+This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs.
+
+### Overview
+
+The deployment uses:
+- **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
+- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading
+- **HTTP hosting** - Acceptable for internal networks (HTTPS optional)
+
+This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
+
+### Prerequisites for Windows Server Deployment
+
+1. **Windows Server** with IIS enabled
+   - Open Server Manager → Add Roles and Features
+   - Select **Web Server (IIS)** role
+   - Include **Management Tools** and **Static Content** features
+
+2. **Network share configured** for manifest distribution
+   - Create folder (e.g., `C:\OfficeAddIns`)
+   - Share with users (Read permissions)
+   - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
+
+3. **Node.js installed** (for building the add-in)
+   - Only needed on build machine, not on server
+
+### Deployment Steps
+
+**Step 1: Build for HTTP Deployment**
+
+**Important:** Navigate to the project directory first:
+```bash
+cd C:\path\to\TermNorm-excel
+```
+
+Then run:
+```bash
+build-http.bat
+```
+
+This rebuilds the `dist/` folder with URLs pointing to `http://localhost:8080/`.
+
+**To use server name instead of localhost:**
+```bash
+cd C:\path\to\TermNorm-excel
+set DEPLOYMENT_URL=http://SERVERNAME:8080/
+npm run build
+```
+
+Replace `C:\path\to\TermNorm-excel` with your actual project path and `SERVERNAME` with your server's hostname.
+
+**Step 2: Deploy to IIS** *(Requires Administrator)*
+
+Run as Administrator:
+```bash
+setup-iis.bat
+```
+
+This script automatically:
+1. Creates folder: `C:\inetpub\wwwroot\termnorm\`
+2. Copies all files from `dist/` to the IIS folder
+3. Creates IIS website named "TermNorm" on port 8080
+4. Configures HTTP binding
+5. Tests the deployment
+
+<details>
+<summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
+
+If you prefer manual setup:
+
+1. Copy `dist\*` to `C:\inetpub\wwwroot\termnorm\`
+
+2. Open IIS Manager (run `inetmgr`)
+
+3. Right-click **Sites** → **Add Website**:
+   - **Site name**: TermNorm
+   - **Physical path**: `C:\inetpub\wwwroot\termnorm`
+   - **Binding**: HTTP, port 8080
+   - Click **OK**
+
+4. Test: Open browser to `http://localhost:8080/taskpane.html`
+   - Should display the TermNorm interface
+
+</details>
+
+**Step 3: Distribute Manifest**
+
+Copy the manifest to your network share:
+```bash
+copy C:\inetpub\wwwroot\termnorm\manifest.xml \\SERVERNAME\OfficeAddIns\
+```
+
+**Step 4: User Configuration** *(One-time per user)*
+
+Users must configure Excel to trust your catalog:
+
+1. Excel → **File** → **Options** → **Trust Center** → **Trust Center Settings**
+2. Click **Trusted Add-in Catalogs**
+3. In **Catalog Url**, enter: `\\SERVERNAME\OfficeAddIns`
+4. Click **Add catalog**
+5. Check **Show in Menu**
+6. Click **OK** and restart Excel
+
+**Step 5: Sideload the Add-in** *(Per user)*
+
+1. Excel → **Insert** → **Get Add-ins**
+2. Select **SHARED FOLDER** (top of dialog)
+3. Select **TermNorm**
+4. Click **Add**
+
+The add-in loads from `http://SERVERNAME:8080/` (or localhost if configured that way).
+
+### Configuration Updates
+
+When you update `config/app.config.json`:
+
+1. **Rebuild**: Run `build-http.bat`
+2. **Redeploy**: Run `setup-iis.bat` (as Administrator)
+3. **Refresh**: Users restart Excel to load updated configuration
+
+The configuration file is bundled into the JavaScript during build, so rebuild + redeploy is required for config changes to take effect.
+
+### Troubleshooting
+
+**401.3 Unauthorized Error**
+
+If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpane.html`:
+
+- The files are in a user folder that IIS cannot access
+- Solution: `setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
+
+**Add-in doesn't appear in SHARED FOLDER**
+
+- Verify manifest copied to `\\SERVERNAME\OfficeAddIns\`
+- Check users configured Trusted Catalog correctly
+- Ensure network path is accessible to users
+- Restart Excel after adding catalog
+
+**Network connectivity error when loading add-in**
+
+- Test the URL in browser: `http://SERVERNAME:8080/taskpane.html`
+- Check IIS website is running (IIS Manager → Sites → TermNorm → State: Started)
+- Verify firewall allows port 8080
+- Ensure manifest URLs match server configuration
+
+**For HTTPS (recommended for production)**
+
+To use HTTPS instead of HTTP:
+
+1. Obtain SSL certificate for your server
+2. Bind certificate to IIS website (Port 443)
+3. Rebuild with HTTPS URL:
+   ```bash
+   set DEPLOYMENT_URL=https://SERVERNAME/termnorm/
+   npm run build
+   ```
+4. Redeploy to IIS
+
+---
+
 ## Add the add-in to Excel
 
 ### 365 Cloud setup
