@@ -1,20 +1,25 @@
 # TermNorm - AI-Powered Terminology Normalization for Excel
 
+This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
+
 <p align="center">
-  <img src="assets/llm-research-ranking-workflow-overview.png" alt="LLM Research & Ranking Workflow" width="600">
+  <img src="assets/llm-research-ranking-workflow-overview.png" alt="LLM Research & Ranking Workflow" width="480">
 </p>
 
 The workflow diagram above shows the Python/FastAPI backend pipeline that powers real-time terminology normalization directly within Excel.
-
-This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
 
 ## 📚 Documentation
 
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
 - **[Usage Guide](docs/USAGE.md)** - How to use the add-in
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
-- **[Client Installation (German)](docs/CLIENT_INSTALLATION_de.md)** - Standalone deployment guide
 
+
+## 📋 Use Cases
+
+- **Database Identifier Assignment**: Assign free-form names to standardized database identifiers
+- **Classification & Terminology Management**: Assign categories to unstructured text and maintain consistent terminology across documents
+- **Data Normalization & Entity Linking**: Standardize product names, material codes, process terms, and match free-text entities to standardized knowledge bases
 
 ## ✨ Key Features
 
@@ -33,12 +38,6 @@ This project demonstrates a reusable architecture for building Excel add-ins wit
 <p align="center">
   <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Interface" width="600">
 </p>
-
-## 📋 Use Cases
-
-- **Data Normalization & Entity Linking**: Standardize product names, material codes, process terms, and match free-text entities to standardized knowledge bases
-- **Classification & Terminology Management**: Assign categories to unstructured text and maintain consistent terminology across documents
-- **Database Identifier Assignment**: Assign free-form names to standardized database identifiers
 
 ## 💡 How It Works
 
