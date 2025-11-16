@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # Protected Endpoints (require user authentication)
     # Note: "/" (root health check) is intentionally public
     protected_paths: List[str] = [
+        "/session/init-terms",
         "/research-and-match",
         "/test-connection",
         "/log-activity",

@@ -36,6 +36,12 @@ const appState = {
     combined: null,  // Combined forward/reverse mappings cache
     loaded: false,
   },
+  session: {
+    initialized: false,
+    termCount: 0,
+    lastInitialized: null,
+    error: null,
+  },
   settings: {
     requireServerOnline: true,  // Default: server required for operations
     loaded: false,
@@ -124,23 +130,87 @@ export async function loadMappingSource(index, loadFunction, params) {
 }
 
 /**
- * Initialize backend session with terms array
+ * Utility: Sleep for specified milliseconds
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Initialize backend session with retry logic and exponential backoff
+ */
+async function initializeBackendSessionWithRetry(terms, maxRetries = 3) {
+  const delays = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`[SESSION] Initialization attempt ${attempt}/${maxRetries}`);
+
+    const success = await initializeBackendSession(terms);
+
+    if (success) {
+      return true;
+    }
+
+    // Don't sleep after last attempt
+    if (attempt < maxRetries) {
+      const delay = delays[attempt - 1];
+      console.log(`[SESSION] Retrying in ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+
+  // All retries failed
+  const finalError = `Failed to initialize backend session after ${maxRetries} attempts`;
+  console.error(`[SESSION] ${finalError}`);
+
+  appState.session.error = finalError;
+  notifyStateChange();
+
+  return false;
+}
+
+/**
+ * Initialize backend session with terms array (single attempt)
  */
 async function initializeBackendSession(terms) {
   try {
     const data = await apiPost(
       `${getHost()}/session/init-terms`,
       { terms },
-      getHeaders()
+      getHeaders(),
+      { silent: true }  // Don't show loading/success messages during mapping load
     );
 
     if (data) {
-      console.log(`Backend session initialized with ${terms.length} terms`);
+      console.log(`[SESSION] Backend session initialized with ${terms.length} terms`);
+
+      // Update session state
+      appState.session.initialized = true;
+      appState.session.termCount = terms.length;
+      appState.session.lastInitialized = new Date();
+      appState.session.error = null;
+      notifyStateChange();
+
       return true;
     }
+
+    // apiPost returns null on failure instead of throwing
+    const errorMsg = "Backend session initialization failed - check server logs";
+    console.error(`[SESSION] ${errorMsg}`);
+
+    appState.session.initialized = false;
+    appState.session.error = errorMsg;
+    notifyStateChange();
+
+    return false;
   } catch (error) {
-    console.warn("Failed to initialize backend session:", error.message);
-    // Non-fatal - backend operations will fail but frontend caching still works
+    const errorMsg = `Backend session initialization failed: ${error.message}`;
+    console.error(`[SESSION] ${errorMsg}`);
+
+    appState.session.initialized = false;
+    appState.session.error = errorMsg;
+    notifyStateChange();
+
     return false;
   }
 }
@@ -176,11 +246,34 @@ async function combineMappingSources() {
   appState.mappings.combined = combined;
   appState.mappings.loaded = true;
 
-  // Initialize backend session with terms
+  // Initialize backend session with terms (with retry logic)
   const terms = Object.keys(combined.reverse || {});
   if (terms.length > 0) {
-    await initializeBackendSession(terms);
+    const success = await initializeBackendSessionWithRetry(terms);
+
+    if (!success) {
+      // Show error to user - session init failed but frontend caching still works
+      showMessage(
+        `⚠️ Backend session initialization failed. LLM features unavailable. Check backend logs.`,
+        "error"
+      );
+    }
   }
+}
+
+/**
+ * Export session initialization for external use (e.g., auto-recovery in normalizer)
+ */
+export async function reinitializeSession() {
+  const terms = Object.keys(appState.mappings.combined?.reverse || {});
+
+  if (terms.length === 0) {
+    console.error("[SESSION] Cannot reinitialize - no terms available in mappings");
+    return false;
+  }
+
+  console.log("[SESSION] Auto-reinitializing session after session loss");
+  return await initializeBackendSessionWithRetry(terms);
 }
 
 /**
@@ -190,6 +283,12 @@ export function clearMappings() {
   appState.mappings.sources = {};
   appState.mappings.combined = null;
   appState.mappings.loaded = false;
+
+  // Clear session state when mappings are cleared
+  appState.session.initialized = false;
+  appState.session.termCount = 0;
+  appState.session.error = null;
+
   notifyStateChange();
 }
 

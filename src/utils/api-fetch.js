@@ -23,14 +23,31 @@ export async function apiFetch(url, options = {}) {
       return data.data ?? null;
     }
 
-    if (!silent) showMessage(data.message || data.detail, "error");
+    // Handle different error types with specific guidance
+    if (!silent) {
+      let errorMessage = data.message || data.detail || "Request failed";
+
+      // Add troubleshooting guidance based on status code
+      if (response.status === 403) {
+        errorMessage += "\n\n💡 Check your IP is in backend-api/config/users.json";
+      } else if (response.status === 500) {
+        errorMessage += "\n\n💡 Server error - check backend-api/logs/app.log";
+      } else if (response.status === 400 && errorMessage.includes("No session found")) {
+        errorMessage += "\n\n💡 Session lost - reload mappings or wait for auto-recovery";
+      }
+
+      showMessage(errorMessage, "error");
+    }
     return null;
 
   } catch (error) {
     state.server.online = false;
     state.server.lastChecked = Date.now();
 
-    if (!silent) showMessage("Server offline - Check backend is running on port 8000", "error");
+    if (!silent) {
+      const errorMessage = "Server offline - Check backend is running on port 8000\n\n💡 Run: start-server-py-LLMs.bat";
+      showMessage(errorMessage, "error");
+    }
     return null;
   }
 }
