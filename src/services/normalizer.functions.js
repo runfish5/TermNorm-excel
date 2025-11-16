@@ -1,9 +1,11 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state, notifyStateChange, reinitializeSession } from "../shared-services/state-machine.manager.js";
+import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
+import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-services/session-recovery.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
+import { SESSION_ENDPOINTS } from "../config/session.config.js";
 
 // Fuzzy matching thresholds (0.0 - 1.0 similarity score)
 const FUZZY_FORWARD_THRESHOLD = 0.7;  // Higher threshold for forward mappings (more strict)
@@ -14,6 +16,14 @@ function normalizeValue(value) {
   return value ? String(value).trim() : "";
 }
 
+/**
+ * Get exact cached match from forward or reverse mappings
+ *
+ * @param {string} value - Value to match
+ * @param {Object} forward - Forward mapping (source → target)
+ * @param {Object} reverse - Reverse mapping (target → target)
+ * @returns {Object|null} Match result or null if no exact match found
+ */
 export function getCachedMatch(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
@@ -29,6 +39,14 @@ export function getCachedMatch(value, forward, reverse) {
   return normalized in reverse ? { target: normalized, method: "cached", confidence: 1.0 } : null;
 }
 
+/**
+ * Find fuzzy match using string similarity algorithms
+ *
+ * @param {string} value - Value to match
+ * @param {Object} forward - Forward mapping (source → target)
+ * @param {Object} reverse - Reverse mapping (target → target)
+ * @returns {Object|null} Match result or null if no fuzzy match above threshold
+ */
 export function findFuzzyMatch(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
@@ -46,6 +64,12 @@ export function findFuzzyMatch(value, forward, reverse) {
   return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score } : null;
 }
 
+/**
+ * Find token match using backend research and ranking API
+ *
+ * @param {string} value - Value to match
+ * @returns {Promise<Object|null>} Match result with candidate, method, confidence, etc., or null if no match
+ */
 export async function findTokenMatch(value) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
@@ -53,54 +77,50 @@ export async function findTokenMatch(value) {
   // Clear previous web search warnings (new request starting)
   state.webSearch.status = "idle";
   state.webSearch.error = null;
-  notifyStateChange();  // Trigger warning update (clears previous failures)
+  notifyStateChange();
 
-  // Proactive check: Reinitialize session if not initialized (e.g., after server restart)
-  if (!state.session.initialized) {
-    console.log("[NORMALIZER] Session not initialized, reinitializing...");
-    showMessage("Initializing backend session...");
-
-    const success = await reinitializeSession();
-    if (!success) {
-      showMessage("Failed to initialize backend session - LLM features unavailable", "error");
-      return null;
-    }
+  // Proactive check: Ensure session is initialized
+  const sessionReady = await ensureSessionInitialized();
+  if (!sessionReady) {
+    return null;
   }
 
-  // Make the request (with reactive recovery on session loss)
-  let data = await apiPost(
-    `${getHost()}/research-and-match`,
-    { query: normalized },
-    getHeaders()
+  // Make request with automatic session recovery
+  const data = await executeWithSessionRecovery(async () =>
+    makeResearchRequest(normalized)
   );
 
-  // Reactive recovery: If session was lost (e.g., server restart), reinitialize and retry once
-  if (!data) {
-    // Check if it might be a session error by trying to reinitialize
-    console.log("[NORMALIZER] Request failed, attempting session recovery...");
-    showMessage("Recovering backend session...");
+  if (!data) return null;
 
-    const recoverySuccess = await reinitializeSession();
-    if (recoverySuccess) {
-      // Retry the request after successful recovery
-      data = await apiPost(
-        `${getHost()}/research-and-match`,
-        { query: normalized },
-        getHeaders()
-      );
-    }
+  return processResearchResponse(data);
+}
 
-    if (!data) {
-      // Still failed after recovery attempt
-      return null;
-    }
-  }
+/**
+ * Make research request to backend API
+ *
+ * @param {string} query - Normalized query string
+ * @returns {Promise<Object|null>} API response data or null
+ */
+async function makeResearchRequest(query) {
+  return await apiPost(
+    `${getHost()}${SESSION_ENDPOINTS.RESEARCH}`,
+    { query },
+    getHeaders()
+  );
+}
 
+/**
+ * Process research API response and update state
+ *
+ * @param {Object} data - API response data
+ * @returns {Object|null} Processed match result or null
+ */
+function processResearchResponse(data) {
   // Update web search state from API response
   if (data.web_search_status) {
     state.webSearch.status = data.web_search_status;
     state.webSearch.error = data.web_search_error || null;
-    notifyStateChange();  // Trigger warning update on success/failure
+    notifyStateChange();
   }
 
   // Check if we have candidates
@@ -126,6 +146,14 @@ export async function findTokenMatch(value) {
   };
 }
 
+/**
+ * Process term normalization with three-tier fallback: Exact → Fuzzy → LLM
+ *
+ * @param {string} value - Value to normalize
+ * @param {Object} forward - Forward mapping (source → target)
+ * @param {Object} reverse - Reverse mapping (target → target)
+ * @returns {Promise<Object|null>} Normalized result or null if no match found
+ */
 export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
