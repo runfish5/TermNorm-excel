@@ -12,6 +12,8 @@ import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
 import { checkServerStatus, getHost, getHeaders } from "../utils/server-utilities.js";
 import { apiPost } from "../utils/api-fetch.js";
+import { retryWithBackoff } from "../utils/async-utils.js";
+import { SESSION_RETRY, SESSION_ENDPOINTS, LOG_PREFIX, ERROR_MESSAGES } from "../config/session.config.js";
 
 // Global State - Simplified
 const appState = {
@@ -130,89 +132,78 @@ export async function loadMappingSource(index, loadFunction, params) {
 }
 
 /**
- * Utility: Sleep for specified milliseconds
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
  * Initialize backend session with retry logic and exponential backoff
+ *
+ * @param {string[]} terms - Array of terms to initialize in backend session
+ * @returns {Promise<boolean>} True if initialization succeeded, false otherwise
  */
-async function initializeBackendSessionWithRetry(terms, maxRetries = 3) {
-  const delays = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`[SESSION] Initialization attempt ${attempt}/${maxRetries}`);
-
-    const success = await initializeBackendSession(terms);
-
-    if (success) {
-      return true;
+async function initializeBackendSessionWithRetry(terms) {
+  return await retryWithBackoff(
+    async () => await initializeBackendSession(terms),
+    {
+      maxAttempts: SESSION_RETRY.MAX_ATTEMPTS,
+      delays: SESSION_RETRY.DELAYS_MS,
+      onRetry: (attempt, delay) => {
+        console.log(`${LOG_PREFIX.SESSION} Initialization attempt ${attempt}/${SESSION_RETRY.MAX_ATTEMPTS}`);
+        console.log(`${LOG_PREFIX.SESSION} Retrying in ${delay}ms...`);
+      },
+      onFailure: (attempts) => {
+        const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
+        console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
+        appState.session.error = errorMsg;
+        notifyStateChange();
+      }
     }
-
-    // Don't sleep after last attempt
-    if (attempt < maxRetries) {
-      const delay = delays[attempt - 1];
-      console.log(`[SESSION] Retrying in ${delay}ms...`);
-      await sleep(delay);
-    }
-  }
-
-  // All retries failed
-  const finalError = `Failed to initialize backend session after ${maxRetries} attempts`;
-  console.error(`[SESSION] ${finalError}`);
-
-  appState.session.error = finalError;
-  notifyStateChange();
-
-  return false;
+  );
 }
 
 /**
  * Initialize backend session with terms array (single attempt)
+ *
+ * @param {string[]} terms - Array of terms to initialize in backend session
+ * @returns {Promise<boolean>} True if initialization succeeded, false otherwise
  */
 async function initializeBackendSession(terms) {
   try {
     const data = await apiPost(
-      `${getHost()}/session/init-terms`,
+      `${getHost()}${SESSION_ENDPOINTS.INIT}`,
       { terms },
       getHeaders(),
       { silent: true }  // Don't show loading/success messages during mapping load
     );
 
     if (data) {
-      console.log(`[SESSION] Backend session initialized with ${terms.length} terms`);
-
-      // Update session state
-      appState.session.initialized = true;
-      appState.session.termCount = terms.length;
-      appState.session.lastInitialized = new Date();
-      appState.session.error = null;
-      notifyStateChange();
-
+      console.log(`${LOG_PREFIX.SESSION} Backend session initialized with ${terms.length} terms`);
+      updateSessionState(true, terms.length, null);
       return true;
     }
 
     // apiPost returns null on failure instead of throwing
-    const errorMsg = "Backend session initialization failed - check server logs";
-    console.error(`[SESSION] ${errorMsg}`);
-
-    appState.session.initialized = false;
-    appState.session.error = errorMsg;
-    notifyStateChange();
-
+    console.error(`${LOG_PREFIX.SESSION} ${ERROR_MESSAGES.SESSION_INIT_FAILED}`);
+    updateSessionState(false, 0, ERROR_MESSAGES.SESSION_INIT_FAILED);
     return false;
+
   } catch (error) {
-    const errorMsg = `Backend session initialization failed: ${error.message}`;
-    console.error(`[SESSION] ${errorMsg}`);
-
-    appState.session.initialized = false;
-    appState.session.error = errorMsg;
-    notifyStateChange();
-
+    const errorMsg = `${ERROR_MESSAGES.SESSION_INIT_FAILED}: ${error.message}`;
+    console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
+    updateSessionState(false, 0, errorMsg);
     return false;
   }
+}
+
+/**
+ * Update session state and notify listeners
+ *
+ * @param {boolean} initialized - Whether session is initialized
+ * @param {number} termCount - Number of terms in session
+ * @param {string|null} error - Error message if any
+ */
+function updateSessionState(initialized, termCount, error) {
+  appState.session.initialized = initialized;
+  appState.session.termCount = termCount;
+  appState.session.lastInitialized = initialized ? new Date() : null;
+  appState.session.error = error;
+  notifyStateChange();
 }
 
 /**
@@ -253,26 +244,25 @@ async function combineMappingSources() {
 
     if (!success) {
       // Show error to user - session init failed but frontend caching still works
-      showMessage(
-        `⚠️ Backend session initialization failed. LLM features unavailable. Check backend logs.`,
-        "error"
-      );
+      showMessage(ERROR_MESSAGES.SESSION_WARNING, "error");
     }
   }
 }
 
 /**
  * Export session initialization for external use (e.g., auto-recovery in normalizer)
+ *
+ * @returns {Promise<boolean>} True if reinitialization succeeded, false otherwise
  */
 export async function reinitializeSession() {
   const terms = Object.keys(appState.mappings.combined?.reverse || {});
 
   if (terms.length === 0) {
-    console.error("[SESSION] Cannot reinitialize - no terms available in mappings");
+    console.error(`${LOG_PREFIX.SESSION} ${ERROR_MESSAGES.SESSION_REINIT_NO_TERMS}`);
     return false;
   }
 
-  console.log("[SESSION] Auto-reinitializing session after session loss");
+  console.log(`${LOG_PREFIX.RECOVERY} Auto-reinitializing session after session loss`);
   return await initializeBackendSessionWithRetry(terms);
 }
 
