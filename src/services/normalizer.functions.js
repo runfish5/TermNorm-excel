@@ -1,7 +1,7 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
+import { state, notifyStateChange, reinitializeSession } from "../shared-services/state-machine.manager.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 
@@ -55,14 +55,46 @@ export async function findTokenMatch(value) {
   state.webSearch.error = null;
   notifyStateChange();  // Trigger warning update (clears previous failures)
 
-  // Backend session already initialized with terms when mappings loaded
-  const data = await apiPost(
+  // Proactive check: Reinitialize session if not initialized (e.g., after server restart)
+  if (!state.session.initialized) {
+    console.log("[NORMALIZER] Session not initialized, reinitializing...");
+    showMessage("Initializing backend session...");
+
+    const success = await reinitializeSession();
+    if (!success) {
+      showMessage("Failed to initialize backend session - LLM features unavailable", "error");
+      return null;
+    }
+  }
+
+  // Make the request (with reactive recovery on session loss)
+  let data = await apiPost(
     `${getHost()}/research-and-match`,
     { query: normalized },
     getHeaders()
   );
 
-  if (!data) return null;
+  // Reactive recovery: If session was lost (e.g., server restart), reinitialize and retry once
+  if (!data) {
+    // Check if it might be a session error by trying to reinitialize
+    console.log("[NORMALIZER] Request failed, attempting session recovery...");
+    showMessage("Recovering backend session...");
+
+    const recoverySuccess = await reinitializeSession();
+    if (recoverySuccess) {
+      // Retry the request after successful recovery
+      data = await apiPost(
+        `${getHost()}/research-and-match`,
+        { query: normalized },
+        getHeaders()
+      );
+    }
+
+    if (!data) {
+      // Still failed after recovery attempt
+      return null;
+    }
+  }
 
   // Update web search state from API response
   if (data.web_search_status) {
