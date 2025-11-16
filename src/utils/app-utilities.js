@@ -38,10 +38,10 @@ export const PROCESSING_COLORS = {
 
 // Version display functionality
 const version = "1.0.0";
-const commit = "22297f8";
-const commitDate = "2025-11-12 18:33";
+const commit = "d0bb405";
+const commitDate = "2025-11-16 16:05";
 const branch = "master";
-const repository = "runfish5/TermNorm-excel";
+const repository = "runfish5/excel-entity-standardizer";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
 

@@ -19,48 +19,78 @@ try {
     $destPath = "C:\inetpub\wwwroot\termnorm"
     $siteName = "TermNorm"
 
+    Write-Host "DEBUG: Script location: $PSScriptRoot" -ForegroundColor Cyan
+    Write-Host "DEBUG: Resolved source path: $sourcePath" -ForegroundColor Cyan
+    Write-Host ""
+
     # Step 1: Check source
     Write-Host "[1/5] Checking source folder..." -ForegroundColor Yellow
     if (-not (Test-Path $sourcePath)) {
-        throw "Source folder not found: $sourcePath"
+        throw "Source folder not found: $sourcePath`nPlease run 'npm run build' first to create the dist folder."
     }
+    $sourceFileCount = (Get-ChildItem $sourcePath -Recurse -File).Count
     Write-Host "✓ Source: $sourcePath" -ForegroundColor Green
+    Write-Host "  Found $sourceFileCount files to copy" -ForegroundColor Gray
     Write-Host ""
 
     # Step 2: Create destination
     Write-Host "[2/5] Creating destination folder..." -ForegroundColor Yellow
     if (Test-Path $destPath) {
         Write-Host "  Removing existing folder..." -ForegroundColor Gray
-        Remove-Item $destPath -Recurse -Force
+        try {
+            Remove-Item $destPath -Recurse -Force -ErrorAction Stop
+            Write-Host "  ✓ Old files removed" -ForegroundColor Gray
+        } catch {
+            Write-Host "  ⚠ Warning: Could not remove all files. Trying to overwrite..." -ForegroundColor Yellow
+            Write-Host "  Error details: $($_.Exception.Message)" -ForegroundColor Gray
+        }
     }
-    New-Item -ItemType Directory -Path $destPath -Force | Out-Null
+    New-Item -ItemType Directory -Path $destPath -Force -ErrorAction Stop | Out-Null
     Write-Host "✓ Created: $destPath" -ForegroundColor Green
     Write-Host ""
 
     # Step 3: Copy files
     Write-Host "[3/5] Copying files..." -ForegroundColor Yellow
-    Copy-Item "$sourcePath\*" -Destination $destPath -Recurse -Force
-    $fileCount = (Get-ChildItem $destPath -Recurse -File).Count
-    Write-Host "✓ Copied $fileCount files" -ForegroundColor Green
+    Write-Host "  This may take a moment..." -ForegroundColor Gray
+    try {
+        Copy-Item "$sourcePath\*" -Destination $destPath -Recurse -Force -ErrorAction Stop
+        $fileCount = (Get-ChildItem $destPath -Recurse -File).Count
+        Write-Host "✓ Copied $fileCount files successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "⚠ Warning: Some files may not have copied" -ForegroundColor Yellow
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
+        Write-Host "  Continuing anyway..." -ForegroundColor Gray
+        $fileCount = (Get-ChildItem $destPath -Recurse -File -ErrorAction SilentlyContinue).Count
+        Write-Host "  Files in destination: $fileCount" -ForegroundColor Gray
+    }
     Write-Host ""
 
     # Step 4: Update IIS site
     Write-Host "[4/5] Updating IIS site..." -ForegroundColor Yellow
-    Import-Module WebAdministration -ErrorAction Stop
+    try {
+        Import-Module WebAdministration -ErrorAction Stop
+        Write-Host "  ✓ WebAdministration module loaded" -ForegroundColor Gray
 
-    if (Test-Path "IIS:\Sites\$siteName") {
-        Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $destPath
-        Write-Host "✓ Updated $siteName site to point to: $destPath" -ForegroundColor Green
+        if (Test-Path "IIS:\Sites\$siteName") {
+            Write-Host "  Site '$siteName' exists, updating..." -ForegroundColor Gray
+            Set-ItemProperty "IIS:\Sites\$siteName" -Name physicalPath -Value $destPath -ErrorAction Stop
+            Write-Host "  ✓ Updated physical path" -ForegroundColor Gray
 
-        # Restart site
-        Stop-WebSite -Name $siteName -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
-        Start-WebSite -Name $siteName
-        Write-Host "✓ Restarted IIS site" -ForegroundColor Green
-    } else {
-        Write-Host "⚠ Site $siteName not found - creating new site..." -ForegroundColor Yellow
-        New-Website -Name $siteName -PhysicalPath $destPath -Port 8080 -Force | Out-Null
-        Write-Host "✓ Created new site" -ForegroundColor Green
+            # Restart site
+            Stop-WebSite -Name $siteName -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+            Start-WebSite -Name $siteName -ErrorAction Stop
+            Write-Host "✓ IIS site '$siteName' updated and restarted" -ForegroundColor Green
+        } else {
+            Write-Host "  Site '$siteName' not found, creating..." -ForegroundColor Gray
+            New-Website -Name $siteName -PhysicalPath $destPath -Port 8080 -Force -ErrorAction Stop | Out-Null
+            Start-WebSite -Name $siteName -ErrorAction Stop
+            Write-Host "✓ Created and started new IIS site '$siteName'" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠ Warning: Could not configure IIS site" -ForegroundColor Yellow
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Gray
+        Write-Host "  Files are copied, but you may need to configure IIS manually" -ForegroundColor Gray
     }
     Write-Host ""
 

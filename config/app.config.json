@@ -1,7 +1,7 @@
 {
   "backend_url": "http://127.0.0.1:8000",
   "excel-projects": {
-    "YourWorkbook.xlsx": {
+    "Book1.xlsx": {
       "column_map": {
         "InputColumn": "OutputColumn"
       },
