@@ -108,6 +108,47 @@ If you prefer manual setup:
 
 </details>
 
+<details>
+<summary><b>Troubleshooting: Deployment Script Issues</b> (click to expand)</summary>
+
+If `setup-iis.bat` fails or the PowerShell window closes immediately:
+
+**Manual Deployment Option (Most Reliable):**
+
+1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
+
+2. Copy and paste these commands:
+
+```powershell
+$src = "C:\Users\<YOUR_USERNAME>\OfficeAddinApps\TermNorm-excel\dist"
+$dest = "C:\inetpub\wwwroot\termnorm"
+
+# Remove old files and copy new ones
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+Copy-Item $src -Destination $dest -Recurse -Force
+
+# Configure IIS
+Import-Module WebAdministration
+if (Test-Path "IIS:\Sites\TermNorm") {
+    Restart-WebAppPool "TermNorm" -ErrorAction SilentlyContinue
+    Restart-WebItem "IIS:\Sites\TermNorm"
+} else {
+    New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
+}
+
+# Test
+Start-Process "http://localhost:8080/taskpane.html"
+```
+
+3. Replace `<YOUR_USERNAME>` with your actual Windows username
+
+4. Verify deployment:
+   - Files should be in `C:\inetpub\wwwroot\termnorm\`
+   - Browser should open to `http://localhost:8080/taskpane.html`
+   - Check file dates match today's date
+
+</details>
+
 **Step 3: Distribute Manifest**
 
 Copy the manifest to your network share:
@@ -167,6 +208,35 @@ If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpa
 - Check IIS website is running (IIS Manager → Sites → TermNorm → State: Started)
 - Verify firewall allows port 8080
 - Ensure manifest URLs match server configuration
+
+**Excel loads old version after deployment update**
+
+If Excel shows an old build (check build date in "About & Version Info") even after redeploying:
+
+1. **Close all Excel windows/processes** (verify in Task Manager - no EXCEL.EXE running)
+
+2. **Clear Office add-in cache**:
+   ```cmd
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\Wef"
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\WEF"
+   ```
+
+3. **Clear browser cache** (Office uses Edge WebView):
+   ```cmd
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Cache"
+   ```
+
+4. **Remove and re-add the add-in**:
+   - Open Excel
+   - Insert → My Add-ins → Three dots menu → Remove TermNorm
+   - Close Excel completely
+   - Reopen Excel
+   - Insert → My Add-ins → SHARED FOLDER → Add TermNorm
+
+5. **Verify correct version loaded**:
+   - Open TermNorm task pane
+   - Check "About & Version Info" → Build date should match deployment date
+   - Verify expected configuration changes appear
 
 **For HTTPS (recommended for production)**
 

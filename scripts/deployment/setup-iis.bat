@@ -14,7 +14,7 @@ echo Administrator privileges required.
 echo.
 pause
 
-powershell.exe -NoProfile -Command "Start-Process PowerShell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""%~dp0deploy-to-iis.ps1""' -Verb RunAs"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process PowerShell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','%~dp0deploy-to-iis.ps1' -Verb RunAs -Wait"
 
 echo.
 echo Check the PowerShell window...
