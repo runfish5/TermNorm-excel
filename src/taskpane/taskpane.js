@@ -184,6 +184,13 @@ function canActivateTracking() {
   return { allowed: true };
 }
 
+function getTrackingContext() {
+  return {
+    config: state.config.data,
+    mappings: state.mappings.combined,
+  };
+}
+
 function updateButtonStates() {
   const activateBtn = document.getElementById("setup-map-tracking");
   if (!activateBtn) return;
@@ -214,8 +221,7 @@ async function startLiveTracking() {
   }
 
   try {
-    const config = state.config.data;
-    const mappings = state.mappings.combined;
+    const { config, mappings } = getTrackingContext();
     const termCount = Object.keys(mappings.reverse || {}).length;
 
     await startTracking(config, mappings);
@@ -232,10 +238,16 @@ async function startLiveTracking() {
 }
 
 async function renewPromptHandler() {
-  const config = state.config.data;
-  if (!config) return showMessage("Config not loaded", "error");
+  const { config, mappings } = getTrackingContext();
 
-  const mappings = state.mappings.combined;
+  if (!config) {
+    return showMessage("Configuration not loaded - load config file first", "error");
+  }
+
+  if (!mappings) {
+    return showMessage("Mappings not loaded - load mapping files first", "error");
+  }
+
   await renewPrompt(mappings, config, (msg, isError) => showMessage(msg, isError ? "error" : "info"));
 }
 
