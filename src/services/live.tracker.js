@@ -48,18 +48,21 @@ export async function startTracking(config, mappings) {
     processingCells.clear();
     const columnMap = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      ws.load("name");
       const usedRange = ws.getUsedRange(true);
       usedRange.load("columnIndex, columnCount");
       await ctx.sync();
 
       // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
       const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      const worksheetName = ws.name; // Read after sync
       const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
       headers.load("values");
       await ctx.sync();
 
       const headerNames = headers.values[0].map((h) => String(h || "").trim());
-      return buildColumnMap(headerNames, config.column_map);
+      return buildColumnMap(headerNames, config.column_map, worksheetName);
     });
 
     // Create tracker instance for this workbook
