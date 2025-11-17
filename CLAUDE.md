@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev-server          # Start dev server (https://localhost:3000)
 npm run start               # Sideload in Excel
 npm run build               # Production build (GitHub Pages default)
+npm run build:iis           # IIS deployment build (shows server filesystem paths)
+npm run build:m365          # M365 deployment build (drag-and-drop only UI)
 npm run lint / lint:fix     # Code quality
 npm run validate            # Validate manifest.xml
 ```
@@ -133,9 +135,64 @@ Config parsed in `mapping.processor.js`, reference files read via Office.js, map
 
 ## Deployment
 
+### Deployment Types & Configuration
+
+The add-in supports three deployment scenarios with different UI behaviors:
+
+**1. Development (default)**
+- Build: `npm run build` or `npm run dev-server`
+- Shows local development paths for config files
+- Users see instructions to edit `app.config.json` directly
+
+**2. IIS Server Deployment**
+- Build: `npm run build:iis` or set `DEPLOYMENT_TYPE=iis` before build
+- Shows server filesystem paths (e.g., `C:\inetpub\wwwroot\termnorm`)
+- UI indicates "IIS Server" deployment
+- Supports both admin filesystem access and drag-and-drop config loading
+- Set `DEPLOYMENT_PATH` env var to customize displayed path:
+  ```bash
+  set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+  set DEPLOYMENT_TYPE=iis
+  npm run build
+  ```
+
+**3. Microsoft 365 Deployment**
+- Build: `npm run build:m365` or set `DEPLOYMENT_TYPE=m365` before build
+- Hides filesystem paths (no server access)
+- Shows drag-and-drop instructions only
+- UI indicates "Microsoft 365" deployment
+
+### Environment Variables
+
+**DEPLOYMENT_URL** (existing)
+- Controls the base URL in manifest.xml
+- Default: `https://runfish5.github.io/TermNorm-excel/`
+- Example: `set DEPLOYMENT_URL=https://localhost:8443/termnorm/`
+
+**DEPLOYMENT_TYPE** (new)
+- Controls UI path display behavior
+- Values: `development` (default), `iis`, `m365`
+- Example: `set DEPLOYMENT_TYPE=iis`
+
+**DEPLOYMENT_PATH** (new)
+- Filesystem path shown to users for config file location
+- Default: Build directory path
+- Only relevant for `development` and `iis` types
+- Example: `set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm`
+
+### Deployment Workflows
+
 **Frontend:**
 - Dev: `npm run dev-server` (localhost:3000)
-- Prod: `npm run build` (GitHub Pages default) or set `DEPLOYMENT_URL` env var
+- GitHub Pages: `npm run build` (default DEPLOYMENT_URL)
+- IIS Server:
+  ```bash
+  set DEPLOYMENT_TYPE=iis
+  set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+  npm run build:iis
+  # Copy dist/ folder to IIS server
+  ```
+- M365: `npm run build:m365` (drag-and-drop only)
 - Desktop Excel: Build → Deploy `dist/` to IIS → Share `manifest.xml` via network → Add to Trust Center
 
 **Backend:**

@@ -120,23 +120,51 @@ npm run start:web          # Sideload in Excel Online
 
 ### Building for Production
 
-**Standard build (GitHub Pages):**
+The build command you use determines what the UI displays to users. Choose based on your deployment scenario:
+
+**Standard build (GitHub Pages / Development):**
 ```bash
 npm run build
 ```
+Shows development paths and assumes GitHub Pages deployment.
 
-**Build for HTTP deployment (IIS/network):**
+**IIS Server deployment:**
 ```bash
-scripts\deployment\build-http.bat
+# Set the deployment path to match your IIS server location
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
 ```
+- UI displays "IIS Server" deployment type
+- Shows server filesystem paths for admin access
+- Includes note about drag-and-drop for regular users
 
-**Build with custom URL:**
+**Microsoft 365 deployment:**
+```bash
+npm run build:m365
+```
+- UI displays "Microsoft 365" deployment type
+- Hides all filesystem paths
+- Shows drag-and-drop instructions only
+
+**Custom deployment with full control:**
 ```bash
 set DEPLOYMENT_URL=http://your-server:8080/
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+set DEPLOYMENT_TYPE=iis
 npm run build
 ```
 
+**Available environment variables:**
+- `DEPLOYMENT_URL` - Base URL for manifest (default: GitHub Pages)
+- `DEPLOYMENT_TYPE` - UI behavior: `development`, `iis`, or `m365` (default: `development`)
+- `DEPLOYMENT_PATH` - Filesystem path shown in UI (default: build directory)
+
 The built files will be in the `dist/` folder.
+
+**Legacy deployment script (deprecated):**
+```bash
+scripts\deployment\build-http.bat  # Use npm run build:iis instead
+```
 
 ---
 
@@ -370,8 +398,22 @@ tail -f logs/activity.jsonl
 
 ### Frontend Deployment
 
-**1. Build production files:**
+**1. Build production files for your deployment type:**
+
+For IIS Server:
 ```bash
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
+```
+
+For Microsoft 365:
+```bash
+npm run build:m365
+```
+
+For GitHub Pages or custom hosting:
+```bash
+set DEPLOYMENT_URL=https://your-domain.com/path/
 npm run build
 ```
 
@@ -383,6 +425,8 @@ scripts\deployment\setup-iis.bat
 **3. Or deploy to any static host** (GitHub Pages, Netlify, etc.):
 - Upload `dist/` folder contents
 - Update manifest URLs to match your host
+
+**Important:** The build command determines what users see in the UI. Use `build:iis` for IIS deployments to show correct filesystem paths to administrators.
 
 ### Backend Deployment
 

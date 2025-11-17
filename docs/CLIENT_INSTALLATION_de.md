@@ -1,9 +1,5 @@
 # TermNorm Excel Add-in - Installationsanleitung für Ihren Server
 
-> **⚠️ Hinweis:** Experimentelle Software - Bitte Backups erstellen und KI-Vorschläge manuell überprüfen. Verwenden Sie nur [offizielle Releases](https://github.com/runfish5/TermNorm-excel/releases). Detaillierte Sicherheits- und Haftungsinformationen am Ende dieses Dokuments.
-
----
-
 ## Überblick
 
 Diese Anleitung führt Sie durch die Installation des TermNorm Excel Add-ins auf Ihrem Server. Das Add-in besteht aus zwei Komponenten:
@@ -466,21 +462,42 @@ cd TermNorm-excel
 
 ### Frontend bauen
 
-**Standard-Build (GitHub Pages Deployment):**
+Der verwendete Build-Befehl bestimmt, welche Pfade die Benutzeroberfläche anzeigt. Wählen Sie den passenden Build für Ihr Deployment-Szenario:
+
+**Standard-Build (GitHub Pages / Entwicklung):**
 ```bash
 npm install
 npm run build
 ```
+Zeigt Entwicklungspfade an.
 
-**Build für HTTP-Deployment (IIS/lokaler Server):**
+**Build für IIS-Server-Deployment:**
 ```bash
-scripts\deployment\build-http.bat
+# Setzen Sie den Deployment-Pfad auf Ihren IIS-Server-Standort
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
 ```
+- Zeigt Server-Dateisystempfade in der Benutzeroberfläche an
+- Zeigt "IIS Server" als Deployment-Typ an
 
-**Benutzerdefinierte Deployment-URL:**
+**Build für Microsoft 365-Deployment:**
+```bash
+npm run build:m365
+```
+- Blendet Dateisystempfade aus
+- Zeigt nur Drag-and-Drop-Anweisungen an
+
+**Benutzerdefiniertes Deployment mit URL und Pfad:**
 ```bash
 set DEPLOYMENT_URL=http://SERVERNAME:8080/
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+set DEPLOYMENT_TYPE=iis
 npm run build
+```
+
+**Legacy-HTTP-Deployment-Skript (veraltet):**
+```bash
+scripts\deployment\build-http.bat  # Verwenden Sie stattdessen npm run build:iis
 ```
 
 ### Development Server
@@ -494,11 +511,16 @@ npm run start         # Sideload in Excel Desktop
 ### Konfigurationsänderungen
 
 Wenn Sie `config/app.config.json` aktualisieren:
-1. Neu bauen: `npm run build` oder `scripts\deployment\build-http.bat`
+1. Neu bauen mit dem entsprechenden Befehl für Ihr Deployment:
+   - IIS: `set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm && npm run build:iis`
+   - M365: `npm run build:m365`
+   - Entwicklung: `npm run build`
 2. Neu deployen zu IIS (falls zutreffend): `scripts\deployment\setup-iis.bat`
 3. Excel-Cache löschen und Add-in neu laden
 
 Die Konfigurationsdatei wird während des Builds in JavaScript gebündelt, daher sind Rebuilds für Änderungen erforderlich.
+
+**Hinweis:** Die Umgebungsvariablen `DEPLOYMENT_PATH` und `DEPLOYMENT_TYPE` steuern, welche Pfade die Benutzeroberfläche anzeigt. Details siehe Abschnitt [Frontend bauen](#frontend-bauen).
 
 ### Weitere Entwickler-Informationen
 
