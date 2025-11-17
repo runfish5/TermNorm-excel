@@ -62,17 +62,18 @@ Logging & State Update
 ### Prerequisites
 
 - Microsoft Excel (Desktop or Microsoft 365)
-- **Node.js 16+** (required for frontend build)
 - **Python 3.9+** (for backend server)
 - LLM API key (Groq recommended, OpenAI supported)
 
 ### Installation
 
-**1. Clone the repository**
-```bash
-git clone https://github.com/runfish5/TermNorm-excel.git
-cd TermNorm-excel
-```
+**1. Download the latest release**
+
+Visit the releases page and download `dist.zip` from the latest version:
+
+**👉 [Download from GitHub Releases](https://github.com/runfish5/TermNorm-excel/releases)**
+
+Extract the zip file to your desired location (e.g., `C:\TermNorm-excel\`)
 
 **2. Start backend server**
 
@@ -110,10 +111,10 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 
 **3. Install Excel add-in**
 
-- **Microsoft 365** (Simple): Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
+- **Microsoft 365** (Simple): Upload `manifest-cloud.xml` (from extracted folder) via *Home → Add-ins → Upload My Add-in*
 - **Desktop Excel** (Complex): Requires network deployment. See [Desktop Excel Deployment](#desktop-excel-deployment-network-sideloading) below for full setup.
 
-📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide](CLIENT_INSTALLATION.md)**
+📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide (German)](docs/CLIENT_INSTALLATION_de.md)**
 
 ---
 
@@ -122,7 +123,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 Desktop Excel cannot use the simple cloud upload method. Instead, it requires hosting the add-in on an internal web server (IIS) and distributing the manifest via network shared folder. Users then configure their Trust Center to access the shared catalog.
 
 **This process involves:**
-- Building the frontend for HTTP deployment
+- Extracting the release package (`dist.zip`)
 - Deploying to IIS (Windows Server)
 - Setting up network share for manifest distribution
 - Configuring Trust Center on each user's Excel
@@ -268,6 +269,36 @@ Open Source
 
 This project uses a pragmatic, service-based architecture with minimal abstraction.
 
+---
+
+## 👨‍💻 For Developers
+
+**If you need to modify the source code:**
+
+### Prerequisites
+- **Node.js 16+** (required for building the frontend)
+- **Git** (for cloning the repository)
+- All user prerequisites above
+
+### Clone & Build
+
+```bash
+git clone https://github.com/runfish5/TermNorm-excel.git
+cd TermNorm-excel
+npm install
+npm run build                              # Standard build
+# OR
+scripts\deployment\build-http.bat          # HTTP deployment (IIS)
+```
+
+### Development Server
+
+```bash
+npm run dev-server    # Start dev server (localhost:3000)
+npm run start         # Sideload in Excel Desktop
+```
+
+📖 **[Complete developer documentation in CLAUDE.md](CLAUDE.md)**
 
 ---
 

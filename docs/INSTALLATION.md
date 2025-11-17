@@ -1,21 +1,34 @@
 # Installation Guide
 
-## Version Control and Security
-
-IMPORTANT - Use only official releases:
-
-You will receive an email notification with a specific release link (e.g. v1.0.0) for each new version. Download files exclusively from the provided release: https://github.com/runfish5/TermNorm-excel/releases
-
-Do NOT use the master branch or other branches - these are for development and untested. Release branches (release/v1.x.x) are immutable and stable. This protects against unnoticed code changes and ensures traceability.
-
-Only update when you receive an email notification. Always provide your version number for support requests (see <Version> in manifest.xml).
+> **⚠️ Note:** Use only [official releases](https://github.com/runfish5/TermNorm-excel/releases). Do not use master branch. See detailed version control and security information at the end of this document.
 
 ---
 
-## Prerequisites
+## 📦 Installation (End Users)
 
-- Microsoft Excel installed on your system or licence for the cloud version (Microsoft 365 subscription).
-- Python (latest version). Visit the Python.org site to download and install the right version for your operating system. To verify if you've already installed Python, run the command `python -v` in your terminal.
+### Step 1: Download the Release Package
+
+**Download the pre-built application files:**
+
+1. Visit the releases page: **https://github.com/runfish5/TermNorm-excel/releases**
+2. Download **`dist.zip`** from the latest release (v1.0.1 or later)
+3. Extract the zip file to your desired location:
+   - **For local use**: Extract anywhere (e.g., `C:\TermNorm-excel\`)
+   - **For IIS deployment**: You'll move files to `C:\inetpub\wwwroot\termnorm\` in Step 3
+
+### Step 2: Prerequisites
+
+- **Microsoft Excel** installed on your system or licence for the cloud version (Microsoft 365 subscription)
+- **Python** (version 3.9+) for the backend server - [Download here](https://www.python.org/downloads/)
+  - To verify: `python --version` in your terminal
+
+### Step 3: Choose Your Deployment Method
+
+**Option A: Microsoft 365 (Cloud Excel)** → Skip to [365 Cloud Setup](#365-cloud-setup)
+
+**Option B: Desktop Excel (Windows Server/IIS)** → Continue with [Windows Server Deployment](#windows-server-deployment) below
+
+**Option C: Desktop Excel (Local Development)** → Skip to [Desktop Excel Setup](#desktop-excel-setup-sideloading)
 
 ---
 
@@ -46,37 +59,20 @@ This is the industry-standard approach documented in [Microsoft's official Offic
    - Share with users (Read permissions)
    - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
 
-3. **Node.js installed** (for building the add-in)
-   - Only needed on build machine, not on server
+3. **Downloaded release package** from Step 1 above
+   - Extract `dist.zip` to a temporary location
 
 ### Deployment Steps
 
-**Step 1: Build for HTTP Deployment**
+**Step 1: Extract the Release Package**
 
-**Important:** Navigate to the project directory first:
-```bash
-cd C:\path\to\TermNorm-excel
-```
-
-Then run:
-```bash
-scripts\deployment\build-http.bat
-```
-
-This rebuilds the `dist/` folder with URLs pointing to `http://localhost:8080/`.
-
-**To use server name instead of localhost:**
-```bash
-cd C:\path\to\TermNorm-excel
-set DEPLOYMENT_URL=http://SERVERNAME:8080/
-npm run build
-```
-
-Replace `C:\path\to\TermNorm-excel` with your actual project path and `SERVERNAME` with your server's hostname.
+Extract the downloaded `dist.zip` to a temporary location (e.g., `C:\Temp\TermNorm-dist\`)
 
 **Step 2: Deploy to IIS** *(Requires Administrator)*
 
-Run as Administrator:
+**Option A: Automated deployment (Recommended)**
+
+If you have the full repository with deployment scripts:
 ```bash
 scripts\deployment\setup-iis.bat
 ```
@@ -87,6 +83,33 @@ This script automatically:
 3. Creates IIS website named "TermNorm" on port 8080
 4. Configures HTTP binding
 5. Tests the deployment
+
+**Option B: Manual deployment (Using dist.zip only)**
+
+Open PowerShell as Administrator and run:
+```powershell
+# Set source path to your extracted dist folder
+$src = "C:\Temp\TermNorm-dist"
+$dest = "C:\inetpub\wwwroot\termnorm"
+
+# Copy files
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+Copy-Item $src -Destination $dest -Recurse -Force
+
+# Configure IIS
+Import-Module WebAdministration
+if (Test-Path "IIS:\Sites\TermNorm") {
+    Restart-WebAppPool "TermNorm" -ErrorAction SilentlyContinue
+    Restart-WebItem "IIS:\Sites\TermNorm"
+} else {
+    New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
+}
+
+# Test
+Start-Process "http://localhost:8080/taskpane.html"
+```
+
+Replace `C:\Temp\TermNorm-dist` with your actual extraction path.
 
 <details>
 <summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
@@ -178,13 +201,15 @@ The add-in loads from `http://SERVERNAME:8080/` (or localhost if configured that
 
 ### Configuration Updates
 
-When you update `config/app.config.json`:
+The `config/app.config.json` file is bundled into the JavaScript during build. For configuration changes:
 
-1. **Rebuild**: Run `scripts\deployment\build-http.bat`
-2. **Redeploy**: Run `scripts\deployment\setup-iis.bat` (as Administrator)
-3. **Refresh**: Users restart Excel to load updated configuration
+**For End Users:**
+- Download the latest release with your updated configuration
+- Redeploy following Step 2 above
+- Users restart Excel to load updated configuration
 
-The configuration file is bundled into the JavaScript during build, so rebuild + redeploy is required for config changes to take effect.
+**For Developers:**
+- See [Developer Setup](#for-developers) section below for rebuild instructions
 
 ### Troubleshooting
 
@@ -256,13 +281,19 @@ To use HTTPS instead of HTTP:
 ## Add the add-in to Excel
 
 ### 365 Cloud setup
-1. Download the 'manifest-cloud.xml' from https://github.com/runfish5/TermNorm-excel/blob/master/manifest-cloud.xml
 
-2. In the Excel 'Home' tab, click on 'Add-ins', then 'My Add-ins', then 'Upload my Add-in'
+1. **Download the manifest file:**
+   - Extract `dist.zip` (from Step 1 above)
+   - Locate `manifest-cloud.xml` inside the extracted folder
 
-3. In the popup, click on browse to pick the 'manifest-cloud.xml'
+2. **Upload to Excel:**
+   - In Excel 'Home' tab, click on 'Add-ins' → 'My Add-ins' → 'Upload my Add-in'
+   - Browse and select the `manifest-cloud.xml` file
+   - Click **Open**
 
-4. Now the taskpane that is displayed in the image at the top should be visible. If not, you did something wrong, try solve it otherwise contact me.
+3. **Verify installation:**
+   - The TermNorm task pane should appear on the right side
+   - If not visible, check that you're using Excel for the Web (not Desktop)
 
 ### Desktop Excel setup (Sideloading)
 
@@ -287,11 +318,9 @@ To use HTTPS instead of HTTP:
 6. Check **Show in Menu**
 7. Click **OK** and restart Excel
 
-**Step 3: Download Manifest File**
-1. Download the `manifest.xml` from GitHub:
-   - **Direct link**: https://github.com/runfish5/TermNorm-excel/blob/master/manifest.xml
-   - Click **Raw** → Right-click → **Save as**
-   - Or clone the entire repository (see Prerequisites)
+**Step 3: Get Manifest File**
+1. Extract `dist.zip` (from Installation Step 1 above)
+2. Locate `manifest.xml` inside the extracted folder
 
 **Step 4: Install Add-in**
 1. Copy the downloaded `manifest.xml` to your shared folder (e.g., `C:\OfficeAddIns\`)
@@ -447,3 +476,90 @@ Note: Setup complete
 - Monitor real-time processing through the Activity Feed UI component
 - Check server status using the status indicator in the task pane
 - Wait for user instruction before running any validation or testing commands
+
+---
+
+## For Developers
+
+**If you need to modify the source code or build from scratch:**
+
+### Prerequisites for Development
+
+- **Node.js 16+** - Required for building the frontend
+- **Git** - For cloning the repository
+- All user prerequisites above (Excel, Python)
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/runfish5/TermNorm-excel.git
+cd TermNorm-excel
+```
+
+### Build the Frontend
+
+**Standard build (GitHub Pages deployment):**
+```bash
+npm install
+npm run build
+```
+
+**Build for HTTP deployment (IIS/local server):**
+```bash
+scripts\deployment\build-http.bat
+```
+
+**Custom deployment URL:**
+```bash
+set DEPLOYMENT_URL=http://SERVERNAME:8080/
+npm run build
+```
+
+### Development Server
+
+For local development with hot reload:
+```bash
+npm run dev-server    # Starts HTTPS server on localhost:3000
+npm run start         # Sideloads in Excel Desktop
+```
+
+### Configuration Changes
+
+When you update `config/app.config.json`:
+1. Rebuild: `npm run build` or `scripts\deployment\build-http.bat`
+2. Redeploy to IIS (if applicable): `scripts\deployment\setup-iis.bat`
+3. Clear Excel cache and reload add-in
+
+The configuration file is bundled into the JavaScript during build, so rebuilds are required for changes to take effect.
+
+### More Developer Information
+
+See **[CLAUDE.md](../CLAUDE.md)** for complete development documentation including:
+- Architecture overview
+- Frontend/backend structure
+- Development commands
+- Debugging tips
+
+---
+
+## Version Control and Security
+
+### 📦 Official Releases Only
+
+**IMPORTANT:** Download files exclusively from official releases:
+- **Release page:** https://github.com/runfish5/TermNorm-excel/releases
+- You will receive email notifications for each new version (e.g., v1.0.0)
+- Only update when you receive an email notification
+
+### ⚠️ Development Branches
+
+**Do NOT use the master branch or other branches:**
+- These are for development and untested
+- Release branches (release/v1.x.x) are immutable and stable
+- This protects against unnoticed code changes and ensures traceability
+
+### 🆘 Support
+
+- Always provide your version number for support requests
+- Version number location: `<Version>` tag in manifest.xml
+- Contact: uniqued4ve@gmail.com
