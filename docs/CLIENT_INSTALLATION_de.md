@@ -1,36 +1,6 @@
 # TermNorm Excel Add-in - Installationsanleitung für Ihren Server
 
-## ⚠️ WICHTIGE HINWEISE
-
-> **Bitte lesen Sie diese Hinweise vor der Nutzung**
-
-**Produktstatus:** Experimentelle Software in aktiver Entwicklung
-- ✅ Kernfunktionalität implementiert und getestet
-- ⚠️ Nicht für kritische Produktionsdaten ohne umfangreiche Tests
-
-**Haftungsausschluss:** Software wird "wie besehen" ohne Garantien bereitgestellt
-- 📋 **Erstellen Sie IMMER Backups vor der Nutzung**
-- 🔍 **Überprüfen Sie alle KI-Vorschläge manuell**
-- ⚖️ **Verantwortung für Datenqualität liegt beim Nutzer**
-
-**Datenschutz:** LLM-Anfragen werden an externe Provider (Groq/OpenAI) gesendet
-- Stellen Sie sicher, dass dies Ihren Datenschutzrichtlinien entspricht
-- Verwenden Sie keine sensiblen Daten ohne Genehmigung
-
-**Support:** Open Source Projekt - Support nach bestem Bemühen, keine Garantie
-- Kontakt: uniqued4ve@gmail.com
-
----
-
-## Versionskontrolle und Sicherheit
-
-WICHTIG - Verwenden Sie nur offizielle Releases:
-
-Sie erhalten eine Email-Benachrichtigung mit einem spezifischen Release-Link (z.B. v1.0.0) für jede neue Version. Laden Sie Dateien ausschließlich von diesem angegebenen Release herunter: https://github.com/runfish5/TermNorm-excel/releases
-
-Verwenden Sie NICHT den master Branch oder andere Branches - diese sind für Entwicklung und nicht getestet. Release-Branches (release/v1.x.x) sind unveränderlich (immutable) und stabil. Dies schützt vor unbemerkten Code-Änderungen und gewährleistet Nachvollziehbarkeit.
-
-Aktualisieren Sie nur wenn Sie eine Email-Benachrichtigung erhalten haben. Geben Sie bei Support-Anfragen immer Ihre Versionsnummer an (siehe <Version> in manifest.xml).
+> **⚠️ Hinweis:** Experimentelle Software - Bitte Backups erstellen und KI-Vorschläge manuell überprüfen. Verwenden Sie nur [offizielle Releases](https://github.com/runfish5/TermNorm-excel/releases). Detaillierte Sicherheits- und Haftungsinformationen am Ende dieses Dokuments.
 
 ---
 
@@ -53,25 +23,17 @@ Die Installation sollte mit dieser detaillierten Anleitung auch eigenständig du
 - **Windows-Server** oder **lokaler Windows-Rechner** für Backend
 - **Internet-Verbindung** für LLM-API-Zugriffe (Groq oder OpenAI)
 
-### Optional
-- **Git** für Repository-Management - [Download hier](https://git-scm.com/downloads)
-
 ---
 
 ## Teil 1: Python Backend Installation
 
-### Schritt 1: Repository herunterladen
+### Schritt 1: Release-Paket herunterladen
 
-**Option A: Mit Git**
-```bash
-git clone https://github.com/runfish5/TermNorm-excel.git
-cd TermNorm-excel
-```
+**Download der vorbereiteten Anwendungsdateien:**
 
-**Option B: ZIP-Download**
-1. Besuchen Sie: https://github.com/runfish5/TermNorm-excel
-2. Klicken Sie auf "Code" → "Download ZIP"
-3. Entpacken Sie das ZIP-Archiv an gewünschtem Ort
+1. Besuchen Sie die Releases-Seite: **https://github.com/runfish5/TermNorm-excel/releases**
+2. Laden Sie **`dist.zip`** vom neuesten Release (v1.0.1 oder höher) herunter
+3. Entpacken Sie die ZIP-Datei an gewünschtem Ort (z.B. `C:\TermNorm-excel\`)
 4. Öffnen Sie die Kommandozeile (Windows-Taste → "cmd" → Enter)
 
 ### Schritt 2: Backend-Server starten (EMPFOHLEN)
@@ -194,11 +156,9 @@ Das Add-in unterstützt zwei Deployment-Optionen:
 6. Das Häkchen bei **Im Menü anzeigen** setzen
 7. **OK** klicken und Excel neu starten
 
-**Schritt 3: Manifest-Datei herunterladen**
-1. Laden Sie die `manifest.xml` von GitHub herunter:
-   - **Direkt-Link**: https://github.com/runfish5/TermNorm-excel/blob/master/manifest.xml
-   - Klicken Sie auf **Raw** → Rechtsklick → **Speichern unter**
-   - Oder klonen Sie das gesamte Repository (siehe Teil 1, Schritt 1)
+**Schritt 3: Manifest-Datei vorbereiten**
+1. Öffnen Sie den entpackten `dist.zip` Ordner (von Schritt 1)
+2. Suchen Sie die Datei `manifest.xml` im Hauptordner
 
 **Schritt 4: Add-In installieren**
 1. Die heruntergeladene `manifest.xml` Datei in den freigegebenen Ordner kopieren (z.B. `C:\OfficeAddIns\`)
@@ -484,6 +444,107 @@ Ich stehe Ihnen gerne zur Verfügung und freue mich auf Ihr Feedback zu Version 
 6. ✅ Erste erfolgreiche Zuordnung getestet
 
 **Bereit für produktive Tests!**
+
+---
+
+## Für Entwickler
+
+**Falls Sie den Quellcode modifizieren müssen:**
+
+### Voraussetzungen für Entwicklung
+
+- **Node.js 16+** - Erforderlich für Frontend-Build
+- **Git** - Für Repository-Klonen - [Download hier](https://git-scm.com/downloads)
+- Alle Benutzer-Voraussetzungen von oben
+
+### Repository klonen
+
+```bash
+git clone https://github.com/runfish5/TermNorm-excel.git
+cd TermNorm-excel
+```
+
+### Frontend bauen
+
+**Standard-Build (GitHub Pages Deployment):**
+```bash
+npm install
+npm run build
+```
+
+**Build für HTTP-Deployment (IIS/lokaler Server):**
+```bash
+scripts\deployment\build-http.bat
+```
+
+**Benutzerdefinierte Deployment-URL:**
+```bash
+set DEPLOYMENT_URL=http://SERVERNAME:8080/
+npm run build
+```
+
+### Development Server
+
+Für lokale Entwicklung mit Hot Reload:
+```bash
+npm run dev-server    # Startet HTTPS-Server auf localhost:3000
+npm run start         # Sideload in Excel Desktop
+```
+
+### Konfigurationsänderungen
+
+Wenn Sie `config/app.config.json` aktualisieren:
+1. Neu bauen: `npm run build` oder `scripts\deployment\build-http.bat`
+2. Neu deployen zu IIS (falls zutreffend): `scripts\deployment\setup-iis.bat`
+3. Excel-Cache löschen und Add-in neu laden
+
+Die Konfigurationsdatei wird während des Builds in JavaScript gebündelt, daher sind Rebuilds für Änderungen erforderlich.
+
+### Weitere Entwickler-Informationen
+
+Siehe **[CLAUDE.md](../CLAUDE.md)** für vollständige Entwicklungsdokumentation:
+- Architektur-Übersicht
+- Frontend/Backend-Struktur
+- Entwicklungsbefehle
+- Debugging-Tipps
+
+---
+
+## Wichtige Hinweise zu Sicherheit und Haftung
+
+### ⚠️ Produktstatus
+
+**Experimentelle Software in aktiver Entwicklung**
+- ✅ Kernfunktionalität implementiert und getestet
+- ⚠️ Nicht für kritische Produktionsdaten ohne umfangreiche Tests
+
+### 📋 Haftungsausschluss
+
+Software wird "wie besehen" ohne Garantien bereitgestellt:
+- **Erstellen Sie IMMER Backups vor der Nutzung**
+- **Überprüfen Sie alle KI-Vorschläge manuell**
+- **Verantwortung für Datenqualität liegt beim Nutzer**
+
+### 🔒 Datenschutz
+
+LLM-Anfragen werden an externe Provider (Groq/OpenAI) gesendet:
+- Stellen Sie sicher, dass dies Ihren Datenschutzrichtlinien entspricht
+- Verwenden Sie keine sensiblen Daten ohne Genehmigung
+
+### 🔄 Versionskontrolle
+
+**Verwenden Sie nur offizielle Releases:**
+- Download: https://github.com/runfish5/TermNorm-excel/releases
+- Sie erhalten Email-Benachrichtigungen für neue Versionen
+- Verwenden Sie NICHT den master Branch (Entwicklung, nicht getestet)
+- Release-Branches (release/v1.x.x) sind unveränderlich und stabil
+- Geben Sie bei Support-Anfragen immer Ihre Versionsnummer an (siehe `<Version>` in manifest.xml)
+
+### 🤝 Support
+
+Open Source Projekt - Support nach bestem Bemühen, keine Garantie
+- **Kontakt:** uniqued4ve@gmail.com
+- **Mobil:** 077 218 12 45
 
 ---
 
