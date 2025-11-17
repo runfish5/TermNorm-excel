@@ -10,9 +10,15 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 
 ## 📚 Documentation
 
+**For Users:**
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
 - **[Usage Guide](docs/USAGE.md)** - How to use the add-in
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Config file examples and multi-user setup
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
+
+**For Developers:**
+- **[Developer Guide](docs/DEVELOPER.md)** - Full development setup, VS Code Office Add-ins Kit, modifying UI/backend
+- **[CLAUDE.md](CLAUDE.md)** - Architecture principles and internal documentation
 
 
 ## 📋 Use Cases
@@ -132,173 +138,40 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 
 ---
 
-## ⚙️ Configuration
-
-TermNorm uses a single JSON configuration file that defines column mappings and reference data sources.
-
-### Example `app.config.json`
-
-```json
-{
-  "excel-projects": {
-    "MyWorkbook.xlsx": {
-      "column_map": {
-        "FreeText_Column": "Standardized_Column",
-        "Material_Input": "Material_ISO"
-      },
-      "default_std_suffix": "standardized",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Reference\\Materials.xlsx",
-          "worksheet": "StandardTerms",
-          "source_column": "",
-          "target_column": "ISO_Standard"
-        },
-        {
-          "mapping_reference": "C:\\Reference\\Processes.xlsx",
-          "worksheet": "ProcessList",
-          "source_column": "",
-          "target_column": "BFO_Term"
-        }
-      ]
-    }
-  }
-}
-```
-
-### Loading Configuration
-
-**Microsoft 365**: Drag & drop `app.config.json` into the TermNorm task pane
-
-**Desktop Excel**: Save config to `config/app.config.json` and click **Load Config**
-
-### Multi-User Setup
-
-Edit `backend-api/config/users.json` to add users:
-
-```json
-{
-  "users": {
-    "admin": {
-      "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
-    },
-    "user2": {
-      "email": "user2@company.com",
-      "allowed_ips": ["192.168.1.101"]
-    }
-  }
-}
-```
-
-## 🏗️ Architecture
-
-### Frontend Structure
-
-```
-src/
-├── taskpane/              # Application orchestrator
-├── services/              # Business logic layer
-│   ├── live.tracker.js    # Multi-workbook cell monitoring
-│   ├── normalizer.functions.js  # Normalization pipeline
-│   └── normalizer.fuzzy.js      # Fuzzy matching
-├── ui-components/         # UI component functions
-├── utils/                 # Helper utilities
-│   ├── api-fetch.js       # Centralized API communication
-│   ├── error-display.js   # Message display system
-│   └── server-utilities.js     # Server connection management
-└── shared-services/       # State management
-    └── state-machine.manager.js
-```
-
-### Backend Structure
-
-```
-backend-api/
-├── main.py                # FastAPI app + routers
-├── config/                # Configuration & middleware
-│   ├── users.json         # IP-based authentication
-│   └── middleware.py      # Auth middleware
-├── api/                   # API endpoints
-│   ├── system.py          # Health & logging
-│   └── research_pipeline.py    # Research & match endpoint
-├── core/                  # Core functionality
-│   ├── llm_providers.py   # LLM configuration
-│   └── user_manager.py    # Authentication
-└── research_and_rank/     # Matching algorithms
-```
-
-## 🚨 Troubleshooting
-
-### Server Not Connecting
-
-1. Check server status: `http://127.0.0.1:8000/health`
-2. Verify Server URL in Settings tab
-3. Check IP permissions in `backend-api/config/users.json`
-4. Restart backend server
-
-### LLM Requests Failing
-
-1. Verify API key is set: `echo %GROQ_API_KEY%`
-2. Check internet connection
-3. Verify API quota/credits
-4. Check backend logs for detailed errors
-
-### Configuration Not Loading
-
-1. Validate JSON syntax: https://jsonlint.com
-2. Check workbook name matches Excel filename exactly
-3. Verify file paths use double backslashes: `C:\\Path\\File.xlsx`
-4. Reload configuration
-
-📖 **[Full Troubleshooting Guide](docs/TROUBLESHOOTING.md)**
-
-## 🎯 Known Limitations
-
-- **Single Excel Instance Per Project**: Each file runs isolated add-in instance
-- **LLM Request Payload**: Sends full terms array (~50KB for 1000 terms)
-  - Trade-off: Larger payloads for zero state management complexity
-
-## 📄 License
-
-Open Source
-
-## 🤝 Code Quality Standards
-
-- **See [CLAUDE.md](CLAUDE.md) for architecture principles**
-
-This project uses a pragmatic, service-based architecture with minimal abstraction.
-
----
-
 ## 👨‍💻 For Developers
 
-**If you need to modify the source code:**
+**Want to modify this codebase?** Check out the comprehensive developer guide:
 
-### Prerequisites
-- **Node.js 16+** (required for building the frontend)
-- **Git** (for cloning the repository)
-- All user prerequisites above
+### 📘 [Developer Guide](docs/DEVELOPER.md)
 
-### Clone & Build
+**Covers:**
+- ✅ **VS Code Office Add-ins Developer Kit** setup
+- ✅ Full installation from source (git clone or download)
+- ✅ Frontend development (UI customization)
+- ✅ Backend development (Python server)
+- ✅ Building and deployment
+- ✅ Debugging tips and best practices
+
+**Learn Excel Add-ins:**
+- [Office Add-ins Overview](https://learn.microsoft.com/en-us/office/dev/add-ins/overview/office-add-ins)
+- [Excel JavaScript API Reference](https://learn.microsoft.com/en-us/javascript/api/excel)
+- [Sideloading from network share](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins)
+
+### Quick Start for Developers
 
 ```bash
 git clone https://github.com/runfish5/TermNorm-excel.git
 cd TermNorm-excel
 npm install
-npm run build                              # Standard build
-# OR
-scripts\deployment\build-http.bat          # HTTP deployment (IIS)
+npm run dev-server    # Frontend dev server
+# Open another terminal
+cd backend-api
+python -m venv .venv && .\.venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn main:app --reload    # Backend server
 ```
 
-### Development Server
-
-```bash
-npm run dev-server    # Start dev server (localhost:3000)
-npm run start         # Sideload in Excel Desktop
-```
-
-📖 **[Complete developer documentation in CLAUDE.md](CLAUDE.md)**
+Press `F5` in VS Code with Office Add-ins Developer Kit to start debugging in Excel!
 
 ---
 
