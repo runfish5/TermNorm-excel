@@ -15,6 +15,15 @@ const path = require("path");
 const urlDev = "https://localhost:3000/";
 const urlProd = process.env.DEPLOYMENT_URL || "https://runfish5.github.io/TermNorm-excel/";
 
+// Deployment Configuration (used for UI path displays)
+// - DEPLOYMENT_TYPE: 'development' (default), 'iis', or 'm365'
+// - DEPLOYMENT_PATH: Filesystem path where files are deployed (optional)
+//   * Default: Build directory path (for development)
+//   * IIS: e.g., C:\inetpub\wwwroot\termnorm
+//   * M365: Not used (no filesystem access)
+const deploymentType = process.env.DEPLOYMENT_TYPE || "development";
+const deploymentPath = process.env.DEPLOYMENT_PATH || path.resolve(__dirname).replace(/\\/g, "\\\\");
+
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
   return { ca: httpsOptions.ca, key: httpsOptions.key, cert: httpsOptions.cert };
@@ -62,7 +71,8 @@ module.exports = async (env, options) => {
     },
     plugins: [
       new webpack.DefinePlugin({
-        __PROJECT_PATH__: JSON.stringify(path.resolve(__dirname).replace(/\\/g, "\\\\")),
+        __PROJECT_PATH__: JSON.stringify(deploymentPath),
+        __DEPLOYMENT_TYPE__: JSON.stringify(deploymentType),
       }),
       new HtmlWebpackPlugin({
         filename: "taskpane.html",

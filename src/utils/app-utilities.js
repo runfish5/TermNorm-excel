@@ -44,6 +44,7 @@ const branch = "master";
 const repository = "runfish5/excel-entity-standardizer";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
+const deploymentType = typeof __DEPLOYMENT_TYPE__ !== "undefined" ? __DEPLOYMENT_TYPE__ : "development";
 
 export function initializeVersionDisplay() {
   const versionEl = document.getElementById("version-number");
@@ -63,55 +64,62 @@ export function initializeVersionDisplay() {
 }
 
 export function initializeProjectPathDisplay() {
-  const pathEl = document.getElementById("config-path-display");
-  // Display path with single backslashes for readability
-  if (pathEl) pathEl.textContent = projectPath.replace(/\\\\/g, "\\");
+  // Normalize path (double backslashes to single for display)
+  const normalizedPath = projectPath.replace(/\\\\/g, "\\");
+  const configPath = normalizedPath + "\\config";
+  const configFilePath = configPath + "\\app.config.json";
 
-  // Display config folder path (for Advanced section in Step 1)
+  // Show/hide deployment-specific sections
+  const devSection = document.getElementById("path-display-development");
+  const iisSection = document.getElementById("path-display-iis");
+  const m365Section = document.getElementById("path-display-m365");
+
+  if (devSection) devSection.style.display = deploymentType === "development" ? "block" : "none";
+  if (iisSection) iisSection.style.display = deploymentType === "iis" ? "block" : "none";
+  if (m365Section) m365Section.style.display = deploymentType === "m365" ? "block" : "none";
+
+  // Update deployment type indicator
+  const deploymentTypeEl = document.getElementById("deployment-type-indicator");
+  if (deploymentTypeEl) {
+    const typeLabels = {
+      development: "Development",
+      iis: "IIS Server",
+      m365: "Microsoft 365",
+    };
+    deploymentTypeEl.textContent = typeLabels[deploymentType] || deploymentType;
+  }
+
+  // Display paths (used across all deployment types for filesystem access scenarios)
+  const pathEl = document.getElementById("config-path-display");
+  if (pathEl) pathEl.textContent = normalizedPath;
+
+  // IIS-specific path display
+  const pathElIIS = document.getElementById("config-path-display-iis");
+  if (pathElIIS) pathElIIS.textContent = normalizedPath;
+
   const configPathEl = document.getElementById("config-folder-path");
-  const configPath = projectPath.replace(/\\\\/g, "\\") + "\\config";
   if (configPathEl) configPathEl.textContent = configPath;
 
-  // Display config file path (for Manual Configuration in Step 2)
   const configFilePathEl = document.getElementById("config-file-path");
-  const configFilePath = configPath + "\\app.config.json";
   if (configFilePathEl) configFilePathEl.textContent = configFilePath;
 
-  // Setup copy button for main path
-  const copyBtn1 = document.getElementById("copy-path-btn");
-  if (copyBtn1) {
-    copyBtn1.onclick = () => {
-      navigator.clipboard.writeText(projectPath.replace(/\\\\/g, "\\"));
-      const originalText = copyBtn1.textContent;
-      copyBtn1.textContent = "✓";
-      setTimeout(() => {
-        copyBtn1.textContent = originalText;
-      }, 1500);
-    };
-  }
+  // Setup copy buttons
+  setupCopyButton("copy-path-btn", normalizedPath);
+  setupCopyButton("copy-path-btn-iis", normalizedPath);
+  setupCopyButton("copy-path-btn-2", configPath);
+  setupCopyButton("copy-config-file-path-btn", configFilePath);
+}
 
-  // Setup copy button for config folder path
-  const copyBtn2 = document.getElementById("copy-path-btn-2");
-  if (copyBtn2) {
-    copyBtn2.onclick = () => {
-      navigator.clipboard.writeText(configPath);
-      const originalText = copyBtn2.textContent;
-      copyBtn2.textContent = "✓";
+// Helper function for copy button setup
+function setupCopyButton(buttonId, textToCopy) {
+  const btn = document.getElementById(buttonId);
+  if (btn) {
+    btn.onclick = () => {
+      navigator.clipboard.writeText(textToCopy);
+      const originalText = btn.textContent;
+      btn.textContent = "✓";
       setTimeout(() => {
-        copyBtn2.textContent = originalText;
-      }, 1500);
-    };
-  }
-
-  // Setup copy button for config file path
-  const copyBtn3 = document.getElementById("copy-config-file-path-btn");
-  if (copyBtn3) {
-    copyBtn3.onclick = () => {
-      navigator.clipboard.writeText(configFilePath);
-      const originalText = copyBtn3.textContent;
-      copyBtn3.textContent = "✓";
-      setTimeout(() => {
-        copyBtn3.textContent = originalText;
+        btn.textContent = originalText;
       }, 1500);
     };
   }

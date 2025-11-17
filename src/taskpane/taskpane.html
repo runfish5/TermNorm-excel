@@ -100,15 +100,47 @@
                     <summary class="settings-group-header">🖥️ Step 1: Start Backend Server</summary>
                     <div class="settings-group-content">
 
-                        <!-- Quick Start Section -->
-                        <div style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px;">
+                        <!-- Deployment Type Indicator -->
+                        <div style="background: #e6f3ff; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; border-left: 3px solid #0078d4;">
+                            <span style="font-size: 12px; color: #323130;">
+                                <strong>Deployment:</strong> <span id="deployment-type-indicator" style="color: #0078d4;">Loading...</span>
+                            </span>
+                        </div>
+
+                        <!-- Development Deployment Instructions -->
+                        <div id="path-display-development" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px;">
                             <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
-                                Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder:
+                                <strong>Development Mode:</strong> Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder:
                             </p>
                             <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box;">
                                 <code id="config-path-display" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
                                 <button id="copy-path-btn" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
                             </div>
+                        </div>
+
+                        <!-- IIS Server Deployment Instructions -->
+                        <div id="path-display-iis" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px; display: none;">
+                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                                <strong>IIS Server:</strong> Server files are located at:
+                            </p>
+                            <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box; margin-bottom: 8px;">
+                                <code id="config-path-display-iis" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
+                                <button id="copy-path-btn-iis" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            </div>
+                            <p style="margin: 0; font-size: 11px; color: #797775;">
+                                <strong>Note:</strong> Only administrators with server access can edit files. Regular users should use drag-and-drop to load configs.
+                            </p>
+                        </div>
+
+                        <!-- M365 Deployment Instructions -->
+                        <div id="path-display-m365" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px; display: none;">
+                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                                <strong>Microsoft 365:</strong> This add-in is hosted centrally. Configuration changes are managed via drag-and-drop only.
+                            </p>
+                            <p style="margin: 0; font-size: 11px; color: #797775;">
+                                <strong>Note:</strong> No direct filesystem access. Contact your administrator for server configuration changes.
+                            </p>
+                        </div>
                         <!-- Manual Start Section -->
                         <details>
                             <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">

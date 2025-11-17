@@ -257,6 +257,75 @@ Configure which users can access the backend server.
 
 ---
 
+## Deployment Configuration
+
+**For developers building from source:**
+
+The build process accepts environment variables that control what the UI displays to users. This is important when deploying to IIS servers or Microsoft 365.
+
+### Environment Variables
+
+**`DEPLOYMENT_TYPE`**
+- Controls UI behavior and path display
+- Values: `development`, `iis`, `m365`
+- Default: `development`
+
+**`DEPLOYMENT_PATH`**
+- Filesystem path shown to users in the UI
+- Used for `development` and `iis` types
+- Default: Build directory path
+- Example: `C:\inetpub\wwwroot\termnorm`
+
+**`DEPLOYMENT_URL`**
+- Base URL for the manifest file
+- Default: GitHub Pages URL
+- Example: `http://your-server:8080/`
+
+### Build Commands
+
+**For IIS Server deployment:**
+```bash
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
+```
+- UI shows "IIS Server" deployment type
+- Displays server filesystem paths for admins
+- Includes drag-and-drop instructions for regular users
+
+**For Microsoft 365 deployment:**
+```bash
+npm run build:m365
+```
+- UI shows "Microsoft 365" deployment type
+- Hides all filesystem paths
+- Shows drag-and-drop instructions only
+
+**For standard build:**
+```bash
+npm run build
+```
+- UI shows "Development" deployment type
+- Displays build directory paths
+
+### When to Use Each
+
+| Deployment Type | Use When | UI Behavior |
+|----------------|----------|-------------|
+| `development` | Building for local development or GitHub Pages | Shows development paths |
+| `iis` | Deploying to Windows Server/IIS | Shows server paths for admin access |
+| `m365` | Publishing to Microsoft 365 App Catalog | Hides paths, drag-and-drop only |
+
+**Example: Full IIS deployment build**
+```bash
+set DEPLOYMENT_URL=http://myserver:8080/termnorm/
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
+```
+
+See [Installation Guide](INSTALLATION.md) and [Developer Guide](DEVELOPER.md) for complete deployment instructions.
+
+---
+
 ## Configuration Tips
 
 ### File Paths
