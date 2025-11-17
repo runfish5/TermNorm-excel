@@ -1,5 +1,10 @@
 # TermNorm - AI-Powered Terminology Normalization for Excel
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Office%20Add--in-Excel-217346?logo=microsoft-excel" alt="Office Add-in">
+  <img src="https://img.shields.io/badge/Office.js-1.1-217346" alt="Office.js">
+</p>
+
 This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
 
 <p align="center">
