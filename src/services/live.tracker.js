@@ -6,7 +6,8 @@ import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-ut
 import { getRelevanceColor, PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 const activeTrackers = new Map();
 const activationInProgress = new Set();
-const processingCells = new Set();
+// Unified cell state: cellKey → {value, result, status, row, col, targetCol, timestamp}
+const cellState = new Map();
 
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
@@ -23,7 +24,7 @@ export async function startTracking(config, mappings) {
   activationInProgress.add(workbookId);
 
   try {
-    processingCells.clear();
+    cellState.clear();
     const columnMap = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       ws.load("name");
@@ -48,7 +49,6 @@ export async function startTracking(config, mappings) {
       active: true,
       handler: null,
       columnMap,
-      cellValues: new Map(),
       mappings,
       config,
       workbookId,
@@ -105,11 +105,19 @@ const handleWorksheetChange = async (e, tracker) => {
           const cellKey = createCellKey(row, col);
           const cleanValue = cleanCellValue(value);
 
-          if (processingCells.has(cellKey)) continue;
+          // Skip if already processing
+          const state = cellState.get(cellKey);
+          if (state?.status === 'processing') continue;
 
-          if (hasValueChanged(tracker.cellValues, cellKey, cleanValue)) {
-            tracker.cellValues.set(cellKey, cleanValue);
-            processingCells.add(cellKey);
+          // Check if value changed
+          if (state?.value !== cleanValue) {
+            cellState.set(cellKey, {
+              value: cleanValue,
+              status: 'processing',
+              row,
+              col,
+              targetCol
+            });
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
             // Each processCell creates its own Excel context for immediate updates
             tasks.push(() => processCell(row, col, targetCol, cleanValue, tracker, cellKey));
@@ -159,13 +167,30 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       ctx.runtime.enableEvents = true;
     });
 
+    // Store result in unified cell state
+    cellState.set(cellKey, {
+      value,
+      result,
+      status: 'complete',
+      row,
+      col,
+      targetCol,
+      timestamp: result?.timestamp || new Date().toISOString()
+    });
+
     addActivity(value, target, method, confidence, webSearchStatus, result?.timestamp);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
     await handleCellError(row, col, targetCol, value, error);
-  } finally {
-    processingCells.delete(cellKey);
+    // Mark as error in state
+    cellState.set(cellKey, {
+      value,
+      status: 'error',
+      row,
+      col,
+      targetCol
+    });
   }
 }
 
@@ -227,11 +252,21 @@ export async function stopTracking(workbookId) {
     }
 
     activeTrackers.delete(workbookId);
-    processingCells.clear();
+    cellState.clear();
     console.log(`✓ Tracking stopped for workbook: ${workbookId}`);
   }
 }
 
 export function getActiveTrackers() {
   return Array.from(activeTrackers.keys());
+}
+
+// Export cell state accessor for other modules
+export function getCellState(cellKey) {
+  return cellState.get(cellKey);
+}
+
+export function getCellStateByCoords(row, col) {
+  const cellKey = createCellKey(row, col);
+  return cellState.get(cellKey);
 }
