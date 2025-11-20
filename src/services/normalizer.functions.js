@@ -153,21 +153,39 @@ function processResearchResponse(data) {
 }
 
 /**
+ * Create default result when no match found
+ *
+ * @param {string} value - Source value
+ * @param {string} reason - Reason for no match
+ * @returns {Object} Default result object
+ */
+function createDefaultResult(value, reason = "No matches found") {
+  return {
+    target: reason,
+    method: "no_match",
+    confidence: 0,
+    timestamp: new Date().toISOString(),
+    source: value
+  };
+}
+
+/**
  * Process term normalization with three-tier fallback: Exact → Fuzzy → LLM
+ * ALWAYS returns a valid result object (never null)
  *
  * @param {string} value - Value to normalize
  * @param {Object} forward - Forward mapping (source → target)
  * @param {Object} reverse - Reverse mapping (target → target)
- * @returns {Promise<Object|null>} Normalized result or null if no match found
+ * @returns {Promise<Object>} Normalized result (always valid object)
  */
 export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
-  if (!normalized) return null;
+  if (!normalized) return createDefaultResult(value, "Empty value");
 
   // Verify mappings loaded (server status checked in findTokenMatch if needed)
   if (!state.mappings.loaded) {
     showMessage("Mapping tables not loaded - load configuration first", "error");
-    return null;
+    return createDefaultResult(normalized, "Mappings not loaded");
   }
 
   // Try cached first
@@ -179,5 +197,6 @@ export async function processTermNormalization(value, forward, reverse) {
   if (fuzzy) return fuzzy;
 
   // Fallback to research API for advanced matching
-  return await findTokenMatch(normalized);
+  const tokenMatch = await findTokenMatch(normalized);
+  return tokenMatch || createDefaultResult(normalized, "No matches found");
 }

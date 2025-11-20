@@ -1,8 +1,10 @@
+import { getCellState } from "../services/live.tracker.js";
+
 let container = null;
 let tableBody = null;
 const maxEntries = 50;
-// Activity data model - queryable storage
-const activities = [];
+// Activity data model - references to cellState (no duplication)
+export const activities = [];
 
 export function init(containerId = "activity-feed") {
   container = document.getElementById(containerId);
@@ -37,7 +39,7 @@ export function init(containerId = "activity-feed") {
   return true;
 }
 
-export function add(source, result) {
+export function add(source, cellKey, timestamp) {
   if (!tableBody) {
     const initSuccess = init();
     if (!initSuccess || !tableBody) {
@@ -47,33 +49,23 @@ export function add(source, result) {
   }
 
   try {
-    // Store activity in data model
-    activities.unshift({ source, result });
+    // Remove placeholder if present
+    const placeholder = tableBody?.querySelector(".placeholder-row");
+    if (placeholder) placeholder.remove();
 
-    // Keep only last maxEntries
-    if (activities.length > maxEntries) {
-      activities.pop();
-    }
+    // Store reference to cellState (not duplicate data)
+    activities.unshift({ source, cellKey, timestamp });
 
-    // Re-render from data
-    renderActivities();
-    updateHistoryTabCounter();
-  } catch (error) {
-    console.error("ActivityFeed.add() error:", error);
-  }
-}
+    // Fetch result from cellState for display
+    const state = getCellState(cellKey);
+    const result = state?.result || {
+      target: "Unknown",
+      method: "-",
+      confidence: 0,
+      timestamp: timestamp
+    };
 
-function renderActivities() {
-  if (!tableBody) return;
-
-  const placeholder = tableBody?.querySelector(".placeholder-row");
-  if (placeholder) placeholder.remove();
-
-  // Clear and rebuild
-  tableBody.innerHTML = '';
-
-  activities.forEach(({ source, result }) => {
-    const { target, method, confidence, web_search_status, timestamp } = result;
+    const { target, method, confidence, web_search_status } = result;
 
     // Build method display text with web search status indicator
     let methodText = method ? method.toUpperCase() : "-";
@@ -81,11 +73,11 @@ function renderActivities() {
       methodText = `⚠️ ${methodText} (web scrape ∅)`;
     }
 
-    // Use provided timestamp or generate new one
     const displayTime = timestamp
       ? new Date(timestamp).toLocaleTimeString()
       : new Date().toLocaleTimeString();
 
+    // Create and insert row at beginning
     const row = document.createElement("tr");
     row.className = `activity-row ${method}`;
     row.innerHTML = `
@@ -95,9 +87,18 @@ function renderActivities() {
       <td class="method">${methodText}</td>
       <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
     `;
+    tableBody.insertBefore(row, tableBody.firstChild);
 
-    tableBody.appendChild(row);
-  });
+    // Remove excess rows if over maxEntries
+    while (tableBody.children.length > maxEntries) {
+      tableBody.removeChild(tableBody.lastChild);
+      activities.pop();
+    }
+
+    updateHistoryTabCounter();
+  } catch (error) {
+    console.error("ActivityFeed.add() error:", error);
+  }
 }
 
 export function clear() {
@@ -106,6 +107,38 @@ export function clear() {
   tableBody.innerHTML = "";
   showPlaceholder();
   updateHistoryTabCounter();
+}
+
+/**
+ * Scroll to and highlight activity matching the given cellKey
+ * @param {string} cellKey - Cell key to find in activities
+ * @returns {boolean} True if activity found and highlighted, false otherwise
+ */
+export function scrollToAndHighlight(cellKey) {
+  if (!tableBody || !cellKey) return false;
+
+  // Find activity index by cellKey
+  const activityIndex = activities.findIndex(a => a.cellKey === cellKey);
+  if (activityIndex === -1) return false;
+
+  // Get corresponding row element
+  const rows = tableBody.querySelectorAll(".activity-row");
+  const targetRow = rows[activityIndex];
+  if (!targetRow) return false;
+
+  // Remove previous highlights
+  rows.forEach(row => row.classList.remove("highlighted"));
+
+  // Scroll to center and highlight
+  targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+  targetRow.classList.add("highlighted");
+
+  // Auto-remove highlight after 3 seconds
+  setTimeout(() => {
+    targetRow.classList.remove("highlighted");
+  }, 3000);
+
+  return true;
 }
 
 function showPlaceholder() {
@@ -130,21 +163,4 @@ export function updateHistoryTabCounter() {
 
 export function getCount() {
   return activities.length;
-}
-
-// Export data accessor functions
-export function getActivities() {
-  return activities;
-}
-
-export function getActivityByIndex(index) {
-  return activities[index];
-}
-
-export function findActivitiesBySource(source) {
-  return activities.filter(a => a.source === source);
-}
-
-export function findActivitiesByTarget(target) {
-  return activities.filter(a => a.result.target === target);
 }

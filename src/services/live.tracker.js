@@ -134,24 +134,20 @@ const handleWorksheetChange = async (e, tracker) => {
 
 // Creates independent Excel.run context - do not pass worksheet objects or updates will batch
 async function processCell(row, col, targetCol, value, tracker, cellKey) {
+  // Create output cell key upfront (activities track output column, not input)
+  const outputCellKey = createCellKey(row, targetCol);
+
   try {
+    // Always returns valid result (never null)
     const result = await processTermNormalization(
       value,
       tracker.mappings.forward,
       tracker.mappings.reverse
     );
 
-    // Ensure result has required fields
-    const normalizedResult = result || {
-      target: "No matches found",
-      method: "no_match",
-      confidence: 0,
-      timestamp: new Date().toISOString()
-    };
-
-    if (normalizedResult.candidates) {
-      addCandidate(value, normalizedResult, {
-        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice),
+    if (result.candidates) {
+      addCandidate(value, result, {
+        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey),
       });
     }
 
@@ -162,43 +158,37 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
       const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
-      tgtCell.values = [[normalizedResult.target]];
-      tgtCell.format.fill.color = getRelevanceColor(normalizedResult.confidence);
+      tgtCell.values = [[result.target]];
+      tgtCell.format.fill.color = getRelevanceColor(result.confidence);
       srcCell.format.fill.clear();
 
       await ctx.sync();
       ctx.runtime.enableEvents = true;
     });
 
-    // Store result in unified cell state
-    cellState.set(cellKey, {
+    // Store result in unified cell state (using OUTPUT cell key)
+    cellState.set(outputCellKey, {
       value,
-      result: normalizedResult,
+      result,
       status: 'complete',
       row,
-      col,
-      targetCol,
-      timestamp: normalizedResult.timestamp
+      col: targetCol,  // Output column, not input
+      timestamp: result.timestamp
     });
 
-    addActivity(value, normalizedResult);
+    // Add activity with output cell key (so selection works)
+    addActivity(value, outputCellKey, result.timestamp);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
-    await handleCellError(row, col, targetCol, value, error);
-    // Mark as error in state
-    cellState.set(cellKey, {
-      value,
-      status: 'error',
-      row,
-      col,
-      targetCol
-    });
+    await handleCellError(row, col, targetCol, value, error, outputCellKey);
+    // Note: handleCellError stores error in cellState
   }
 }
 
-async function handleCellError(row, col, targetCol, value, error) {
+async function handleCellError(row, col, targetCol, value, error, outputCellKey) {
   const errorMsg = error instanceof Error ? error.message : String(error);
+  const timestamp = new Date().toISOString();
 
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
@@ -215,15 +205,27 @@ async function handleCellError(row, col, targetCol, value, error) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, {
-    target: errorMsg,
-    method: "error",
-    confidence: 0,
-    timestamp: new Date().toISOString()
+  // Store error in cellState
+  cellState.set(outputCellKey, {
+    value,
+    result: {
+      target: errorMsg,
+      method: "error",
+      confidence: 0,
+      timestamp
+    },
+    status: 'error',
+    row,
+    col: targetCol,
+    timestamp
   });
+
+  addActivity(value, outputCellKey, timestamp);
 }
 
-async function applyChoiceToCell(row, col, targetCol, value, choice) {
+async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey) {
+  const timestamp = new Date().toISOString();
+
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
 
@@ -239,12 +241,22 @@ async function applyChoiceToCell(row, col, targetCol, value, choice) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, {
-    target: choice.candidate,
-    method: "UserChoice",
-    confidence: choice.relevance_score,
-    timestamp: new Date().toISOString()
+  // Store user choice in cellState
+  cellState.set(outputCellKey, {
+    value,
+    result: {
+      target: choice.candidate,
+      method: "UserChoice",
+      confidence: choice.relevance_score,
+      timestamp
+    },
+    status: 'complete',
+    row,
+    col: targetCol,
+    timestamp
   });
+
+  addActivity(value, outputCellKey, timestamp);
 }
 
 export async function stopTracking(workbookId) {
