@@ -34,15 +34,14 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 
 ## ✨ Key Features
 
-- **Real-time Cell Monitoring** - Automatically detects and processes cell changes
-- **AI-Powered Research & Matching** - Web research + LLM ranking + fuzzy matching pipeline
-- **Intelligent Candidate Ranking** - Multi-source matching with confidence scoring
-- **Simple Configuration** - Single JSON file with drag & drop support
-- **Activity Tracking** - In-Excel view of processing history and ranked candidates
-- **Persistent Logging** - Comprehensive audit trail of all mapping decisions
-- **Flexible Mapping System** - Multiple reference files with hot-reload capability
-- **Color-Coded Results** - Visual feedback for normalization status and confidence
-- **Multi-User Support** - IP-based authentication with stateless architecture
+- **Instant AI-Powered Matching** - Type in Excel, get standardized results automatically—web research and LLM reasoning happen in real-time
+- **Three-Tier Intelligence** - Exact cache for speed → Fuzzy matching for variants → AI research for unknowns
+- **Transparent Decision Making** - See ranked candidates with confidence scores, entity profiles, and web sources—understand why each match was suggested
+- **Zero Database Setup** - Session-based architecture stores everything in memory—no database installation, no migration scripts
+- **Complete Audit Trail** - Every match logged with timestamps and metadata—perfect for compliance and training data collection
+- **Drag-and-Drop Configuration** - Single JSON file defines everything—share configs via email or network drive
+- **Visual Confidence Feedback** - Color-coded cells show match quality at a glance—green for high confidence, yellow for uncertain
+- **Multi-User Ready** - IP-based authentication with hot-reload—add users without server restart
 
 ### Interface Preview
 
