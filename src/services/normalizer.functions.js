@@ -34,9 +34,11 @@ export function getCachedMatch(value, forward, reverse) {
       target: typeof mapping === "string" ? mapping : mapping.target,
       method: "cached",
       confidence: 1.0,
+      timestamp: new Date().toISOString(),
+      source: normalized,
     };
   }
-  return normalized in reverse ? { target: normalized, method: "cached", confidence: 1.0 } : null;
+  return normalized in reverse ? { target: normalized, method: "cached", confidence: 1.0, timestamp: new Date().toISOString(), source: normalized } : null;
 }
 
 /**
@@ -57,11 +59,13 @@ export function findFuzzyMatch(value, forward, reverse) {
       target: typeof fwd.value === "string" ? fwd.value : fwd.value.target,
       method: "fuzzy",
       confidence: fwd.score,
+      timestamp: new Date().toISOString(),
+      source: normalized,
     };
   }
 
   const rev = findBestMatch(normalized, reverse, FUZZY_REVERSE_THRESHOLD);
-  return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score } : null;
+  return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score, timestamp: new Date().toISOString(), source: normalized } : null;
 }
 
 /**
@@ -139,6 +143,8 @@ function processResearchResponse(data) {
     target: best.candidate,
     method: "ProfileRank",
     confidence: best.relevance_score,
+    timestamp: new Date().toISOString(),
+    source: data.query || best.candidate, // Use query if available, fallback to candidate
     candidates: data.ranked_candidates,
     total_time: data.total_time,
     llm_provider: data.llm_provider,
