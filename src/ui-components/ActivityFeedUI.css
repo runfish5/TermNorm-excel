@@ -88,3 +88,15 @@
     font-style: italic;
     padding: 40px 16px;
 }
+
+/* Highlight effect for cell selection feature */
+.activity-row {
+    transition: all 0.3s ease;
+}
+
+.activity-row.highlighted {
+    background: #fff3cd !important;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-left: 4px solid #ffc107;
+}
