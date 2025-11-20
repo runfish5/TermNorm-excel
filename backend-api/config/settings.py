@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Search API Configuration
     brave_search_api_key: Optional[str] = Field(None, alias="BRAVE_SEARCH_API_KEY")
     use_brave_api: bool = Field(True, alias="USE_BRAVE_API")  # Toggle for testing fallbacks
+    use_web_search: bool = Field(True, alias="USE_WEB_SEARCH")  # Toggle to disable all web search engines
 
     # Server Configuration
     host: str = "127.0.0.1"

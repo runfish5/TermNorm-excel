@@ -349,6 +349,15 @@
                     <summary class="settings-group-header">⚡ Processing Options</summary>
                     <div class="settings-group-content">
                         <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
+                            <input type="checkbox" id="use-web-search" checked style="cursor: pointer;">
+                            <span style="flex: 1;">Use web search for research</span>
+                        </label>
+                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                            <strong>When enabled (default):</strong> Uses web search engines to gather context for LLM matching.<br>
+                            <strong>When disabled:</strong> Skips all web search (faster, cheaper, but less accurate).
+                        </p>
+
+                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; margin-top: 12px;">
                             <input type="checkbox" id="use-brave-api" checked style="cursor: pointer;">
                             <span style="flex: 1;">Use Brave Search API (if configured)</span>
                         </label>

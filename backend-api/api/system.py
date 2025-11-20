@@ -112,3 +112,18 @@ async def set_brave_api(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]:
         message=f"Brave API {'enabled' if enabled else 'disabled'}",
         data={"use_brave_api": enabled}
     )
+
+
+@router.post("/set-web-search")
+async def set_web_search(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]:
+    """Toggle all web search engines (faster/cheaper when disabled)"""
+    enabled = payload.get("enabled", True)
+
+    # Update runtime setting
+    settings.use_web_search = enabled
+
+    logger.info(f"Web search {'enabled' if enabled else 'disabled'}")
+    return success_response(
+        message=f"Web search {'enabled' if enabled else 'disabled'}",
+        data={"use_web_search": enabled}
+    )

@@ -53,6 +53,26 @@ Office.onReady(async (info) => {
     });
   }
 
+  const useWebSearchCheckbox = document.getElementById("use-web-search");
+  if (useWebSearchCheckbox) {
+    useWebSearchCheckbox.checked = state.settings.useWebSearch;
+    useWebSearchCheckbox.addEventListener("change", async (e) => {
+      const enabled = e.target.checked;
+      saveSetting("useWebSearch", enabled);
+
+      // Update backend setting
+      try {
+        const { setWebSearch } = await import("../utils/settings-manager.js");
+        await setWebSearch(enabled);
+        showMessage(`Web search ${enabled ? "enabled" : "disabled (LLM only mode)"}`);
+      } catch (error) {
+        showMessage(`Failed to update web search setting: ${error.message}`, "error");
+        // Revert checkbox on error
+        e.target.checked = !enabled;
+      }
+    });
+  }
+
   const useBraveApiCheckbox = document.getElementById("use-brave-api");
   if (useBraveApiCheckbox) {
     useBraveApiCheckbox.checked = state.settings.useBraveApi;

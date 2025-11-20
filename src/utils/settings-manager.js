@@ -10,6 +10,7 @@ export function getDefaultSettings() {
   return {
     requireServerOnline: true,  // Server required for operations
     useBraveApi: true,           // Use Brave Search API if configured (toggle for testing fallbacks)
+    useWebSearch: true,          // Enable all web search engines (disabling skips web research entirely)
   };
 }
 
@@ -71,5 +72,14 @@ export async function saveLlmProvider(provider, model) {
 export async function setBraveApi(enabled) {
   const { apiPost } = await import("./api-fetch.js");
   const response = await apiPost("/set-brave-api", { enabled });
+  return response;
+}
+
+/**
+ * Toggle web search on backend
+ */
+export async function setWebSearch(enabled) {
+  const { apiPost } = await import("./api-fetch.js");
+  const response = await apiPost("/set-web-search", { enabled });
   return response;
 }
