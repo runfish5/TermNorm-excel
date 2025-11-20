@@ -108,6 +108,45 @@ Cell edit → onChanged event → Cached match check → Fuzzy match (local)
 → TokenLookup + Web + LLM → ranked_candidates[] → Display UI + Write cell
 ```
 
+### Match Result Schema (Standardized)
+
+All match methods return consistent data structure for reliable indexing and logging:
+
+**Core Fields (All Methods):**
+```javascript
+{
+  source: string,      // Original input value (normalized)
+  target: string,      // Matched identifier/term
+  method: string,      // "cached" | "fuzzy" | "ProfileRank"
+  confidence: number,  // 0.0 - 1.0 match quality score
+  timestamp: string    // ISO 8601 timestamp
+}
+```
+
+**Additional Fields (LLM only):**
+```javascript
+{
+  candidates: [...],           // All ranked candidates
+  entity_profile: {...},       // Web research + LLM profile
+  web_sources: [...],          // URLs used for profiling
+  total_time: number,          // Processing time (ms)
+  llm_provider: string,        // "groq/llama-3.3-70b-versatile"
+  web_search_status: string    // "success" | "failed"
+}
+```
+
+**Backend Logging:**
+- All logs written to `logs/activity.jsonl` in normalized schema
+- `/log-activity` endpoint validates and standardizes entries
+- Consistent `source`/`target`/`timestamp` fields enable aggregation by target identifier
+- Foundation for reference database: Group logs by `target` → deduplicate entity profiles
+
+**Reference Database Architecture (Prepared):**
+- Current: Each match logged separately (duplicates entity data)
+- Future: Aggregate by `target` → Single reference entry per unique identifier
+- Frontend: Store cell→target index (lightweight), fetch full details on-demand
+- Memory efficient: 50 unique targets × 5KB = 250KB vs. 1000 cells × 5KB = 5MB
+
 ## Configuration
 
 Single JSON file (`config/app.config.json`) with column mappings and reference files:
