@@ -99,14 +99,14 @@ class TokenLookupMatcher:
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
 
-# Session storage - stores terms array per user
-# Structure: {user_id: {"terms": [...], "timestamp": datetime}}
+# Session storage - stores terms array and usage stats per user
+# Structure: {user_id: {"terms": [...], "init_time": datetime, "query_count": int, "targets_used": {}}}
 user_sessions = {}
 
 
 @router.post("/session/init-terms")
 async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Initialize user session with terms array"""
+    """Initialize user session with terms array and tracking"""
     user_id = request.state.user_id
     terms = payload.get("terms", [])
 
@@ -116,10 +116,12 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
             detail="No terms provided - include terms array in request payload"
         )
 
-    # Store terms in session
+    # Store terms in session with usage tracking
     user_sessions[user_id] = {
         "terms": terms,
-        "timestamp": datetime.utcnow()
+        "init_time": datetime.utcnow(),
+        "query_count": 0,
+        "targets_used": {}  # target → count
     }
 
     logger.info(f"[SESSION] User {user_id}: Initialized session with {len(terms)} terms")
@@ -190,29 +192,48 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     from datetime import datetime
     from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
-    # Get top ranked candidate for quick overview
+    # Get top ranked candidate and prepare flattened structure
     ranked_candidates = llm_response.get('ranked_candidates', [])
     target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches found"
+    confidence = ranked_candidates[0].get('relevance_score', 0) if ranked_candidates else 0
 
+    # Check web search status
+    scraped_sources = profile_debug["inputs"]["scraped_sources"]
+    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
+
+    # Flattened training record - top-level fields for easy queries
     training_record = {
+        # Core identification
         "timestamp": datetime.utcnow().isoformat() + "Z",
+        "session_id": user_id,
         "source": query,
         "target": target,
         "method": "ProfileRank",
-        "total_time": total_time,
+        "confidence": confidence,
+
+        # Flattened candidates (no nesting)
+        "candidates": [
+            {
+                "rank": i,
+                "name": c.get('candidate'),
+                "score": c.get('relevance_score'),
+                "core_score": c.get('core_concept_score'),
+                "spec_score": c.get('spec_score'),
+            }
+            for i, c in enumerate(ranked_candidates)
+        ] if ranked_candidates else [],
+
+        # Entity profile (top-level)
+        "entity_profile": entity_profile,
+
+        # Metadata
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "stage1_profiling": {
-            "inputs": {
-                "scraped_sources": profile_debug["inputs"]["scraped_sources"]
-            },
-            "output": entity_profile
-        },
-        "stage2_ranking": {
-            "inputs": {
-                "token_matched_candidates": ranking_debug["inputs"]["token_matched_candidates"]
-            },
-            "output": ranked_candidates
-        }
+        "total_time": total_time,
+        "web_search_status": "failed" if web_search_failed else "success",
+
+        # Debug info (flattened from nested stages)
+        "token_matches": ranking_debug["inputs"]["token_matched_candidates"] if ranking_debug else [],
+        "web_sources": scraped_sources.get("sources_fetched", []) if not web_search_failed else [],
     }
 
     # Check for errors and move to first position if detected
@@ -226,11 +247,13 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
 
-    # Check if web search succeeded by examining scraped_sources
-    scraped_sources = profile_debug["inputs"]["scraped_sources"]
-    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
+    # Update session usage stats automatically
+    if user_id in user_sessions:
+        user_sessions[user_id]["query_count"] += 1
+        targets = user_sessions[user_id]["targets_used"]
+        targets[target] = targets.get(target, 0) + 1
 
-    # Build standardized response
+    # Build standardized response (web_search_failed already calculated above)
     num_candidates = len(llm_response.get('ranked_candidates', []))
     result = success_response(
         message=f"Research completed - Found {num_candidates} matches in {total_time}s",

@@ -4,28 +4,6 @@ import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
-import { getHost, getHeaders } from "../utils/server-utilities.js";
-
-// Activity logging
-const sessionId = `excel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-function logActivity(source, target, method, confidence, total_time, llm_provider) {
-  fetch(`${getHost()}/log-activity`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify({
-      timestamp: new Date().toISOString(),
-      source,
-      target,
-      method,
-      confidence,
-      total_time,
-      llm_provider,
-      session_id: sessionId,
-    }),
-  }).catch((err) => console.warn("Log failed:", err));
-}
-
 const activeTrackers = new Map();
 const activationInProgress = new Set();
 const processingCells = new Set();
@@ -210,7 +188,6 @@ async function handleCellError(row, col, targetCol, value, error) {
   });
 
   addActivity(value, errorMsg, "error", 0, undefined, new Date().toISOString());
-  logActivity(value, errorMsg, "error", 0, 0, undefined);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice) {
@@ -230,7 +207,6 @@ async function applyChoiceToCell(row, col, targetCol, value, choice) {
   });
 
   addActivity(value, choice.candidate, "UserChoice", choice.relevance_score, undefined, new Date().toISOString());
-  logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 }
 
 export async function stopTracking(workbookId) {

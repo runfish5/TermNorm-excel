@@ -44,29 +44,6 @@ async def test_connection() -> Dict[str, Any]:
     )
 
 
-@router.post("/log-activity")
-async def log_activity(entry: Dict[str, Any]) -> Dict[str, str]:
-    """Log activity entry to file with schema normalization"""
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-
-    # Normalize entry to standard schema
-    normalized_entry = {
-        "timestamp": entry.get("timestamp", datetime.utcnow().isoformat() + "Z"),
-        "source": entry.get("source", ""),
-        "target": entry.get("target", ""),
-        "method": entry.get("method", ""),
-        "confidence": entry.get("confidence"),  # Optional
-        "total_time": entry.get("total_time"),  # Optional
-        "llm_provider": entry.get("llm_provider"),  # Optional
-    }
-
-    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(normalized_entry) + "\n")
-
-    return success_response(message="Activity logged")
-
-
 @router.get("/llm-providers")
 async def get_llm_providers() -> Dict[str, Any]:
     """Get available LLM providers and current configuration"""
