@@ -4,13 +4,35 @@ import { findColumnIndex } from "../utils/column-utilities.js";
 
 // Parameter validation
 function validateParams(params) {
-  // Validate required fields
   if (!params.sheetName) throw new Error("Sheet name is required");
   if (!params.targetColumn) throw new Error("Target column is required");
   if (!params.useCurrentFile && !params.externalFile)
     throw new Error("External file required when not using current file");
-
   return params;
+}
+
+// Row processing helpers
+function parseRow(row, srcIdx, tgtIdx) {
+  const source = srcIdx >= 0 ? (row[srcIdx] || "").toString().trim() : "";
+  const target = (row[tgtIdx] || "").toString().trim();
+  return { source, target };
+}
+
+function classifyRow(source, target, hasSourceColumn) {
+  if (!target && !source) return "bothEmpty";
+  if (!target) return "referenceEmpty";
+  if (!source && hasSourceColumn) return "aliasEmpty";
+  return "valid";
+}
+
+function buildMetadata(mappings, rows, issues, emptyRows) {
+  return {
+    totalRows: rows.length,
+    validMappings: Object.keys(mappings.forward).length,
+    targets: Object.keys(mappings.reverse).length,
+    issues: issues.length ? issues : null,
+    emptyRows,
+  };
 }
 
 // Streamlined mapping processor
@@ -23,32 +45,34 @@ export function processMappings(data, sourceColumn, targetColumn) {
   const srcIdx = findColumnIndex(headers, sourceColumn);
   const tgtIdx = findColumnIndex(headers, targetColumn);
 
-  // Validate columns exist
   if (sourceColumn && srcIdx === -1) throw new Error(`Source column "${sourceColumn}" not found`);
   if (tgtIdx === -1) throw new Error(`Target column "${targetColumn}" not found`);
 
-  // Build mappings in one pass
   const mappings = { forward: {}, reverse: {} };
   const issues = [];
+  const emptyRows = { aliasEmpty: [], referenceEmpty: [], bothEmpty: [] };
+  const hasSourceColumn = srcIdx >= 0;
 
   for (const [i, row] of rows.entries()) {
-    const source = srcIdx >= 0 ? (row[srcIdx] || "").toString().trim() : "";
-    const target = (row[tgtIdx] || "").toString().trim();
+    const { source, target } = parseRow(row, srcIdx, tgtIdx);
+    const rowNumber = i + 2; // Excel row number (1-indexed + header)
+    const rowType = classifyRow(source, target, hasSourceColumn);
 
-    if (!target) {
-      issues.push(`Row ${i + 2}: Empty target`);
+    // Handle empty rows
+    if (rowType !== "valid") {
+      emptyRows[rowType].push(rowNumber);
       continue;
     }
 
-    // Initialize reverse mapping
+    // Initialize reverse mapping if needed
     if (!mappings.reverse[target]) {
       mappings.reverse[target] = { alias: [] };
     }
 
-    // Handle source mapping
+    // Check for duplicates and build forward mapping only if source exists
     if (source) {
       if (mappings.forward[source]) {
-        issues.push(`Row ${i + 2}: Duplicate source "${source}"`);
+        issues.push(`Row ${rowNumber}: Duplicate source "${source}"`);
         continue;
       }
       mappings.forward[source] = target;
@@ -58,12 +82,7 @@ export function processMappings(data, sourceColumn, targetColumn) {
 
   return {
     ...mappings,
-    metadata: {
-      totalRows: rows.length,
-      validMappings: Object.keys(mappings.forward).length,
-      targets: Object.keys(mappings.reverse).length,
-      issues: issues.length ? issues : null,
-    },
+    metadata: buildMetadata(mappings, rows, issues, emptyRows),
   };
 }
 
