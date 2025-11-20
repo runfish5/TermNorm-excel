@@ -141,16 +141,19 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       tracker.mappings.reverse
     );
 
-    if (result?.candidates) {
-      addCandidate(value, result, {
+    // Ensure result has required fields
+    const normalizedResult = result || {
+      target: "No matches found",
+      method: "no_match",
+      confidence: 0,
+      timestamp: new Date().toISOString()
+    };
+
+    if (normalizedResult.candidates) {
+      addCandidate(value, normalizedResult, {
         applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice),
       });
     }
-
-    const target = result?.target || "No matches found";
-    const confidence = result?.confidence || 0;
-    const method = result?.method || (result ? "match" : "no_match");
-    const webSearchStatus = result?.web_search_status;
 
     await Excel.run(async (ctx) => {
       ctx.runtime.enableEvents = false;
@@ -159,8 +162,8 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
       const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
 
-      tgtCell.values = [[target]];
-      tgtCell.format.fill.color = getRelevanceColor(confidence);
+      tgtCell.values = [[normalizedResult.target]];
+      tgtCell.format.fill.color = getRelevanceColor(normalizedResult.confidence);
       srcCell.format.fill.clear();
 
       await ctx.sync();
@@ -170,15 +173,15 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
     // Store result in unified cell state
     cellState.set(cellKey, {
       value,
-      result,
+      result: normalizedResult,
       status: 'complete',
       row,
       col,
       targetCol,
-      timestamp: result?.timestamp || new Date().toISOString()
+      timestamp: normalizedResult.timestamp
     });
 
-    addActivity(value, target, method, confidence, webSearchStatus, result?.timestamp);
+    addActivity(value, normalizedResult);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
@@ -212,7 +215,12 @@ async function handleCellError(row, col, targetCol, value, error) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, errorMsg, "error", 0, undefined, new Date().toISOString());
+  addActivity(value, {
+    target: errorMsg,
+    method: "error",
+    confidence: 0,
+    timestamp: new Date().toISOString()
+  });
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice) {
@@ -231,7 +239,12 @@ async function applyChoiceToCell(row, col, targetCol, value, choice) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, choice.candidate, "UserChoice", choice.relevance_score, undefined, new Date().toISOString());
+  addActivity(value, {
+    target: choice.candidate,
+    method: "UserChoice",
+    confidence: choice.relevance_score,
+    timestamp: new Date().toISOString()
+  });
 }
 
 export async function stopTracking(workbookId) {
