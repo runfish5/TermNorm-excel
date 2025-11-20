@@ -181,7 +181,7 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       ctx.runtime.enableEvents = true;
     });
 
-    addActivity(value, target, method, confidence, webSearchStatus);
+    addActivity(value, target, method, confidence, webSearchStatus, result?.timestamp);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
@@ -209,7 +209,7 @@ async function handleCellError(row, col, targetCol, value, error) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, errorMsg, "error", 0);
+  addActivity(value, errorMsg, "error", 0, undefined, new Date().toISOString());
   logActivity(value, errorMsg, "error", 0, 0, undefined);
 }
 
@@ -229,7 +229,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice) {
     ctx.runtime.enableEvents = true;
   });
 
-  addActivity(value, choice.candidate, "UserChoice", choice.relevance_score);
+  addActivity(value, choice.candidate, "UserChoice", choice.relevance_score, undefined, new Date().toISOString());
   logActivity(value, choice.candidate, "UserChoice", choice.relevance_score, 0, undefined);
 }
 

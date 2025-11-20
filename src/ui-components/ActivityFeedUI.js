@@ -35,7 +35,7 @@ export function init(containerId = "activity-feed") {
   return true;
 }
 
-export function add(source, target, method, confidence, webSearchStatus) {
+export function add(source, target, method, confidence, webSearchStatus, timestamp) {
   if (!tableBody) {
     const initSuccess = init();
     if (!initSuccess || !tableBody) {
@@ -54,10 +54,15 @@ export function add(source, target, method, confidence, webSearchStatus) {
       methodText = `⚠️ ${methodText} (web scrape ∅)`;
     }
 
+    // Use provided timestamp or generate new one
+    const displayTime = timestamp
+      ? new Date(timestamp).toLocaleTimeString()
+      : new Date().toLocaleTimeString();
+
     const row = document.createElement("tr");
     row.className = `activity-row ${method}`;
     row.innerHTML = `
-              <td class="time">${new Date().toLocaleTimeString()}</td>
+              <td class="time">${displayTime}</td>
               <td class="source">${source || "-"}</td>
               <td class="target">${target || "-"}</td>
               <td class="method">${methodText}</td>
