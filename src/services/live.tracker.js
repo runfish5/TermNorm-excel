@@ -48,6 +48,7 @@ export async function startTracking(config, mappings) {
     const tracker = {
       active: true,
       handler: null,
+      selectionHandler: null,
       columnMap,
       mappings,
       config,
@@ -56,18 +57,20 @@ export async function startTracking(config, mappings) {
 
     // Remove existing tracker if any
     const existingTracker = activeTrackers.get(workbookId);
-    if (existingTracker?.handler) {
+    if (existingTracker?.handler || existingTracker?.selectionHandler) {
       await Excel.run(async (ctx) => {
         const ws = ctx.workbook.worksheets.getActiveWorksheet();
-        ws.onChanged.remove(existingTracker.handler);
+        if (existingTracker.handler) ws.onChanged.remove(existingTracker.handler);
+        if (existingTracker.selectionHandler) ws.onSelectionChanged.remove(existingTracker.selectionHandler);
         await ctx.sync();
       });
     }
 
-    // Setup change handler with tracker context
+    // Setup change and selection handlers with tracker context
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       tracker.handler = ws.onChanged.add((event) => handleWorksheetChange(event, tracker));
+      tracker.selectionHandler = ws.onSelectionChanged.add((event) => handleSelectionChange(event, tracker));
       await ctx.sync();
     });
 
@@ -129,6 +132,37 @@ const handleWorksheetChange = async (e, tracker) => {
 
     // Execute all processing tasks
     for (const task of tasks) await task();
+  });
+};
+
+// Handle cell selection to show match details in history tab
+const handleSelectionChange = async (e, tracker) => {
+  if (!tracker.active) return;
+
+  await Excel.run(async (ctx) => {
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const range = ws.getRange(e.address);
+    range.load("rowIndex, columnIndex, rowCount, columnCount");
+    await ctx.sync();
+
+    // Only handle single cell selections
+    // eslint-disable-next-line office-addins/call-sync-before-read
+    if (range.rowCount !== 1 || range.columnCount !== 1) return;
+
+    // eslint-disable-next-line office-addins/call-sync-before-read
+    const row = range.rowIndex;
+    // eslint-disable-next-line office-addins/call-sync-before-read
+    const col = range.columnIndex;
+
+    // Check if this is an output cell we have data for
+    const cellKey = createCellKey(row, col);
+    const state = cellState.get(cellKey);
+
+    if (state && state.status === 'complete') {
+      // Dynamically import to avoid circular dependency
+      const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
+      handleCellSelection(cellKey, state);
+    }
   });
 };
 
@@ -268,10 +302,11 @@ export async function stopTracking(workbookId) {
   if (tracker) {
     tracker.active = false;
 
-    if (tracker.handler) {
+    if (tracker.handler || tracker.selectionHandler) {
       await Excel.run(async (ctx) => {
         const ws = ctx.workbook.worksheets.getActiveWorksheet();
-        ws.onChanged.remove(tracker.handler);
+        if (tracker.handler) ws.onChanged.remove(tracker.handler);
+        if (tracker.selectionHandler) ws.onSelectionChanged.remove(tracker.selectionHandler);
         await ctx.sync();
       });
     }
