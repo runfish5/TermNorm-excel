@@ -142,7 +142,7 @@ const handleSelectionChange = async (e, tracker) => {
   await Excel.run(async (ctx) => {
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
     const range = ws.getRange(e.address);
-    range.load("rowIndex, columnIndex, rowCount, columnCount");
+    range.load("rowIndex, columnIndex, rowCount, columnCount, values");
     await ctx.sync();
 
     // Only handle single cell selections
@@ -153,15 +153,24 @@ const handleSelectionChange = async (e, tracker) => {
     const row = range.rowIndex;
     // eslint-disable-next-line office-addins/call-sync-before-read
     const col = range.columnIndex;
+    // eslint-disable-next-line office-addins/call-sync-before-read
+    const cellValue = range.values[0][0];
 
-    // Check if this is an output cell we have data for
+    // Skip empty cells and header row
+    if (!cellValue || row === 0) return;
+
     const cellKey = createCellKey(row, col);
     const state = cellState.get(cellKey);
 
+    // Dynamically import to avoid circular dependency
+    const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
+
     if (state && state.status === 'complete') {
-      // Dynamically import to avoid circular dependency
-      const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
-      handleCellSelection(cellKey, state);
+      // Current session: use cellState
+      handleCellSelection(cellKey, state, null);
+    } else {
+      // Historical: pass cell value as identifier to lookup from database
+      handleCellSelection(null, null, String(cellValue).trim());
     }
   });
 };
