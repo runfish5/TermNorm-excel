@@ -81,3 +81,20 @@ export function getCachedEntry(identifier) {
 export function isHistoryCacheReady() {
   return state.history.cacheInitialized;
 }
+
+/**
+ * Find target identifier by source value (searches aliases in cache)
+ * Used for input column lookups when forward mapping doesn't have the value
+ * @param {string} sourceValue - The source/input value to look up
+ * @returns {string|null} Target identifier if found, null otherwise
+ */
+export function findTargetBySource(sourceValue) {
+  if (!sourceValue) return null;
+
+  for (const [identifier, entry] of Object.entries(state.history.entries)) {
+    if (entry.aliases?.[sourceValue]) {
+      return identifier;
+    }
+  }
+  return null;
+}

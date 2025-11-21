@@ -16,6 +16,11 @@ export function init(containerId = "activity-feed") {
     return false;
   }
 
+  // Check if already initialized (tableBody exists and is still in DOM)
+  if (tableBody && tableBody.isConnected) {
+    return true;
+  }
+
   container.innerHTML = `
             <table class="activity-table">
                 <thead>
@@ -261,6 +266,12 @@ function displayDetailsPanel(details, targetRow) {
 
   // Collapse any previously expanded row first
   collapseExpandedRow();
+
+  // Re-query row if it was detached during collapse (could happen if targetRow WAS the expanded row)
+  if (!targetRow.isConnected && details.identifier) {
+    targetRow = tableBody?.querySelector(`[data-identifier="${CSS.escape(details.identifier)}"]`);
+    if (!targetRow) return; // Row no longer exists
+  }
 
   // Clone the original row before replacing (for restore on collapse)
   const originalRow = targetRow.cloneNode(true);
