@@ -190,3 +190,18 @@ async def rebuild_database() -> Dict[str, Any]:
         message=f"Database rebuilt with {count} identifiers",
         data={"identifier_count": count}
     )
+
+
+@router.get("/history/processed-entries")
+async def get_processed_entries() -> Dict[str, Any]:
+    """Return aggregated match history for frontend cache.
+
+    Used by frontend on server reconnection to populate history view
+    with previously processed matches (source→target mappings with profiles).
+    """
+    from api.research_pipeline import match_database
+
+    return success_response(
+        message=f"Retrieved {len(match_database)} processed entries",
+        data={"entries": match_database}
+    )

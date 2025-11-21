@@ -59,9 +59,9 @@ async def startup_event():
     logger.info(f"Environment: {settings.environment_type}")
     logger.info(f"LLM Provider: {LLM_PROVIDER}/{LLM_MODEL}")
 
-    # Load match database
-    from api.research_pipeline import load_match_database
-    load_match_database()
+    # Rebuild match database from activity logs (single source of truth)
+    from api.research_pipeline import rebuild_match_database
+    rebuild_match_database()
 
     # Verify LLM API key is configured
     import os
