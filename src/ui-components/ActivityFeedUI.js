@@ -164,3 +164,126 @@ export function updateHistoryTabCounter() {
 export function getCount() {
   return activities.length;
 }
+
+/**
+ * Handle cell selection from Excel - switch to history tab, scroll to activity, show details
+ * @param {string} cellKey - Cell key (row:col format)
+ * @param {Object} state - Cell state from cellState Map
+ */
+export async function handleCellSelection(cellKey, state) {
+  // Switch to history tab
+  const { showView } = await import("./view-manager.js");
+  showView("history");
+
+  // Scroll to and highlight the activity
+  const found = scrollToAndHighlight(cellKey);
+
+  if (!found) {
+    console.warn(`No activity found for cellKey: ${cellKey}`);
+    return;
+  }
+
+  // If method is ProfileRank and we have timestamp, fetch and show details
+  const result = state.result;
+  if (result.method === "ProfileRank" && result.timestamp) {
+    await fetchAndDisplayDetails(result.timestamp);
+  }
+}
+
+// Fetch match details from backend
+async function fetchAndDisplayDetails(timestamp) {
+  const { apiGet } = await import("../utils/api-fetch.js");
+  const { getHost } = await import("../utils/server-utilities.js");
+
+  try {
+    const response = await apiGet(`${getHost()}/match-details/${encodeURIComponent(timestamp)}`);
+
+    if (!response || response.status === "error") {
+      console.warn("Failed to fetch match details:", response?.message);
+      return;
+    }
+
+    displayDetailsPanel(response.data);
+  } catch (error) {
+    console.error("Error fetching match details:", error);
+  }
+}
+
+// Display details in expandable panel
+function displayDetailsPanel(details) {
+  if (!details) return;
+
+  // Remove existing panel if any
+  const existingPanel = document.getElementById("match-details-panel");
+  if (existingPanel) existingPanel.remove();
+
+  const panel = document.createElement("div");
+  panel.id = "match-details-panel";
+  panel.className = "match-details-panel";
+
+  panel.innerHTML = `
+    <div class="details-header">
+      <h4>Match Details: ${details.source || "Unknown"} → ${details.target || "Unknown"}</h4>
+      <button class="close-btn">×</button>
+    </div>
+    <div class="details-content">
+      <div class="detail-section">
+        <h5>Entity Profile</h5>
+        <div class="entity-profile">
+          ${formatEntityProfile(details.entity_profile)}
+        </div>
+      </div>
+      <div class="detail-section">
+        <h5>Web Sources (${details.web_sources?.length || 0})</h5>
+        <ul class="source-list">
+          ${details.web_sources?.map(s => `
+            <li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>
+          `).join('') || '<li>No sources</li>'}
+        </ul>
+      </div>
+      <div class="detail-section">
+        <h5>All Candidates (${details.candidates?.length || 0})</h5>
+        <div class="candidate-list">
+          ${details.candidates?.map((c, i) => `
+            <div class="candidate-item">
+              <span class="rank">#${i + 1}</span>
+              <span class="name">${c.name || c.candidate}</span>
+              <span class="score">${Math.round((c.score || c.relevance_score || 0) * 100)}%</span>
+            </div>
+          `).join('') || '<div>No candidates</div>'}
+        </div>
+      </div>
+      <div class="detail-meta">
+        <span>LLM: ${details.llm_provider || "Unknown"}</span>
+        <span>Time: ${details.total_time ? details.total_time + "s" : "N/A"}</span>
+        <span>Web: ${details.web_search_status || "N/A"}</span>
+      </div>
+    </div>
+  `;
+
+  // Insert before activity table
+  const activityFeed = document.getElementById("activity-feed");
+  if (activityFeed && activityFeed.parentElement) {
+    activityFeed.parentElement.insertBefore(panel, activityFeed);
+  }
+
+  // Add close handler
+  panel.querySelector(".close-btn").onclick = () => panel.remove();
+}
+
+// Helper to format entity profile
+function formatEntityProfile(profile) {
+  if (!profile) return "<p>No profile available</p>";
+
+  return `
+    <div class="profile-field">
+      <strong>Name:</strong> ${profile.entity_name || profile.name || "N/A"}
+    </div>
+    <div class="profile-field">
+      <strong>Core Concept:</strong> ${profile.core_concept || "N/A"}
+    </div>
+    <div class="profile-field">
+      <strong>Key Features:</strong> ${profile.distinguishing_features?.slice(0, 5).join(", ") || profile.key_features?.join(", ") || "N/A"}
+    </div>
+  `;
+}

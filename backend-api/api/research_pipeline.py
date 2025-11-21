@@ -270,3 +270,83 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(json.dumps(result, indent=2))
     logger.info(RESET)
     return result
+
+
+@router.post("/batch-process-single")
+async def batch_process_single(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+) -> Dict[str, Any]:
+    """
+    Process a single query with optional user context.
+    Lightweight version of /research-and-match for batch operations.
+    """
+    user_id = request.state.user_id
+    query = payload.get("query", "")
+    context = payload.get("context", "")  # User-provided context
+
+    if not query:
+        return {"status": "error", "message": "Query is required"}
+
+    # Retrieve terms from session
+    if user_id not in user_sessions:
+        raise HTTPException(
+            status_code=400,
+            detail="No session found - initialize session first"
+        )
+
+    terms = user_sessions[user_id]["terms"]
+    logger.info(f"[BATCH] Processing: {query} (context: {context[:50] if context else 'none'}...)")
+
+    start_time = time.time()
+
+    # Create token matcher
+    token_matcher = TokenLookupMatcher(terms)
+
+    # Build entity profile with context (fewer sites for batch)
+    query_with_context = f"{query} {context}" if context else query
+    entity_profile, profile_debug = await web_generate_entity_profile(
+        query_with_context,
+        max_sites=5,  # Fewer sites for batch processing
+        schema=ENTITY_SCHEMA,
+        verbose=False
+    )
+
+    # Token matching
+    search_terms = [word for s in [query] + utils.flatten_strings(entity_profile)
+                    for word in s.split()]
+    unique_search_terms = list(set(search_terms))
+    candidate_results = token_matcher.match(unique_search_terms)
+
+    # LLM ranking with context
+    profile_info = display_profile(entity_profile, "BATCH PROFILE")
+    llm_response, ranking_debug = await call_llm_for_ranking(
+        profile_info,
+        entity_profile,
+        candidate_results,
+        f"{query} (User context: {context})" if context else query
+    )
+
+    ranked_candidates = llm_response.get('ranked_candidates', [])
+    target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches"
+    confidence = ranked_candidates[0].get('relevance_score', 0) if ranked_candidates else 0
+
+    total_time = round(time.time() - start_time, 2)
+
+    # Update session usage stats
+    if user_id in user_sessions:
+        user_sessions[user_id]["query_count"] += 1
+        targets = user_sessions[user_id]["targets_used"]
+        targets[target] = targets.get(target, 0) + 1
+
+    logger.info(f"[BATCH] Completed: {query} -> {target} ({confidence:.0%}) in {total_time}s")
+
+    return success_response(
+        message="Single batch item processed",
+        data={
+            "target": target,
+            "confidence": confidence,
+            "candidates": ranked_candidates[:3],  # Top 3 only for batch
+            "total_time": total_time
+        }
+    )

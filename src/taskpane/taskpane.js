@@ -1,6 +1,7 @@
 import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
+import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { state, onStateChange, initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
@@ -20,6 +21,7 @@ Office.onReady(async (info) => {
   document.body.className = "ms-font-m ms-welcome ms-Fabric";
 
   initActivityFeed();
+  initBatchProcessing();
   updateHistoryTabCounter();
 
   const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map((id) => document.getElementById(id));
