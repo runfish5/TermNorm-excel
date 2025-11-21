@@ -160,17 +160,38 @@ const handleSelectionChange = async (e, tracker) => {
     if (!cellValue || row === 0) return;
 
     const cellKey = createCellKey(row, col);
-    const state = cellState.get(cellKey);
+    const cleanedValue = String(cellValue).trim();
 
     // Dynamically import to avoid circular dependency
     const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
 
+    // Check if this is an INPUT column (columnMap has inputCol → outputCol)
+    const targetCol = tracker.columnMap.get(col);
+    if (targetCol !== undefined) {
+      // Input column: use forward mapping to get the target identifier
+      let targetIdentifier = tracker.mappings.forward[cleanedValue];
+
+      // Fallback: search history cache by source (for previously processed entries)
+      if (!targetIdentifier) {
+        const { findTargetBySource } = await import("../utils/history-cache.js");
+        targetIdentifier = findTargetBySource(cleanedValue);
+      }
+
+      if (targetIdentifier) {
+        handleCellSelection(null, null, targetIdentifier);
+      }
+      // If still no match, no entry exists for this source - do nothing
+      return;
+    }
+
+    // Output column: check cellState first, then historical lookup
+    const state = cellState.get(cellKey);
     if (state && state.status === 'complete') {
       // Current session: use cellState
       handleCellSelection(cellKey, state, null);
     } else {
       // Historical: pass cell value as identifier to lookup from database
-      handleCellSelection(null, null, String(cellValue).trim());
+      handleCellSelection(null, null, cleanedValue);
     }
   });
 };
