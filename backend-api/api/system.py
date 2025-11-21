@@ -118,6 +118,44 @@ async def set_web_search(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]
     )
 
 
+@router.post("/log-activity")
+async def log_activity(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Log activity (e.g., UserChoice) to activity.jsonl and update match database"""
+    source = payload.get("source")
+    target = payload.get("target")
+    method = payload.get("method", "UserChoice")
+    confidence = payload.get("confidence", 1.0)
+    timestamp = payload.get("timestamp") or datetime.utcnow().isoformat() + "Z"
+
+    if not source or not target:
+        return {"status": "error", "message": "source and target are required"}
+
+    # Build record
+    record = {
+        "timestamp": timestamp,
+        "source": source,
+        "target": target,
+        "method": method,
+        "confidence": confidence
+    }
+
+    # Log to activity.jsonl
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
+
+    # Update match database
+    from api.research_pipeline import update_match_database
+    update_match_database(record)
+
+    logger.info(f"[LOG] Activity logged: {source} -> {target} ({method})")
+    return success_response(
+        message="Activity logged",
+        data={"source": source, "target": target, "method": method}
+    )
+
+
 @router.get("/match-details/{identifier}")
 async def get_match_details(identifier: str) -> Dict[str, Any]:
     """Fetch match details from match_database by identifier (target)"""

@@ -218,3 +218,33 @@
     font-size: 11px;
     color: #6c757d;
 }
+
+/* Method badges for alias list */
+.method-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    text-transform: uppercase;
+}
+
+.method-badge.ProfileRank,
+.method-badge.BatchProfileRank {
+    background: #e2e3ff;
+    color: #383d41;
+}
+
+.method-badge.UserChoice {
+    background: #d4edda;
+    color: #155724;
+}
+
+.method-badge.fuzzy {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.method-badge.cached {
+    background: #d1ecf1;
+    color: #0c5460;
+}

@@ -300,6 +300,21 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   });
 
   addActivity(value, outputCellKey, timestamp);
+
+  // Log user choice to backend
+  try {
+    const { apiPost } = await import("../utils/api-fetch.js");
+    const { getHost, getHeaders } = await import("../utils/server-utilities.js");
+    await apiPost(`${getHost()}/log-activity`, {
+      source: value,
+      target: choice.candidate,
+      method: "UserChoice",
+      confidence: choice.relevance_score,
+      timestamp
+    }, getHeaders());
+  } catch (error) {
+    console.warn("Failed to log user choice to backend:", error);
+  }
 }
 
 export async function stopTracking(workbookId) {
