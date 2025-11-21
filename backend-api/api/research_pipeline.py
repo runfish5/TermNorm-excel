@@ -107,7 +107,7 @@ def rebuild_match_database():
         for line in f:
             try:
                 record = json.loads(line)
-                update_match_database.__wrapped__(record) if hasattr(update_match_database, '__wrapped__') else _update_db_entry(record)
+                _update_db_entry(record)
                 count += 1
             except json.JSONDecodeError:
                 continue
@@ -454,6 +454,31 @@ async def batch_process_single(
     confidence = ranked_candidates[0].get('relevance_score', 0) if ranked_candidates else 0
 
     total_time = round(time.time() - start_time, 2)
+
+    # Build training record for logging
+    from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+    training_record = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "session_id": user_id,
+        "source": query,
+        "target": target,
+        "method": "BatchProfileRank",
+        "confidence": confidence,
+        "entity_profile": entity_profile,
+        "web_sources": profile_debug.get("inputs", {}).get("scraped_sources", {}).get("sources_fetched", []),
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "total_time": total_time,
+        "context": context if context else None
+    }
+
+    # Log to activity.jsonl
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(training_record) + "\n")
+
+    # Update match database
+    update_match_database(training_record)
 
     # Update session usage stats
     if user_id in user_sessions:
