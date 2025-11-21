@@ -27,6 +27,125 @@ _schema_path = Path(__file__).parent.parent / "research_and_rank" / "entity_prof
 with open(_schema_path, 'r') as f:
     ENTITY_SCHEMA = json.load(f)
 
+# Match database - persistent index of identifiers
+MATCH_DB_PATH = Path(__file__).parent.parent / "logs" / "match_database.json"
+match_database: Dict[str, Any] = {}
+
+
+def load_match_database():
+    """Load match database from JSON file on startup"""
+    global match_database
+    if MATCH_DB_PATH.exists():
+        try:
+            with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
+                match_database = json.load(f)
+            logger.info(f"[MATCH_DB] Loaded {len(match_database)} identifiers")
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"[MATCH_DB] Failed to load: {e}, starting fresh")
+            match_database = {}
+    else:
+        logger.info("[MATCH_DB] No database file, starting fresh")
+        match_database = {}
+
+
+def save_match_database():
+    """Persist match database to JSON file"""
+    MATCH_DB_PATH.parent.mkdir(exist_ok=True)
+    with open(MATCH_DB_PATH, 'w', encoding='utf-8') as f:
+        json.dump(match_database, f, indent=2, ensure_ascii=False)
+
+
+def update_match_database(record: Dict[str, Any]):
+    """Live mode: Update database from single log record"""
+    target = record.get("target")
+    source = record.get("source")
+    if not target or not source or target == "No matches found":
+        return
+
+    # Create or update identifier entry
+    if target not in match_database:
+        match_database[target] = {
+            "entity_profile": record.get("entity_profile"),
+            "aliases": {},
+            "web_sources": record.get("web_sources", []),
+            "last_updated": record.get("timestamp")
+        }
+
+    entry = match_database[target]
+
+    # Update alias (newer timestamp wins)
+    existing = entry["aliases"].get(source)
+    if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
+        entry["aliases"][source] = {
+            "timestamp": record.get("timestamp"),
+            "method": record.get("method"),
+            "confidence": record.get("confidence")
+        }
+
+    # Update entity_profile if this is newer and has profile
+    if record.get("entity_profile") and record.get("timestamp", "") > entry.get("last_updated", ""):
+        entry["entity_profile"] = record.get("entity_profile")
+        entry["web_sources"] = record.get("web_sources", [])
+        entry["last_updated"] = record.get("timestamp")
+
+    save_match_database()
+
+
+def rebuild_match_database():
+    """Rebuild mode: Regenerate database from activity.jsonl"""
+    global match_database
+    match_database = {}
+
+    logs_path = Path(__file__).parent.parent / "logs" / "activity.jsonl"
+    if not logs_path.exists():
+        logger.warning("[MATCH_DB] No activity.jsonl to rebuild from")
+        save_match_database()
+        return 0
+
+    count = 0
+    with open(logs_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            try:
+                record = json.loads(line)
+                update_match_database.__wrapped__(record) if hasattr(update_match_database, '__wrapped__') else _update_db_entry(record)
+                count += 1
+            except json.JSONDecodeError:
+                continue
+
+    save_match_database()
+    logger.info(f"[MATCH_DB] Rebuilt with {len(match_database)} identifiers from {count} records")
+    return len(match_database)
+
+
+def _update_db_entry(record: Dict[str, Any]):
+    """Internal: Update database entry without saving (for batch rebuild)"""
+    target = record.get("target")
+    source = record.get("source")
+    if not target or not source or target == "No matches found":
+        return
+
+    if target not in match_database:
+        match_database[target] = {
+            "entity_profile": record.get("entity_profile"),
+            "aliases": {},
+            "web_sources": record.get("web_sources", []),
+            "last_updated": record.get("timestamp")
+        }
+
+    entry = match_database[target]
+    existing = entry["aliases"].get(source)
+    if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
+        entry["aliases"][source] = {
+            "timestamp": record.get("timestamp"),
+            "method": record.get("method"),
+            "confidence": record.get("confidence")
+        }
+
+    if record.get("entity_profile") and record.get("timestamp", "") > entry.get("last_updated", ""):
+        entry["entity_profile"] = record.get("entity_profile")
+        entry["web_sources"] = record.get("web_sources", [])
+        entry["last_updated"] = record.get("timestamp")
+
 
 def _prioritize_errors(record):
     """Check for errors in training record and move to first position if detected"""
@@ -244,6 +363,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logs_dir.mkdir(exist_ok=True)
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(training_record) + "\n")
+
+    # Update match database (live mode)
+    update_match_database(training_record)
 
     logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
 

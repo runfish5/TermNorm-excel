@@ -118,38 +118,37 @@ async def set_web_search(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]
     )
 
 
-@router.get("/match-details/{timestamp}")
-async def get_match_details(timestamp: str) -> Dict[str, Any]:
-    """Fetch detailed match info from activity.jsonl by timestamp"""
-    logs_dir = Path("logs")
-    activity_log = logs_dir / "activity.jsonl"
+@router.get("/match-details/{identifier}")
+async def get_match_details(identifier: str) -> Dict[str, Any]:
+    """Fetch match details from match_database by identifier (target)"""
+    from api.research_pipeline import match_database
 
-    if not activity_log.exists():
-        return {"status": "error", "message": "Activity log not found"}
+    if not match_database:
+        return {"status": "error", "message": "Match database not loaded"}
 
-    # Read log file and find matching timestamp
-    with open(activity_log, "r", encoding="utf-8") as f:
-        for line in f:
-            try:
-                record = json.loads(line)
-                if record.get("timestamp") == timestamp and record.get("method") == "ProfileRank":
-                    # Return full record with entity profile, candidates, web sources
-                    return success_response(
-                        message="Match details retrieved",
-                        data={
-                            "source": record.get("source"),
-                            "target": record.get("target"),
-                            "confidence": record.get("confidence"),
-                            "entity_profile": record.get("entity_profile"),
-                            "candidates": record.get("candidates"),
-                            "web_sources": record.get("web_sources"),
-                            "token_matches": record.get("token_matches"),
-                            "total_time": record.get("total_time"),
-                            "llm_provider": record.get("llm_provider"),
-                            "web_search_status": record.get("web_search_status")
-                        }
-                    )
-            except json.JSONDecodeError:
-                continue
+    entry = match_database.get(identifier)
+    if not entry:
+        return {"status": "error", "message": f"No entry found for identifier: {identifier}"}
 
-    return {"status": "error", "message": "No matching record found"}
+    return success_response(
+        message="Match details retrieved",
+        data={
+            "identifier": identifier,
+            "entity_profile": entry.get("entity_profile"),
+            "aliases": entry.get("aliases", {}),
+            "web_sources": entry.get("web_sources", []),
+            "last_updated": entry.get("last_updated")
+        }
+    )
+
+
+@router.post("/rebuild-match-database")
+async def rebuild_database() -> Dict[str, Any]:
+    """Rebuild match database from activity.jsonl (admin use)"""
+    from api.research_pipeline import rebuild_match_database
+
+    count = rebuild_match_database()
+    return success_response(
+        message=f"Database rebuilt with {count} identifiers",
+        data={"identifier_count": count}
+    )

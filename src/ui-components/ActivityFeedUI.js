@@ -167,36 +167,39 @@ export function getCount() {
 
 /**
  * Handle cell selection from Excel - switch to history tab, scroll to activity, show details
- * @param {string} cellKey - Cell key (row:col format)
- * @param {Object} state - Cell state from cellState Map
+ * @param {string|null} cellKey - Cell key (row:col format) for current session
+ * @param {Object|null} state - Cell state from cellState Map
+ * @param {string|null} identifier - Identifier (target) for historical lookup
  */
-export async function handleCellSelection(cellKey, state) {
+export async function handleCellSelection(cellKey, state, identifier) {
   // Switch to history tab
   const { showView } = await import("./view-manager.js");
   showView("history");
 
-  // Scroll to and highlight the activity
-  const found = scrollToAndHighlight(cellKey);
-
-  if (!found) {
-    console.warn(`No activity found for cellKey: ${cellKey}`);
-    return;
+  // Try to scroll to activity if we have cellKey
+  if (cellKey) {
+    scrollToAndHighlight(cellKey);
   }
 
-  // If method is ProfileRank and we have timestamp, fetch and show details
-  const result = state.result;
-  if (result.method === "ProfileRank" && result.timestamp) {
-    await fetchAndDisplayDetails(result.timestamp);
+  // Determine identifier to fetch details
+  let lookupIdentifier = identifier;
+  if (!lookupIdentifier && state?.result?.target) {
+    lookupIdentifier = state.result.target;
+  }
+
+  // Fetch and show details from match database
+  if (lookupIdentifier) {
+    await fetchAndDisplayDetails(lookupIdentifier);
   }
 }
 
-// Fetch match details from backend
-async function fetchAndDisplayDetails(timestamp) {
+// Fetch match details from backend by identifier
+async function fetchAndDisplayDetails(identifier) {
   const { apiGet } = await import("../utils/api-fetch.js");
   const { getHost } = await import("../utils/server-utilities.js");
 
   try {
-    const response = await apiGet(`${getHost()}/match-details/${encodeURIComponent(timestamp)}`);
+    const response = await apiGet(`${getHost()}/match-details/${encodeURIComponent(identifier)}`);
 
     if (!response || response.status === "error") {
       console.warn("Failed to fetch match details:", response?.message);
@@ -221,9 +224,14 @@ function displayDetailsPanel(details) {
   panel.id = "match-details-panel";
   panel.className = "match-details-panel";
 
+  // Format aliases list
+  const aliases = details.aliases || {};
+  const aliasEntries = Object.entries(aliases);
+  const aliasCount = aliasEntries.length;
+
   panel.innerHTML = `
     <div class="details-header">
-      <h4>Match Details: ${details.source || "Unknown"} → ${details.target || "Unknown"}</h4>
+      <h4>Identifier: ${details.identifier || "Unknown"}</h4>
       <button class="close-btn">×</button>
     </div>
     <div class="details-content">
@@ -234,6 +242,18 @@ function displayDetailsPanel(details) {
         </div>
       </div>
       <div class="detail-section">
+        <h5>Matched Aliases (${aliasCount})</h5>
+        <div class="candidate-list">
+          ${aliasEntries.map(([alias, info]) => `
+            <div class="candidate-item">
+              <span class="name">${alias}</span>
+              <span class="method-badge ${info.method}">${info.method}</span>
+              <span class="score">${Math.round((info.confidence || 0) * 100)}%</span>
+            </div>
+          `).join('') || '<div>No aliases</div>'}
+        </div>
+      </div>
+      <div class="detail-section">
         <h5>Web Sources (${details.web_sources?.length || 0})</h5>
         <ul class="source-list">
           ${details.web_sources?.map(s => `
@@ -241,22 +261,8 @@ function displayDetailsPanel(details) {
           `).join('') || '<li>No sources</li>'}
         </ul>
       </div>
-      <div class="detail-section">
-        <h5>All Candidates (${details.candidates?.length || 0})</h5>
-        <div class="candidate-list">
-          ${details.candidates?.map((c, i) => `
-            <div class="candidate-item">
-              <span class="rank">#${i + 1}</span>
-              <span class="name">${c.name || c.candidate}</span>
-              <span class="score">${Math.round((c.score || c.relevance_score || 0) * 100)}%</span>
-            </div>
-          `).join('') || '<div>No candidates</div>'}
-        </div>
-      </div>
       <div class="detail-meta">
-        <span>LLM: ${details.llm_provider || "Unknown"}</span>
-        <span>Time: ${details.total_time ? details.total_time + "s" : "N/A"}</span>
-        <span>Web: ${details.web_search_status || "N/A"}</span>
+        <span>Last updated: ${details.last_updated ? new Date(details.last_updated).toLocaleString() : "N/A"}</span>
       </div>
     </div>
   `;
