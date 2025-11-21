@@ -52,6 +52,10 @@ const appState = {
     status: "idle",  // "idle" | "success" | "failed"
     error: null,     // Error message from last failed search
   },
+  history: {
+    cacheInitialized: false,  // True after fetching processed entries from backend
+    entries: {},              // match_database cached here (identifier → {entity_profile, aliases, ...})
+  },
 };
 
 let stateChangeCallbacks = [];

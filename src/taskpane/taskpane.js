@@ -2,7 +2,8 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
 import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
-import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
+import { setupServerEvents, checkServerStatus, onServerReconnected } from "../utils/server-utilities.js";
+import { initializeHistoryCache } from "../utils/history-cache.js";
 import { state, onStateChange, initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
@@ -35,6 +36,10 @@ Office.onReady(async (info) => {
   setupServerEvents();
   setupLED();
   setupMatcherIndicator();
+
+  // Register handler for server reconnection - initializes history cache when server comes online
+  onServerReconnected(initializeHistoryCache);
+
   checkServerStatus();
   updateLED();
   updateMatcherIndicator();

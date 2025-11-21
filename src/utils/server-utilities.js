@@ -9,6 +9,15 @@ export function getHeaders() {
 }
 
 let serverCheckPromise = null;
+let onServerReconnectedHandler = null;
+
+/**
+ * Register a handler to be called when server transitions from offline → online
+ * @param {Function} handler - Async function to call on reconnection
+ */
+export function onServerReconnected(handler) {
+  onServerReconnectedHandler = handler;
+}
 
 export async function checkServerStatus() {
   if (serverCheckPromise) {
@@ -17,6 +26,7 @@ export async function checkServerStatus() {
 
   serverCheckPromise = (async () => {
     const host = getHost();
+    const wasOffline = !state.server.online;
 
     if (!host) {
       state.server.online = false;
@@ -36,6 +46,11 @@ export async function checkServerStatus() {
         state.server.online = true;
         state.server.host = host;
         state.server.info = data.data || {};
+
+        // Trigger reconnection handler if transitioning from offline → online
+        if (wasOffline && onServerReconnectedHandler) {
+          onServerReconnectedHandler();
+        }
       } else {
         state.server.online = false;
         state.server.host = host;
