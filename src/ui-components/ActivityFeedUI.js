@@ -1,10 +1,13 @@
-import { getCellState } from "../services/live.tracker.js";
+import { buildActivityRow } from "./activity-row-builder.js";
+import {
+  addActivity as addToStore,
+  clearActivities as clearStore,
+  getCount as getStoreCount,
+  getMaxEntries
+} from "../services/activity-store.js";
 
 let container = null;
 let tableBody = null;
-const maxEntries = 50;
-// Activity data model - references to cellState (no duplication)
-export const activities = [];
 
 // Track expanded row state for collapse/restore
 let expandedRowState = null; // { originalRow, expandedRow }
@@ -47,7 +50,7 @@ export function init(containerId = "activity-feed") {
   return true;
 }
 
-export function add(source, cellKey, timestamp) {
+export async function add(source, cellKey, timestamp, result) {
   if (!tableBody) {
     const initSuccess = init();
     if (!initSuccess || !tableBody) {
@@ -61,48 +64,40 @@ export function add(source, cellKey, timestamp) {
     const placeholder = tableBody?.querySelector(".placeholder-row");
     if (placeholder) placeholder.remove();
 
-    // Store reference to cellState (not duplicate data)
-    activities.unshift({ source, cellKey, timestamp });
+    // Store activity in managed store
+    addToStore({ source, cellKey, timestamp });
 
-    // Fetch result from cellState for display
-    const state = getCellState(cellKey);
-    const result = state?.result || {
+    // Use passed result directly (normalized result from match methods)
+    const displayResult = result || {
       target: "Unknown",
       method: "-",
       confidence: 0,
-      timestamp: timestamp
+      timestamp: timestamp,
+      web_search_status: "idle"
     };
 
-    const { target, method, confidence, web_search_status } = result;
+    // Add session entry to history database (unifies session and cached data)
+    const { addSessionEntry } = await import("../services/history-store.js");
+    addSessionEntry(source, displayResult);
 
-    // Build method display text with web search status indicator
-    let methodText = method ? method.toUpperCase() : "-";
-    if (web_search_status === "failed" && method === "ProfileRank") {
-      methodText = `⚠️ ${methodText} (web scrape ∅)`;
-    }
-
-    const displayTime = timestamp
-      ? new Date(timestamp).toLocaleTimeString()
-      : new Date().toLocaleTimeString();
-
-    // Create and insert row at beginning
-    const row = document.createElement("tr");
-    row.className = `activity-row ${method}`;
-    row.dataset.cellKey = cellKey;
-    row.dataset.identifier = target || "";
-    row.innerHTML = `
-      <td class="time">${displayTime}</td>
-      <td class="source">${source || "-"}</td>
-      <td class="target">${target || "-"}</td>
-      <td class="method">${methodText}</td>
-      <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
-    `;
+    // Create row using shared builder
+    const row = buildActivityRow(
+      { source, sessionKey: cellKey, timestamp },
+      displayResult
+    );
     tableBody.insertBefore(row, tableBody.firstChild);
 
-    // Remove excess rows if over maxEntries
+    // Make row clickable (same as cached entries)
+    row.style.cursor = "pointer";
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fetchAndDisplayDetails(displayResult.target, row);
+    });
+
+    // Remove excess rows if over maxEntries (store already maintains limit)
+    const maxEntries = getMaxEntries();
     while (tableBody.children.length > maxEntries) {
       tableBody.removeChild(tableBody.lastChild);
-      activities.pop();
     }
 
     updateHistoryTabCounter();
@@ -113,7 +108,7 @@ export function add(source, cellKey, timestamp) {
 
 export function clear() {
   if (!tableBody) return;
-  activities.length = 0; // Clear data array
+  clearStore(); // Clear managed store
   tableBody.innerHTML = "";
   showPlaceholder();
   updateHistoryTabCounter();
@@ -121,22 +116,22 @@ export function clear() {
 
 /**
  * Scroll to and highlight activity matching the given key
- * @param {string} key - Cell key or identifier to find
- * @param {string} [type="cellKey"] - Type of key: "cellKey" or "identifier"
+ * @param {string} key - Session key or identifier to find
+ * @param {string} [type="sessionKey"] - Type of key: "sessionKey" or "identifier"
  * @returns {HTMLElement|null} The target row element, or null if not found
  */
-export function scrollToAndHighlight(key, type = "cellKey") {
+export function scrollToAndHighlight(key, type = "sessionKey") {
   if (!tableBody || !key) return null;
 
   // Find row by data attribute (works for both session and cached entries)
   const selector = type === "identifier"
     ? `[data-identifier="${CSS.escape(key)}"]`
-    : `[data-cell-key="${CSS.escape(key)}"]`;
+    : `[data-session-key="${CSS.escape(key)}"]`;
 
   let targetRow = tableBody.querySelector(selector);
 
   // Fallback: try the other type if not found
-  if (!targetRow && type === "cellKey") {
+  if (!targetRow && type === "sessionKey") {
     targetRow = tableBody.querySelector(`[data-identifier="${CSS.escape(key)}"]`);
   }
 
@@ -195,7 +190,7 @@ export function updateHistoryTabCounter() {
 }
 
 export function getCount() {
-  return activities.length;
+  return getStoreCount();
 }
 
 /**
@@ -215,10 +210,10 @@ export async function handleCellSelection(cellKey, state, identifier) {
     lookupIdentifier = state.result.target;
   }
 
-  // Try to scroll to activity - first by cellKey, then by identifier
+  // Try to scroll to activity - first by sessionKey, then by identifier
   let targetRow = null;
   if (cellKey) {
-    targetRow = scrollToAndHighlight(cellKey, "cellKey");
+    targetRow = scrollToAndHighlight(cellKey, "sessionKey");
   }
   if (!targetRow && lookupIdentifier) {
     targetRow = scrollToAndHighlight(lookupIdentifier, "identifier");
@@ -230,34 +225,19 @@ export async function handleCellSelection(cellKey, state, identifier) {
   }
 }
 
-// Fetch match details - cache first, then server fallback
+// Fetch match details - uses history service abstraction
 async function fetchAndDisplayDetails(identifier, targetRow) {
-  // Check cache first
-  const { state } = await import("../shared-services/state-machine.manager.js");
-  const cachedEntry = state.history.entries[identifier];
+  const { getHistoryEntry } = await import("../services/history-store.js");
 
-  if (cachedEntry) {
-    console.log("[ActivityFeed] Using cached entry for:", identifier.substring(0, 40));
-    displayDetailsPanel({ identifier, ...cachedEntry }, targetRow);
+  const entry = await getHistoryEntry(identifier);
+
+  if (!entry) {
+    console.warn("No history entry found for:", identifier);
     return;
   }
 
-  // Fall back to server request if not in cache
-  const { apiGet } = await import("../utils/api-fetch.js");
-  const { getHost } = await import("../utils/server-utilities.js");
-
-  try {
-    const response = await apiGet(`${getHost()}/match-details/${encodeURIComponent(identifier)}`);
-
-    if (!response || response.status === "error") {
-      console.warn("Failed to fetch match details:", response?.message);
-      return;
-    }
-
-    displayDetailsPanel(response.data, targetRow);
-  } catch (error) {
-    console.error("Error fetching match details:", error);
-  }
+  console.log("[ActivityFeed] Showing details for:", identifier.substring(0, 40));
+  displayDetailsPanel({ identifier, ...entry }, targetRow);
 }
 
 // Display details in-place by replacing the target row
@@ -409,26 +389,20 @@ export function populateFromCache(entries) {
   });
 
   // Limit to maxEntries
-  const toDisplay = cachedActivities.slice(0, maxEntries);
+  const toDisplay = cachedActivities.slice(0, getMaxEntries());
 
   // Add rows to table
   for (const activity of toDisplay) {
     const { source, target, method, confidence, timestamp } = activity;
 
-    const displayTime = timestamp
-      ? new Date(timestamp).toLocaleTimeString()
-      : "-";
+    // Create row using shared builder
+    const row = buildActivityRow(
+      { source, sessionKey: null, timestamp },  // No session key for cached entries
+      { target, method, confidence, web_search_status: "idle" }
+    );
 
-    const row = document.createElement("tr");
-    row.className = `activity-row ${method} cached-entry`;
-    row.dataset.identifier = target || "";
-    row.innerHTML = `
-      <td class="time">${displayTime}</td>
-      <td class="source">${source || "-"}</td>
-      <td class="target">${target?.substring(0, 40) || "-"}${target?.length > 40 ? "..." : ""}</td>
-      <td class="method">${method?.toUpperCase() || "-"}</td>
-      <td class="confidence">${confidence ? Math.round(confidence * 100) + "%" : "-"}</td>
-    `;
+    // Add cached-entry class
+    row.classList.add("cached-entry");
 
     // Make row clickable to show details in-place
     row.style.cursor = "pointer";

@@ -153,6 +153,32 @@ function processResearchResponse(data) {
 }
 
 /**
+ * Normalize result object to guaranteed schema
+ * Ensures consistent structure regardless of match method (cached/fuzzy/LLM)
+ *
+ * @param {Object} result - Raw result object from any match method
+ * @returns {Object} Normalized result with all fields explicitly defined
+ */
+function normalizeResultShape(result) {
+  return {
+    // Core fields (all methods)
+    target: result.target || "Unknown",
+    method: result.method || "unknown",
+    confidence: result.confidence ?? 0,
+    timestamp: result.timestamp || new Date().toISOString(),
+    source: result.source || "",
+
+    // LLM fields (default to null if missing)
+    candidates: result.candidates || null,
+    entity_profile: result.entity_profile || null,
+    web_sources: result.web_sources || null,
+    total_time: result.total_time || null,
+    llm_provider: result.llm_provider || null,
+    web_search_status: result.web_search_status || "idle"
+  };
+}
+
+/**
  * Create default result when no match found
  *
  * @param {string} value - Source value
@@ -180,23 +206,24 @@ function createDefaultResult(value, reason = "No matches found") {
  */
 export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
-  if (!normalized) return createDefaultResult(value, "Empty value");
+  if (!normalized) return normalizeResultShape(createDefaultResult(value, "Empty value"));
 
   // Verify mappings loaded (server status checked in findTokenMatch if needed)
   if (!state.mappings.loaded) {
     showMessage("Mapping tables not loaded - load configuration first", "error");
-    return createDefaultResult(normalized, "Mappings not loaded");
+    return normalizeResultShape(createDefaultResult(normalized, "Mappings not loaded"));
   }
 
   // Try cached first
   const cached = getCachedMatch(normalized, forward, reverse);
-  if (cached) return cached;
+  if (cached) return normalizeResultShape(cached);
 
   // Try fuzzy matching before expensive API call
   const fuzzy = findFuzzyMatch(normalized, forward, reverse);
-  if (fuzzy) return fuzzy;
+  if (fuzzy) return normalizeResultShape(fuzzy);
 
   // Fallback to research API for advanced matching
   const tokenMatch = await findTokenMatch(normalized);
-  return tokenMatch || createDefaultResult(normalized, "No matches found");
+  const result = tokenMatch || createDefaultResult(normalized, "No matches found");
+  return normalizeResultShape(result);
 }
