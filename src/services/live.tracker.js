@@ -241,7 +241,7 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
     });
 
     // Add activity with output cell key (so selection works)
-    addActivity(value, outputCellKey, result.timestamp);
+    addActivity(value, outputCellKey, result.timestamp, result);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
@@ -269,22 +269,32 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey)
     ctx.runtime.enableEvents = true;
   });
 
+  // Build error result
+  const errorResult = {
+    target: errorMsg,
+    method: "error",
+    confidence: 0,
+    timestamp,
+    source: value,
+    candidates: null,
+    entity_profile: null,
+    web_sources: null,
+    total_time: null,
+    llm_provider: null,
+    web_search_status: "idle"
+  };
+
   // Store error in cellState
   cellState.set(outputCellKey, {
     value,
-    result: {
-      target: errorMsg,
-      method: "error",
-      confidence: 0,
-      timestamp
-    },
+    result: errorResult,
     status: 'error',
     row,
     col: targetCol,
     timestamp
   });
 
-  addActivity(value, outputCellKey, timestamp);
+  addActivity(value, outputCellKey, timestamp, errorResult);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey) {
@@ -305,22 +315,32 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     ctx.runtime.enableEvents = true;
   });
 
+  // Build user choice result
+  const choiceResult = {
+    target: choice.candidate,
+    method: "UserChoice",
+    confidence: choice.relevance_score,
+    timestamp,
+    source: value,
+    candidates: null,
+    entity_profile: choice.entity_profile || null,
+    web_sources: choice.web_sources || null,
+    total_time: null,
+    llm_provider: null,
+    web_search_status: "idle"
+  };
+
   // Store user choice in cellState
   cellState.set(outputCellKey, {
     value,
-    result: {
-      target: choice.candidate,
-      method: "UserChoice",
-      confidence: choice.relevance_score,
-      timestamp
-    },
+    result: choiceResult,
     status: 'complete',
     row,
     col: targetCol,
     timestamp
   });
 
-  addActivity(value, outputCellKey, timestamp);
+  addActivity(value, outputCellKey, timestamp, choiceResult);
 
   // Log user choice to backend
   try {
