@@ -34,3 +34,44 @@ export function buildColumnMap(headers, columnMap, worksheetName = null) {
 
   return result;
 }
+
+/**
+ * Build confidence column mapping (input column → confidence column)
+ * @param {string[]} headers - Excel column headers
+ * @param {Object} confidenceColumnMap - Mapping from input column name to confidence column name
+ * @param {string} worksheetName - Optional worksheet name for error messages
+ * @returns {Map<number, number>} Map from input column index to confidence column index
+ */
+export function buildConfidenceColumnMap(headers, confidenceColumnMap, worksheetName = null) {
+  if (!confidenceColumnMap) return new Map();
+
+  const result = new Map();
+  const missingSources = [];
+  const missingConfidenceColumns = [];
+
+  Object.entries(confidenceColumnMap).forEach(([src, confCol]) => {
+    const srcIdx = findColumnIndex(headers, src);
+    const confIdx = findColumnIndex(headers, confCol);
+
+    if (srcIdx === -1) {
+      missingSources.push(src);
+    } else if (confIdx === -1) {
+      missingConfidenceColumns.push(confCol);
+    } else {
+      result.set(srcIdx, confIdx);
+    }
+  });
+
+  // Only throw error if there are missing columns (optional feature, so we're lenient)
+  if (missingSources.length > 0 || missingConfidenceColumns.length > 0) {
+    const worksheetInfo = worksheetName ? ` (worksheet: ${worksheetName})` : "";
+    console.warn(
+      `⚠️ Some confidence columns not found in worksheet${worksheetInfo}:\n` +
+      (missingSources.length > 0 ? `  Missing source columns: ${missingSources.join(", ")}\n` : "") +
+      (missingConfidenceColumns.length > 0 ? `  Missing confidence columns: ${missingConfidenceColumns.join(", ")}\n` : "") +
+      `Confidence values will not be written for these columns.`
+    );
+  }
+
+  return result;
+}

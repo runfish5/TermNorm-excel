@@ -153,6 +153,27 @@ Single JSON file (`config/app.config.json`) with column mappings and reference f
 - **M365**: Drag-drop into task pane
 - **Desktop**: Save to `config/app.config.json` + click Load Config
 
+**Configuration Options:**
+- `column_map`: Maps input columns to output columns (required)
+- `confidence_column_map`: Maps input columns to confidence output columns (optional)
+  - Confidence values are written as integers (0-100)
+  - Enables sorting by match quality
+  - Example: `"ana": "ana_confidence"` writes confidence scores to the `ana_confidence` column
+- `default_std_suffix`: Suffix for auto-generated output columns
+- `standard_mappings`: Reference file configurations
+
+**Example Config:**
+```json
+{
+  "column_map": {
+    "InputColumn": "OutputColumn"
+  },
+  "confidence_column_map": {
+    "InputColumn": "ConfidenceColumn"
+  }
+}
+```
+
 Config parsed in `mapping.processor.js`, reference files read via Office.js, mappings cached in frontend memory (no backend sync).
 
 ## Development
