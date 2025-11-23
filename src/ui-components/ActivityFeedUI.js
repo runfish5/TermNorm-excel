@@ -325,7 +325,7 @@ function displayDetailsPanel(details, targetRow) {
   expandedRowState = { originalRow, expandedRow };
 
   // Add collapse handler
-  expandedRow.querySelector(".collapse-btn").onclick = (e) => {
+  expandedRow.querySelector(".btn-collapse").onclick = (e) => {
     e.stopPropagation();
     collapseExpandedRow();
   };
