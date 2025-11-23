@@ -1,7 +1,7 @@
 import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
 import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
-import { buildColumnMap } from "../utils/column-utilities.js";
+import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
 import { getRelevanceColor, PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 const activeTrackers = new Map();
@@ -38,7 +38,7 @@ export async function startTracking(config, mappings) {
   try {
     // Clear cell state for THIS workbook only
     getCellStateMap(workbookId).clear();
-    const columnMap = await Excel.run(async (ctx) => {
+    const { columnMap, confidenceColumnMap } = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       ws.load("name");
       const usedRange = ws.getUsedRange(true);
@@ -54,7 +54,10 @@ export async function startTracking(config, mappings) {
       await ctx.sync();
 
       const headerNames = headers.values[0].map((h) => String(h || "").trim());
-      return buildColumnMap(headerNames, config.column_map, worksheetName);
+      return {
+        columnMap: buildColumnMap(headerNames, config.column_map, worksheetName),
+        confidenceColumnMap: buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName)
+      };
     });
 
     // Create tracker instance for this workbook
@@ -63,6 +66,7 @@ export async function startTracking(config, mappings) {
       handler: null,
       selectionHandler: null,
       columnMap,
+      confidenceColumnMap,
       mappings,
       config,
       workbookId,
@@ -226,7 +230,7 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
 
     if (result.candidates) {
       addCandidate(value, result, {
-        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker.workbookId),
+        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker),
       });
     }
 
@@ -240,6 +244,15 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       tgtCell.values = [[result.target]];
       tgtCell.format.fill.color = getRelevanceColor(result.confidence);
       srcCell.format.fill.clear();
+
+      // Write confidence value if confidence column is configured
+      const confidenceCol = tracker.confidenceColumnMap.get(col);
+      if (confidenceCol !== undefined) {
+        const confCell = ws.getRangeByIndexes(row, confidenceCol, 1, 1);
+        // Convert confidence from 0.0-1.0 to 0-100 integer
+        const confidencePercent = Math.round(result.confidence * 100);
+        confCell.values = [[confidencePercent]];
+      }
 
       await ctx.sync();
       ctx.runtime.enableEvents = true;
@@ -261,12 +274,12 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
-    await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker.workbookId);
+    await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
     // Note: handleCellError stores error in cellState
   }
 }
 
-async function handleCellError(row, col, targetCol, value, error, outputCellKey, workbookId) {
+async function handleCellError(row, col, targetCol, value, error, outputCellKey, tracker) {
   const errorMsg = error instanceof Error ? error.message : String(error);
   const timestamp = new Date().toISOString();
 
@@ -280,6 +293,13 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     srcCell.format.fill.color = PROCESSING_COLORS.ERROR;
     tgtCell.values = [[errorMsg]];
     tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
+
+    // Write 0 confidence for errors if confidence column is configured
+    const confidenceCol = tracker.confidenceColumnMap.get(col);
+    if (confidenceCol !== undefined) {
+      const confCell = ws.getRangeByIndexes(row, confidenceCol, 1, 1);
+      confCell.values = [[0]];
+    }
 
     await ctx.sync();
     ctx.runtime.enableEvents = true;
@@ -301,7 +321,7 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
   };
 
   // Store error in cellState
-  const cellStateMap = getCellStateMap(workbookId);
+  const cellStateMap = getCellStateMap(tracker.workbookId);
   cellStateMap.set(outputCellKey, {
     value,
     result: errorResult,
@@ -314,7 +334,7 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
   addActivity(value, outputCellKey, timestamp, errorResult);
 }
 
-async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, workbookId) {
+async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const timestamp = new Date().toISOString();
 
   await Excel.run(async (ctx) => {
@@ -326,6 +346,14 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     tgtCell.values = [[choice.candidate]];
     tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
     srcCell.format.fill.clear();
+
+    // Write confidence value if confidence column is configured
+    const confidenceCol = tracker.confidenceColumnMap.get(col);
+    if (confidenceCol !== undefined) {
+      const confCell = ws.getRangeByIndexes(row, confidenceCol, 1, 1);
+      const confidencePercent = Math.round(choice.relevance_score * 100);
+      confCell.values = [[confidencePercent]];
+    }
 
     await ctx.sync();
     ctx.runtime.enableEvents = true;
@@ -345,7 +373,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     web_search_status: "idle"
   };
 
-  const cellStateMap = getCellStateMap(workbookId);
+  const cellStateMap = getCellStateMap(tracker.workbookId);
   cellStateMap.set(outputCellKey, {
     value,
     result: choiceResult,
