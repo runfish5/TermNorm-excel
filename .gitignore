@@ -20,6 +20,7 @@ Thumbs.db
 # Logs
 *.log
 backend-api/logs/activity.jsonl
+backend-api/logs/match_database.json
 
 # Build config files (keeping these tracked now)
 # *.config.js
