@@ -5,7 +5,7 @@ export function updateLED() {
   const textElement = document.getElementById("server-status-text");
   if (!led) return;
 
-  led.className = state.server.online ? "status-led green" : "status-led red";
+  led.className = state.server.online ? "led led-success" : "led led-error";
   led.title = "Click to refresh";
 
   if (textElement) {

@@ -18,10 +18,10 @@ export function init() {
   // Add batch processing section
   const batchSection = document.createElement("div");
   batchSection.id = "batch-processing-section";
-  batchSection.className = "batch-section";
+  batchSection.className = "card card-lg card-muted";
   batchSection.innerHTML = `
-    <details class="batch-collapsible">
-      <summary class="batch-header">Batch Processing</summary>
+    <details class="card batch-collapsible">
+      <summary class="panel-header panel-header-collapsible batch-header">Batch Processing</summary>
       <div class="batch-content">
         <p class="batch-description">
           Select a range of cells in Excel, provide optional context, and process them all at once.
@@ -41,7 +41,7 @@ export function init() {
           <label for="batch-context">Context Message (optional):</label>
           <textarea
             id="batch-context"
-            class="batch-context-input"
+            class="input input-md input-full input-textarea"
             placeholder="Provide additional context for the LLM to consider when matching..."
             rows="3"
           ></textarea>

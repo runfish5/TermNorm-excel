@@ -25,7 +25,7 @@ export function init(containerId = "activity-feed") {
   }
 
   container.innerHTML = `
-            <table class="activity-table">
+            <table class="table table-rounded table-elevated">
                 <thead>
                     <tr>
                         <th>Time</th>
@@ -273,22 +273,22 @@ function displayDetailsPanel(details, targetRow) {
           <div class="details-title">
             <strong>Target:</strong> ${details.identifier || "Unknown"}
           </div>
-          <button class="collapse-btn" title="Collapse">▲</button>
+          <button class="btn-collapse" title="Collapse">▲</button>
         </div>
         <div class="details-content">
           <div class="detail-section">
             <h5>Entity Profile</h5>
-            <div class="entity-profile">
+            <div class="card-sm card-muted">
               ${formatEntityProfile(details.entity_profile)}
             </div>
           </div>
           <div class="detail-section">
             <h5>Matched Aliases (${aliasCount})</h5>
-            <div class="candidate-list">
+            <div class="card-sm card-muted">
               ${aliasEntries.map(([alias, info]) => `
-                <div class="candidate-item">
+                <div class="list-item-bordered">
                   <span class="name">${alias}</span>
-                  <span class="method-badge ${info.method}">${info.method}</span>
+                  <span class="badge badge-sm badge-uppercase ${info.method}">${info.method}</span>
                   <span class="score">${Math.round((info.confidence || 0) * 100)}%</span>
                 </div>
               `).join('') || '<div>No aliases</div>'}
@@ -296,7 +296,7 @@ function displayDetailsPanel(details, targetRow) {
           </div>
           <div class="detail-section">
             <h5>Web Sources (${details.web_sources?.length || 0})</h5>
-            <ul class="source-list">
+            <ul class="list-plain list-scrollable">
               ${details.web_sources?.map(s => `
                 <li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>
               `).join('') || '<li>No sources</li>'}

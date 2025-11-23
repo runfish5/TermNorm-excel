@@ -37,7 +37,7 @@ export function updateMatcherIndicator() {
     labelSpan.textContent = statusText;
   }
 
-  indicator.className = `matcher-indicator ${status}`;
+  indicator.className = `badge badge-bordered badge-interactive matcher-indicator ${status}`;
   indicator.title = title;
   indicator.setAttribute("data-status", status);
 }

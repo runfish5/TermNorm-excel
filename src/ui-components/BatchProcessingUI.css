@@ -1,27 +1,6 @@
 /* BatchProcessingUI.css - Batch processing UI styles */
-.batch-section {
-    margin-top: 24px;
-    padding: 16px;
-    background: var(--gray-100);
-    border-radius: var(--radius-2xl);
-}
 
-.batch-collapsible {
-    border: 1px solid var(--gray-300);
-    border-radius: var(--radius-xl);
-    background: white;
-}
-
-.batch-header {
-    padding: 12px 16px;
-    font-weight: 600;
-    cursor: pointer;
-    user-select: none;
-    list-style: none;
-    font-size: 14px;
-    color: var(--gray-600);
-}
-
+/* Details/Summary specific styling (extends design system panel-header) */
 .batch-header::-webkit-details-marker {
     display: none;
 }
@@ -85,23 +64,6 @@ details[open] .batch-header::before {
     font-weight: 600;
     font-size: 13px;
     color: var(--gray-600);
-}
-
-.batch-context-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid var(--gray-400);
-    border-radius: var(--radius-lg);
-    font-family: inherit;
-    font-size: 13px;
-    resize: vertical;
-    box-sizing: border-box;
-}
-
-.batch-context-input:focus {
-    outline: none;
-    border-color: var(--color-primary-alt);
-    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
 }
 
 .batch-actions {

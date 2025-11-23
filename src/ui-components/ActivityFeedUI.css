@@ -1,51 +1,24 @@
 /* ActivityFeedUI.css */
-.activity-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--font-system);
-    font-size: 13px;
-    background: white;
-    border-radius: var(--radius-xl);
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
 
-.activity-table th {
-    background: var(--gray-100);
-    padding: 12px 16px;
-    font-weight: 600;
-    color: var(--gray-600);
-    border-bottom: var(--border-heavy);
-}
-
-.activity-table td {
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--gray-200);
-    vertical-align: middle;
-}
-
-.activity-table tr:hover {
-    background: var(--gray-100);
-}
-
-.activity-table .time {
+/* Activity table column-specific styling */
+.table .time {
     font-family: var(--font-mono);
     color: var(--gray-500);
     font-size: 12px;
     width: 90px;
 }
 
-.activity-table .source {
+.table .source {
     font-weight: 500;
     color: var(--color-primary-alt);
 }
 
-.activity-table .target {
+.table .target {
     font-weight: 500;
     color: var(--color-success-alt);
 }
 
-.activity-table .method {
+.table .method {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
@@ -77,7 +50,7 @@
     --method-text: var(--color-error-text);
 }
 
-.activity-table .confidence {
+.table .confidence {
     font-weight: 600;
     text-align: center;
     width: 80px;
@@ -102,16 +75,7 @@
     border-left: 4px solid var(--color-warning);
 }
 
-/* Match Details Panel */
-.match-details-panel {
-    background: white;
-    border: 1px solid var(--gray-200);
-    border-radius: var(--radius-2xl);
-    margin-bottom: 16px;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
+/* Match Details - Inline Expanded Row */
 .details-header,
 .inline-details-panel .details-header {
     display: flex;
@@ -131,19 +95,6 @@
     font-size: 14px;
 }
 
-.close-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--gray-500);
-    padding: 0 8px;
-}
-
-.close-btn:hover {
-    color: var(--color-error-alt);
-}
-
 .detail-section {
     margin-bottom: 16px;
 }
@@ -154,62 +105,22 @@
     font-size: 13px;
 }
 
-.entity-profile, .candidate-list {
-    background: var(--gray-100);
-    padding: 8px;
-    border-radius: var(--radius-lg);
-    font-size: 12px;
-}
-
 .profile-field {
     margin-bottom: 4px;
 }
 
-.source-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 100px;
-    overflow-y: auto;
-}
-
-.source-list li {
-    padding: 4px 0;
-    font-size: 12px;
-}
-
-.source-list a {
-    color: var(--color-primary-alt);
-    text-decoration: none;
-}
-
-.source-list a:hover {
-    text-decoration: underline;
-}
-
-.candidate-item {
+/* Candidate item flex layout (extends .list-item-bordered from design system) */
+.card-sm .list-item-bordered {
     display: flex;
     gap: 8px;
-    padding: 4px 0;
-    border-bottom: 1px solid var(--gray-300);
 }
 
-.candidate-item:last-child {
-    border-bottom: none;
-}
-
-.candidate-item .rank {
-    color: var(--gray-500);
-    font-weight: bold;
-    min-width: 30px;
-}
-
-.candidate-item .name {
+.list-item-bordered .name {
     flex: 1;
     font-size: 12px;
 }
 
-.candidate-item .score {
+.list-item-bordered .score {
     color: var(--color-success-alt);
     font-weight: bold;
     font-size: 12px;
@@ -224,34 +135,24 @@
     color: var(--gray-500);
 }
 
-/* Method badges for alias list */
-.method-badge {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    background: var(--badge-bg);
-    color: var(--badge-text);
-}
-
-.method-badge.ProfileRank,
-.method-badge.BatchProfileRank {
+/* Method badge variants (extends .badge from design system) */
+.badge.ProfileRank,
+.badge.BatchProfileRank {
     --badge-bg: var(--color-ai-bg);
     --badge-text: var(--color-ai-text);
 }
 
-.method-badge.UserChoice {
+.badge.UserChoice {
     --badge-bg: var(--color-success-bg);
     --badge-text: var(--color-success-text);
 }
 
-.method-badge.fuzzy {
+.badge.fuzzy {
     --badge-bg: var(--color-warning-bg);
     --badge-text: var(--color-warning-text);
 }
 
-.method-badge.cached {
+.badge.cached {
     --badge-bg: var(--color-info-bg);
     --badge-text: var(--color-info-text);
 }
@@ -281,22 +182,6 @@
     font-size: 12px;
     color: var(--gray-600);
     word-break: break-word;
-}
-
-.collapse-btn {
-    background: var(--gray-200);
-    border: none;
-    font-size: 12px;
-    cursor: pointer;
-    color: var(--gray-500);
-    padding: 4px 10px;
-    border-radius: var(--radius-lg);
-    transition: all 0.2s;
-}
-
-.collapse-btn:hover {
-    background: var(--color-primary-alt);
-    color: white;
 }
 
 .inline-details-panel .details-content {

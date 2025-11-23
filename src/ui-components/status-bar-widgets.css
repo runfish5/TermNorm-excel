@@ -59,57 +59,10 @@
 }
 
 /* ===================================
-   Status LED
+   Matcher Indicator Color States
    =================================== */
 
-.status-led {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: var(--gray-850);
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.status-led.green {
-    background-color: var(--color-success);
-}
-
-.status-led.yellow {
-    background-color: var(--color-warning);
-}
-
-.status-led.red {
-    background-color: var(--color-error);
-}
-
-/* Legacy support */
-.status-led.online {
-    background-color: var(--color-success);
-}
-
-.status-led.offline {
-    background-color: var(--color-error);
-}
-
-/* ===================================
-   Matcher Indicator
-   =================================== */
-
-.matcher-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    font-size: 11px;
-    border: 1px solid;
-    user-select: none;
-    background-color: #fff;
-}
-
-/* Matcher color states - simple traffic light */
+/* Matcher color states (extends .badge from design system) */
 .matcher-indicator.ready {
     border-color: var(--color-success);
     color: var(--color-success-dark);
@@ -141,23 +94,8 @@
 }
 
 /* ===================================
-   Offline Warning Badge
+   Warning Badge Sub-elements
    =================================== */
-
-.warning-badge {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: var(--radius-md);
-    background-color: #FFF4E5;
-    border: 2px solid var(--color-warning-border);
-    color: #E65100;
-    font-size: 11px;
-    font-weight: bold;
-    cursor: pointer;
-    margin-left: auto;
-}
 
 .warning-icon {
     font-size: 12px;
