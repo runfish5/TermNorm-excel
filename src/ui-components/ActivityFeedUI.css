@@ -13,7 +13,6 @@
 .activity-table th {
     background: var(--gray-100);
     padding: 12px 16px;
-    text-align: left;
     font-weight: 600;
     color: var(--gray-600);
     border-bottom: var(--border-heavy);
@@ -54,26 +53,28 @@
     border-radius: var(--radius-pill);
     text-align: center;
     width: 80px;
+    background: var(--method-bg);
+    color: var(--method-text);
 }
 
 .activity-row.exact .method {
-    background: var(--color-info-bg);
-    color: var(--color-info-text);
+    --method-bg: var(--color-info-bg);
+    --method-text: var(--color-info-text);
 }
 
 .activity-row.fuzzy .method {
-    background: var(--color-warning-bg);
-    color: var(--color-warning-text);
+    --method-bg: var(--color-warning-bg);
+    --method-text: var(--color-warning-text);
 }
 
 .activity-row.ai .method {
-    background: var(--color-ai-bg);
-    color: var(--color-ai-text);
+    --method-bg: var(--color-ai-bg);
+    --method-text: var(--color-ai-text);
 }
 
 .activity-row.error .method {
-    background: var(--color-error-bg);
-    color: var(--color-error-text);
+    --method-bg: var(--color-error-bg);
+    --method-text: var(--color-error-text);
 }
 
 .activity-table .confidence {
@@ -111,11 +112,15 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.details-header {
+.details-header,
+.inline-details-panel .details-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+}
+
+.details-header {
     padding-bottom: 12px;
     border-bottom: var(--border-heavy);
 }
@@ -226,27 +231,29 @@
     padding: 2px 6px;
     border-radius: 10px;
     text-transform: uppercase;
+    background: var(--badge-bg);
+    color: var(--badge-text);
 }
 
 .method-badge.ProfileRank,
 .method-badge.BatchProfileRank {
-    background: var(--color-ai-bg);
-    color: var(--color-ai-text);
+    --badge-bg: var(--color-ai-bg);
+    --badge-text: var(--color-ai-text);
 }
 
 .method-badge.UserChoice {
-    background: var(--color-success-bg);
-    color: var(--color-success-text);
+    --badge-bg: var(--color-success-bg);
+    --badge-text: var(--color-success-text);
 }
 
 .method-badge.fuzzy {
-    background: var(--color-warning-bg);
-    color: var(--color-warning-text);
+    --badge-bg: var(--color-warning-bg);
+    --badge-text: var(--color-warning-text);
 }
 
 .method-badge.cached {
-    background: var(--color-info-bg);
-    color: var(--color-info-text);
+    --badge-bg: var(--color-info-bg);
+    --badge-text: var(--color-info-text);
 }
 
 /* Inline expanded details row */
@@ -266,10 +273,6 @@
 }
 
 .inline-details-panel .details-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--gray-200);
 }

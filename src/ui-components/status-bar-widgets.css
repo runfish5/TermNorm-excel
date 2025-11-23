@@ -130,7 +130,7 @@
 }
 
 .indicator-counts {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-weight: 600;
     font-size: 11px;
 }
