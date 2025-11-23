@@ -35,7 +35,7 @@
 
 .loading-message {
     font-size: 13px;
-    color: #333;
+    color: var(--gray-700);
     font-weight: 500;
 }
 
@@ -66,30 +66,30 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background-color: #ccc;
+    background-color: var(--gray-850);
     cursor: pointer;
     flex-shrink: 0;
 }
 
 .status-led.green {
-    background-color: #4CAF50;
+    background-color: var(--color-success);
 }
 
 .status-led.yellow {
-    background-color: #FFC107;
+    background-color: var(--color-warning);
 }
 
 .status-led.red {
-    background-color: #F44336;
+    background-color: var(--color-error);
 }
 
 /* Legacy support */
 .status-led.online {
-    background-color: #4CAF50;
+    background-color: var(--color-success);
 }
 
 .status-led.offline {
-    background-color: #F44336;
+    background-color: var(--color-error);
 }
 
 /* ===================================
@@ -101,7 +101,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 3px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     font-size: 11px;
     border: 1px solid;
@@ -111,18 +111,18 @@
 
 /* Matcher color states - simple traffic light */
 .matcher-indicator.ready {
-    border-color: #4CAF50;
-    color: #2e7d32;
+    border-color: var(--color-success);
+    color: var(--color-success-dark);
 }
 
 .matcher-indicator.limited {
-    border-color: #FFC107;
-    color: #f57c00;
+    border-color: var(--color-warning);
+    color: var(--color-warning-dark);
 }
 
 .matcher-indicator.not-ready {
-    border-color: #F44336;
-    color: #c62828;
+    border-color: var(--color-error);
+    color: var(--color-error-dark);
 }
 
 .indicator-icon {
@@ -149,9 +149,9 @@
     align-items: center;
     gap: 4px;
     padding: 3px 10px;
-    border-radius: 3px;
+    border-radius: var(--radius-md);
     background-color: #FFF4E5;
-    border: 2px solid #FF9800;
+    border: 2px solid var(--color-warning-border);
     color: #E65100;
     font-size: 11px;
     font-weight: bold;
@@ -166,8 +166,4 @@
 .warning-text {
     text-transform: uppercase;
     letter-spacing: 0.5px;
-}
-
-.warning-badge.hidden {
-    display: none;
 }
