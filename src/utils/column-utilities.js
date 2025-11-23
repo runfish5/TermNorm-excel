@@ -67,9 +67,11 @@ export function buildConfidenceColumnMap(headers, confidenceColumnMap, worksheet
     const worksheetInfo = worksheetName ? ` (worksheet: ${worksheetName})` : "";
     console.warn(
       `⚠️ Some confidence columns not found in worksheet${worksheetInfo}:\n` +
-      (missingSources.length > 0 ? `  Missing source columns: ${missingSources.join(", ")}\n` : "") +
-      (missingConfidenceColumns.length > 0 ? `  Missing confidence columns: ${missingConfidenceColumns.join(", ")}\n` : "") +
-      `Confidence values will not be written for these columns.`
+        (missingSources.length > 0 ? `  Missing source columns: ${missingSources.join(", ")}\n` : "") +
+        (missingConfidenceColumns.length > 0
+          ? `  Missing confidence columns: ${missingConfidenceColumns.join(", ")}\n`
+          : "") +
+        `Confidence values will not be written for these columns.`
     );
   }
 

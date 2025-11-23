@@ -8,8 +8,8 @@ import { apiPost } from "../utils/api-fetch.js";
 import { SESSION_ENDPOINTS } from "../config/session.config.js";
 
 // Fuzzy matching thresholds (0.0 - 1.0 similarity score)
-const FUZZY_FORWARD_THRESHOLD = 0.7;  // Higher threshold for forward mappings (more strict)
-const FUZZY_REVERSE_THRESHOLD = 0.5;  // Lower threshold for reverse mappings (more lenient)
+const FUZZY_FORWARD_THRESHOLD = 0.7; // Higher threshold for forward mappings (more strict)
+const FUZZY_REVERSE_THRESHOLD = 0.5; // Lower threshold for reverse mappings (more lenient)
 
 // Normalize value to trimmed string (handles Excel cell types: string, number, null, etc.)
 function normalizeValue(value) {
@@ -38,7 +38,9 @@ export function getCachedMatch(value, forward, reverse) {
       source: normalized,
     };
   }
-  return normalized in reverse ? { target: normalized, method: "cached", confidence: 1.0, timestamp: new Date().toISOString(), source: normalized } : null;
+  return normalized in reverse
+    ? { target: normalized, method: "cached", confidence: 1.0, timestamp: new Date().toISOString(), source: normalized }
+    : null;
 }
 
 /**
@@ -65,7 +67,15 @@ export function findFuzzyMatch(value, forward, reverse) {
   }
 
   const rev = findBestMatch(normalized, reverse, FUZZY_REVERSE_THRESHOLD);
-  return rev ? { target: rev.key, method: "fuzzy", confidence: rev.score, timestamp: new Date().toISOString(), source: normalized } : null;
+  return rev
+    ? {
+        target: rev.key,
+        method: "fuzzy",
+        confidence: rev.score,
+        timestamp: new Date().toISOString(),
+        source: normalized,
+      }
+    : null;
 }
 
 /**
@@ -90,9 +100,7 @@ export async function findTokenMatch(value) {
   }
 
   // Make request with automatic session recovery
-  const data = await executeWithSessionRecovery(async () =>
-    makeResearchRequest(normalized)
-  );
+  const data = await executeWithSessionRecovery(async () => makeResearchRequest(normalized));
 
   if (!data) return null;
 
@@ -106,11 +114,7 @@ export async function findTokenMatch(value) {
  * @returns {Promise<Object|null>} API response data or null
  */
 async function makeResearchRequest(query) {
-  return await apiPost(
-    `${getHost()}${SESSION_ENDPOINTS.RESEARCH}`,
-    { query },
-    getHeaders()
-  );
+  return await apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query }, getHeaders());
 }
 
 /**
@@ -148,7 +152,7 @@ function processResearchResponse(data) {
     candidates: data.ranked_candidates,
     total_time: data.total_time,
     llm_provider: data.llm_provider,
-    web_search_status: data.web_search_status
+    web_search_status: data.web_search_status,
   };
 }
 
@@ -174,7 +178,7 @@ function normalizeResultShape(result) {
     web_sources: result.web_sources || null,
     total_time: result.total_time || null,
     llm_provider: result.llm_provider || null,
-    web_search_status: result.web_search_status || "idle"
+    web_search_status: result.web_search_status || "idle",
   };
 }
 
@@ -191,7 +195,7 @@ function createDefaultResult(value, reason = "No matches found") {
     method: "no_match",
     confidence: 0,
     timestamp: new Date().toISOString(),
-    source: value
+    source: value,
   };
 }
 

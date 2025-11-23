@@ -67,5 +67,5 @@ export function hasResult(cellKey) {
   if (!cellKey) return false;
 
   const state = getCellState(cellKey);
-  return state?.result != null && state?.status === 'complete';
+  return state?.result != null && state?.status === "complete";
 }

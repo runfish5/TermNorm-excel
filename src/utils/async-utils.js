@@ -15,7 +15,7 @@
  * await sleep(1000); // Wait 1 second
  */
 export function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -40,12 +40,7 @@ export function sleep(ms) {
  * );
  */
 export async function retryWithBackoff(fn, options = {}) {
-  const {
-    maxAttempts = 3,
-    delays = [1000, 2000, 4000],
-    onRetry = null,
-    onFailure = null,
-  } = options;
+  const { maxAttempts = 3, delays = [1000, 2000, 4000], onRetry = null, onFailure = null } = options;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = await fn();

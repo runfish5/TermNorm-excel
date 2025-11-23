@@ -39,7 +39,6 @@ export async function apiFetch(url, options = {}) {
       showMessage(errorMessage, "error");
     }
     return null;
-
   } catch (error) {
     state.server.online = false;
     state.server.lastChecked = Date.now();
@@ -102,10 +101,10 @@ export async function apiPost(url, body, headers = {}, extraOptions = {}) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...headers
+      ...headers,
     },
     body: JSON.stringify(body),
-    ...extraOptions
+    ...extraOptions,
   });
 }
 
@@ -122,8 +121,8 @@ export async function apiGet(url, headers = {}, silent = false) {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      ...headers
+      ...headers,
     },
-    silent
+    silent,
   });
 }

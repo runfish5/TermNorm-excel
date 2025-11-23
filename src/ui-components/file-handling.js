@@ -12,7 +12,7 @@ import { showView } from "./view-manager.js";
 import { showMessage } from "../utils/error-display.js";
 
 function setStepStates(s1, s2, s3, s4) {
-  document.querySelectorAll('#setup-view .settings-group').forEach((el, i) => {
+  document.querySelectorAll("#setup-view .settings-group").forEach((el, i) => {
     el.open = [s1, s2, s3, s4][i];
   });
 }

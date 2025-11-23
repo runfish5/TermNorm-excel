@@ -17,7 +17,7 @@ export function setupLED() {
   document.addEventListener("click", (e) => {
     if (e.target.closest("#server-status-led")) {
       e.preventDefault();
-      import("./server-utilities.js").then(m => m.checkServerStatus());
+      import("./server-utilities.js").then((m) => m.checkServerStatus());
     }
   });
 }

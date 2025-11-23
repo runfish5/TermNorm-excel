@@ -43,7 +43,7 @@ Office.onReady(async (info) => {
   checkServerStatus();
   updateLED();
   updateMatcherIndicator();
-  updateWarnings();  // Initial warning update after settings load
+  updateWarnings(); // Initial warning update after settings load
   initializeVersionDisplay();
   initializeProjectPathDisplay();
 
@@ -150,7 +150,7 @@ Office.onReady(async (info) => {
     });
     updateLED();
     updateMatcherIndicator();
-    updateWarnings();  // Update warnings on state changes
+    updateWarnings(); // Update warnings on state changes
     updateButtonStates();
   });
 
@@ -197,14 +197,14 @@ function canActivateTracking() {
   if (settings.requireServerOnline && !server.online) {
     return {
       allowed: false,
-      reason: "Server connection required (change in Settings to allow offline mode)"
+      reason: "Server connection required (change in Settings to allow offline mode)",
     };
   }
 
   if (!server.online) {
     return {
       allowed: true,
-      warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)"
+      warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)",
     };
   }
 
@@ -294,10 +294,10 @@ async function initializeLlmSettings() {
       return;
     }
 
-    providerSelect.innerHTML = data.available_providers.map(p =>
-      `<option value="${p}" ${p === data.current_provider ? 'selected' : ''}>${p}</option>`
-    ).join('');
-    modelInput.value = data.current_model || '';
+    providerSelect.innerHTML = data.available_providers
+      .map((p) => `<option value="${p}" ${p === data.current_provider ? "selected" : ""}>${p}</option>`)
+      .join("");
+    modelInput.value = data.current_model || "";
     modelInput.disabled = false;
     applyBtn.disabled = false;
 

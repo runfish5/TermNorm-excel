@@ -3,7 +3,7 @@ import {
   addActivity as addToStore,
   clearActivities as clearStore,
   getCount as getStoreCount,
-  getMaxEntries
+  getMaxEntries,
 } from "../services/activity-store.js";
 
 let container = null;
@@ -73,7 +73,7 @@ export async function add(source, cellKey, timestamp, result) {
       method: "-",
       confidence: 0,
       timestamp: timestamp,
-      web_search_status: "idle"
+      web_search_status: "idle",
     };
 
     // Add session entry to history database (unifies session and cached data)
@@ -81,10 +81,7 @@ export async function add(source, cellKey, timestamp, result) {
     addSessionEntry(source, displayResult);
 
     // Create row using shared builder
-    const row = buildActivityRow(
-      { source, sessionKey: cellKey, timestamp },
-      displayResult
-    );
+    const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, displayResult);
     tableBody.insertBefore(row, tableBody.firstChild);
 
     // Make row clickable (same as cached entries)
@@ -124,9 +121,8 @@ export function scrollToAndHighlight(key, type = "sessionKey") {
   if (!tableBody || !key) return null;
 
   // Find row by data attribute (works for both session and cached entries)
-  const selector = type === "identifier"
-    ? `[data-identifier="${CSS.escape(key)}"]`
-    : `[data-session-key="${CSS.escape(key)}"]`;
+  const selector =
+    type === "identifier" ? `[data-identifier="${CSS.escape(key)}"]` : `[data-session-key="${CSS.escape(key)}"]`;
 
   let targetRow = tableBody.querySelector(selector);
 
@@ -285,21 +281,33 @@ function displayDetailsPanel(details, targetRow) {
           <div class="detail-section">
             <h5>Matched Aliases (${aliasCount})</h5>
             <div class="card-sm card-muted">
-              ${aliasEntries.map(([alias, info]) => `
+              ${
+                aliasEntries
+                  .map(
+                    ([alias, info]) => `
                 <div class="list-item-bordered">
                   <span class="name">${alias}</span>
                   <span class="badge badge-sm badge-uppercase ${info.method}">${info.method}</span>
                   <span class="score">${Math.round((info.confidence || 0) * 100)}%</span>
                 </div>
-              `).join('') || '<div>No aliases</div>'}
+              `
+                  )
+                  .join("") || "<div>No aliases</div>"
+              }
             </div>
           </div>
           <div class="detail-section">
             <h5>Web Sources (${details.web_sources?.length || 0})</h5>
             <ul class="list-plain list-scrollable">
-              ${details.web_sources?.map(s => `
+              ${
+                details.web_sources
+                  ?.map(
+                    (s) => `
                 <li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>
-              `).join('') || '<li>No sources</li>'}
+              `
+                  )
+                  .join("") || "<li>No sources</li>"
+              }
             </ul>
           </div>
           <div class="detail-meta">
@@ -376,7 +384,7 @@ export function populateFromCache(entries) {
         method: aliasInfo.method || "unknown",
         confidence: aliasInfo.confidence || 0,
         timestamp: aliasInfo.timestamp,
-        isCached: true  // Flag to distinguish from session activities
+        isCached: true, // Flag to distinguish from session activities
       });
     }
   }
@@ -397,7 +405,7 @@ export function populateFromCache(entries) {
 
     // Create row using shared builder
     const row = buildActivityRow(
-      { source, sessionKey: null, timestamp },  // No session key for cached entries
+      { source, sessionKey: null, timestamp }, // No session key for cached entries
       { target, method, confidence, web_search_status: "idle" }
     );
 

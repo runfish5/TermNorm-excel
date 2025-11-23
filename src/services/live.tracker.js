@@ -56,7 +56,7 @@ export async function startTracking(config, mappings) {
       const headerNames = headers.values[0].map((h) => String(h || "").trim());
       return {
         columnMap: buildColumnMap(headerNames, config.column_map, worksheetName),
-        confidenceColumnMap: buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName)
+        confidenceColumnMap: buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName),
       };
     });
 
@@ -128,16 +128,16 @@ const handleWorksheetChange = async (e, tracker) => {
           // Skip if already processing
           const cellStateMap = getCellStateMap(tracker.workbookId);
           const state = cellStateMap.get(cellKey);
-          if (state?.status === 'processing') continue;
+          if (state?.status === "processing") continue;
 
           // Check if value changed
           if (state?.value !== cleanValue) {
             cellStateMap.set(cellKey, {
               value: cleanValue,
-              status: 'processing',
+              status: "processing",
               row,
               col,
-              targetCol
+              targetCol,
             });
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
             // Each processCell creates its own Excel context for immediate updates
@@ -205,7 +205,7 @@ const handleSelectionChange = async (e, tracker) => {
     // Output column: check cellState first, then historical lookup
     const cellStateMap = getCellStateMap(tracker.workbookId);
     const state = cellStateMap.get(cellKey);
-    if (state && state.status === 'complete') {
+    if (state && state.status === "complete") {
       // Current session: use cellState
       handleCellSelection(cellKey, state, null);
     } else {
@@ -222,11 +222,7 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
 
   try {
     // Always returns valid result (never null)
-    const result = await processTermNormalization(
-      value,
-      tracker.mappings.forward,
-      tracker.mappings.reverse
-    );
+    const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
 
     if (result.candidates) {
       addCandidate(value, result, {
@@ -263,10 +259,10 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
     cellStateMap.set(outputCellKey, {
       value,
       result,
-      status: 'complete',
+      status: "complete",
       row,
-      col: targetCol,  // Output column, not input
-      timestamp: result.timestamp
+      col: targetCol, // Output column, not input
+      timestamp: result.timestamp,
     });
 
     // Add activity with output cell key (so selection works)
@@ -317,7 +313,7 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     web_sources: null,
     total_time: null,
     llm_provider: null,
-    web_search_status: "idle"
+    web_search_status: "idle",
   };
 
   // Store error in cellState
@@ -325,10 +321,10 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
   cellStateMap.set(outputCellKey, {
     value,
     result: errorResult,
-    status: 'error',
+    status: "error",
     row,
     col: targetCol,
-    timestamp
+    timestamp,
   });
 
   addActivity(value, outputCellKey, timestamp, errorResult);
@@ -370,17 +366,17 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     web_sources: choice.web_sources || null,
     total_time: null,
     llm_provider: null,
-    web_search_status: "idle"
+    web_search_status: "idle",
   };
 
   const cellStateMap = getCellStateMap(tracker.workbookId);
   cellStateMap.set(outputCellKey, {
     value,
     result: choiceResult,
-    status: 'complete',
+    status: "complete",
     row,
     col: targetCol,
-    timestamp
+    timestamp,
   });
 
   addActivity(value, outputCellKey, timestamp, choiceResult);
@@ -389,13 +385,17 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   try {
     const { apiPost } = await import("../utils/api-fetch.js");
     const { getHost, getHeaders } = await import("../utils/server-utilities.js");
-    await apiPost(`${getHost()}/log-activity`, {
-      source: value,
-      target: choice.candidate,
-      method: "UserChoice",
-      confidence: choice.relevance_score,
-      timestamp
-    }, getHeaders());
+    await apiPost(
+      `${getHost()}/log-activity`,
+      {
+        source: value,
+        target: choice.candidate,
+        method: "UserChoice",
+        confidence: choice.relevance_score,
+        timestamp,
+      },
+      getHeaders()
+    );
   } catch (error) {
     console.warn("Failed to log user choice to backend:", error);
   }

@@ -21,9 +21,7 @@ export function buildActivityRow(activity, result) {
   const { source, sessionKey, timestamp } = activity;
   const { target, method, confidence, web_search_status } = result;
 
-  const displayTime = timestamp
-    ? new Date(timestamp).toLocaleTimeString()
-    : new Date().toLocaleTimeString();
+  const displayTime = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
 
   // Build method display text with web search status indicator
   let methodText = method ? method.toUpperCase() : "-";

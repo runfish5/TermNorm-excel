@@ -26,16 +26,16 @@ const appState = {
     online: false,
     host: null,
     lastChecked: null,
-    info: {},  // Server connection info (provider, environment, etc.)
+    info: {}, // Server connection info (provider, environment, etc.)
   },
   config: {
     loaded: false,
     data: null,
-    raw: null,  // Raw config data for reloading
+    raw: null, // Raw config data for reloading
   },
   mappings: {
-    sources: {},     // index → {status, data, error}
-    combined: null,  // Combined forward/reverse mappings cache
+    sources: {}, // index → {status, data, error}
+    combined: null, // Combined forward/reverse mappings cache
     loaded: false,
   },
   session: {
@@ -45,16 +45,16 @@ const appState = {
     error: null,
   },
   settings: {
-    requireServerOnline: true,  // Default: server required for operations
+    requireServerOnline: true, // Default: server required for operations
     loaded: false,
   },
   webSearch: {
-    status: "idle",  // "idle" | "success" | "failed"
-    error: null,     // Error message from last failed search
+    status: "idle", // "idle" | "success" | "failed"
+    error: null, // Error message from last failed search
   },
   history: {
-    cacheInitialized: false,  // True after fetching processed entries from backend
-    entries: {},              // match_database cached here (identifier → {entity_profile, aliases, ...})
+    cacheInitialized: false, // True after fetching processed entries from backend
+    entries: {}, // match_database cached here (identifier → {entity_profile, aliases, ...})
   },
 };
 
@@ -142,23 +142,20 @@ export async function loadMappingSource(index, loadFunction, params) {
  * @returns {Promise<boolean>} True if initialization succeeded, false otherwise
  */
 async function initializeBackendSessionWithRetry(terms) {
-  return await retryWithBackoff(
-    async () => await initializeBackendSession(terms),
-    {
-      maxAttempts: SESSION_RETRY.MAX_ATTEMPTS,
-      delays: SESSION_RETRY.DELAYS_MS,
-      onRetry: (attempt, delay) => {
-        console.log(`${LOG_PREFIX.SESSION} Initialization attempt ${attempt}/${SESSION_RETRY.MAX_ATTEMPTS}`);
-        console.log(`${LOG_PREFIX.SESSION} Retrying in ${delay}ms...`);
-      },
-      onFailure: (attempts) => {
-        const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
-        console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
-        appState.session.error = errorMsg;
-        notifyStateChange();
-      }
-    }
-  );
+  return await retryWithBackoff(async () => await initializeBackendSession(terms), {
+    maxAttempts: SESSION_RETRY.MAX_ATTEMPTS,
+    delays: SESSION_RETRY.DELAYS_MS,
+    onRetry: (attempt, delay) => {
+      console.log(`${LOG_PREFIX.SESSION} Initialization attempt ${attempt}/${SESSION_RETRY.MAX_ATTEMPTS}`);
+      console.log(`${LOG_PREFIX.SESSION} Retrying in ${delay}ms...`);
+    },
+    onFailure: (attempts) => {
+      const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
+      console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
+      appState.session.error = errorMsg;
+      notifyStateChange();
+    },
+  });
 }
 
 /**
@@ -173,7 +170,7 @@ async function initializeBackendSession(terms) {
       `${getHost()}${SESSION_ENDPOINTS.INIT}`,
       { terms },
       getHeaders(),
-      { silent: true }  // Don't show loading/success messages during mapping load
+      { silent: true } // Don't show loading/success messages during mapping load
     );
 
     if (data) {
@@ -186,7 +183,6 @@ async function initializeBackendSession(terms) {
     console.error(`${LOG_PREFIX.SESSION} ${ERROR_MESSAGES.SESSION_INIT_FAILED}`);
     updateSessionState(false, 0, ERROR_MESSAGES.SESSION_INIT_FAILED);
     return false;
-
   } catch (error) {
     const errorMsg = `${ERROR_MESSAGES.SESSION_INIT_FAILED}: ${error.message}`;
     console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
@@ -215,9 +211,7 @@ function updateSessionState(initialized, termCount, error) {
  * Also initializes backend session with terms
  */
 async function combineMappingSources() {
-  const syncedSources = Object.values(appState.mappings.sources).filter(
-    (s) => s.status === "synced" && s.data
-  );
+  const syncedSources = Object.values(appState.mappings.sources).filter((s) => s.status === "synced" && s.data);
 
   if (syncedSources.length === 0) {
     appState.mappings.combined = null;

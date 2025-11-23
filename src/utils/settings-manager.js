@@ -8,9 +8,9 @@ const STORAGE_KEY = "termnorm_settings";
  */
 export function getDefaultSettings() {
   return {
-    requireServerOnline: true,  // Server required for operations
-    useBraveApi: true,           // Use Brave Search API if configured (toggle for testing fallbacks)
-    useWebSearch: true,          // Enable all web search engines (disabling skips web research entirely)
+    requireServerOnline: true, // Server required for operations
+    useBraveApi: true, // Use Brave Search API if configured (toggle for testing fallbacks)
+    useWebSearch: true, // Enable all web search engines (disabling skips web research entirely)
   };
 }
 

@@ -38,7 +38,7 @@ export async function checkServerStatus() {
       const response = await fetch(`${host}/test-connection`, {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({})
+        body: JSON.stringify({}),
       });
       const data = await response.json();
 

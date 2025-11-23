@@ -91,14 +91,13 @@ async function selectRange() {
         columnCount: range.columnCount,
         values: range.values,
         rowIndex: range.rowIndex,
-        columnIndex: range.columnIndex
+        columnIndex: range.columnIndex,
       };
 
       // Update UI
       document.getElementById("range-display").classList.remove("hidden");
       document.getElementById("range-address").textContent = range.address;
-      document.getElementById("range-count").textContent =
-        `${range.rowCount} rows × ${range.columnCount} cols`;
+      document.getElementById("range-count").textContent = `${range.rowCount} rows × ${range.columnCount} cols`;
       document.getElementById("batch-process-btn").disabled = false;
 
       showMessage(`Selected range: ${range.address}`);
@@ -127,7 +126,7 @@ async function processBatch() {
   const contextMessage = document.getElementById("batch-context").value.trim();
 
   // Extract values from range (flatten to array, filter empty)
-  const values = selectedRange.values.flat().filter(v => v && String(v).trim());
+  const values = selectedRange.values.flat().filter((v) => v && String(v).trim());
 
   if (values.length === 0) {
     showMessage("No values to process in selected range", "error");
@@ -149,8 +148,8 @@ async function processBatch() {
   progressDiv.classList.remove("hidden");
 
   try {
-    const results = await batchProcessWithProgress(values, contextMessage,
-      (current, total) => updateProgress(current, total)
+    const results = await batchProcessWithProgress(values, contextMessage, (current, total) =>
+      updateProgress(current, total)
     );
 
     // Write results back to Excel
@@ -186,20 +185,20 @@ async function batchProcessWithProgress(values, context, progressCallback) {
         results.push({
           source: value,
           target: response.data.target || "No match",
-          confidence: response.data.confidence || 0
+          confidence: response.data.confidence || 0,
         });
       } else {
         results.push({
           source: value,
           target: response?.message || "API error",
-          confidence: 0
+          confidence: 0,
         });
       }
     } catch (error) {
       results.push({
         source: value,
         target: `Error: ${error.message}`,
-        confidence: 0
+        confidence: 0,
       });
     }
   }
@@ -210,8 +209,7 @@ async function batchProcessWithProgress(values, context, progressCallback) {
 function updateProgress(current, total) {
   const percent = Math.round((current / total) * 100);
   document.querySelector(".progress-fill").style.width = `${percent}%`;
-  document.querySelector(".progress-text").textContent =
-    `Processing: ${current} / ${total}`;
+  document.querySelector(".progress-text").textContent = `Processing: ${current} / ${total}`;
 }
 
 async function writeResultsToExcel(results) {

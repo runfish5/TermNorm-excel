@@ -105,7 +105,7 @@ export function addSessionEntry(source, result) {
       entity_profile: entity_profile || null,
       aliases: {},
       web_sources: web_sources || [],
-      last_updated: timestamp
+      last_updated: timestamp,
     };
   }
 
@@ -113,7 +113,7 @@ export function addSessionEntry(source, result) {
   state.history.entries[target].aliases[source] = {
     method,
     confidence,
-    timestamp
+    timestamp,
   };
 
   // Update metadata if newer

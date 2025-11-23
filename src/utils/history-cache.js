@@ -32,7 +32,7 @@ export async function initializeHistoryCache() {
   try {
     const response = await fetch(`${getHost()}/history/processed-entries`, {
       method: "GET",
-      headers: getHeaders()
+      headers: getHeaders(),
     });
 
     if (!response.ok) {
@@ -58,7 +58,6 @@ export async function initializeHistoryCache() {
 
     console.warn("[HISTORY] Unexpected response format:", result);
     return false;
-
   } catch (error) {
     console.error("[HISTORY] Error fetching processed entries:", error);
     return false;
