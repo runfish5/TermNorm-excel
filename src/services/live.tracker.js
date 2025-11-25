@@ -38,7 +38,7 @@ export async function startTracking(config, mappings) {
   try {
     // Clear cell state for THIS workbook only
     getCellStateMap(workbookId).clear();
-    const { columnMap, confidenceColumnMap } = await Excel.run(async (ctx) => {
+    const { columnMap, confidenceColumnMap, confidenceFound, confidenceMissing } = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       ws.load("name");
       const usedRange = ws.getUsedRange(true);
@@ -54,9 +54,13 @@ export async function startTracking(config, mappings) {
       await ctx.sync();
 
       const headerNames = headers.values[0].map((h) => String(h || "").trim());
+      const confResult = buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName);
+
       return {
         columnMap: buildColumnMap(headerNames, config.column_map, worksheetName),
-        confidenceColumnMap: buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName),
+        confidenceColumnMap: confResult.map,
+        confidenceFound: confResult.found,
+        confidenceMissing: confResult.missing,
       };
     });
 
@@ -67,6 +71,8 @@ export async function startTracking(config, mappings) {
       selectionHandler: null,
       columnMap,
       confidenceColumnMap,
+      confidenceFound,
+      confidenceMissing,
       mappings,
       config,
       workbookId,
@@ -94,6 +100,16 @@ export async function startTracking(config, mappings) {
     // Store tracker
     activeTrackers.set(workbookId, tracker);
     console.log(`✓ Tracking started for workbook: ${workbookId}`);
+
+    // Return tracking status info
+    return {
+      workbookId,
+      columnCount: tracker.columnMap.size,
+      confidenceTotal: Object.keys(config.confidence_column_map || {}).length,
+      confidenceMapped: tracker.confidenceColumnMap.size,
+      confidenceFound,
+      confidenceMissing,
+    };
   } finally {
     activationInProgress.delete(workbookId);
   }

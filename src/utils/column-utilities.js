@@ -43,37 +43,25 @@ export function buildColumnMap(headers, columnMap, worksheetName = null) {
  * @returns {Map<number, number>} Map from input column index to confidence column index
  */
 export function buildConfidenceColumnMap(headers, confidenceColumnMap, worksheetName = null) {
-  if (!confidenceColumnMap) return new Map();
+  if (!confidenceColumnMap) return { map: new Map(), found: [], missing: [] };
 
   const result = new Map();
-  const missingSources = [];
-  const missingConfidenceColumns = [];
+  const found = [];
+  const missing = [];
 
   Object.entries(confidenceColumnMap).forEach(([src, confCol]) => {
     const srcIdx = findColumnIndex(headers, src);
     const confIdx = findColumnIndex(headers, confCol);
 
     if (srcIdx === -1) {
-      missingSources.push(src);
+      missing.push(`${src} (input column not in Excel)`);
     } else if (confIdx === -1) {
-      missingConfidenceColumns.push(confCol);
+      missing.push(`${confCol} (header not in Excel row 1)`);
     } else {
       result.set(srcIdx, confIdx);
+      found.push(`${src}→${confCol} (cols ${srcIdx}→${confIdx})`);
     }
   });
 
-  // Only throw error if there are missing columns (optional feature, so we're lenient)
-  if (missingSources.length > 0 || missingConfidenceColumns.length > 0) {
-    const worksheetInfo = worksheetName ? ` (worksheet: ${worksheetName})` : "";
-    console.warn(
-      `⚠️ Some confidence columns not found in worksheet${worksheetInfo}:\n` +
-        (missingSources.length > 0 ? `  Missing source columns: ${missingSources.join(", ")}\n` : "") +
-        (missingConfidenceColumns.length > 0
-          ? `  Missing confidence columns: ${missingConfidenceColumns.join(", ")}\n`
-          : "") +
-        `Confidence values will not be written for these columns.`
-    );
-  }
-
-  return result;
+  return { map: result, found, missing };
 }

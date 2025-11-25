@@ -251,13 +251,40 @@ async function startLiveTracking() {
     const { config, mappings } = getTrackingContext();
     const termCount = Object.keys(mappings.reverse || {}).length;
 
-    await startTracking(config, mappings);
+    // Start tracking - returns status info
+    const trackingInfo = await startTracking(config, mappings);
 
-    const status = state.server.online
+    // Build COMPLETE status message
+    let statusParts = [];
+
+    // Main tracking status
+    const trackingStatus = state.server.online
       ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)`
       : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`;
+    statusParts.push(trackingStatus);
 
-    showMessage(status);
+    // Confidence column status (if configured)
+    if (trackingInfo.confidenceTotal > 0) {
+      const { confidenceTotal, confidenceMapped, confidenceFound, confidenceMissing } = trackingInfo;
+
+      if (confidenceMapped === confidenceTotal) {
+        statusParts.push(`✅ Confidence: ${confidenceTotal} columns active`);
+        if (confidenceFound.length > 0) {
+          statusParts.push(`   Mapped: ${confidenceFound.join(", ")}`);
+        }
+      } else {
+        statusParts.push(`⚠️ Confidence: ${confidenceMapped}/${confidenceTotal} columns active`);
+        if (confidenceFound.length > 0) {
+          statusParts.push(`   ✅ Found: ${confidenceFound.join(", ")}`);
+        }
+        if (confidenceMissing.length > 0) {
+          statusParts.push(`   ❌ Missing: ${confidenceMissing.join(", ")}`);
+        }
+      }
+    }
+
+    // Show complete message ONCE
+    showMessage(statusParts.join("\n"));
     showView("results");
   } catch (error) {
     showMessage(`Error: ${error.message}`, "error");

@@ -296,7 +296,7 @@ function updateJsonDump() {
 
 function updateGlobalStatus() {
   const loaded = Object.keys(state.mappings.sources || {}).length,
-    total = window.mappingModules?.length || 0;
+    total = state.config.data?.standard_mappings?.length || 0;
   showMessage(
     loaded === 0
       ? "Ready to load mapping configurations..."
