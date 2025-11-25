@@ -80,13 +80,18 @@ export async function startTracking(config, mappings) {
 
     // Remove existing tracker if any
     const existingTracker = activeTrackers.get(workbookId);
-    if (existingTracker?.handler || existingTracker?.selectionHandler) {
-      await Excel.run(async (ctx) => {
-        const ws = ctx.workbook.worksheets.getActiveWorksheet();
-        if (existingTracker.handler) ws.onChanged.remove(existingTracker.handler);
-        if (existingTracker.selectionHandler) ws.onSelectionChanged.remove(existingTracker.selectionHandler);
-        await ctx.sync();
-      });
+    if (existingTracker) {
+      // Mark as inactive FIRST to prevent any queued/in-flight events from processing with old column indices
+      existingTracker.active = false;
+
+      if (existingTracker.handler || existingTracker.selectionHandler) {
+        await Excel.run(async (ctx) => {
+          const ws = ctx.workbook.worksheets.getActiveWorksheet();
+          if (existingTracker.handler) ws.onChanged.remove(existingTracker.handler);
+          if (existingTracker.selectionHandler) ws.onSelectionChanged.remove(existingTracker.selectionHandler);
+          await ctx.sync();
+        });
+      }
     }
 
     // Setup change and selection handlers with tracker context
