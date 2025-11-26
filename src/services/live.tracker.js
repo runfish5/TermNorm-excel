@@ -1,9 +1,12 @@
-import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
 import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
-import { createCellKey, hasValueChanged, cleanCellValue } from "../utils/cell-utilities.js";
-import { getRelevanceColor, PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
+import { createCellKey, cleanCellValue } from "../utils/cell-utilities.js";
+import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
+import { writeCellResult } from "../utils/cell-writing.js";
+import { logCellResult } from "../utils/cell-logging.js";
+import { countTrackedCells } from "../utils/paste-detection.js";
+import { showMessage } from "../utils/error-display.js";
 const activeTrackers = new Map();
 const activationInProgress = new Set();
 // Unified cell state scoped per workbook: workbookId → Map(cellKey → {value, result, status, row, col, targetCol, timestamp})
@@ -129,11 +132,40 @@ const handleWorksheetChange = async (e, tracker) => {
     range.load("values, rowIndex, columnIndex, rowCount, columnCount");
     await ctx.sync();
 
-    // Process all cells that need mapping
-    const tasks = [];
-
     // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
+
+    // Multi-cell paste detection: Block automatic processing if 2+ tracked cells changed
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+    const trackedCount = countTrackedCells({ rowCount, columnCount, rowIndex, columnIndex }, tracker.columnMap);
+    if (trackedCount >= 2) {
+      // Mark all affected tracked cells with warning color
+      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      for (let r = 0; r < rowCount; r++) {
+        // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+        for (let c = 0; c < columnCount; c++) {
+          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+          const row = rowIndex + r;
+          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+          const col = columnIndex + c;
+          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+          if (row > 0 && tracker.columnMap.has(col) && values[r][c]) {
+            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
+          }
+        }
+      }
+      await ctx.sync();
+
+      // Show user message
+      showMessage(
+        `Multi-cell paste detected (${trackedCount} cells). Automatic processing disabled. Please edit cells individually to normalize.`,
+        "warning"
+      );
+      return; // Exit early - do not process
+    }
+
+    // Process all cells that need mapping (single-cell or non-tracked multi-cell changes)
+    const tasks = [];
 
     for (let r = 0; r < rowCount; r++) {
       for (let c = 0; c < columnCount; c++) {
@@ -162,7 +194,7 @@ const handleWorksheetChange = async (e, tracker) => {
             });
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
             // Each processCell creates its own Excel context for immediate updates
-            tasks.push(() => processCell(row, col, targetCol, cleanValue, tracker, cellKey));
+            tasks.push(() => processCell(row, col, targetCol, cleanValue, tracker));
           }
         }
       }
@@ -185,14 +217,14 @@ const handleSelectionChange = async (e, tracker) => {
     await ctx.sync();
 
     // Only handle single cell selections
-    // eslint-disable-next-line office-addins/call-sync-before-read
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     if (range.rowCount !== 1 || range.columnCount !== 1) return;
 
-    // eslint-disable-next-line office-addins/call-sync-before-read
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     const row = range.rowIndex;
-    // eslint-disable-next-line office-addins/call-sync-before-read
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     const col = range.columnIndex;
-    // eslint-disable-next-line office-addins/call-sync-before-read
+    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     const cellValue = range.values[0][0];
 
     // Skip empty cells and header row
@@ -237,7 +269,7 @@ const handleSelectionChange = async (e, tracker) => {
 };
 
 // Creates independent Excel.run context - do not pass worksheet objects or updates will batch
-async function processCell(row, col, targetCol, value, tracker, cellKey) {
+async function processCell(row, col, targetCol, value, tracker) {
   // Create output cell key upfront (activities track output column, not input)
   const outputCellKey = createCellKey(row, targetCol);
 
@@ -251,43 +283,12 @@ async function processCell(row, col, targetCol, value, tracker, cellKey) {
       });
     }
 
-    await Excel.run(async (ctx) => {
-      ctx.runtime.enableEvents = false;
+    // Write result to cells (target value, colors, confidence)
+    await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
 
-      const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-      const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-
-      tgtCell.values = [[result.target]];
-      tgtCell.format.fill.color = getRelevanceColor(result.confidence);
-      srcCell.format.fill.clear();
-
-      // Write confidence value if confidence column is configured
-      const confidenceCol = tracker.confidenceColumnMap.get(col);
-      if (confidenceCol !== undefined) {
-        const confCell = ws.getRangeByIndexes(row, confidenceCol, 1, 1);
-        // Convert confidence from 0.0-1.0 to 0-100 integer
-        const confidencePercent = Math.round(result.confidence * 100);
-        confCell.values = [[confidencePercent]];
-      }
-
-      await ctx.sync();
-      ctx.runtime.enableEvents = true;
-    });
-
-    // Store result in unified cell state (using OUTPUT cell key)
+    // Log to cell state and activity feed
     const cellStateMap = getCellStateMap(tracker.workbookId);
-    cellStateMap.set(outputCellKey, {
-      value,
-      result,
-      status: "complete",
-      row,
-      col: targetCol, // Output column, not input
-      timestamp: result.timestamp,
-    });
-
-    // Add activity with output cell key (so selection works)
-    addActivity(value, outputCellKey, result.timestamp, result);
+    logCellResult(cellStateMap, outputCellKey, value, result, "complete", row, targetCol);
     // Note: Automatic logging removed - training records now captured in backend
     // User manual selections still logged via handleCandidateChoice()
   } catch (error) {
@@ -337,45 +338,15 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     web_search_status: "idle",
   };
 
-  // Store error in cellState
+  // Log to cell state and activity feed
   const cellStateMap = getCellStateMap(tracker.workbookId);
-  cellStateMap.set(outputCellKey, {
-    value,
-    result: errorResult,
-    status: "error",
-    row,
-    col: targetCol,
-    timestamp,
-  });
-
-  addActivity(value, outputCellKey, timestamp, errorResult);
+  logCellResult(cellStateMap, outputCellKey, value, errorResult, "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const timestamp = new Date().toISOString();
 
-  await Excel.run(async (ctx) => {
-    ctx.runtime.enableEvents = false;
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    const srcCell = ws.getRangeByIndexes(row, col, 1, 1);
-    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-
-    tgtCell.values = [[choice.candidate]];
-    tgtCell.format.fill.color = getRelevanceColor(choice.relevance_score);
-    srcCell.format.fill.clear();
-
-    // Write confidence value if confidence column is configured
-    const confidenceCol = tracker.confidenceColumnMap.get(col);
-    if (confidenceCol !== undefined) {
-      const confCell = ws.getRangeByIndexes(row, confidenceCol, 1, 1);
-      const confidencePercent = Math.round(choice.relevance_score * 100);
-      confCell.values = [[confidencePercent]];
-    }
-
-    await ctx.sync();
-    ctx.runtime.enableEvents = true;
-  });
-
+  // Build choice result object
   const choiceResult = {
     target: choice.candidate,
     method: "UserChoice",
@@ -390,17 +361,12 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     web_search_status: "idle",
   };
 
-  const cellStateMap = getCellStateMap(tracker.workbookId);
-  cellStateMap.set(outputCellKey, {
-    value,
-    result: choiceResult,
-    status: "complete",
-    row,
-    col: targetCol,
-    timestamp,
-  });
+  // Write result to cells (target value, colors, confidence)
+  await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
 
-  addActivity(value, outputCellKey, timestamp, choiceResult);
+  // Log to cell state and activity feed
+  const cellStateMap = getCellStateMap(tracker.workbookId);
+  logCellResult(cellStateMap, outputCellKey, value, choiceResult, "complete", row, targetCol);
 
   // Log user choice to backend
   try {
