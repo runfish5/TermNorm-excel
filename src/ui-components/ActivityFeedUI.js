@@ -24,20 +24,9 @@ export function init(containerId = "activity-feed") {
     return true;
   }
 
-  container.innerHTML = `
-            <table class="table table-rounded table-elevated">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Source</th>
-                        <th>Target</th>
-                        <th>Method</th>
-                        <th>Confidence</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        `;
+  container.innerHTML = `<table class="table table-rounded table-elevated">
+<thead><tr><th>Time</th><th>Source</th><th>Target</th><th>Method</th><th>Confidence</th></tr></thead>
+<tbody></tbody></table>`;
 
   tableBody = container?.querySelector("tbody");
 
@@ -51,12 +40,9 @@ export function init(containerId = "activity-feed") {
 }
 
 export async function add(source, cellKey, timestamp, result) {
-  if (!tableBody) {
-    const initSuccess = init();
-    if (!initSuccess || !tableBody) {
-      console.warn("ActivityFeed: Cannot initialize - skipping add");
-      return;
-    }
+  if (!tableBody && (!init() || !tableBody)) {
+    console.warn("ActivityFeed: Cannot initialize");
+    return;
   }
 
   try {
@@ -143,30 +129,21 @@ export function scrollToAndHighlight(key, type = "sessionKey") {
 }
 
 function showPlaceholder() {
-  if (!tableBody) return;
-  if (!tableBody.querySelector(".activity-row")) {
-    tableBody.innerHTML =
-      '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking to see live mappings.</td></tr>';
-  }
+  if (tableBody && !tableBody.querySelector(".activity-row"))
+    tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>';
 }
 
-/**
- * Collapse any currently expanded row back to its original state
- */
 function collapseExpandedRow() {
   if (!expandedRowState) return;
-
   const { originalRow, expandedRow } = expandedRowState;
-  if (expandedRow && expandedRow.parentNode && originalRow) {
+  if (expandedRow?.parentNode && originalRow) {
     expandedRow.parentNode.replaceChild(originalRow, expandedRow);
-
-    // Re-attach click handler to restored row (cloneNode doesn't copy events)
-    const identifier = originalRow.dataset.identifier;
-    if (identifier) {
+    const id = originalRow.dataset.identifier;
+    if (id) {
       originalRow.style.cursor = "pointer";
       originalRow.addEventListener("click", (e) => {
         e.stopPropagation();
-        fetchAndDisplayDetails(identifier, originalRow);
+        fetchAndDisplayDetails(id, originalRow);
       });
     }
   }
@@ -262,61 +239,42 @@ function displayDetailsPanel(details, targetRow) {
   expandedRow.className = "activity-row expanded-details";
   expandedRow.dataset.identifier = details.identifier || "";
 
-  expandedRow.innerHTML = `
-    <td colspan="5" class="details-cell">
-      <div class="inline-details-panel">
-        <div class="details-header">
-          <div class="details-title">
-            <strong>Target:</strong> ${details.identifier || "Unknown"}
-          </div>
-          <button class="btn-collapse" title="Collapse">▲</button>
-        </div>
-        <div class="details-content">
-          <div class="detail-section">
-            <h5>Entity Profile</h5>
-            <div class="card-sm card-muted">
-              ${formatEntityProfile(details.entity_profile)}
-            </div>
-          </div>
-          <div class="detail-section">
-            <h5>Matched Aliases (${aliasCount})</h5>
-            <div class="card-sm card-muted">
-              ${
-                aliasEntries
-                  .map(
-                    ([alias, info]) => `
-                <div class="list-item-bordered">
-                  <span class="name">${alias}</span>
-                  <span class="badge badge-sm badge-uppercase ${info.method}">${info.method}</span>
-                  <span class="score">${Math.round((info.confidence || 0) * 100)}%</span>
-                </div>
-              `
-                  )
-                  .join("") || "<div>No aliases</div>"
-              }
-            </div>
-          </div>
-          <div class="detail-section">
-            <h5>Web Sources (${details.web_sources?.length || 0})</h5>
-            <ul class="list-plain list-scrollable">
-              ${
-                details.web_sources
-                  ?.map(
-                    (s) => `
-                <li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>
-              `
-                  )
-                  .join("") || "<li>No sources</li>"
-              }
-            </ul>
-          </div>
-          <div class="detail-meta">
-            <span>Last updated: ${details.last_updated ? new Date(details.last_updated).toLocaleString() : "N/A"}</span>
-          </div>
-        </div>
+  expandedRow.innerHTML = `<td colspan="5" class="details-cell">
+  <div class="inline-details-panel">
+    <div class="details-header">
+      <div class="details-title"><strong>Target:</strong> ${details.identifier || "Unknown"}</div>
+      <button class="btn-collapse" title="Collapse">▲</button>
+    </div>
+    <div class="details-content">
+      <div class="detail-section">
+        <h5>Entity Profile</h5>
+        <div class="card-sm card-muted">${formatEntityProfile(details.entity_profile)}</div>
       </div>
-    </td>
-  `;
+      <div class="detail-section">
+        <h5>Matched Aliases (${aliasCount})</h5>
+        <div class="card-sm card-muted">${
+          aliasEntries
+            .map(
+              ([alias, info]) =>
+                `<div class="list-item-bordered"><span class="name">${alias}</span><span class="badge badge-sm badge-uppercase ${info.method}">${info.method}</span><span class="score">${Math.round((info.confidence || 0) * 100)}%</span></div>`
+            )
+            .join("") || "<div>No aliases</div>"
+        }</div>
+      </div>
+      <div class="detail-section">
+        <h5>Web Sources (${details.web_sources?.length || 0})</h5>
+        <ul class="list-plain list-scrollable">${
+          details.web_sources
+            ?.map((s) => `<li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>`)
+            .join("") || "<li>No sources</li>"
+        }</ul>
+      </div>
+      <div class="detail-meta">
+        <span>Last updated: ${details.last_updated ? new Date(details.last_updated).toLocaleString() : "N/A"}</span>
+      </div>
+    </div>
+  </div>
+</td>`;
 
   // Replace the target row with expanded row
   targetRow.parentNode.replaceChild(expandedRow, targetRow);
@@ -331,21 +289,11 @@ function displayDetailsPanel(details, targetRow) {
   };
 }
 
-// Helper to format entity profile
 function formatEntityProfile(profile) {
-  if (!profile) return "<p>No profile available</p>";
-
-  return `
-    <div class="profile-field">
-      <strong>Name:</strong> ${profile.entity_name || profile.name || "N/A"}
-    </div>
-    <div class="profile-field">
-      <strong>Core Concept:</strong> ${profile.core_concept || "N/A"}
-    </div>
-    <div class="profile-field">
-      <strong>Key Features:</strong> ${profile.distinguishing_features?.slice(0, 5).join(", ") || profile.key_features?.join(", ") || "N/A"}
-    </div>
-  `;
+  if (!profile) return "<p>No profile</p>";
+  return `<div class="profile-field"><strong>Name:</strong> ${profile.entity_name || profile.name || "N/A"}</div>
+<div class="profile-field"><strong>Core Concept:</strong> ${profile.core_concept || "N/A"}</div>
+<div class="profile-field"><strong>Key Features:</strong> ${profile.distinguishing_features?.slice(0, 5).join(", ") || profile.key_features?.join(", ") || "N/A"}</div>`;
 }
 
 /**
@@ -359,12 +307,9 @@ export function populateFromCache(entries) {
     return;
   }
 
-  if (!tableBody) {
-    const initSuccess = init();
-    if (!initSuccess || !tableBody) {
-      console.warn("[ActivityFeed] Cannot initialize - skipping cache population");
-      return;
-    }
+  if (!tableBody && (!init() || !tableBody)) {
+    console.warn("[ActivityFeed] Cannot initialize");
+    return;
   }
 
   // Clear existing placeholder
@@ -375,16 +320,14 @@ export function populateFromCache(entries) {
   const cachedActivities = [];
 
   for (const [identifier, entry] of Object.entries(entries)) {
-    const aliases = entry.aliases || {};
-
-    for (const [source, aliasInfo] of Object.entries(aliases)) {
+    for (const [source, aliasInfo] of Object.entries(entry.aliases || {})) {
       cachedActivities.push({
         source,
         target: identifier,
         method: aliasInfo.method || "unknown",
         confidence: aliasInfo.confidence || 0,
         timestamp: aliasInfo.timestamp,
-        isCached: true, // Flag to distinguish from session activities
+        isCached: true,
       });
     }
   }

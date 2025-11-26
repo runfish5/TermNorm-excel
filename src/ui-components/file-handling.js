@@ -17,17 +17,19 @@ function setStepStates(s1, s2, s3, s4) {
   });
 }
 
+function updateBackendUrl(url) {
+  state.server.host = url;
+  const input = document.getElementById("server-url-input");
+  if (input) input.value = url;
+}
+
 export function buildConfigErrorMessage(error, configData) {
-  let message = `Config failed: ${error.message}`;
-
-  if (error.message.includes("No valid configuration found for workbook:")) {
-    const keys = Object.keys(configData?.["excel-projects"] || {});
-    if (keys.length) {
-      message += `\n\nAvailable keys: [${keys.join(", ")}] or add "*" as fallback`;
-    }
-  }
-
-  return message;
+  const keys = Object.keys(configData?.["excel-projects"] || {});
+  return `Config failed: ${error.message}${
+    error.message.includes("No valid configuration found") && keys.length
+      ? `\n\nAvailable: [${keys.join(", ")}] or add "*"`
+      : ""
+  }`;
 }
 
 // Load config from static file (used during initialization)
@@ -41,38 +43,26 @@ export async function loadStaticConfig() {
       state.config.raw = configData;
     }
 
-    // Load global backend URL (if specified)
-    if (configData.backend_url) {
-      state.server.host = configData.backend_url;
+    if (configData.backend_url) updateBackendUrl(configData.backend_url);
 
-      // Update UI to show loaded URL
-      const serverUrlInput = document.getElementById("server-url-input");
-      if (serverUrlInput) {
-        serverUrlInput.value = configData.backend_url;
-      }
-    }
-
-    // Inline validation - check structure
     if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config format - missing excel-projects structure");
+      throw new Error("Invalid config - missing excel-projects");
     }
 
-    // Inline config selection
     const projects = configData["excel-projects"];
     const config = projects[workbook] || projects["*"];
 
     if (!config?.standard_mappings?.length) {
       const available = Object.keys(projects).join(", ");
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
+      throw new Error(`No config for "${workbook}". Available: ${available}`);
     }
 
     setConfig({ ...config, workbook });
 
-    // Ensure UI setup and initialize modules
     await ensureUISetup();
     await reloadMappingModules();
 
-    showMessage(`Config loaded - Found ${config.standard_mappings.length} standard mapping(s)`);
+    showMessage(`Loaded ${config.standard_mappings.length} mapping(s)`);
     setStepStates(false, false, true, true);
   } catch (error) {
     const configData = state.config.raw;
@@ -87,39 +77,22 @@ export function setupFileHandling() {
   const dropZone = document.getElementById("drop-zone");
   if (!dropZone) return;
 
-  // Prevent default browser behavior
-  ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-    document.body.addEventListener(eventName, preventDefaults, false);
+  const prevent = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((e) => {
+    dropZone.addEventListener(e, prevent, false);
+    document.body.addEventListener(e, prevent, false);
   });
-
-  // Highlight drop zone when item is dragged over it
-  ["dragenter", "dragover"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, highlight, false);
-  });
-
-  ["dragleave", "drop"].forEach((eventName) => {
-    dropZone.addEventListener(eventName, unhighlight, false);
-  });
-
-  // Handle dropped files
+  ["dragenter", "dragover"].forEach((e) =>
+    dropZone.addEventListener(e, () => dropZone.classList.add("highlight"), false)
+  );
+  ["dragleave", "drop"].forEach((e) =>
+    dropZone.addEventListener(e, () => dropZone.classList.remove("highlight"), false)
+  );
   dropZone.addEventListener("drop", handleDrop, false);
-
-  // Handle click to open file dialog
   dropZone.addEventListener("click", openFileDialog, false);
-}
-
-function preventDefaults(e) {
-  e.preventDefault();
-  e.stopPropagation();
-}
-
-function highlight() {
-  document.getElementById("drop-zone").classList.add("highlight");
-}
-
-function unhighlight() {
-  document.getElementById("drop-zone").classList.remove("highlight");
 }
 
 function handleDrop(e) {
@@ -128,9 +101,6 @@ function handleDrop(e) {
 }
 
 function openFileDialog() {
-  // Immediate feedback that dialog was clicked
-  showMessage("Opening file dialog...");
-
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -139,8 +109,6 @@ function openFileDialog() {
     if (file) {
       showMessage(`File selected: ${file.name} - Processing...`);
       await processFile(file);
-    } else {
-      showMessage("No file selected", "error");
     }
   };
   input.click();
@@ -158,30 +126,19 @@ async function processFile(file) {
     const configData = JSON.parse(text);
     await loadConfigData(configData, file.name);
   } catch (error) {
-    const message =
-      error instanceof SyntaxError
-        ? `Invalid JSON file - ${error.message}`
-        : `File processing failed - ${error.message}`;
-    showMessage(message, "error");
+    showMessage(
+      `${error instanceof SyntaxError ? "Invalid JSON" : "File processing failed"} - ${error.message}`,
+      "error"
+    );
   }
 }
 
 async function loadConfigData(configData, fileName) {
   try {
-    // Load global backend URL (if specified)
-    if (configData.backend_url) {
-      state.server.host = configData.backend_url;
+    if (configData.backend_url) updateBackendUrl(configData.backend_url);
 
-      // Update UI to show loaded URL
-      const serverUrlInput = document.getElementById("server-url-input");
-      if (serverUrlInput) {
-        serverUrlInput.value = configData.backend_url;
-      }
-    }
-
-    // Inline validation and selection
     if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config format - missing excel-projects structure");
+      throw new Error("Invalid config - missing excel-projects");
     }
     state.config.raw = configData;
 
@@ -191,16 +148,15 @@ async function loadConfigData(configData, fileName) {
 
     if (!config?.standard_mappings?.length) {
       const available = Object.keys(projects).join(", ");
-      throw new Error(`No valid configuration found for workbook: "${workbook}". Available: ${available}`);
+      throw new Error(`No config for "${workbook}". Available: ${available}`);
     }
 
     setConfig({ ...config, workbook });
 
-    // Ensure UI setup and initialize modules
     await ensureUISetup();
     await reloadMappingModules();
 
-    showMessage(`Configuration loaded from ${fileName} - Found ${config.standard_mappings.length} standard mapping(s)`);
+    showMessage(`Config loaded from ${fileName} - ${config.standard_mappings.length} mapping(s)`);
     setStepStates(false, false, true, true);
   } catch (error) {
     showMessage(error.message, "error");
@@ -217,7 +173,7 @@ async function ensureUISetup() {
 
   const container = document.getElementById("mapping-configs-container");
   if (!container) {
-    throw new Error("Configuration UI container not available - please refresh the add-in");
+    throw new Error("Config container missing - refresh add-in");
   }
 
   // Initialize global modules if needed
