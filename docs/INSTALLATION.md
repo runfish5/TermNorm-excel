@@ -444,6 +444,9 @@ On Mac, you can copy the `manifest.xml` directly to:
 
    - **Configure Web Search (Optional)**:
      For reliable web research, configure Brave Search API (2,000 free queries/month):
+
+     > **Note:** Brave Search API requires a credit card for registration (even for free tier)
+
      1. Register at: https://api-dashboard.search.brave.com/register
      2. Add key to `backend-api\.env`:
         ```

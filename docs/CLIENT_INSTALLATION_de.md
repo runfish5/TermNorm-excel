@@ -92,6 +92,9 @@ setx GROQ_API_KEY "ihr_groq_api_key_hier"
 
 **Web-Suche konfigurieren (Optional):**
 Für zuverlässige Web-Recherche, konfigurieren Sie Brave Search API (2.000 kostenlose Anfragen/Monat):
+
+> **Hinweis:** Brave Search API erfordert eine Kreditkarte zur Registrierung (auch für kostenlosen Plan)
+
 1. Registrieren: https://api-dashboard.search.brave.com/register
 2. Key in `backend-api\.env` hinzufügen:
    ```

@@ -24,6 +24,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 # Configuration
 setx GROQ_API_KEY "your_key"              # Required for LLM features
 # Edit backend-api/config/users.json       # IP-based auth (hot-reloaded)
+# NOTE: Brave Search API requires credit card to set up (used for web research)
 ```
 
 ## Architecture
