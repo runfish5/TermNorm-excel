@@ -88,58 +88,29 @@ export async function findTokenMatch(value) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
 
-  // Clear previous web search warnings (new request starting)
-  state.webSearch.status = "idle";
-  state.webSearch.error = null;
+  state.webSearch = { status: "idle", error: null };
   notifyStateChange();
 
-  // Proactive check: Ensure session is initialized
-  const sessionReady = await ensureSessionInitialized();
-  if (!sessionReady) {
-    return null;
-  }
+  if (!(await ensureSessionInitialized())) return null;
 
-  // Make request with automatic session recovery
-  const data = await executeWithSessionRecovery(async () => makeResearchRequest(normalized));
+  const data = await executeWithSessionRecovery(async () =>
+    apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query: normalized }, getHeaders())
+  );
 
   if (!data) return null;
 
   return processResearchResponse(data);
 }
 
-/**
- * Make research request to backend API
- *
- * @param {string} query - Normalized query string
- * @returns {Promise<Object|null>} API response data or null
- */
-async function makeResearchRequest(query) {
-  return await apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query }, getHeaders());
-}
-
-/**
- * Process research API response and update state
- *
- * @param {Object} data - API response data
- * @returns {Object|null} Processed match result or null
- */
 function processResearchResponse(data) {
-  // Update web search state from API response
   if (data.web_search_status) {
-    state.webSearch.status = data.web_search_status;
-    state.webSearch.error = data.web_search_error || null;
+    state.webSearch = { status: data.web_search_status, error: data.web_search_error || null };
     notifyStateChange();
   }
 
-  // Check if we have candidates
-  if (!data.ranked_candidates?.length) {
-    showMessage("No matches found");
-    return null;
-  }
-
-  const best = data.ranked_candidates[0];
+  const best = data.ranked_candidates?.[0];
   if (!best) {
-    showMessage("No valid candidates");
+    showMessage("No matches found");
     return null;
   }
 
@@ -148,7 +119,7 @@ function processResearchResponse(data) {
     method: "ProfileRank",
     confidence: best.relevance_score,
     timestamp: new Date().toISOString(),
-    source: data.query || best.candidate, // Use query if available, fallback to candidate
+    source: data.query || best.candidate,
     candidates: data.ranked_candidates,
     total_time: data.total_time,
     llm_provider: data.llm_provider,
@@ -165,14 +136,11 @@ function processResearchResponse(data) {
  */
 function normalizeResultShape(result) {
   return {
-    // Core fields (all methods)
     target: result.target || "Unknown",
     method: result.method || "unknown",
     confidence: result.confidence ?? 0,
     timestamp: result.timestamp || new Date().toISOString(),
     source: result.source || "",
-
-    // LLM fields (default to null if missing)
     candidates: result.candidates || null,
     entity_profile: result.entity_profile || null,
     web_sources: result.web_sources || null,
@@ -212,22 +180,17 @@ export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return normalizeResultShape(createDefaultResult(value, "Empty value"));
 
-  // Verify mappings loaded (server status checked in findTokenMatch if needed)
   if (!state.mappings.loaded) {
-    showMessage("Mapping tables not loaded - load configuration first", "error");
+    showMessage("Mappings not loaded", "error");
     return normalizeResultShape(createDefaultResult(normalized, "Mappings not loaded"));
   }
 
-  // Try cached first
   const cached = getCachedMatch(normalized, forward, reverse);
   if (cached) return normalizeResultShape(cached);
 
-  // Try fuzzy matching before expensive API call
   const fuzzy = findFuzzyMatch(normalized, forward, reverse);
   if (fuzzy) return normalizeResultShape(fuzzy);
 
-  // Fallback to research API for advanced matching
   const tokenMatch = await findTokenMatch(normalized);
-  const result = tokenMatch || createDefaultResult(normalized, "No matches found");
-  return normalizeResultShape(result);
+  return normalizeResultShape(tokenMatch || createDefaultResult(normalized, "No matches found"));
 }
