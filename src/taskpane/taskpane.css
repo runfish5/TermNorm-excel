@@ -550,3 +550,7 @@
     justify-content: center;
     z-index: 2000;
 }
+
+.help-modal.hidden {
+    display: none;
+}

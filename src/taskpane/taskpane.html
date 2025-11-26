@@ -403,10 +403,10 @@
 
         <!-- Help Modal -->
         <div id="help-modal" class="help-modal hidden">
-            <div style="background: white; padding: 20px; border: 1px solid #ccc; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+            <div style="background: white; padding: 20px; border: 1px solid #ccc; max-width: 500px; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                     <h3 style="margin: 0;">Terminology Legend</h3>
-                    <button id="close-help-modal" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    <button id="close-help-modal" style="border: none; background: none; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
                 </div>
 
                 <h4>Match Methods</h4>
