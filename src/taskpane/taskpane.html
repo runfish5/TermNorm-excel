@@ -49,9 +49,7 @@
             <div class="nav-header">
                 <img width="32" height="32" src="../../assets/Runfish_Logo1.5greenyCube.png" alt="TermNorm" title="TermNorm" />
                 <h1 class="ms-font-l">TermNorm</h1>
-                <button id="help-icon-btn" class="help-icon-btn" title="Show terminology legend">
-                    <span class="help-icon">❓</span>
-                </button>
+                <button id="help-icon-btn" class="help-icon-btn" title="Show terminology legend">❓</button>
             </div>
         </div>
         
@@ -403,66 +401,27 @@
             </div>
         </section>
 
-        <!-- Help Legend Modal -->
+        <!-- Help Modal -->
         <div id="help-modal" class="help-modal hidden">
-            <div class="help-modal-overlay"></div>
-            <div class="help-modal-content">
-                <div class="help-modal-header">
-                    <h3>Terminology Legend</h3>
-                    <button id="close-help-modal" class="close-modal-btn" title="Close">&times;</button>
+            <div style="background: white; padding: 20px; border: 1px solid #ccc; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Terminology Legend</h3>
+                    <button id="close-help-modal" style="border: none; background: none; font-size: 24px; cursor: pointer;">&times;</button>
                 </div>
-                <div class="help-modal-body">
-                    <div class="legend-section">
-                        <h4>Match Methods</h4>
-                        <dl class="legend-list">
-                            <dt class="legend-term">
-                                <span class="legend-badge cached">Cached</span>
-                            </dt>
-                            <dd class="legend-description">
-                                Exact match found in memory cache (instantaneous). Previously matched aliases are stored for fast retrieval.
-                            </dd>
 
-                            <dt class="legend-term">
-                                <span class="legend-badge fuzzy">Fuzzy</span>
-                            </dt>
-                            <dd class="legend-description">
-                                Approximate string matching using similarity algorithms (local, offline). No backend required.
-                            </dd>
+                <h4>Match Methods</h4>
+                <p><strong>Cached</strong> - Exact match found in memory cache (instantaneous). Previously matched aliases are stored for fast retrieval.</p>
+                <p><strong>Fuzzy</strong> - Approximate string matching using similarity algorithms (local, offline). No backend required.</p>
+                <p><strong>ProfileRank</strong> - LLM-powered matching with web research. Creates entity profiles and ranks candidates by semantic similarity.</p>
 
-                            <dt class="legend-term">
-                                <span class="legend-badge llm">ProfileRank</span>
-                            </dt>
-                            <dd class="legend-description">
-                                LLM-powered matching with web research. Creates entity profiles and ranks candidates by semantic similarity.
-                            </dd>
-                        </dl>
-                    </div>
+                <h4>Confidence Scores</h4>
+                <p><strong>0-49</strong> - Low confidence - manual review recommended</p>
+                <p><strong>50-79</strong> - Medium confidence - likely correct</p>
+                <p><strong>80-100</strong> - High confidence - very likely correct</p>
 
-                    <div class="legend-section">
-                        <h4>Confidence Scores</h4>
-                        <dl class="legend-list">
-                            <dt class="legend-term">0-49</dt>
-                            <dd class="legend-description">Low confidence - manual review recommended</dd>
-
-                            <dt class="legend-term">50-79</dt>
-                            <dd class="legend-description">Medium confidence - likely correct</dd>
-
-                            <dt class="legend-term">80-100</dt>
-                            <dd class="legend-description">High confidence - very likely correct</dd>
-                        </dl>
-                    </div>
-
-                    <div class="legend-section">
-                        <h4>Terms</h4>
-                        <dl class="legend-list">
-                            <dt class="legend-term">Alias</dt>
-                            <dd class="legend-description">The input value that needs to be normalized (e.g., "IBM", "Intl Business Machines")</dd>
-
-                            <dt class="legend-term">Target ID</dt>
-                            <dd class="legend-description">The canonical identifier from your reference list (e.g., "International Business Machines Corporation")</dd>
-                        </dl>
-                    </div>
-                </div>
+                <h4>Terms</h4>
+                <p><strong>Alias</strong> - The input value that needs to be normalized (e.g., "IBM", "Intl Business Machines")</p>
+                <p><strong>Target ID</strong> - The canonical identifier from your reference list (e.g., "International Business Machines Corporation")</p>
             </div>
         </div>
     </main>

@@ -115,23 +115,11 @@ Office.onReady(async (info) => {
         : (document.getElementById("show-metadata-btn").textContent = "Hide Processing Details"));
   });
 
-  // Help modal handlers
+  // Help modal
   const helpModal = document.getElementById("help-modal");
-  const helpIconBtn = document.getElementById("help-icon-btn");
-  const closeHelpBtn = document.getElementById("close-help-modal");
-  const helpModalOverlay = helpModal?.querySelector(".help-modal-overlay");
-
-  helpIconBtn?.addEventListener("click", () => {
-    helpModal?.classList.remove("hidden");
-  });
-
-  closeHelpBtn?.addEventListener("click", () => {
-    helpModal?.classList.add("hidden");
-  });
-
-  helpModalOverlay?.addEventListener("click", () => {
-    helpModal?.classList.add("hidden");
-  });
+  document.getElementById("help-icon-btn")?.addEventListener("click", () => helpModal?.classList.remove("hidden"));
+  document.getElementById("close-help-modal")?.addEventListener("click", () => helpModal?.classList.add("hidden"));
+  helpModal?.addEventListener("click", (e) => e.target === helpModal && helpModal.classList.add("hidden"));
 
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
     e.target.disabled = true;
