@@ -18,10 +18,7 @@ const cellStateByWorkbook = new Map();
  * @returns {Map} Cell state map for the workbook
  */
 function getCellStateMap(workbookId) {
-  if (!cellStateByWorkbook.has(workbookId)) {
-    cellStateByWorkbook.set(workbookId, new Map());
-  }
-  return cellStateByWorkbook.get(workbookId);
+  return cellStateByWorkbook.get(workbookId) || cellStateByWorkbook.set(workbookId, new Map()).get(workbookId);
 }
 
 export async function startTracking(config, mappings) {
@@ -83,18 +80,14 @@ export async function startTracking(config, mappings) {
 
     // Remove existing tracker if any
     const existingTracker = activeTrackers.get(workbookId);
-    if (existingTracker) {
-      // Mark as inactive FIRST to prevent any queued/in-flight events from processing with old column indices
-      existingTracker.active = false;
-
-      if (existingTracker.handler || existingTracker.selectionHandler) {
-        await Excel.run(async (ctx) => {
-          const ws = ctx.workbook.worksheets.getActiveWorksheet();
-          if (existingTracker.handler) ws.onChanged.remove(existingTracker.handler);
-          if (existingTracker.selectionHandler) ws.onSelectionChanged.remove(existingTracker.selectionHandler);
-          await ctx.sync();
-        });
-      }
+    if (existingTracker?.active) {
+      existingTracker.active = false; // Prevent queued events from processing with old column indices
+      await Excel.run(async (ctx) => {
+        const ws = ctx.workbook.worksheets.getActiveWorksheet();
+        if (existingTracker.handler) ws.onChanged.remove(existingTracker.handler);
+        if (existingTracker.selectionHandler) ws.onSelectionChanged.remove(existingTracker.selectionHandler);
+        await ctx.sync();
+      });
     }
 
     // Setup change and selection handlers with tracker context
@@ -135,33 +128,22 @@ const handleWorksheetChange = async (e, tracker) => {
     // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
     const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
 
-    // Multi-cell paste detection: Block automatic processing if 2+ tracked cells changed
-    // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+    // Multi-cell paste detection: Block if 2+ tracked cells changed
     const trackedCount = countTrackedCells({ rowCount, columnCount, rowIndex, columnIndex }, tracker.columnMap);
     if (trackedCount >= 2) {
-      // Mark all affected tracked cells with warning color
-      // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
+      // Mark affected tracked cells with warning color
       for (let r = 0; r < rowCount; r++) {
-        // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
         for (let c = 0; c < columnCount; c++) {
-          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
           const row = rowIndex + r;
-          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
           const col = columnIndex + c;
-          // eslint-disable-next-line office-addins/call-sync-after-load, office-addins/call-sync-before-read
           if (row > 0 && tracker.columnMap.has(col) && values[r][c]) {
             ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
           }
         }
       }
       await ctx.sync();
-
-      // Show user message
-      showMessage(
-        `Multi-cell paste detected (${trackedCount} cells). Automatic processing disabled. Please edit cells individually to normalize.`,
-        "warning"
-      );
-      return; // Exit early - do not process
+      showMessage(`Paste detected (${trackedCount} cells). Edit individually to process.`, "warning");
+      return;
     }
 
     // Process all cells that need mapping (single-cell or non-tracked multi-cell changes)
@@ -236,45 +218,30 @@ const handleSelectionChange = async (e, tracker) => {
     // Dynamically import to avoid circular dependency
     const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
 
-    // Check if this is an INPUT column (columnMap has inputCol → outputCol)
+    // Input column: lookup target identifier from mappings or history
     const targetCol = tracker.columnMap.get(col);
     if (targetCol !== undefined) {
-      // Input column: use forward mapping to get the target identifier
       let targetIdentifier = tracker.mappings.forward[cleanedValue];
-
-      // Fallback: search history cache by source (for previously processed entries)
       if (!targetIdentifier) {
         const { findTargetBySource } = await import("../utils/history-cache.js");
         targetIdentifier = findTargetBySource(cleanedValue);
       }
-
-      if (targetIdentifier) {
-        handleCellSelection(null, null, targetIdentifier);
-      }
-      // If still no match, no entry exists for this source - do nothing
+      if (targetIdentifier) handleCellSelection(null, null, targetIdentifier);
       return;
     }
 
     // Output column: check cellState first, then historical lookup
-    const cellStateMap = getCellStateMap(tracker.workbookId);
-    const state = cellStateMap.get(cellKey);
-    if (state && state.status === "complete") {
-      // Current session: use cellState
-      handleCellSelection(cellKey, state, null);
-    } else {
-      // Historical: pass cell value as identifier to lookup from database
-      handleCellSelection(null, null, cleanedValue);
-    }
+    const state = getCellStateMap(tracker.workbookId).get(cellKey);
+    state?.status === "complete"
+      ? handleCellSelection(cellKey, state, null) // Current session
+      : handleCellSelection(null, null, cleanedValue); // Historical lookup
   });
 };
 
-// Creates independent Excel.run context - do not pass worksheet objects or updates will batch
 async function processCell(row, col, targetCol, value, tracker) {
-  // Create output cell key upfront (activities track output column, not input)
   const outputCellKey = createCellKey(row, targetCol);
 
   try {
-    // Always returns valid result (never null)
     const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
 
     if (result.candidates) {
@@ -283,22 +250,15 @@ async function processCell(row, col, targetCol, value, tracker) {
       });
     }
 
-    // Write result to cells (target value, colors, confidence)
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
-
-    // Log to cell state and activity feed
-    const cellStateMap = getCellStateMap(tracker.workbookId);
-    logCellResult(cellStateMap, outputCellKey, value, result, "complete", row, targetCol);
-    // Note: Automatic logging removed - training records now captured in backend
-    // User manual selections still logged via handleCandidateChoice()
+    logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, result, "complete", row, targetCol);
   } catch (error) {
     await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
-    // Note: handleCellError stores error in cellState
   }
 }
 
 async function handleCellError(row, col, targetCol, value, error, outputCellKey, tracker) {
-  const errorMsg = error instanceof Error ? error.message : String(error);
+  const errorMsg = error?.message || String(error);
   const timestamp = new Date().toISOString();
 
   await Excel.run(async (ctx) => {
@@ -323,7 +283,6 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     ctx.runtime.enableEvents = true;
   });
 
-  // Build error result
   const errorResult = {
     target: errorMsg,
     method: "error",
@@ -338,15 +297,12 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     web_search_status: "idle",
   };
 
-  // Log to cell state and activity feed
-  const cellStateMap = getCellStateMap(tracker.workbookId);
-  logCellResult(cellStateMap, outputCellKey, value, errorResult, "error", row, targetCol);
+  logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, errorResult, "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const timestamp = new Date().toISOString();
 
-  // Build choice result object
   const choiceResult = {
     target: choice.candidate,
     method: "UserChoice",
@@ -361,12 +317,8 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
     web_search_status: "idle",
   };
 
-  // Write result to cells (target value, colors, confidence)
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
-
-  // Log to cell state and activity feed
-  const cellStateMap = getCellStateMap(tracker.workbookId);
-  logCellResult(cellStateMap, outputCellKey, value, choiceResult, "complete", row, targetCol);
+  logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, choiceResult, "complete", row, targetCol);
 
   // Log user choice to backend
   try {
@@ -389,25 +341,21 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
 }
 
 export async function stopTracking(workbookId) {
-  if (!workbookId) workbookId = await getCurrentWorkbookName();
-
+  workbookId = workbookId || (await getCurrentWorkbookName());
   const tracker = activeTrackers.get(workbookId);
   if (!tracker) return;
 
   tracker.active = false;
-
-  if (tracker.handler || tracker.selectionHandler) {
-    await Excel.run(async (ctx) => {
-      const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      if (tracker.handler) ws.onChanged.remove(tracker.handler);
-      if (tracker.selectionHandler) ws.onSelectionChanged.remove(tracker.selectionHandler);
-      await ctx.sync();
-    });
-  }
+  await Excel.run(async (ctx) => {
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    if (tracker.handler) ws.onChanged.remove(tracker.handler);
+    if (tracker.selectionHandler) ws.onSelectionChanged.remove(tracker.selectionHandler);
+    await ctx.sync();
+  });
 
   activeTrackers.delete(workbookId);
   cellStateByWorkbook.delete(workbookId);
-  console.log(`✓ Tracking stopped for workbook: ${workbookId}`);
+  console.log(`✓ Tracking stopped: ${workbookId}`);
 }
 
 export function getActiveTrackers() {
