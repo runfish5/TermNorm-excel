@@ -314,3 +314,46 @@ Build and run:
 docker build -t termnorm-backend .
 docker run -p 8000:8000 termnorm-backend
 ```
+
+---
+
+## 🔧 Optimizing Your Fork for GitHub Releases
+
+**If you fork this project**, you'll face the same repository size issue: Your git repo is small (~4MB), but developers need to download ~1GB of `node_modules/` for development. However, **your end users should not need to download all that**.
+
+### The Problem
+- Git clone downloads ~4MB (source code)
+- `npm install` downloads ~900MB (node_modules)
+- Total: ~1GB local directory
+- **End users don't need node_modules - they only need the pre-built dist/ folder!**
+
+### The Solution
+This repository uses **automated GitHub Release deployment packages** that create lightweight deployment zips (~5-10MB) when you publish a release. These packages include only:
+- ✅ Pre-built `dist/` folder
+- ✅ Python `backend-api/`
+- ✅ Manifest files
+- ✅ Configuration templates
+- ❌ No source code
+- ❌ No node_modules
+
+### Setup Instructions
+
+**Instead of manually configuring this, use Claude Code in VS Code to set it up for you:**
+
+1. Open your forked project in VS Code
+2. Open Claude Code (Ctrl+L or Cmd+L)
+3. Ask: *"Set up automated GitHub release deployment packages like the original TermNorm project. Create a workflow that builds the project and packages only dist/, backend-api/, and manifests into a deployment zip when I publish a release. No node_modules should be included."*
+
+Claude Code will:
+- Create the GitHub Actions workflow file
+- Set up proper packaging
+- Update your README with instructions
+- Explain how to create releases
+
+**Benefits:**
+- Your end users download 5-10MB instead of cloning + npm install (~1GB)
+- Developers still have full source access
+- Automated - runs every time you publish a release
+- No manual zip creation needed
+
+**Note:** The workflow already exists in `.github/workflows/release-package.yml` if you want to review it, but asking Claude Code ensures it's properly configured for your fork's specific needs.
