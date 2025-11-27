@@ -1,10 +1,5 @@
 import { buildActivityRow } from "./activity-row-builder.js";
-import {
-  addActivity as addToStore,
-  clearActivities as clearStore,
-  getCount as getStoreCount,
-  getMaxEntries,
-} from "../services/activity-store.js";
+import { addEvent, clearEvents, getCount as getEventCount, getMaxEntries } from "../services/event-log.js";
 
 let container = null;
 let tableBody = null;
@@ -12,10 +7,10 @@ let tableBody = null;
 // Track expanded row state for collapse/restore
 let expandedRowState = null; // { originalRow, expandedRow }
 
-export function init(containerId = "activity-feed") {
+export function init(containerId = "processing-history-feed") {
   container = document.getElementById(containerId);
   if (!container) {
-    console.warn(`ActivityFeed: Container '${containerId}' not found - will try lazy init`);
+    console.warn(`ProcessingHistory: Container '${containerId}' not found - will try lazy init`);
     return false;
   }
 
@@ -30,7 +25,7 @@ export function init(containerId = "activity-feed") {
 
   tableBody = container?.querySelector("tbody");
 
-  const clearBtn = document.getElementById("clear-activity");
+  const clearBtn = document.getElementById("clear-history");
   if (clearBtn) {
     clearBtn.addEventListener("click", () => clear());
   }
@@ -39,9 +34,9 @@ export function init(containerId = "activity-feed") {
   return true;
 }
 
-export async function add(source, cellKey, timestamp, result) {
+export async function addEntry(source, cellKey, timestamp, result) {
   if (!tableBody && (!init() || !tableBody)) {
-    console.warn("ActivityFeed: Cannot initialize");
+    console.warn("ProcessingHistory: Cannot initialize");
     return;
   }
 
@@ -50,8 +45,8 @@ export async function add(source, cellKey, timestamp, result) {
     const placeholder = tableBody?.querySelector(".placeholder-row");
     if (placeholder) placeholder.remove();
 
-    // Store activity in managed store
-    addToStore({ source, cellKey, timestamp });
+    // Store event in event log
+    addEvent({ source, cellKey, timestamp });
 
     // Use passed result directly (normalized result from match methods)
     const displayResult = result || {
@@ -62,9 +57,9 @@ export async function add(source, cellKey, timestamp, result) {
       web_search_status: "idle",
     };
 
-    // Add session entry to history database (unifies session and cached data)
-    const { addSessionEntry } = await import("../services/history-store.js");
-    addSessionEntry(source, displayResult);
+    // Cache entity (unifies session and cached data)
+    const { cacheEntity } = await import("../services/entity-cache.js");
+    cacheEntity(source, displayResult);
 
     // Create row using shared builder
     const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, displayResult);
@@ -77,7 +72,7 @@ export async function add(source, cellKey, timestamp, result) {
       fetchAndDisplayDetails(displayResult.target, row);
     });
 
-    // Remove excess rows if over maxEntries (store already maintains limit)
+    // Remove excess rows if over maxEntries (event log already maintains limit)
     const maxEntries = getMaxEntries();
     while (tableBody.children.length > maxEntries) {
       tableBody.removeChild(tableBody.lastChild);
@@ -85,20 +80,20 @@ export async function add(source, cellKey, timestamp, result) {
 
     updateHistoryTabCounter();
   } catch (error) {
-    console.error("ActivityFeed.add() error:", error);
+    console.error("ProcessingHistory.addEntry() error:", error);
   }
 }
 
 export function clear() {
   if (!tableBody) return;
-  clearStore(); // Clear managed store
+  clearEvents(); // Clear event log
   tableBody.innerHTML = "";
   showPlaceholder();
   updateHistoryTabCounter();
 }
 
 /**
- * Scroll to and highlight activity matching the given key
+ * Scroll to and highlight entry matching the given key
  * @param {string} key - Session key or identifier to find
  * @param {string} [type="sessionKey"] - Type of key: "sessionKey" or "identifier"
  * @returns {HTMLElement|null} The target row element, or null if not found
@@ -129,7 +124,7 @@ export function scrollToAndHighlight(key, type = "sessionKey") {
 }
 
 function showPlaceholder() {
-  if (tableBody && !tableBody.querySelector(".activity-row"))
+  if (tableBody && !tableBody.querySelector(".history-row"))
     tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>';
 }
 
@@ -153,8 +148,8 @@ function collapseExpandedRow() {
 export function updateHistoryTabCounter() {
   const historyTab = document.getElementById("history-tab");
   if (historyTab && tableBody) {
-    const activityRows = tableBody.querySelectorAll(".activity-row");
-    const count = activityRows.length;
+    const historyRows = tableBody.querySelectorAll(".history-row");
+    const count = historyRows.length;
     const tabIcon = historyTab.querySelector(".tab-icon");
     if (tabIcon) {
       tabIcon.textContent = `${count}📜`;
@@ -163,14 +158,14 @@ export function updateHistoryTabCounter() {
 }
 
 export function getCount() {
-  return getStoreCount();
+  return getEventCount();
 }
 
 /**
- * Handle cell selection from Excel - switch to history tab, scroll to activity, show details
+ * Handle cell selection from Excel - switch to history tab, scroll to entry, show details
  * @param {string|null} cellKey - Cell key (row:col format) for current session
  * @param {Object|null} state - Cell state from cellState Map
- * @param {string|null} identifier - Identifier (target) for historical lookup
+ * @param {string|null} identifier - Identifier (target) for lookup
  */
 export async function handleCellSelection(cellKey, state, identifier) {
   // Switch to history tab
@@ -183,7 +178,7 @@ export async function handleCellSelection(cellKey, state, identifier) {
     lookupIdentifier = state.result.target;
   }
 
-  // Try to scroll to activity - first by sessionKey, then by identifier
+  // Try to scroll to entry - first by sessionKey, then by identifier
   let targetRow = null;
   if (cellKey) {
     targetRow = scrollToAndHighlight(cellKey, "sessionKey");
@@ -198,18 +193,18 @@ export async function handleCellSelection(cellKey, state, identifier) {
   }
 }
 
-// Fetch match details - uses history service abstraction
+// Fetch entity details - uses entity cache abstraction
 async function fetchAndDisplayDetails(identifier, targetRow) {
-  const { getHistoryEntry } = await import("../services/history-store.js");
+  const { getEntity } = await import("../services/entity-cache.js");
 
-  const entry = await getHistoryEntry(identifier);
+  const entry = await getEntity(identifier);
 
   if (!entry) {
-    console.warn("No history entry found for:", identifier);
+    console.warn("No entity found for:", identifier);
     return;
   }
 
-  console.log("[ActivityFeed] Showing details for:", identifier.substring(0, 40));
+  console.log("[ProcessingHistory] Showing details for:", identifier.substring(0, 40));
   displayDetailsPanel({ identifier, ...entry }, targetRow);
 }
 
@@ -236,7 +231,7 @@ function displayDetailsPanel(details, targetRow) {
 
   // Create expanded row
   const expandedRow = document.createElement("tr");
-  expandedRow.className = "activity-row expanded-details";
+  expandedRow.className = "history-row expanded-details";
   expandedRow.dataset.identifier = details.identifier || "";
 
   expandedRow.innerHTML = `<td colspan="5" class="details-cell">
@@ -297,18 +292,18 @@ function formatEntityProfile(profile) {
 }
 
 /**
- * Populate history view from cached entries (from backend match_database)
- * Called after history cache is initialized on server reconnection
- * @param {Object} entries - Match database entries {identifier: {aliases, entity_profile, ...}}
+ * Populate history view from cached entities (from backend match_database)
+ * Called after entity cache is initialized on server reconnection
+ * @param {Object} entries - Entity database entries {identifier: {aliases, entity_profile, ...}}
  */
 export function populateFromCache(entries) {
   if (!entries || Object.keys(entries).length === 0) {
-    console.log("[ActivityFeed] No cached entries to populate");
+    console.log("[ProcessingHistory] No cached entries to populate");
     return;
   }
 
   if (!tableBody && (!init() || !tableBody)) {
-    console.warn("[ActivityFeed] Cannot initialize");
+    console.warn("[ProcessingHistory] Cannot initialize");
     return;
   }
 
@@ -316,12 +311,12 @@ export function populateFromCache(entries) {
   const placeholder = tableBody?.querySelector(".placeholder-row");
   if (placeholder) placeholder.remove();
 
-  // Convert entries to flat list of activities sorted by timestamp
-  const cachedActivities = [];
+  // Convert entries to flat list of events sorted by timestamp
+  const cachedEvents = [];
 
   for (const [identifier, entry] of Object.entries(entries)) {
     for (const [source, aliasInfo] of Object.entries(entry.aliases || {})) {
-      cachedActivities.push({
+      cachedEvents.push({
         source,
         target: identifier,
         method: aliasInfo.method || "unknown",
@@ -333,18 +328,18 @@ export function populateFromCache(entries) {
   }
 
   // Sort by timestamp descending (newest first)
-  cachedActivities.sort((a, b) => {
+  cachedEvents.sort((a, b) => {
     const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
     const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
     return timeB - timeA;
   });
 
   // Limit to maxEntries
-  const toDisplay = cachedActivities.slice(0, getMaxEntries());
+  const toDisplay = cachedEvents.slice(0, getMaxEntries());
 
   // Add rows to table
-  for (const activity of toDisplay) {
-    const { source, target, method, confidence, timestamp } = activity;
+  for (const event of toDisplay) {
+    const { source, target, method, confidence, timestamp } = event;
 
     // Create row using shared builder
     const row = buildActivityRow(
@@ -365,6 +360,6 @@ export function populateFromCache(entries) {
     tableBody.appendChild(row);
   }
 
-  console.log(`[ActivityFeed] Populated ${toDisplay.length} entries from cache`);
+  console.log(`[ProcessingHistory] Populated ${toDisplay.length} entries from cache`);
   updateHistoryTabCounter();
 }

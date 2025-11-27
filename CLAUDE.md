@@ -51,7 +51,7 @@ src/
 │   └── state-machine.manager.js     # Frontend-only state (mappings, config, server status)
 │
 ├── ui-components/                    # UI component functions
-│   ├── ActivityFeedUI.js            # Processing history display
+│   ├── ProcessingHistoryUI.js       # Processing history display
 │   ├── CandidateRankingUI.js        # Ranked results UI
 │   ├── mapping-config-functions.js  # Configuration UI
 │   ├── file-handling.js             # Drag-drop config loading

@@ -216,7 +216,7 @@ const handleSelectionChange = async (e, tracker) => {
     const cleanedValue = String(cellValue).trim();
 
     // Dynamically import to avoid circular dependency
-    const { handleCellSelection } = await import("../ui-components/ActivityFeedUI.js");
+    const { handleCellSelection } = await import("../ui-components/ProcessingHistoryUI.js");
 
     // Input column: lookup target identifier from mappings or history
     const targetCol = tracker.columnMap.get(col);

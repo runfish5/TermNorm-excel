@@ -7,7 +7,7 @@
 
 import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
 import { getHost, getHeaders } from "./server-utilities.js";
-import { populateFromCache } from "../ui-components/ActivityFeedUI.js";
+import { populateFromCache } from "../ui-components/ProcessingHistoryUI.js";
 
 /**
  * Initialize history cache from backend if not already initialized.

@@ -1,6 +1,6 @@
-/* ActivityFeedUI.css */
+/* ProcessingHistoryUI.css */
 
-/* Activity table column-specific styling */
+/* History table column-specific styling */
 .table .time {
     font-family: var(--font-mono);
     color: var(--gray-500);
@@ -30,22 +30,22 @@
     color: var(--method-text);
 }
 
-.activity-row.exact .method {
+.history-row.exact .method {
     --method-bg: var(--color-info-bg);
     --method-text: var(--color-info-text);
 }
 
-.activity-row.fuzzy .method {
+.history-row.fuzzy .method {
     --method-bg: var(--color-warning-bg);
     --method-text: var(--color-warning-text);
 }
 
-.activity-row.ai .method {
+.history-row.ai .method {
     --method-bg: var(--color-ai-bg);
     --method-text: var(--color-ai-text);
 }
 
-.activity-row.error .method {
+.history-row.error .method {
     --method-bg: var(--color-error-bg);
     --method-text: var(--color-error-text);
 }
@@ -64,11 +64,11 @@
 }
 
 /* Highlight effect for cell selection feature */
-.activity-row {
+.history-row {
     transition: all 0.3s ease;
 }
 
-.activity-row.highlighted {
+.history-row.highlighted {
     background: var(--color-warning-bg) !important;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -158,8 +158,8 @@
 }
 
 /* Inline expanded details row */
-.activity-row.expanded-details,
-.activity-row.expanded-details:hover {
+.history-row.expanded-details,
+.history-row.expanded-details:hover {
     background: var(--gray-100);
 }
 
@@ -201,10 +201,10 @@
 }
 
 /* Cached entry indicator */
-.activity-row.cached-entry {
+.history-row.cached-entry {
     background: var(--gray-50);
 }
 
-.activity-row.cached-entry .time {
+.history-row.cached-entry .time {
     color: var(--gray-400);
 }

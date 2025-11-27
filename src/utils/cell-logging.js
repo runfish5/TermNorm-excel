@@ -1,5 +1,5 @@
-// utils/cell-logging.js - Centralized cell state and activity logging
-import { add as addActivity } from "../ui-components/ActivityFeedUI.js";
+// utils/cell-logging.js - Centralized cell state and history logging
+import { addEntry as addHistoryEntry } from "../ui-components/ProcessingHistoryUI.js";
 
 /**
  * Log cell processing result to state and activity feed
@@ -23,6 +23,6 @@ export function logCellResult(cellStateMap, outputCellKey, inputValue, result, s
     timestamp: result.timestamp,
   });
 
-  // Add activity with output cell key (enables selection lookup)
-  addActivity(inputValue, outputCellKey, result.timestamp, result);
+  // Add history entry with output cell key (enables selection lookup)
+  addHistoryEntry(inputValue, outputCellKey, result.timestamp, result);
 }

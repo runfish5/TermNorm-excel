@@ -1,6 +1,6 @@
 /**
- * History Store Service
- * Abstracts access to match database history (from backend cache)
+ * Entity Cache Service
+ * Abstracts access to entity database (from backend cache)
  * Prepares for future architectural shift to include session entries
  */
 
@@ -9,13 +9,13 @@ import { apiGet } from "../utils/api-fetch.js";
 import { getHost } from "../utils/server-utilities.js";
 
 /**
- * Get history entry by identifier (target)
+ * Get entity by identifier (target)
  * Checks cache first, falls back to server request
  *
  * @param {string} identifier - Target identifier to look up
  * @returns {Promise<Object|null>} Entry with entity_profile, aliases, web_sources, or null
  */
-export async function getHistoryEntry(identifier) {
+export async function getEntity(identifier) {
   if (!identifier) return null;
 
   // Check local cache first
@@ -35,27 +35,27 @@ export async function getHistoryEntry(identifier) {
 
     return response.data;
   } catch (error) {
-    console.error("Error fetching history entry:", error);
+    console.error("Error fetching entity:", error);
     return null;
   }
 }
 
 /**
- * Get all history entries
- * Returns entire history cache from state
+ * Get all entities
+ * Returns entire entity cache from state
  *
- * @returns {Object} All history entries {identifier: {aliases, entity_profile, ...}}
+ * @returns {Object} All entities {identifier: {aliases, entity_profile, ...}}
  */
-export function getAllHistoryEntries() {
+export function getAllEntities() {
   return state.history.entries || {};
 }
 
 /**
- * Check if history cache is initialized
+ * Check if entity cache is initialized
  *
  * @returns {boolean} True if cache is ready
  */
-export function isHistoryCacheReady() {
+export function isCacheReady() {
   return state.history.cacheInitialized || false;
 }
 
@@ -79,7 +79,7 @@ export function findTargetBySource(sourceValue) {
 }
 
 /**
- * Add or update session entry in history cache
+ * Cache entity in the entity cache
  * Creates unified data structure matching backend cache format
  *
  * @param {string} source - Original input value (source term)
@@ -91,11 +91,11 @@ export function findTargetBySource(sourceValue) {
  * @param {Object} result.entity_profile - Optional entity profile data
  * @param {Array} result.web_sources - Optional web sources
  */
-export function addSessionEntry(source, result) {
+export function cacheEntity(source, result) {
   const { target, method, confidence, timestamp, entity_profile, web_sources } = result;
 
   if (!target) {
-    console.warn("[History] Cannot add session entry without target");
+    console.warn("[EntityCache] Cannot cache entity without target");
     return;
   }
 
@@ -124,5 +124,5 @@ export function addSessionEntry(source, result) {
     if (web_sources?.length) entry.web_sources = web_sources;
   }
 
-  console.log(`[History] Added session entry: ${source} → ${target} (${method})`);
+  console.log(`[EntityCache] Cached entity: ${source} → ${target} (${method})`);
 }

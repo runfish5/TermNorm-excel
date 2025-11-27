@@ -1,11 +1,11 @@
 /**
- * Result Accessor Service
- * Abstracts result data retrieval from multiple sources (cellState, history cache)
+ * Result Lookup Service
+ * Abstracts result data retrieval from multiple sources (cellState, entity cache)
  * Prepares for future architectural shift where cellState stores lightweight references
  */
 
 import { getCellState } from "./live.tracker.js";
-import { getHistoryEntry } from "./history-store.js";
+import { getEntity } from "./entity-cache.js";
 
 /**
  * Get complete result data for a cell
@@ -23,7 +23,7 @@ export function getResultForCell(cellKey) {
 
 /**
  * Get complete result data by identifier
- * Fetches from history cache (backend match database)
+ * Fetches from entity cache (backend match database)
  *
  * @param {string} identifier - Target identifier
  * @returns {Promise<Object|null>} Entry with entity_profile, aliases, web_sources, or null
@@ -31,12 +31,12 @@ export function getResultForCell(cellKey) {
 export async function getResultForIdentifier(identifier) {
   if (!identifier) return null;
 
-  return await getHistoryEntry(identifier);
+  return await getEntity(identifier);
 }
 
 /**
  * Get result data from any source (cell key or identifier)
- * Tries cellState first, then history cache
+ * Tries cellState first, then entity cache
  *
  * @param {string} cellKey - Cell key (row:col format) or null
  * @param {string} identifier - Target identifier or null
@@ -49,7 +49,7 @@ export async function getResultFromAnywhere(cellKey, identifier) {
     if (cellResult) return cellResult;
   }
 
-  // Fallback to history cache
+  // Fallback to entity cache
   if (identifier) {
     return await getResultForIdentifier(identifier);
   }

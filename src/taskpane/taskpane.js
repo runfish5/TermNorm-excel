@@ -1,6 +1,6 @@
 import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
-import { init as initActivityFeed, updateHistoryTabCounter } from "../ui-components/ActivityFeedUI.js";
+import { init as initProcessingHistory, updateHistoryTabCounter } from "../ui-components/ProcessingHistoryUI.js";
 import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
 import { setupServerEvents, checkServerStatus, onServerReconnected } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
@@ -21,7 +21,7 @@ Office.onReady(async (info) => {
 
   document.body.className = "ms-font-m ms-welcome ms-Fabric";
 
-  initActivityFeed();
+  initProcessingHistory();
   initBatchProcessing();
   updateHistoryTabCounter();
 

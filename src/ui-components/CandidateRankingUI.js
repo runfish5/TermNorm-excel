@@ -1,4 +1,4 @@
-import { init as initActivityFeed } from "./ActivityFeedUI.js";
+import { init as initProcessingHistory } from "./ProcessingHistoryUI.js";
 
 let container = null;
 let candidatesData = [];
@@ -23,7 +23,7 @@ export function init() {
   `;
   document.head.appendChild(style);
 
-  initActivityFeed("activity-feed");
+  initProcessingHistory("processing-history-feed");
   return true;
 }
 

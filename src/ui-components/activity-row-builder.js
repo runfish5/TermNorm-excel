@@ -30,7 +30,7 @@ export function buildActivityRow(activity, result) {
   }
 
   const row = document.createElement("tr");
-  row.className = `activity-row ${method}`;
+  row.className = `history-row ${method}`;
   row.dataset.sessionKey = sessionKey || "";
   row.dataset.identifier = target || "";
   row.innerHTML = `
