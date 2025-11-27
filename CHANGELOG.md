@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2025-11-27
+
+### Highlights
+
+**User-Facing Improvements**
+- Help icon with terminology legend explaining normalization concepts
+- Confidence column output showing match quality (0-100 scale)
+- Critical fix: Workbook-isolated cell state prevents data corruption across multiple workbooks
+- Improved Python version auto-detection with clear error messaging
+
+**Deployment & Infrastructure**
+- Automated deployment package creation for GitHub releases
+- Enhanced deployment documentation for IIS and M365 environments
+- Improved UI path display for different deployment scenarios
+
+**Code Quality**
+- Unified design system implementation (reduced CSS by 218 lines)
+- Refactored activity tracking services for better maintainability
+- Multiple performance and stability improvements
+
+### Technical Details
+- 47 commits since v1.0.1: 9 features, 8 bug fixes, 24 refactoring improvements
+- No breaking changes from v1.0.1
+- Configuration file format unchanged
+
 ## [1.0.1] - 2025-11-16
 
 ### Key Improvements for Users

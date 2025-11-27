@@ -28,7 +28,7 @@ Die Installation sollte mit dieser detaillierten Anleitung auch eigenständig du
 **Download der vorbereiteten Anwendungsdateien:**
 
 1. Besuchen Sie die Releases-Seite: **https://github.com/runfish5/TermNorm-excel/releases**
-2. Laden Sie **`dist.zip`** vom neuesten Release (v1.0.1 oder höher) herunter
+2. Laden Sie **`dist.zip`** vom neuesten Release (v1.0.2 oder höher) herunter
 3. Entpacken Sie die ZIP-Datei an gewünschtem Ort (z.B. `C:\TermNorm-excel\`)
 4. Öffnen Sie die Kommandozeile (Windows-Taste → "cmd" → Enter)
 

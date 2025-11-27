@@ -55,7 +55,7 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 **Download the pre-built application files:**
 
 1. Visit the releases page: **https://github.com/runfish5/TermNorm-excel/releases**
-2. Download **`dist.zip`** from the latest release (v1.0.1 or later)
+2. Download **`dist.zip`** from the latest release (v1.0.2 or later)
 3. Extract the zip file to your desired location:
    - **For local use**: Extract anywhere (e.g., `C:\TermNorm-excel\`)
    - **For IIS deployment**: You'll move files to `C:\inetpub\wwwroot\termnorm\` in Step 3

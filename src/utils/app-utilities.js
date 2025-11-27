@@ -37,11 +37,11 @@ export const PROCESSING_COLORS = {
 };
 
 // Version display functionality
-const version = "1.0.1";
-const commit = "a08f788";
-const commitDate = "2025-11-25 20:23";
+const version = "1.0.2";
+const commit = "ab11d3a";
+const commitDate = "2025-11-27 18:56";
 const branch = "master";
-const repository = "runfish5/excel-entity-standardizer";
+const repository = "runfish5/TermNorm-excel";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
 const deploymentType = typeof __DEPLOYMENT_TYPE__ !== "undefined" ? __DEPLOYMENT_TYPE__ : "development";
