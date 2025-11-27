@@ -50,3 +50,16 @@ __pycache__/
 *.pyd
 backend-api/.env
 .env
+
+# Editor temp files
+*.swp
+*.swo
+*~
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Test coverage
+coverage/
+.nyc_output/
