@@ -1,0 +1,49 @@
+name: Create Deployment Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-package
+          cp -r dist deploy-package/
+          cp -r backend-api deploy-package/
+          cp manifest.xml deploy-package/
+          cp manifest-iis.xml deploy-package/
+          cp manifest-cloud.xml deploy-package/
+          cp -r config deploy-package/
+          cp README.md deploy-package/
+          cp CHANGELOG.md deploy-package/
+
+          # Create zip
+          cd deploy-package
+          zip -r ../termnorm-deploy-${{ github.event.release.tag_name }}.zip .
+          cd ..
+
+      - name: Upload deployment package to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: termnorm-deploy-${{ github.event.release.tag_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

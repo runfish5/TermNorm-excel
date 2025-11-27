@@ -75,13 +75,23 @@ Logging & State Update
 - **Python 3.9+** (for backend server)
 - LLM API key (Groq recommended, OpenAI supported)
 
-### Installation
+### Installation for End Users
 
-**1. Download the latest release**
+**For users who just want to deploy and use the add-in** (no development):
 
-Visit the releases page and download `dist.zip` from the latest version:
+**1. Download the deployment package**
+
+Visit the releases page and download `termnorm-deploy-vX.X.X.zip`:
 
 **👉 [Download from GitHub Releases](https://github.com/runfish5/TermNorm-excel/releases)**
+
+This package contains only the pre-built files needed for deployment (~5-10MB):
+- ✅ Pre-built frontend (`dist/`)
+- ✅ Python backend (`backend-api/`)
+- ✅ Manifest files
+- ✅ Configuration templates
+- ❌ **No npm install needed!**
+- ❌ **No node_modules (~900MB) downloaded!**
 
 Extract the zip file to your desired location (e.g., `C:\TermNorm-excel\`)
 
@@ -165,11 +175,13 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 
 ### Quick Start for Developers
 
+**For developers who want to modify the code:**
+
 ```bash
 git clone https://github.com/runfish5/TermNorm-excel.git
 cd TermNorm-excel
-npm install
-npm run dev-server    # Frontend dev server
+npm install              # Downloads ~900MB to node_modules/ (required for development)
+npm run dev-server       # Frontend dev server
 # Open another terminal
 cd backend-api
 python -m venv .venv && .\.venv\Scripts\activate
@@ -178,6 +190,8 @@ python -m uvicorn main:app --reload    # Backend server
 ```
 
 Press `F5` in VS Code with Office Add-ins Developer Kit to start debugging in Excel!
+
+**Note:** The ~1GB local directory size (mostly `node_modules/`) is normal for development. End users who download the deployment package don't need any of this.
 
 ---
 
