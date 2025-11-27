@@ -2,7 +2,17 @@
 setlocal enabledelayedexpansion
 
 :: Detect python command (python or py)
-python --version >nul 2>nul && set "PYTHON_CMD=python" || set "PYTHON_CMD=py"
+python --version >nul 2>nul && set "PYTHON_CMD=python" || (
+    py --version >nul 2>nul && set "PYTHON_CMD=py" || (
+        echo ERROR: Python not found. Neither 'python' nor 'py' works.
+        echo.
+        echo Test in Command Prompt: py --version  OR  python --version
+        echo If both fail, Python is not installed or not in PATH.
+        echo.
+        pause
+        exit /b 1
+    )
+)
 
 :: ===============================================
 :: CONFIGURATION PARAMETERS
@@ -27,6 +37,7 @@ echo ===============================================
 echo       TermNorm Excel Backend Server
 echo ===============================================
 echo.
+echo %BLUE%^>%RESET% Python: %BOLD%%GREEN%!PYTHON_CMD!%RESET%
 echo %BLUE%^>%RESET% Backend: %BOLD%%CYAN%!backend_path!%RESET%
 echo %BLUE%^>%RESET% Mode: %BOLD%%GREEN%Network (0.0.0.0:8000)%RESET%
 echo %BLUE%^>%RESET% Log: %CYAN%!LOG_FILE!%RESET%
