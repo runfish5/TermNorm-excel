@@ -142,25 +142,7 @@ Copy the manifest to your network share:
 copy C:\inetpub\wwwroot\termnorm\manifest.xml \\SERVERNAME\OfficeAddIns\
 ```
 
-**Step 4: User Configuration** *(One-time per user)*
-
-Users must configure Excel to trust your catalog:
-
-1. Excel → **File** → **Options** → **Trust Center** → **Trust Center Settings**
-2. Click **Trusted Add-in Catalogs**
-3. In **Catalog Url**, enter: `\\SERVERNAME\OfficeAddIns`
-4. Click **Add catalog**
-5. Check **Show in Menu**
-6. Click **OK** and restart Excel
-
-**Step 5: Sideload the Add-in** *(Per user)*
-
-1. Excel → **Insert** → **Get Add-ins**
-2. Select **SHARED FOLDER** (top of dialog)
-3. Select **TermNorm**
-4. Click **Add**
-
-The add-in loads from `http://SERVERNAME:8080/` (or localhost if configured that way).
+To configure Excel to trust and load the add-in, see **[3.2 Desktop Excel setup](#32-desktop-excel-setup-sideloading)** → Configure Trusted Add-in Catalog.
 
 ### 2.4 Configuration Updates
 
@@ -278,7 +260,7 @@ To use HTTPS instead of HTTP:
 3. Add yourself and click **Share**
 4. Note the full network path (e.g., `\\COMPUTERNAME\OfficeAddIns`)
 
-**Step 2: Configure Trusted Catalog (one-time setup)**
+**Step 2: Configure Trusted Add-in Catalog (one-time setup)**
 1. Open Excel
 2. **File** → **Options** → **Trust Center** → **Trust Center Settings**
 3. Select **Trusted Add-in Catalogs**
