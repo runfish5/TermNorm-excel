@@ -1,5 +1,53 @@
 # Installation Guide
 
+## Updating
+
+> **Note:** Only for updating an existing IIS deployment of TermNorm.
+> For first-time installation, skip to [Section 1: Installation (End Users)](#1--installation-end-users).
+
+1. Backup these two files: `config/app.config.json` &  `backend-api/logs/activity.jsonl`
+
+2. Delete the existing TermNorm root directory to ensure a clean installation.
+
+3. Download `distribution.zip` and `dist.zip` from https://github.com/runfish5/TermNorm-excel/releases
+and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
+
+4. Open PowerShell as Administrator and run the following script:
+      <details><summary>  Script to deploy to IIS.</summary>
+  
+   **IMPORTANT:** Correct the `$src` variable to match your extraction location. Leave all other lines unchanged.
+
+   ```powershell
+   # IMPORTANT: Adjust the $src path to match your extraction location
+   $src = "C:\Users\Public\TermNorm-excel\dist"
+   $dest = "C:\inetpub\wwwroot\termnorm"
+
+   # Remove old files and copy new ones
+   if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+   Copy-Item $src -Destination $dest -Recurse -Force
+
+   # Configure IIS
+   Import-Module WebAdministration
+   if (Test-Path "IIS:\Sites\TermNorm") {
+       # Just restart the site, not the app pool
+       Restart-WebItem "IIS:\Sites\TermNorm"
+   } else {
+       New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
+   }
+
+   # Test
+   Start-Process "http://localhost:8080/taskpane.html"
+   ```
+   </details>
+
+5. Copy Manifest to Network Share `copy C:\inetpub\wwwroot\termnorm\manifest-iis.xml C:\OfficeAddIns\`
+
+6. Restore your backed-up `activity.jsonl` and `app.config.json` to the new backend location
+7. Close all Excel windows completely and reopen Excel
+
+
+---
+
 ## 1. 📦 Installation (End Users)
 
 ### 1.1 Step 1: Download the Release Package
