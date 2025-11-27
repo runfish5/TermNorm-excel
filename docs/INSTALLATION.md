@@ -1,8 +1,8 @@
 # Installation Guide
 
-## 📦 Installation (End Users)
+## 1. 📦 Installation (End Users)
 
-### Step 1: Download the Release Package
+### 1.1 Step 1: Download the Release Package
 
 **Download the pre-built application files:**
 
@@ -12,13 +12,13 @@
    - **For local use**: Extract anywhere (e.g., `C:\TermNorm-excel\`)
    - **For IIS deployment**: You'll move files to `C:\inetpub\wwwroot\termnorm\` in Step 3
 
-### Step 2: Prerequisites
+### 1.2 Step 2: Prerequisites
 
 - **Microsoft Excel** installed on your system or licence for the cloud version (Microsoft 365 subscription)
 - **Python** (version 3.9+) for the backend server - [Download here](https://www.python.org/downloads/)
   - To verify: `python --version` in your terminal
 
-### Step 3: Choose Your Deployment Method
+### 1.3 Step 3: Choose Your Deployment Method
 
 **Option A: Microsoft 365 (Cloud Excel)** → Skip to [365 Cloud Setup](#365-cloud-setup)
 
@@ -28,13 +28,13 @@
 
 ---
 
-## Windows Server Deployment
+## 2. Windows Server Deployment
 
 **For IT administrators deploying to Windows Server for internal/enterprise use**
 
 This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs.
 
-### Overview
+### 2.1 Overview
 
 The deployment uses:
 - **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
@@ -43,7 +43,7 @@ The deployment uses:
 
 This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
 
-### Prerequisites for Windows Server Deployment
+### 2.2 Prerequisites for Windows Server Deployment
 
 1. **Windows Server** with IIS enabled
    - Open Server Manager → Add Roles and Features
@@ -58,7 +58,7 @@ This is the industry-standard approach documented in [Microsoft's official Offic
 3. **Downloaded release package** from Step 1 above
    - Extract `dist.zip` to a temporary location
 
-### Deployment Steps
+### 2.3 Deployment Steps
 
 **Step 1: Extract the Release Package**
 
@@ -82,13 +82,15 @@ This script automatically:
 
 **Option B: Manual deployment (Using dist.zip only)**
 
-Open PowerShell as Administrator and run:
+1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
+
+2. Copy and paste these commands:
+
 ```powershell
-# Set source path to your extracted dist folder
-$src = "C:\Temp\TermNorm-dist"
+$src = "C:\Temp\TermNorm-dist"  # Or your actual extraction path
 $dest = "C:\inetpub\wwwroot\termnorm"
 
-# Copy files
+# Remove old files and copy new ones
 if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
 Copy-Item $src -Destination $dest -Recurse -Force
 
@@ -105,7 +107,12 @@ if (Test-Path "IIS:\Sites\TermNorm") {
 Start-Process "http://localhost:8080/taskpane.html"
 ```
 
-Replace `C:\Temp\TermNorm-dist` with your actual extraction path.
+3. Replace `C:\Temp\TermNorm-dist` with your actual extraction path
+
+4. Verify deployment:
+   - Files should be in `C:\inetpub\wwwroot\termnorm\`
+   - Browser should open to `http://localhost:8080/taskpane.html`
+   - Check file dates match today's date
 
 <details>
 <summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
@@ -127,46 +134,6 @@ If you prefer manual setup:
 
 </details>
 
-<details>
-<summary><b>Troubleshooting: Deployment Script Issues</b> (click to expand)</summary>
-
-If `setup-iis.bat` fails or the PowerShell window closes immediately:
-
-**Manual Deployment Option (Most Reliable):**
-
-1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
-
-2. Copy and paste these commands:
-
-```powershell
-$src = "C:\Users\<YOUR_USERNAME>\OfficeAddinApps\TermNorm-excel\dist"
-$dest = "C:\inetpub\wwwroot\termnorm"
-
-# Remove old files and copy new ones
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-Copy-Item $src -Destination $dest -Recurse -Force
-
-# Configure IIS
-Import-Module WebAdministration
-if (Test-Path "IIS:\Sites\TermNorm") {
-    Restart-WebAppPool "TermNorm" -ErrorAction SilentlyContinue
-    Restart-WebItem "IIS:\Sites\TermNorm"
-} else {
-    New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
-}
-
-# Test
-Start-Process "http://localhost:8080/taskpane.html"
-```
-
-3. Replace `<YOUR_USERNAME>` with your actual Windows username
-
-4. Verify deployment:
-   - Files should be in `C:\inetpub\wwwroot\termnorm\`
-   - Browser should open to `http://localhost:8080/taskpane.html`
-   - Check file dates match today's date
-
-</details>
 
 **Step 3: Distribute Manifest**
 
@@ -195,7 +162,7 @@ Users must configure Excel to trust your catalog:
 
 The add-in loads from `http://SERVERNAME:8080/` (or localhost if configured that way).
 
-### Configuration Updates
+### 2.4 Configuration Updates
 
 The `config/app.config.json` file is bundled into the JavaScript during build. For configuration changes:
 
@@ -213,7 +180,7 @@ The `config/app.config.json` file is bundled into the JavaScript during build. F
   ```
   This makes the add-in display "IIS Server" deployment type and show the correct filesystem paths for configuration files.
 
-### Troubleshooting
+### 2.5 Troubleshooting
 
 **401.3 Unauthorized Error**
 
@@ -280,9 +247,9 @@ To use HTTPS instead of HTTP:
 
 ---
 
-## Add the add-in to Excel
+## 3. Add the add-in to Excel
 
-### 365 Cloud setup
+### 3.1 365 Cloud setup
 
 1. **Download the manifest file:**
    - Extract `dist.zip` (from Step 1 above)
@@ -297,7 +264,7 @@ To use HTTPS instead of HTTP:
    - The TermNorm task pane should appear on the right side
    - If not visible, check that you're using Excel for the Web (not Desktop)
 
-### Desktop Excel setup (Sideloading)
+### 3.2 Desktop Excel setup (Sideloading)
 
 > **⚠️ IMPORTANT NOTE - Sideloading for Excel Desktop Only**
 >
@@ -338,9 +305,9 @@ On Mac, you can copy the `manifest.xml` directly to:
 ```
 
 
-## Run the add-in
+## 4. Run the add-in
 
-### Define your project configurations
+### 4.1 Define your project configurations
 
 1. **Open your Excel workbook** where you want to use TermNorm.
 
@@ -471,7 +438,7 @@ On Mac, you can copy the `manifest.xml` directly to:
 ---
 Note: Setup complete
 
-### Start tracking
+### 4.2 Start tracking
 
 7. **Activate tracking.**
    - Navigate to **Load Configuration**
@@ -484,109 +451,37 @@ Note: Setup complete
 
 ---
 
-## For Developers
+## 5. For Developers
 
 **If you need to modify the source code or build from scratch:**
 
-### Prerequisites for Development
-
-- **Node.js 16+** - Required for building the frontend
-- **Git** - For cloning the repository
-- All user prerequisites above (Excel, Python)
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/runfish5/TermNorm-excel.git
-cd TermNorm-excel
-```
-
-### Build the Frontend
-
-The build command you use determines what paths the UI displays to users. Choose the appropriate build for your deployment scenario:
-
-**Standard build (GitHub Pages / Development):**
-```bash
-npm install
-npm run build
-```
-
-**Build for IIS Server deployment:**
-```bash
-# Set the deployment path to match your IIS server location
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-npm run build:iis
-```
-This shows server filesystem paths in the UI and indicates "IIS Server" deployment type.
-
-**Build for Microsoft 365 deployment:**
-```bash
-npm run build:m365
-```
-This hides filesystem paths and shows drag-and-drop only instructions.
-
-**Custom deployment with both URL and path:**
-```bash
-set DEPLOYMENT_URL=http://SERVERNAME:8080/
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-set DEPLOYMENT_TYPE=iis
-npm run build
-```
-
-**Legacy HTTP deployment script (deprecated):**
-```bash
-scripts\deployment\build-http.bat  # Use npm run build:iis instead
-```
-
-### Development Server
-
-For local development with hot reload:
-```bash
-npm run dev-server    # Starts HTTPS server on localhost:3000
-npm run start         # Sideloads in Excel Desktop
-```
-
-### Configuration Changes
-
-When you update `config/app.config.json`:
-1. Rebuild using the appropriate command for your deployment:
-   - IIS: `set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm && npm run build:iis`
-   - M365: `npm run build:m365`
-   - Development: `npm run build`
-2. Redeploy to IIS (if applicable): `scripts\deployment\setup-iis.bat`
-3. Clear Excel cache and reload add-in
-
-The configuration file is bundled into the JavaScript during build, so rebuilds are required for changes to take effect.
-
-**Note:** The `DEPLOYMENT_PATH` and `DEPLOYMENT_TYPE` environment variables control what paths the UI displays to users. See [Build the Frontend](#build-the-frontend) section for details.
-
-### More Developer Information
-
-See **[CLAUDE.md](../CLAUDE.md)** for complete development documentation including:
+See the **[Developer Guide](DEVELOPER.md)** for complete development setup including:
+- Prerequisites and environment setup
+- Cloning the repository
+- Frontend and backend development workflows
+- Build commands for different deployment scenarios
+- Debugging and testing
 - Architecture overview
-- Frontend/backend structure
-- Development commands
-- Debugging tips
 
 ---
 
-## Version Control and Security
+## 6. Version Control and Security
 
-### 📦 Official Releases Only
+### 6.1 📦 Official Releases Only
 
 **IMPORTANT:** Download files exclusively from official releases:
 - **Release page:** https://github.com/runfish5/TermNorm-excel/releases
 - You will receive email notifications for each new version (e.g., v1.0.0)
 - Only update when you receive an email notification
 
-### ⚠️ Development Branches
+### 6.2 ⚠️ Development Branches
 
 **Do NOT use the master branch or other branches:**
 - These are for development and untested
 - Release branches (release/v1.x.x) are immutable and stable
 - This protects against unnoticed code changes and ensures traceability
 
-### 🆘 Support
+### 6.3 🆘 Support
 
 - Always provide your version number for support requests
 - Version number location: `<Version>` tag in manifest.xml
