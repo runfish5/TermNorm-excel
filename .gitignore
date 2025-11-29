@@ -6,7 +6,9 @@ dist/
 build/
 
 # Environment files
-.env*
+.env
+.env.*
+!.env.example
 
 # IDE files
 .vscode/
@@ -20,37 +22,19 @@ nul
 
 # Logs
 *.log
+server.log
 backend-api/logs/activity.jsonl
 backend-api/logs/match_database.json
 
-# Build config files (keeping these tracked now)
-# *.config.js
-# *.config.json
-# babel.config.json
-# webpack.config.js
-# package-lock.json
-
-# Root files that were moved
-/support.html
-/RUN_WITH_EXTENSION.md
-
-# Allow docs versions
-!docs/index.html
-!docs/development/RUN_WITH_EXTENSION.md
-
-# Python virtual environments
-venv/
-.venv/
-*/venv/
-*/.venv/
-
-# Py
+# Python
 *.pyc
 __pycache__/
 *.pyo
 *.pyd
-backend-api/.env
-.env
+venv/
+.venv/
+*/venv/
+*/.venv/
 
 # Editor temp files
 *.swp
