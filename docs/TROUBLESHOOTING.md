@@ -129,4 +129,71 @@ For production deployment:
    python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
-If you still have problems, see {{TROUBLESHOOT_DOCS_PLACEHOLDER}} or create a GitHub issue and we'll help you.
+## Windows Server / IIS Deployment Issues
+
+### 401.3 Unauthorized Error
+
+If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpane.html`:
+
+- The files are in a user folder that IIS cannot access
+- Solution: `scripts\deployment\setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
+
+### Add-in doesn't appear in SHARED FOLDER
+
+- Verify manifest copied to `\\SERVERNAME\OfficeAddIns\`
+- Check users configured Trusted Catalog correctly
+- Ensure network path is accessible to users
+- Restart Excel after adding catalog
+
+### Network connectivity error when loading add-in
+
+- Test the URL in browser: `http://SERVERNAME:8080/taskpane.html`
+- Check IIS website is running (IIS Manager → Sites → TermNorm → State: Started)
+- Verify firewall allows port 8080
+- Ensure manifest URLs match server configuration
+
+### Excel loads old version after deployment update
+
+If Excel shows an old build (check build date in "About & Version Info") even after redeploying:
+
+1. **Close all Excel windows/processes** (verify in Task Manager - no EXCEL.EXE running)
+
+2. **Clear Office add-in cache**:
+   ```cmd
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\Wef"
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\WEF"
+   ```
+
+3. **Clear browser cache** (Office uses Edge WebView):
+   ```cmd
+   rd /s /q "%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Cache"
+   ```
+
+4. **Remove and re-add the add-in**:
+   - Open Excel
+   - Insert → My Add-ins → Three dots menu → Remove TermNorm
+   - Close Excel completely
+   - Reopen Excel
+   - Insert → My Add-ins → SHARED FOLDER → Add TermNorm
+
+5. **Verify correct version loaded**:
+   - Open TermNorm task pane
+   - Check "About & Version Info" → Build date should match deployment date
+   - Verify expected configuration changes appear
+
+### HTTPS Configuration (recommended for production)
+
+To use HTTPS instead of HTTP:
+
+1. Obtain SSL certificate for your server
+2. Bind certificate to IIS website (Port 443)
+3. Rebuild with HTTPS URL:
+   ```bash
+   set DEPLOYMENT_URL=https://SERVERNAME/termnorm/
+   npm run build
+   ```
+4. Redeploy to IIS
+
+---
+
+If you still have problems, create a GitHub issue and we'll help you.

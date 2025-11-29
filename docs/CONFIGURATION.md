@@ -4,6 +4,66 @@ TermNorm uses a single JSON configuration file that defines column mappings and 
 
 ---
 
+## Initial Setup
+
+### Configure Authentication and API Keys
+
+**Add users** (for multi-user access):
+Edit `backend-api/config/users.json` to add allowed IPs:
+```json
+{
+  "users": {
+    "admin": {
+      "email": "admin@company.com",
+      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
+    }
+  }
+}
+```
+
+**Set LLM API key** (required):
+```bash
+setx GROQ_API_KEY "your_api_key_here"
+```
+
+**Configure Web Search (Optional)**:
+For reliable web research, configure Brave Search API (2,000 free queries/month):
+
+> **Note:** Brave Search API requires a credit card for registration (even for free tier)
+
+1. Register at: https://api-dashboard.search.brave.com/register
+2. Add key to `backend-api\.env`:
+   ```
+   BRAVE_SEARCH_API_KEY=your_brave_api_key_here
+   ```
+3. **Restart server** after configuration changes
+
+If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bing.
+
+**Configure Server URL in Excel** (if using network deployment):
+- Open TermNorm → **Settings** tab
+- Update "Server URL" to match your backend:
+  - Local: `http://127.0.0.1:8000` (default)
+  - Network: `http://192.168.1.100:8000` (your server IP)
+
+### Load Mapping Files
+
+- For each Excel reference file, click **Browse**
+- Select the corresponding Excel file
+- Click **Load Mapping Table**
+- Repeat for all reference files
+
+### Activate Tracking
+
+- Navigate to **Load Configuration**
+- Click the **Activate Tracking** button
+
+**Monitoring:**
+- Monitor real-time processing through the Activity Feed UI component
+- Check server status using the status indicator in the task pane
+
+---
+
 ## Configuration File Structure
 
 The configuration file (`app.config.json`) has this structure:

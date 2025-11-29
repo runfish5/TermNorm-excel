@@ -3,13 +3,13 @@
 ## Updating
 
 > **Note:** Only for updating an existing IIS deployment of TermNorm.
-> For first-time installation, skip to [Section 1: Installation (End Users)](#1--installation-end-users).
+> For first-time installation, skip to [Section 1: Installation](#1--installation).
 
 1. Backup these two files: `config/app.config.json` &  `backend-api/logs/activity.jsonl`
 
 2. Delete the existing TermNorm root directory to ensure a clean installation.
 
-3. Download `distribution.zip` and `dist.zip` from https://github.com/runfish5/TermNorm-excel/releases
+3. Download `termnorm-deploy-v1.xx.xx.zip` from https://github.com/runfish5/TermNorm-excel/releases
 and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 
 4. Open PowerShell as Administrator and run the following script:
@@ -48,31 +48,37 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 
 ---
 
-## 1. 📦 Installation (End Users)
+## 1. 📦 Installation
 
-### 1.1 Step 1: Download the Release Package
+### Step 1: Download the Release Package
 
 **Download the pre-built application files:**
 
 1. Visit the releases page: **https://github.com/runfish5/TermNorm-excel/releases**
-2. Download **`dist.zip`** from the latest release (v1.0.2 or later)
+2. Download **`termnorm-deploy-v1.xx.xx.zip`** from the latest release
 3. Extract the zip file to your desired location:
-   - **For local use**: Extract anywhere (e.g., `C:\TermNorm-excel\`)
-   - **For IIS deployment**: You'll move files to `C:\inetpub\wwwroot\termnorm\` in Step 3
+   - **For local use**: e.g., `C:\TermNorm-excel\`
+   - **For IIS deployment**: e.g., `C:\inetpub\wwwroot\termnorm\`
 
-### 1.2 Step 2: Prerequisites
+### Step 2: Prerequisites
 
 - **Microsoft Excel** installed on your system or licence for the cloud version (Microsoft 365 subscription)
 - **Python** (version 3.9+) for the backend server - [Download here](https://www.python.org/downloads/)
   - To verify: `python --version` in your terminal
 
-### 1.3 Step 3: Choose Your Deployment Method
+### Step 3: Choose Your Deployment Method
 
-**Option A: Microsoft 365 (Cloud Excel)** → Skip to [365 Cloud Setup](#365-cloud-setup)
+Select the installation method that best fits your needs:
 
-**Option B: Desktop Excel (Windows Server/IIS)** → Continue with [Windows Server Deployment](#windows-server-deployment) below
+| Deployment Method | Best For | Requirements | Setup Time | Instructions |
+| ----------------- | -------- | ------------ | ---------- | ------------ |
+| **A: Microsoft 365 (Cloud Excel)** | Individual users with M365 subscription | Excel for the Web (browser-based) | 5 min | [3.1 365 Cloud Setup](#31-365-cloud-setup) |
+| **B: Desktop Excel (Windows Server/IIS)** ⭐ | Small businesses, teams sharing a server | Windows Server with IIS, Desktop Excel | 20-30 min | [2. Windows Server Deployment](#2-windows-server-deployment) |
+| **C: Desktop Excel (Local Development)** | Individual developers, testing, single-user | Desktop Excel on Windows or Mac | 10 min | [3.2 Desktop Excel Setup](#32-desktop-excel-setup-sideloading) |
+| **D: For Developers** | Contributing to project, customizing code | Node.js, Git, development environment | 30+ min | [5. For Developers](#5-for-developers) |
 
-**Option C: Desktop Excel (Local Development)** → Skip to [Desktop Excel Setup](#desktop-excel-setup-sideloading)
+**⭐ Recommended for teams and small businesses**
+
 
 ---
 
@@ -192,17 +198,6 @@ copy C:\inetpub\wwwroot\termnorm\manifest.xml \\SERVERNAME\OfficeAddIns\
 
 To configure Excel to trust and load the add-in, see **[3.2 Desktop Excel setup](#32-desktop-excel-setup-sideloading)** → Configure Trusted Add-in Catalog.
 
-### 2.4 Configuration Updates
-
-The `config/app.config.json` file is bundled into the JavaScript during build. For configuration changes:
-
-**For End Users:**
-- Download the latest release with your updated configuration
-- Redeploy following Step 2 above
-- Users restart Excel to load updated configuration
-
-**For Developers:**
-- See [Developer Setup](#for-developers) section below for rebuild instructions
 - **Important:** Use `npm run build:iis` with `DEPLOYMENT_PATH` set to ensure the UI shows correct server paths to users:
   ```bash
   set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
@@ -212,68 +207,7 @@ The `config/app.config.json` file is bundled into the JavaScript during build. F
 
 ### 2.5 Troubleshooting
 
-**401.3 Unauthorized Error**
-
-If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpane.html`:
-
-- The files are in a user folder that IIS cannot access
-- Solution: `scripts\deployment\setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
-
-**Add-in doesn't appear in SHARED FOLDER**
-
-- Verify manifest copied to `\\SERVERNAME\OfficeAddIns\`
-- Check users configured Trusted Catalog correctly
-- Ensure network path is accessible to users
-- Restart Excel after adding catalog
-
-**Network connectivity error when loading add-in**
-
-- Test the URL in browser: `http://SERVERNAME:8080/taskpane.html`
-- Check IIS website is running (IIS Manager → Sites → TermNorm → State: Started)
-- Verify firewall allows port 8080
-- Ensure manifest URLs match server configuration
-
-**Excel loads old version after deployment update**
-
-If Excel shows an old build (check build date in "About & Version Info") even after redeploying:
-
-1. **Close all Excel windows/processes** (verify in Task Manager - no EXCEL.EXE running)
-
-2. **Clear Office add-in cache**:
-   ```cmd
-   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\Wef"
-   rd /s /q "%LOCALAPPDATA%\Microsoft\Office\16.0\WEF"
-   ```
-
-3. **Clear browser cache** (Office uses Edge WebView):
-   ```cmd
-   rd /s /q "%LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Cache"
-   ```
-
-4. **Remove and re-add the add-in**:
-   - Open Excel
-   - Insert → My Add-ins → Three dots menu → Remove TermNorm
-   - Close Excel completely
-   - Reopen Excel
-   - Insert → My Add-ins → SHARED FOLDER → Add TermNorm
-
-5. **Verify correct version loaded**:
-   - Open TermNorm task pane
-   - Check "About & Version Info" → Build date should match deployment date
-   - Verify expected configuration changes appear
-
-**For HTTPS (recommended for production)**
-
-To use HTTPS instead of HTTP:
-
-1. Obtain SSL certificate for your server
-2. Bind certificate to IIS website (Port 443)
-3. Rebuild with HTTPS URL:
-   ```bash
-   set DEPLOYMENT_URL=https://SERVERNAME/termnorm/
-   npm run build
-   ```
-4. Redeploy to IIS
+For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)** → Windows Server / IIS Deployment Issues section.
 
 ---
 
@@ -335,149 +269,13 @@ On Mac, you can copy the `manifest.xml` directly to:
 ```
 
 
-## 4. Run the add-in
+## 4. Next Steps
 
-### 4.1 Define your project configurations
+Installation is now complete!
 
-1. **Open your Excel workbook** where you want to use TermNorm.
+For a quick start guide showing how to set up and use TermNorm, see the **[Setup Guide](SETUP-GUIDE.md)**.
 
-2. **Create your configuration file.**
-  - Create an `app.config.json` file as shown below
-      - To customize for your project, define your `"coumn_map"` and `"standard_mappings"`. You can add more than one.
-      - Every project configuraiton is stored inside the brackets here: `{"excel-projects": {<HERE>}}` and has the following structure:
-  - Include file paths, worksheet names, source and target columns for each mapping reference
-  - Example:
-  ```json
-
-  {
-    "excel-projects": {
-      "Book 32.xlsx": {
-        "column_map": {
-          "name_of_your_input_column": "name_of_mapped_output_column",
-          "b": "b_std"
-        },
-        "default_std_suffix": "standardized",
-        "standard_mappings": [
-          {
-            "mapping_reference": "C:\\Users\\jon\\ReferenceTerms.xlsx",
-            "worksheet": "Materials",
-            "source_column": "",
-            "target_column": "ISO"
-          },
-          {
-            "mapping_reference": "C:\\Users\\jon\\MoreTerms.xlsx",
-            "worksheet": "Processing",
-            "source_column": "",
-            "target_column": "BFO"
-          }
-        ]
-      }
-    }
-  }
-  ```
-
-3. **Load your configuration.**
-   For 365 Cloud environment:
-   - In the TermNorm interface, locate the drag-and-drop field
-   - Drop your `app.config.json` file into the field
-   - The configuration will appear in the user interface
-
-   For local Excel
-   - Save your `app.config.json` at `C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\config\app.config.json`
-   - Use the **Load Config** button to reload existing configuration
-
-
-4. **Start the Python server (RECOMMENDED).**
-
-   Simply double-click the `start-server-py-LLMs.bat` file in the TermNorm-excel directory.
-
-   <details>
-   <summary>What does the script do?</summary>
-
-   The script automatically:
-   - ✅ Sets up virtual environment
-   - ✅ Installs all dependencies
-   - ✅ Chooses deployment type (Local or Network)
-   - ✅ Runs diagnostics and starts server
-   </details>
-
-   <details>
-   <summary>Manual setup (for advanced users or troubleshooting)</summary>
-
-   - Navigate to the backend directory:
-     ```bash
-     cd C:\Users\<REPLACE_WITH_YOURS>\OfficeAddinApps\TermNorm-excel\backend-api
-     ```
-   - Create and activate virtual environment:
-     ```bash
-     python -m venv .venv
-     .\.venv\Scripts\activate
-     pip install -r requirements.txt
-     ```
-   - Start server:
-     - Local: `python -m uvicorn main:app --reload`
-     - Network: `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
-   </details>
-
-5. **Configure authentication and API keys (one-time setup).**
-
-   - **Add users** (for multi-user access):
-     Edit `backend-api/config/users.json` to add allowed IPs:
-     ```json
-     {
-       "users": {
-         "admin": {
-           "email": "admin@company.com",
-           "allowed_ips": ["127.0.0.1", "192.168.1.100"]
-         }
-       }
-     }
-     ```
-
-   - **Set LLM API key** (required):
-     ```bash
-     setx GROQ_API_KEY "your_api_key_here"
-     ```
-
-   - **Configure Web Search (Optional)**:
-     For reliable web research, configure Brave Search API (2,000 free queries/month):
-
-     > **Note:** Brave Search API requires a credit card for registration (even for free tier)
-
-     1. Register at: https://api-dashboard.search.brave.com/register
-     2. Add key to `backend-api\.env`:
-        ```
-        BRAVE_SEARCH_API_KEY=your_brave_api_key_here
-        ```
-     3. **Restart server** after configuration changes
-
-     If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bing.
-
-   - **Configure Server URL in Excel** (if using network deployment):
-     - Open TermNorm → **Settings** tab
-     - Update "Server URL" to match your backend:
-       - Local: `http://127.0.0.1:8000` (default)
-       - Network: `http://192.168.1.100:8000` (your server IP)
-
-6. **Load mapping files.**
-   - For each Excel reference file, click **Browse**
-   - Select the corresponding Excel file
-   - Click **Load Mapping Table**
-   - Repeat for all reference files
-
----
-Note: Setup complete
-
-### 4.2 Start tracking
-
-7. **Activate tracking.**
-   - Navigate to **Load Configuration**
-   - Click the **Activate Tracking** button
-
-8. **Trouble shoting.**
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
-- Wait for user instruction before running any validation or testing commands
+For detailed configuration options including authentication, API keys, and advanced settings, see the **[Configuration Guide](CONFIGURATION.md)**.
 
 ---
 
