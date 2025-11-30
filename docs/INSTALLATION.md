@@ -72,135 +72,33 @@ Select the installation method that best fits your needs:
 
 | Deployment Method | Best For | Requirements | Setup Time | Instructions |
 | ----------------- | -------- | ------------ | ---------- | ------------ |
-| **A: Microsoft 365 (Cloud Excel)** | Individual users with M365 subscription | Excel for the Web (browser-based) | 5 min | [3.1 365 Cloud Setup](#31-365-cloud-setup) |
-| **B: Desktop Excel (Windows Server/IIS)** ⭐ | Small businesses, teams sharing a server | Windows Server with IIS, Desktop Excel | 20-30 min | [2. Windows Server Deployment](#2-windows-server-deployment) |
-| **C: Desktop Excel (Local Development)** | Individual developers, testing, single-user | Desktop Excel on Windows or Mac | 10 min | [3.2 Desktop Excel Setup](#32-desktop-excel-setup-sideloading) |
+| **A: Microsoft 365 (Cloud Excel)** ⭐ EASIEST | Users with M365 subscription | Excel for the Web or M365 Desktop | 5 min | [2. M365 Cloud Deployment](#2-microsoft-365-cloud-excel-deployment--easiest) |
+| **B: Desktop Excel (Windows Server/IIS)** | Small businesses, teams sharing a server | Windows Server with IIS, Desktop Excel | 30-40 min | [3.2 Windows Server Hosting](#32-windows-server-hosting-optional-enterprise-extension) (requires [3.1](#31-desktop-excel-setup-sideloading---required-for-all-desktop-users) first) |
+| **C: Desktop Excel (Local Development)** | Individual developers, testing, single-user | Desktop Excel on Windows or Mac | 10-15 min | [3.1 Desktop Excel Setup](#31-desktop-excel-setup-sideloading---required-for-all-desktop-users) |
 | **D: For Developers** | Contributing to project, customizing code | Node.js, Git, development environment | 30+ min | [5. For Developers](#5-for-developers) |
 
-**⭐ Recommended for teams and small businesses**
+**⭐ EASIEST: Microsoft 365 (Cloud) deployment - Just download, start server, upload manifest**
+
+> **Note:** Desktop Excel users (Row B & C) need Section 3.1 for sideloading setup. Enterprise users deploying with Windows Server (Row B) also complete Section 3.2 for IIS hosting.
 
 
 ---
 
-## 2. Windows Server Deployment
+## 2. Microsoft 365 (Cloud Excel) Deployment ⭐ EASIEST
 
-**For IT administrators deploying to Windows Server for internal/enterprise use**
+**⭐ RECOMMENDED: Easiest deployment method**
 
-This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs.
+**Audience:** Users with Microsoft 365 subscription (Excel for the Web or Desktop with M365)
 
-### 2.1 Overview
+**What you need:**
+- Download the release package (from Step 1 above)
+- Start the backend server
+- Upload manifest to Excel
 
-The deployment uses:
-- **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
-- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading
-- **HTTP hosting** - Acceptable for internal networks (HTTPS optional)
-
-This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
-
-### 2.2 Prerequisites for Windows Server Deployment
-
-1. **Windows Server** with IIS enabled
-   - Open Server Manager → Add Roles and Features
-   - Select **Web Server (IIS)** role
-   - Include **Management Tools** and **Static Content** features
-
-2. **Network share configured** for manifest distribution
-   - Create folder (e.g., `C:\OfficeAddIns`)
-   - Share with users (Read permissions)
-   - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
-
-3. **Downloaded release package** from Step 1 above
-   - Extract `termnorm-deploy-v1.xx.xx.zip` to a temporary location
-
-### 2.3 Deployment Steps
-
-**Step 1: Extract the Release Package**
-
-Extract the downloaded `termnorm-deploy-v1.xx.xx.zip` to a temporary location (e.g., `C:\downloads\termnorm\`)
-
-**Step 2: Deploy to IIS** *(Requires Administrator)*
-
-1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
-
-2. Copy and paste these commands:
-
-```powershell
-$src = "C:\Temp\TermNorm-dist"  # Or your actual extraction path
-$dest = "C:\inetpub\wwwroot\termnorm"
-
-# Remove old files and copy new ones
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-Copy-Item $src -Destination $dest -Recurse -Force
-
-# Configure IIS
-Import-Module WebAdministration
-if (Test-Path "IIS:\Sites\TermNorm") {
-    Restart-WebAppPool "TermNorm" -ErrorAction SilentlyContinue
-    Restart-WebItem "IIS:\Sites\TermNorm"
-} else {
-    New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
-}
-
-# Test
-Start-Process "http://localhost:8080/taskpane.html"
-```
-
-3. Replace `C:\Temp\TermNorm-dist` with your actual extraction path
-
-4. Verify deployment:
-   - Files should be in `C:\inetpub\wwwroot\termnorm\`
-   - Browser should open to `http://localhost:8080/taskpane.html`
-   - Check file dates match today's date
-
-<details>
-<summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
-
-If you prefer manual setup:
-
-1. Copy `dist\*` to `C:\inetpub\wwwroot\termnorm\`
-
-2. Open IIS Manager (run `inetmgr`)
-
-3. Right-click **Sites** → **Add Website**:
-   - **Site name**: TermNorm
-   - **Physical path**: `C:\inetpub\wwwroot\termnorm`
-   - **Binding**: HTTP, port 8080
-   - Click **OK**
-
-4. Test: Open browser to `http://localhost:8080/taskpane.html`
-   - Should display the TermNorm interface
-
-</details>
-
-
-**Step 3: Distribute Manifest**
-
-Copy the manifest to your network share:
-```bash
-copy C:\inetpub\wwwroot\termnorm\manifest.xml \\SERVERNAME\OfficeAddIns\
-```
-
-To configure Excel to trust and load the add-in, see **[3.2 Desktop Excel setup](#32-desktop-excel-setup-sideloading)** → Configure Trusted Add-in Catalog.
-
-- **Important:** Use `npm run build:iis` with `DEPLOYMENT_PATH` set to ensure the UI shows correct server paths to users:
-  ```bash
-  set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-  npm run build:iis
-  ```
-  This makes the add-in display "IIS Server" deployment type and show the correct filesystem paths for configuration files.
-
-### 2.5 Troubleshooting
-
-For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)** → Windows Server / IIS Deployment Issues section.
-
----
-
-## 3. Add the add-in to Excel
-
-### 3.1 365 Cloud setup
+### Steps:
 
 1. **Download the manifest file:**
-   - Extract `termnorm-deploy-v1.xx.xx.zip` (from Step 1 above)
+   - Extract `termnorm-deploy-v1.xx.xx.zip` (from Installation Step 1 above)
    - Locate `manifest-cloud.xml` inside the extracted folder
 
 2. **Upload to Excel:**
@@ -212,7 +110,19 @@ For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TRO
    - The TermNorm task pane should appear on the right side
    - If not visible, check that you're using Excel for the Web (not Desktop)
 
-### 3.2 Desktop Excel setup (Sideloading)
+---
+
+## 3. Desktop Excel Deployment (Network Sideloading)
+
+**This section covers:**
+- **For everyone**: Desktop Excel sideloading setup (foundation - required for all Desktop users)
+- **For enterprises**: Optional Windows Server hosting extension (adds centralized IIS hosting)
+
+### 3.1 Desktop Excel Setup (Sideloading) - REQUIRED FOR ALL DESKTOP USERS
+
+**⭐ Start here for any Desktop Excel deployment**
+
+**Audience:** Everyone using Desktop Excel (individual developers, enterprise users)
 
 > **⚠️ IMPORTANT NOTE - Sideloading for Excel Desktop Only**
 >
@@ -252,6 +162,123 @@ On Mac, you can copy the `manifest.xml` directly to:
 /Users/<username>/Library/Containers/com.Microsoft.Excel/Data/Documents/Wef
 ```
 
+---
+
+### 3.2 Windows Server Hosting (Optional Enterprise Extension)
+
+**⚠️ PREREQUISITE:** Complete Section 3.1 above first. This section adds server hosting to the sideloading setup.
+
+**Audience:** IT Administrators deploying for teams/organizations
+
+**Overview:**
+
+This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs. This EXTENDS the basic sideloading setup from Section 3.1 by adding centralized IIS hosting.
+
+The deployment uses:
+- **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
+- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading (configured in Section 3.1)
+- **HTTP hosting** - Acceptable for internal networks (HTTPS optional)
+
+This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
+
+**Prerequisites:**
+
+1. **Windows Server** with IIS enabled
+   - Open Server Manager → Add Roles and Features
+   - Select **Web Server (IIS)** role
+   - Include **Management Tools** and **Static Content** features
+
+2. **Network share configured** for manifest distribution (see Section 3.1)
+   - Create folder (e.g., `C:\OfficeAddIns`)
+   - Share with users (Read permissions)
+   - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
+
+3. **Downloaded release package** from Step 1 above
+   - Extract `termnorm-deploy-v1.xx.xx.zip` to a temporary location
+
+**Server Setup Steps:**
+
+**Step 1: Extract the Release Package**
+
+Extract the downloaded `termnorm-deploy-v1.xx.xx.zip` to a temporary location (e.g., `C:\downloads\termnorm\`)
+
+**Step 2: Deploy to IIS** *(Requires Administrator)*
+
+1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
+
+2. Copy and paste these commands:
+
+```powershell
+$src = "C:\downloads\termnorm\dist"  # Or your actual extraction path
+$dest = "C:\inetpub\wwwroot\termnorm"
+
+# Remove old files and copy new ones
+if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+Copy-Item $src -Destination $dest -Recurse -Force
+
+# Configure IIS
+Import-Module WebAdministration
+if (Test-Path "IIS:\Sites\TermNorm") {
+    Restart-WebAppPool "TermNorm" -ErrorAction SilentlyContinue
+    Restart-WebItem "IIS:\Sites\TermNorm"
+} else {
+    New-Website -Name "TermNorm" -PhysicalPath $dest -Port 8080 -Force
+}
+
+# Test
+Start-Process "http://localhost:8080/taskpane.html"
+```
+
+3. Replace `C:\downloads\termnorm\dist` with your actual extraction path (must point to the `dist` subdirectory)
+
+4. Verify deployment:
+   - Files should be in `C:\inetpub\wwwroot\termnorm\`
+   - Browser should open to `http://localhost:8080/taskpane.html`
+   - Check file dates match today's date
+
+<details>
+<summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
+
+If you prefer manual setup:
+
+1. Copy `dist\*` to `C:\inetpub\wwwroot\termnorm\`
+
+2. Open IIS Manager (run `inetmgr`)
+
+3. Right-click **Sites** → **Add Website**:
+   - **Site name**: TermNorm
+   - **Physical path**: `C:\inetpub\wwwroot\termnorm`
+   - **Binding**: HTTP, port 8080
+   - Click **OK**
+
+4. Test: Open browser to `http://localhost:8080/taskpane.html`
+   - Should display the TermNorm interface
+
+</details>
+
+**Step 3: Distribute Manifest to Network Share**
+
+Copy the manifest from IIS to your network share:
+```bash
+copy C:\inetpub\wwwroot\termnorm\manifest-iis.xml \\SERVERNAME\OfficeAddIns\
+```
+
+> **Note:** End users still need to complete Section 3.1 steps to configure Excel's Trusted Add-in Catalog and install the add-in from the shared folder.
+
+**Build Configuration for Developers:**
+
+If building from source, use `npm run build:iis` with `DEPLOYMENT_PATH` set to ensure the UI shows correct server paths to users:
+```bash
+set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
+npm run build:iis
+```
+This makes the add-in display "IIS Server" deployment type and show the correct filesystem paths for configuration files.
+
+**Troubleshooting:**
+
+For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)** → Windows Server / IIS Deployment Issues section.
+
+---
 
 ## 4. Next Steps
 

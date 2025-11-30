@@ -148,7 +148,7 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 - Setting up network share for manifest distribution
 - Configuring Trust Center on each user's Excel
 
-📖 **[Complete deployment guide with step-by-step instructions](docs/INSTALLATION.md#windows-server-deployment)**
+📖 **[Complete deployment guide with step-by-step instructions](docs/INSTALLATION.md#3-desktop-excel-deployment-network-sideloading)**
 
 > **Note for developers:** When building from source, use `npm run build:iis` to ensure the UI displays correct server paths. See [Developer Guide](docs/DEVELOPER.md) for build options.
 
