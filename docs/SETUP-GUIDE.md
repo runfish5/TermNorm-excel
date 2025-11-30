@@ -68,7 +68,47 @@ Start server:
 1. Navigate to the **Load Configuration** tab in the task pane
 2. Click the **Activate Tracking** button
 
+
+## Loading Configuration
+
+### Microsoft 365 (Cloud Excel)
+
+**Drag & Drop:**
+1. Open TermNorm task pane
+2. Locate the drag-and-drop area
+3. Drag `app.config.json` into the field
+4. Configuration loads automatically
+
+### Desktop Excel
+
+**File-based:**
+1. Save `app.config.json` to: `<project-root>\config\app.config.json`
+2. Open TermNorm task pane
+3. Click **Load Config** button
+4. Configuration loads from file
+
+
 **✅ You're ready to go!**
+
+
+
+### Load Mapping Files
+
+- For each Excel reference file, click **Browse**
+- Select the corresponding Excel file
+- Click **Load Mapping Table**
+- Repeat for all reference files
+
+### Activate Tracking
+
+- Navigate to **Load Configuration**
+- Click the **Activate Tracking** button
+
+**Monitoring:**
+- Monitor real-time processing through the Activity Feed UI component
+- Check server status using the status indicator in the task pane
+
+
 
 ---
 

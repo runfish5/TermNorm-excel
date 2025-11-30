@@ -15,7 +15,7 @@ Edit `backend-api/config/users.json` to add allowed IPs:
   "users": {
     "admin": {
       "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
+      "allowed_ips": ["127.0.0.1", "10.0.0.100"]
     }
   }
 }
@@ -44,23 +44,7 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
 - Open TermNorm → **Settings** tab
 - Update "Server URL" to match your backend:
   - Local: `http://127.0.0.1:8000` (default)
-  - Network: `http://192.168.1.100:8000` (your server IP)
-
-### Load Mapping Files
-
-- For each Excel reference file, click **Browse**
-- Select the corresponding Excel file
-- Click **Load Mapping Table**
-- Repeat for all reference files
-
-### Activate Tracking
-
-- Navigate to **Load Configuration**
-- Click the **Activate Tracking** button
-
-**Monitoring:**
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
+  - Network: `http://10.0.0.100:8000` (your server IP)
 
 ---
 
@@ -124,87 +108,6 @@ The configuration file (`app.config.json`) has this structure:
 
 ---
 
-## Multiple Workbooks
-
-You can configure multiple workbooks in one file:
-
-```json
-{
-  "excel-projects": {
-    "ProjectA.xlsx": {
-      "column_map": {
-        "Raw_Material": "Material_Standard"
-      },
-      "default_std_suffix": "std",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Ref\\Materials_A.xlsx",
-          "worksheet": "Terms",
-          "source_column": "",
-          "target_column": "Standard_Name"
-        }
-      ]
-    },
-    "ProjectB.xlsx": {
-      "column_map": {
-        "Process_Name": "Process_BFO"
-      },
-      "default_std_suffix": "normalized",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Ref\\Processes.xlsx",
-          "worksheet": "BFO_Terms",
-          "source_column": "",
-          "target_column": "BFO_ID"
-        }
-      ]
-    }
-  }
-}
-```
-
----
-
-## Multiple Reference Files
-
-Use multiple reference files for different terminology domains:
-
-```json
-{
-  "excel-projects": {
-    "Research.xlsx": {
-      "column_map": {
-        "Material": "Material_ISO",
-        "Process": "Process_BFO"
-      },
-      "default_std_suffix": "standardized",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Reference\\Materials.xlsx",
-          "worksheet": "ISO_Standards",
-          "source_column": "",
-          "target_column": "ISO_Code"
-        },
-        {
-          "mapping_reference": "C:\\Reference\\Processes.xlsx",
-          "worksheet": "BFO_Ontology",
-          "source_column": "",
-          "target_column": "BFO_Term"
-        },
-        {
-          "mapping_reference": "C:\\Reference\\Equipment.xlsx",
-          "worksheet": "Equipment_List",
-          "source_column": "",
-          "target_column": "Equipment_ID"
-        }
-      ]
-    }
-  }
-}
-```
-
----
-
 ## Field Descriptions
 
 ### `column_map`
@@ -261,26 +164,6 @@ Array of reference files containing standard terminology.
 
 ---
 
-## Loading Configuration
-
-### Microsoft 365 (Cloud Excel)
-
-**Drag & Drop:**
-1. Open TermNorm task pane
-2. Locate the drag-and-drop area
-3. Drag `app.config.json` into the field
-4. Configuration loads automatically
-
-### Desktop Excel
-
-**File-based:**
-1. Save `app.config.json` to: `<project-root>\config\app.config.json`
-2. Open TermNorm task pane
-3. Click **Load Config** button
-4. Configuration loads from file
-
----
-
 ## Multi-User Setup
 
 Configure which users can access the backend server.
@@ -292,15 +175,15 @@ Configure which users can access the backend server.
   "users": {
     "admin": {
       "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "192.168.1.100"]
+      "allowed_ips": ["127.0.0.1", "10.0.0.100"]
     },
     "researcher1": {
       "email": "researcher1@company.com",
-      "allowed_ips": ["192.168.1.101"]
+      "allowed_ips": ["10.0.0.101"]
     },
     "researcher2": {
       "email": "researcher2@company.com",
-      "allowed_ips": ["192.168.1.102", "192.168.1.103"]
+      "allowed_ips": ["10.0.0.102", "10.0.0.103"]
     }
   }
 }
