@@ -265,15 +265,6 @@ copy C:\inetpub\wwwroot\termnorm\manifest-iis.xml \\SERVERNAME\OfficeAddIns\
 
 > **Note:** End users still need to complete Section 3.1 steps to configure Excel's Trusted Add-in Catalog and install the add-in from the shared folder.
 
-**Build Configuration for Developers:**
-
-If building from source, use `npm run build:iis` with `DEPLOYMENT_PATH` set to ensure the UI shows correct server paths to users:
-```bash
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-npm run build:iis
-```
-This makes the add-in display "IIS Server" deployment type and show the correct filesystem paths for configuration files.
-
 **Troubleshooting:**
 
 For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)** → Windows Server / IIS Deployment Issues section.
