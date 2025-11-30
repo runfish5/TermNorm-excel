@@ -6,19 +6,20 @@ This guide walks you through getting TermNorm up and running quickly after insta
 
 ## Prerequisites
 
-Before starting, ensure you have completed the **[Installation Guide](INSTALLATION.md)**:
-- Downloaded and extracted the release package
-- Installed Microsoft Excel and Python 3.9+
-- Added the TermNorm add-in to Excel (via sideload, IIS, or Microsoft 365)
+- Microsoft Excel or 365
+- Python 3.9+
 
 ---
 
 ## Quick Start: 4 Steps to Get Running
 
-### Step 1: Go thourgh the installation process
+### Step 1: Go through the installation process
 
+Jump to the **[Installation Guide](INSTALLATION.md)** and come back after.
 
-### Step 2: Start the Python Server
+### Step 2:  Add the add-in to Excel
+
+### Step 3: Start the Python Server
 
 The Python server handles the intelligent term normalization and matching.
 
@@ -60,7 +61,6 @@ Start server:
 - The TermNorm task pane should show a green status indicator
 
 
-
 ---
 
 ### Step 4: Activate Tracking
@@ -72,9 +72,7 @@ Start server:
 
 ---
 
----
-
-### Step 4: Customize your configuration
+### Step 5: Customize your configuration
 
 To unlock TermNorm's full capabilities, configure:
 

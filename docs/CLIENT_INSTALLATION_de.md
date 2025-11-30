@@ -28,7 +28,7 @@ Die Installation sollte mit dieser detaillierten Anleitung auch eigenständig du
 **Download der vorbereiteten Anwendungsdateien:**
 
 1. Besuchen Sie die Releases-Seite: **https://github.com/runfish5/TermNorm-excel/releases**
-2. Laden Sie **`dist.zip`** vom neuesten Release (v1.0.2 oder höher) herunter
+2. Laden Sie **`termnorm-deploy-v1.xx.xx.zip`** vom neuesten Release (v1.0.2 oder höher) herunter
 3. Entpacken Sie die ZIP-Datei an gewünschtem Ort (z.B. `C:\TermNorm-excel\`)
 4. Öffnen Sie die Kommandozeile (Windows-Taste → "cmd" → Enter)
 
@@ -156,7 +156,7 @@ Das Add-in unterstützt zwei Deployment-Optionen:
 7. **OK** klicken und Excel neu starten
 
 **Schritt 3: Manifest-Datei vorbereiten**
-1. Öffnen Sie den entpackten `dist.zip` Ordner (von Schritt 1)
+1. Öffnen Sie den entpackten `termnorm-deploy-v1.xx.xx.zip` Ordner (von Schritt 1)
 2. Suchen Sie die Datei `manifest.xml` im Hauptordner
 
 **Schritt 4: Add-In installieren**
@@ -518,7 +518,7 @@ Wenn Sie `config/app.config.json` aktualisieren:
    - IIS: `set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm && npm run build:iis`
    - M365: `npm run build:m365`
    - Entwicklung: `npm run build`
-2. Neu deployen zu IIS (falls zutreffend): `scripts\deployment\setup-iis.bat`
+2. Neu deployen zu IIS (falls zutreffend): Verwenden Sie die PowerShell-Befehle aus der Installationsanleitung
 3. Excel-Cache löschen und Add-in neu laden
 
 Die Konfigurationsdatei wird während des Builds in JavaScript gebündelt, daher sind Rebuilds für Änderungen erforderlich.

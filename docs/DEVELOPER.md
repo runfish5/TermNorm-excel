@@ -276,9 +276,8 @@ npm run build
 ```
 
 **2. Deploy to IIS (Windows Server):**
-```bash
-scripts\deployment\setup-iis.bat
-```
+
+Use the PowerShell deployment commands from the [Installation Guide](INSTALLATION.md#23-deployment-steps).
 
 **3. Or deploy to any static host** (GitHub Pages, Netlify, etc.):
 - Upload `dist/` folder contents

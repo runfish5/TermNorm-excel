@@ -143,7 +143,7 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 Desktop Excel cannot use the simple cloud upload method. Instead, it requires hosting the add-in on an internal web server (IIS) and distributing the manifest via network shared folder. Users then configure their Trust Center to access the shared catalog.
 
 **This process involves:**
-- Extracting the release package (`dist.zip`)
+- Extracting the release package (`termnorm-deploy-v1.xx.xx.zip`)
 - Deploying to IIS (Windows Server)
 - Setting up network share for manifest distribution
 - Configuring Trust Center on each user's Excel

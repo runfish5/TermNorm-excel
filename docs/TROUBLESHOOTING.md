@@ -136,7 +136,7 @@ For production deployment:
 If browser shows "401.3 Unauthorized" when testing `http://localhost:8080/taskpane.html`:
 
 - The files are in a user folder that IIS cannot access
-- Solution: `scripts\deployment\setup-iis.bat` automatically moves files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access
+- Solution: Deploy files to `C:\inetpub\wwwroot\termnorm\` where IIS has full access (see INSTALLATION.md for PowerShell deployment commands)
 
 ### Add-in doesn't appear in SHARED FOLDER
 

@@ -57,7 +57,7 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 1. Visit the releases page: **https://github.com/runfish5/TermNorm-excel/releases**
 2. Download **`termnorm-deploy-v1.xx.xx.zip`** from the latest release
 3. Extract the zip file to your desired location:
-   - **For local use**: e.g., `C:\TermNorm-excel\`
+   - **For local use**: e.g., `C:\termnorm-excel\`
    - **For IIS deployment**: e.g., `C:\inetpub\wwwroot\termnorm\`
 
 ### Step 2: Prerequisites
@@ -110,31 +110,15 @@ This is the industry-standard approach documented in [Microsoft's official Offic
    - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
 
 3. **Downloaded release package** from Step 1 above
-   - Extract `dist.zip` to a temporary location
+   - Extract `termnorm-deploy-v1.xx.xx.zip` to a temporary location
 
 ### 2.3 Deployment Steps
 
 **Step 1: Extract the Release Package**
 
-Extract the downloaded `dist.zip` to a temporary location (e.g., `C:\Temp\TermNorm-dist\`)
+Extract the downloaded `termnorm-deploy-v1.xx.xx.zip` to a temporary location (e.g., `C:\downloads\termnorm\`)
 
 **Step 2: Deploy to IIS** *(Requires Administrator)*
-
-**Option A: Automated deployment (Recommended)**
-
-If you have the full repository with deployment scripts:
-```bash
-scripts\deployment\setup-iis.bat
-```
-
-This script automatically:
-1. Creates folder: `C:\inetpub\wwwroot\termnorm\`
-2. Copies all files from `dist/` to the IIS folder
-3. Creates IIS website named "TermNorm" on port 8080
-4. Configures HTTP binding
-5. Tests the deployment
-
-**Option B: Manual deployment (Using dist.zip only)**
 
 1. Open PowerShell as Administrator (Right-click Start → PowerShell → Run as Administrator)
 
@@ -216,7 +200,7 @@ For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TRO
 ### 3.1 365 Cloud setup
 
 1. **Download the manifest file:**
-   - Extract `dist.zip` (from Step 1 above)
+   - Extract `termnorm-deploy-v1.xx.xx.zip` (from Step 1 above)
    - Locate `manifest-cloud.xml` inside the extracted folder
 
 2. **Upload to Excel:**
@@ -252,7 +236,7 @@ For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TRO
 7. Click **OK** and restart Excel
 
 **Step 3: Get Manifest File**
-1. Extract `dist.zip` (from Installation Step 1 above)
+1. Extract `termnorm-deploy-v1.xx.xx.zip` (from Installation Step 1 above)
 2. Locate `manifest.xml` inside the extracted folder
 
 **Step 4: Install Add-in**
