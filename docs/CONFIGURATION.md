@@ -59,69 +59,69 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
 ## Workbook Configuration (`app.config.json`)
 ```jsonc
 {
-  "excel-projects": {
-    "YourSavedSheet.xlsx": {
-      "column_map": {
-        "Raw_Term": "BFO_Term",
-        "Equipment": "Equipment_URI"
+  "my_excel_files": {
+    "MyWorkbook.xlsx": {
+      "columns": {                                                // This is inside your working file
+        "OldColumnName": "NewColumnName",                               // example
+        "ProductName": "StandardProductName",                           // example
+        "child_class": "parent_class"                                   // example
       },
-      "default_std_suffix": "mapped",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Reference\\Materials.xlsx",  // Reference file (absolute path)
-          "worksheet": "StandardTerms",                          // Worksheet name
-          "source_column": "",                                   // Leave empty
-          "target_column": "ISO_Standard"                        // Column with standard terms
+      "output_column_suffix": "standardized",
+      "reference_lists": [                                        // Other Excel files with reference data
+        {                                                         // example
+          "reference_file_location": "C:\\MyDocuments\\ReferenceData.xlsx",  // Where your reference file is saved
+          "tab_name": "StandardNames",                                       // Which tab in that file
+          "alias_column": "",                                                // Optional: Column with alternative names
+          "lookup_column": "ApprovedNames"                                   // Column containing approved names
         }
       ]
-    }
+    }                                                             // <-- Add your files here
   }
 }
 ```
 
 ---
 
-## Field Descriptions
+## What Each Part Means
 
-### `column_map`
+### `columns`
 
-Defines input → output column mappings.
+This tells the system which columns to work on and where to put the results.
 
-**Format:**
+**How to write it:**
 ```json
-"column_map": {
-  "InputColumnName": "OutputColumnName"
+"columns": {
+  "YourOriginalColumn": "WhereResultsGoColumn"
 }
 ```
 
-**Rules:**
-- Input column must exist in your workbook
-- Output column will be created if it doesn't exist
-- Column names are case-sensitive
-- Use exact column header names from Excel
+**Important:**
+- `YourOriginalColumn` must already exist in your Excel file
+- `WhereResultsGoColumn` will be created automatically if it doesn't exist
+- Names must match EXACTLY as they appear in Excel (including capitals and spaces)
 
-### `default_std_suffix`
+### `output_column_suffix`
 
-Suffix added to auto-generated output column names.
+This is a word that gets added to the end of new column names.
 
 **Example:**
 ```json
-"default_std_suffix": "standardized"
+"output_column_suffix": "approved"
 ```
 
-If input column is `Material` and no explicit mapping exists, output column will be `Material_standardized`.
+If you have a column called `Product` and you don't specify where results go, the system will create a new column called `Product_approved`.
 
-### `standard_mappings`
+### `reference_lists`
 
-Array of reference files containing standard terminology.
+This tells the system where to find your list of approved/standard terms.
 
 ```jsonc
-"standard_mappings": [
+"reference_lists": [
   {
-    "mapping_reference": "C:\\Data\\Reference\\StandardTerms.xlsx",  // Absolute path (double backslashes)
-    "worksheet": "Materials",                                       // Worksheet name
-    "source_column": "",                                            // Leave empty (not used)
-    "target_column": "ISO_Standard_Name"                            // Column with standard terms
+    "reference_file_location": "C:\\MyFolder\\ApprovedTerms.xlsx",  // Full location of your reference file
+    "tab_name": "Products",                                         // Which tab has the approved names
+    "input_column": "",                                             // Always leave this empty
+    "lookup_column": "OfficialProductNames"                         // Column with the approved names
   }
 ]
 ```
