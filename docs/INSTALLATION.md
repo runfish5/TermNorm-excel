@@ -69,10 +69,9 @@ Select the scenario that matches your environment:
 
 | Scenario | Best For | Architecture | Setup Time | Go To Section |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Cloud (Microsoft 365)** | **Most Users** <br> (Simplest setup) | **Web-based** <br> No server required | ~5 min | [M365 Cloud Deployment](#microsoft-365-cloud-excel-deployment--easiest) |
-| **2. Enterprise / Team** | **Organizations** <br> (Centralized IT management) | **IIS Server + Network Share** <br> Hosted on Windows Server | ~30 min | [Windows Server Hosting](#windows-server-hosting-optional-enterprise-extension) |
-| **3. Individual / Standalone** | **Single Users** <br> (No server access) | **Local Network Share** <br> Runs from your PC | ~10 min | [Desktop Excel Setup](#desktop-excel-setup-sideloading---required-for-all-desktop-users) |
-| **4. Developer** | **Contributors** <br> (Modifying code) | **Node.js + Python** <br> Full build environment | ~30 min | [For Developers](#for-developers) |
+| **1. Cloud (Microsoft 365)** | **Most Users** <br> (Simplest setup) | **Web-based** <br> No server required | ~5 min | [M365 Cloud Deployment](#21-microsoft-365-cloud-excel-deployment--easiest) |
+| **2. Individual / Standalone** | **Single Users** <br> (No server access) | **Local Network Share** <br> Runs from your PC | ~10 min | [Desktop Excel Setup](#22-desktop-excel-setup-sideloading) |
+| **3. Enterprise / Team** | **Organizations** <br> (Centralized IT management) | **IIS Server + Network Share** <br> Hosted on Windows Server | ~30 min | [Windows Server Hosting](#3-windows-server-hosting-optional-enterprise-extension) |
 
 > **Which one do I need?**
 > *   **Option 1** is for modern Excel (Web or M365).
@@ -140,19 +139,19 @@ Select the scenario that matches your environment:
 5. Select the add-in and click **Add**
 
 
-## 3 Windows Server Hosting (Optional Enterprise Extension)
+## 3. Windows Server Hosting (Optional Enterprise Extension)
 
-**⚠️ PREREQUISITE:** Complete Section 2.1 above first. This section adds server hosting to the sideloading setup.
+**⚠️ PREREQUISITE:** Complete Section 2.2 above first. This section adds server hosting to the sideloading setup.
 
 **Audience:** IT Administrators deploying for teams/organizations
 
 **Overview:**
 
-This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs. This EXTENDS the basic sideloading setup from Section 3.1 by adding centralized IIS hosting.
+This section describes the **standard Microsoft-recommended approach** for deploying Office add-ins on internal networks using IIS and network share catalogs. This EXTENDS the basic sideloading setup from Section 2.2 by adding centralized IIS hosting.
 
 The deployment uses:
 - **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
-- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading (configured in Section 2.1)
+- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading (configured in Section 2.2)
 - **HTTP hosting** - Acceptable for internal networks (HTTPS optional)
 
 This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
@@ -164,7 +163,7 @@ This is the industry-standard approach documented in [Microsoft's official Offic
    - Select **Web Server (IIS)** role
    - Include **Management Tools** and **Static Content** features
 
-2. **Network share configured** for manifest distribution (see Section 2.1)
+2. **Network share configured** for manifest distribution (see Section 2.2)
    - Create folder (e.g., `C:\OfficeAddIns`)
    - Share with users (Read permissions)
    - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
