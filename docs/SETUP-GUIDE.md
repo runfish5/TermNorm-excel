@@ -63,73 +63,22 @@ Start server:
 
 ---
 
-### Step 4: Activate Tracking
+### Step 4: Using the add-in
 
-1. Navigate to the **Load Configuration** tab in the task pane
-2. Click the **Activate Tracking** button
-
-
-## Loading Configuration
-
-### Microsoft 365 (Cloud Excel)
-
-**Drag & Drop:**
-1. Open TermNorm task pane
-2. Locate the drag-and-drop area
-3. Drag `app.config.json` into the field
-4. Configuration loads automatically
-
-### Desktop Excel
-
-**File-based:**
-1. Save `app.config.json` to: `<project-root>\config\app.config.json`
-2. Open TermNorm task pane
-3. Click **Load Config** button
-4. Configuration loads from file
-
+1. Open TermNorm task pane, it will show you 4 stages for setup
+2. Drag your `app.config.json` into the field, see here on how to prepare one: **[Configuration Guide](CONFIGURATION.md)**
+3. Load each of the reference files
+  - For each Excel reference file, click **Browse**
+  - Select the corresponding Excel file
+  - Click **Load Mapping Table**
+  - Repeat for all reference files
+4. Click the **Activate tracking** button
 
 **✅ You're ready to go!**
 
-
-
-### Load Mapping Files
-
-- For each Excel reference file, click **Browse**
-- Select the corresponding Excel file
-- Click **Load Mapping Table**
-- Repeat for all reference files
-
-### Activate Tracking
-
-- Navigate to **Load Configuration**
-- Click the **Activate Tracking** button
-
-**Monitoring:**
-- Monitor real-time processing through the Activity Feed UI component
-- Check server status using the status indicator in the task pane
-
-
-
----
-
-### Step 5: Customize your configuration
-
-To unlock TermNorm's full capabilities, configure:
-
-- **Multiple Projects** - Configure multiple workbooks
-- **Authentication** - Multi-user access with IP-based auth
-- **LLM API Keys** - Required for intelligent matching (Groq API)
-- **Web Search** - Optional Brave Search API for enhanced research
-
-See the **[Configuration Guide](CONFIGURATION.md)** for detailed setup instructions.
-
----
-
-## Try It Out: First Term Normalization
-
-1. **Select a cell** in your defined input column (e.g., "Input")
-2. **Type a term** you want to standardize (e.g., "stainless steel")
-3. **Press Enter**
+5. **Select a cell** in your defined input column (e.g., "Input")
+6. **Type a term** you want to standardize (e.g., "stainless steel")
+7. **Press Enter**
 
 **What happens:**
 - The system processes your term using:
@@ -150,8 +99,6 @@ See the **[Configuration Guide](CONFIGURATION.md)** for detailed setup instructi
 - Server status indicator (green = online, red = offline)
 - Processing logs for debugging
 
----
-
 ## Quick Verification Checklist
 
 Before diving deeper, verify everything is working:
@@ -166,16 +113,10 @@ If any step fails, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**.
 
 ---
 
-## What's Next?
-
-### For Basic Usage
-
-You're ready to start normalizing terms! See **[Usage Guide](#using-termnorm)** below for detailed instructions.
-
-
----
-
 ## Getting Help
+
+### Troubleshooting
+For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**
 
 ### Check Server Status
 - Look for the LED indicator in the task pane
@@ -187,10 +128,17 @@ You're ready to start normalizing terms! See **[Usage Guide](#using-termnorm)** 
 - Look for error messages in sys-status
 - Review terminal output for server errors
 
-### Troubleshooting
-For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**:
-- Backend server issues
-- Frontend add-in problems
-- Network connectivity
-- IIS deployment
 
+
+---
+
+## Customize your configuration
+
+To unlock TermNorm's full capabilities, configure:
+
+- **Multiple Projects** - Configure multiple workbooks
+- **Authentication** - Multi-user access with IP-based auth
+- **LLM API Keys** - Required for intelligent matching (Groq API)
+- **Web Search** - Optional Brave Search API for enhanced research
+
+See the **[Configuration Guide](CONFIGURATION.md)** for detailed setup instructions.
