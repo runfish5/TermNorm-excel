@@ -6,27 +6,34 @@ TermNorm uses a single JSON configuration file that defines column mappings and 
 
 ## Initial Setup
 
-### Configure Authentication and API Keys
+### 1. Set LLM API Key (Required)
+```bash
+setx GROQ_API_KEY "your_api_key_here"
+```
 
-**Add users** (for multi-user access):
-Edit `backend-api/config/users.json` to add allowed IPs:
-```json
+### 2. Configure Users (Multi-user access)
+
+Edit `backend-api/config/users.json`:
+
+```jsonc
 {
   "users": {
     "admin": {
-      "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "10.0.0.100"]
+      "email": "admin@company.com",              // User identifier for logs
+      "allowed_ips": ["127.0.0.1", "10.0.0.100"] // IPs allowed to connect
+    },
+    "researcher1": {
+      "email": "researcher1@company.com",
+      "allowed_ips": ["10.0.0.101"]
     }
   }
 }
 ```
 
-**Set LLM API key** (required):
-```bash
-setx GROQ_API_KEY "your_api_key_here"
-```
+**Features:** Changes hot-reload (no restart needed), multiple IPs per user, IP-based auth
 
-**Configure Web Search (Optional)**:
+### 3. Configure Web Search (Optional)
+
 For reliable web research, configure Brave Search API (2,000 free queries/month):
 
 > **Note:** Brave Search API requires a credit card for registration (even for free tier)
@@ -40,7 +47,8 @@ For reliable web research, configure Brave Search API (2,000 free queries/month)
 
 If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bing.
 
-**Configure Server URL in Excel** (if using network deployment):
+### 4. Configure Server URL (Network deployment)
+
 - Open TermNorm → **Settings** tab
 - Update "Server URL" to match your backend:
   - Local: `http://127.0.0.1:8000` (default)
@@ -48,63 +56,28 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
 
 ---
 
-## Configuration File Structure
-
-The configuration file (`app.config.json`) has this structure:
-
-```json
+## Workbook Configuration (`app.config.json`)
+```jsonc
 {
   "excel-projects": {
-    "WorkbookName.xlsx": {
-      "column_map": { ... },
-      "default_std_suffix": "...",
-      "standard_mappings": [ ... ]
-    }
-  }
-}
-```
-
-### Key Sections
-
-- **`excel-projects`**: Container for all workbook configurations
-- **`WorkbookName.xlsx`**: Excel workbook filename (must match exactly)
-- **`column_map`**: Maps input columns to output columns
-- **`default_std_suffix`**: Suffix for auto-generated output columns
-- **`standard_mappings`**: Array of reference files for terminology lookup
-
----
-
-## Basic Example
-
-```json
-{
-  "excel-projects": {
-    "MyWorkbook.xlsx": {
+    "YourSavedSheet.xlsx": {
       "column_map": {
-        "FreeText_Column": "Standardized_Column",
-        "Material_Input": "Material_ISO"
+        "Raw_Term": "BFO_Term",
+        "Equipment": "Equipment_URI"
       },
-      "default_std_suffix": "standardized",
+      "default_std_suffix": "mapped",
       "standard_mappings": [
         {
-          "mapping_reference": "C:\\Reference\\Materials.xlsx",
-          "worksheet": "StandardTerms",
-          "source_column": "",
-          "target_column": "ISO_Standard"
+          "mapping_reference": "C:\\Reference\\Materials.xlsx",  // Reference file (absolute path)
+          "worksheet": "StandardTerms",                          // Worksheet name
+          "source_column": "",                                   // Leave empty
+          "target_column": "ISO_Standard"                        // Column with standard terms
         }
       ]
     }
   }
 }
 ```
-
-**Explanation:**
-- Workbook name: `MyWorkbook.xlsx`
-- Input column `FreeText_Column` → Output column `Standardized_Column`
-- Input column `Material_Input` → Output column `Material_ISO`
-- Reference file: `C:\Reference\Materials.xlsx`
-- Reference worksheet: `StandardTerms`
-- Target column in reference: `ISO_Standard`
 
 ---
 
@@ -142,132 +115,18 @@ If input column is `Material` and no explicit mapping exists, output column will
 
 Array of reference files containing standard terminology.
 
-**Fields:**
-- **`mapping_reference`**: Absolute path to Excel reference file
-  - Use double backslashes on Windows: `C:\\Path\\File.xlsx`
-  - Use forward slashes on Mac/Linux: `/Users/name/file.xlsx`
-- **`worksheet`**: Name of worksheet containing terms
-- **`source_column`**: Leave empty `""` (not currently used)
-- **`target_column`**: Column containing standardized terms
-
-**Example:**
-```json
+```jsonc
 "standard_mappings": [
   {
-    "mapping_reference": "C:\\Data\\Reference\\StandardTerms.xlsx",
-    "worksheet": "Materials",
-    "source_column": "",
-    "target_column": "ISO_Standard_Name"
+    "mapping_reference": "C:\\Data\\Reference\\StandardTerms.xlsx",  // Absolute path (double backslashes)
+    "worksheet": "Materials",                                       // Worksheet name
+    "source_column": "",                                            // Leave empty (not used)
+    "target_column": "ISO_Standard_Name"                            // Column with standard terms
   }
 ]
 ```
 
----
 
-## Multi-User Setup
-
-Configure which users can access the backend server.
-
-### Edit `backend-api/config/users.json`
-
-```json
-{
-  "users": {
-    "admin": {
-      "email": "admin@company.com",
-      "allowed_ips": ["127.0.0.1", "10.0.0.100"]
-    },
-    "researcher1": {
-      "email": "researcher1@company.com",
-      "allowed_ips": ["10.0.0.101"]
-    },
-    "researcher2": {
-      "email": "researcher2@company.com",
-      "allowed_ips": ["10.0.0.102", "10.0.0.103"]
-    }
-  }
-}
-```
-
-**Fields:**
-- **`email`**: User identifier (for logging)
-- **`allowed_ips`**: Array of IP addresses allowed to connect
-
-**Features:**
-- Changes are **hot-reloaded** (no server restart needed)
-- Multiple IPs per user (for different locations)
-- IP-based authentication (no passwords)
-
----
-
-## Deployment Configuration
-
-**For developers building from source:**
-
-The build process accepts environment variables that control what the UI displays to users. This is important when deploying to IIS servers or Microsoft 365.
-
-### Environment Variables
-
-**`DEPLOYMENT_TYPE`**
-- Controls UI behavior and path display
-- Values: `development`, `iis`, `m365`
-- Default: `development`
-
-**`DEPLOYMENT_PATH`**
-- Filesystem path shown to users in the UI
-- Used for `development` and `iis` types
-- Default: Build directory path
-- Example: `C:\inetpub\wwwroot\termnorm`
-
-**`DEPLOYMENT_URL`**
-- Base URL for the manifest file
-- Default: GitHub Pages URL
-- Example: `http://your-server:8080/`
-
-### Build Commands
-
-**For IIS Server deployment:**
-```bash
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-npm run build:iis
-```
-- UI shows "IIS Server" deployment type
-- Displays server filesystem paths for admins
-- Includes drag-and-drop instructions for regular users
-
-**For Microsoft 365 deployment:**
-```bash
-npm run build:m365
-```
-- UI shows "Microsoft 365" deployment type
-- Hides all filesystem paths
-- Shows drag-and-drop instructions only
-
-**For standard build:**
-```bash
-npm run build
-```
-- UI shows "Development" deployment type
-- Displays build directory paths
-
-### When to Use Each
-
-| Deployment Type | Use When | UI Behavior |
-|----------------|----------|-------------|
-| `development` | Building for local development or GitHub Pages | Shows development paths |
-| `iis` | Deploying to Windows Server/IIS | Shows server paths for admin access |
-| `m365` | Publishing to Microsoft 365 App Catalog | Hides paths, drag-and-drop only |
-
-**Example: Full IIS deployment build**
-```bash
-set DEPLOYMENT_URL=http://myserver:8080/termnorm/
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-npm run build:iis
-```
-
-See [Installation Guide](INSTALLATION.md) and [Developer Guide](DEVELOPER.md) for complete deployment instructions.
-
----
 
 ## Configuration Tips
 
@@ -352,9 +211,9 @@ See [Installation Guide](INSTALLATION.md) and [Developer Guide](DEVELOPER.md) fo
 
 ## Example Configurations
 
-### Materials Research
+### Materials Research Example
 
-```json
+```jsonc
 {
   "excel-projects": {
     "Materials_Database.xlsx": {
@@ -364,85 +223,31 @@ See [Installation Guide](INSTALLATION.md) and [Developer Guide](DEVELOPER.md) fo
       },
       "default_std_suffix": "std",
       "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Reference\\ISO_Materials.xlsx",
-          "worksheet": "Materials",
-          "source_column": "",
-          "target_column": "ISO_Code"
-        },
-        {
-          "mapping_reference": "C:\\Reference\\Manufacturing_Processes.xlsx",
-          "worksheet": "Processes",
-          "source_column": "",
-          "target_column": "Standard_Process_Name"
-        }
+        { "mapping_reference": "C:\\Reference\\ISO_Materials.xlsx", "worksheet": "Materials", "source_column": "", "target_column": "ISO_Code" },
+        { "mapping_reference": "C:\\Reference\\Manufacturing_Processes.xlsx", "worksheet": "Processes", "source_column": "", "target_column": "Standard_Process_Name" }
       ]
     }
   }
 }
 ```
 
-### Ontology Mapping
+### Multi-Project Setup Example
 
-```json
-{
-  "excel-projects": {
-    "Ontology_Terms.xlsx": {
-      "column_map": {
-        "Raw_Term": "BFO_Term",
-        "Equipment": "Equipment_URI"
-      },
-      "default_std_suffix": "mapped",
-      "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Ontology\\BFO_Terms.xlsx",
-          "worksheet": "Basic_Formal_Ontology",
-          "source_column": "",
-          "target_column": "BFO_URI"
-        },
-        {
-          "mapping_reference": "C:\\Ontology\\Equipment.xlsx",
-          "worksheet": "Equipment_Ontology",
-          "source_column": "",
-          "target_column": "URI"
-        }
-      ]
-    }
-  }
-}
-```
-
-### Multi-Project Setup
-
-```json
+```jsonc
 {
   "excel-projects": {
     "Project_Alpha.xlsx": {
-      "column_map": {
-        "Input": "Output"
-      },
+      "column_map": { "Input": "Output" },
       "default_std_suffix": "std",
       "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Ref\\Alpha_Terms.xlsx",
-          "worksheet": "Terms",
-          "source_column": "",
-          "target_column": "Standard"
-        }
+        { "mapping_reference": "C:\\Ref\\Alpha_Terms.xlsx", "worksheet": "Terms", "source_column": "", "target_column": "Standard" }
       ]
     },
     "Project_Beta.xlsx": {
-      "column_map": {
-        "Raw_Data": "Normalized_Data"
-      },
+      "column_map": { "Raw_Data": "Normalized_Data" },
       "default_std_suffix": "normalized",
       "standard_mappings": [
-        {
-          "mapping_reference": "C:\\Ref\\Beta_Standards.xlsx",
-          "worksheet": "Standards",
-          "source_column": "",
-          "target_column": "Norm_Value"
-        }
+        { "mapping_reference": "C:\\Ref\\Beta_Standards.xlsx", "worksheet": "Standards", "source_column": "", "target_column": "Norm_Value" }
       ]
     }
   }
