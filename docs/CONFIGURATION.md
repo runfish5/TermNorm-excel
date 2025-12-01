@@ -66,9 +66,12 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
         "ProductName": "StandardProductName",                           // example
         "child_class": "parent_class"                                   // example
       },
-      "output_column_suffix": "standardized",
+      "confidence_column_map": {                                  // Optional: Where your confidence column is
+        "child_class": "child_class_confidence"                         // example
+      },
+      "output_column_suffix": "standardized",                     // Optional (leave empty)
       "reference_lists": [                                        // Other Excel files with reference data
-        {                                                         // example
+        {                                                               // example
           "reference_file_location": "C:\\MyDocuments\\ReferenceData.xlsx",  // Where your reference file is saved
           "tab_name": "StandardNames",                                       // Which tab in that file
           "alias_column": "",                                                // Optional: Column with alternative names
