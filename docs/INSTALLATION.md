@@ -45,9 +45,6 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 6. Restore your backed-up `activity.jsonl` and `app.config.json` to the new backend location
 7. Close all Excel windows completely and reopen Excel
 
-
----
-
 ## 1. 📦 Installation
 
 ### Step 1: Download the Release Package
@@ -68,23 +65,22 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 
 ### Step 3: Choose Your Deployment Method
 
-Select the installation method that best fits your needs:
+Select the scenario that matches your environment:
 
-| Deployment Method | Best For | Requirements | Setup Time | Instructions |
-| ----------------- | -------- | ------------ | ---------- | ------------ |
-| **A: Microsoft 365 (Cloud Excel)** ⭐ EASIEST | Users with M365 subscription | Excel for the Web or M365 Desktop | 5 min | [2. M365 Cloud Deployment](#2-microsoft-365-cloud-excel-deployment--easiest) |
-| **B: Desktop Excel (Windows Server/IIS)** | Small businesses, teams sharing a server | Windows Server with IIS, Desktop Excel | 30-40 min | [3.2 Windows Server Hosting](#32-windows-server-hosting-optional-enterprise-extension) (requires [3.1](#31-desktop-excel-setup-sideloading---required-for-all-desktop-users) first) |
-| **C: Desktop Excel (Local Development)** | Individual developers, testing, single-user | Desktop Excel on Windows or Mac | 10-15 min | [3.1 Desktop Excel Setup](#31-desktop-excel-setup-sideloading---required-for-all-desktop-users) |
-| **D: For Developers** | Contributing to project, customizing code | Node.js, Git, development environment | 30+ min | [5. For Developers](#5-for-developers) |
+| Scenario | Best For | Architecture | Setup Time | Go To Section |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Cloud (Microsoft 365)** | **Most Users** <br> (Simplest setup) | **Web-based** <br> No server required | ~5 min | [M365 Cloud Deployment](#microsoft-365-cloud-excel-deployment--easiest) |
+| **2. Enterprise / Team** | **Organizations** <br> (Centralized IT management) | **IIS Server + Network Share** <br> Hosted on Windows Server | ~30 min | [Windows Server Hosting](#windows-server-hosting-optional-enterprise-extension) |
+| **3. Individual / Standalone** | **Single Users** <br> (No server access) | **Local Network Share** <br> Runs from your PC | ~10 min | [Desktop Excel Setup](#desktop-excel-setup-sideloading---required-for-all-desktop-users) |
+| **4. Developer** | **Contributors** <br> (Modifying code) | **Node.js + Python** <br> Full build environment | ~30 min | [For Developers](#for-developers) |
 
-**⭐ EASIEST: Microsoft 365 (Cloud) deployment - Just download, start server, upload manifest**
+> **Which one do I need?**
+> *   **Option 1** is for modern Excel (Web or M365).
+> *   **Option 2 & 3** are for **Desktop Excel** users who need to "sideload" the add-in.
+>     *   Choose **Option 2** if you have a Windows Server and want to host it centrally for a team.
+>     *   Choose **Option 3** if you are just one person running it on your own machine.
 
-> **Note:** Desktop Excel users (Row B & C) need Section 3.1 for sideloading setup. Enterprise users deploying with Windows Server (Row B) also complete Section 3.2 for IIS hosting.
-
-
----
-
-## 2. Microsoft 365 (Cloud Excel) Deployment ⭐ EASIEST
+## 2.1 Microsoft 365 (Cloud Excel) Deployment ⭐ EASIEST
 
 **⭐ RECOMMENDED: Easiest deployment method**
 
@@ -110,23 +106,10 @@ Select the installation method that best fits your needs:
    - The TermNorm task pane should appear on the right side
    - If not visible, check that you're using Excel for the Web (not Desktop)
 
----
 
-## 3. Desktop Excel Deployment (Network Sideloading)
-
-**This section covers:**
-- **For everyone**: Desktop Excel sideloading setup (foundation - required for all Desktop users)
-- **For enterprises**: Optional Windows Server hosting extension (adds centralized IIS hosting)
-
-### 3.1 Desktop Excel Setup (Sideloading) - REQUIRED FOR ALL DESKTOP USERS
+## 2.2 Desktop Excel Setup (Sideloading)
 
 **⭐ Start here for any Desktop Excel deployment**
-
-**Audience:** Everyone using Desktop Excel (individual developers, enterprise users)
-
-> **⚠️ IMPORTANT NOTE - Sideloading for Excel Desktop Only**
->
-> The "Upload my Add-in" option **only works in Excel for the Web**, not in the Desktop version. For Desktop Excel, you must use the **sideloading method** via network share.
 
 #### Method 1: Sideloading via Network Share (recommended for Desktop)
 
@@ -156,17 +139,10 @@ Select the installation method that best fits your needs:
 4. Select **SHARED FOLDER** at the top of the dialog
 5. Select the add-in and click **Add**
 
-#### Method 2: Alternative for Mac (macOS only)
-On Mac, you can copy the `manifest.xml` directly to:
-```
-/Users/<username>/Library/Containers/com.Microsoft.Excel/Data/Documents/Wef
-```
 
----
+## 3 Windows Server Hosting (Optional Enterprise Extension)
 
-### 3.2 Windows Server Hosting (Optional Enterprise Extension)
-
-**⚠️ PREREQUISITE:** Complete Section 3.1 above first. This section adds server hosting to the sideloading setup.
+**⚠️ PREREQUISITE:** Complete Section 2.1 above first. This section adds server hosting to the sideloading setup.
 
 **Audience:** IT Administrators deploying for teams/organizations
 
@@ -176,7 +152,7 @@ This section describes the **standard Microsoft-recommended approach** for deplo
 
 The deployment uses:
 - **IIS (Internet Information Services)** - Built into Windows Server for hosting static files
-- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading (configured in Section 3.1)
+- **Network Shared Folder Catalog** - Microsoft's recommended method for enterprise sideloading (configured in Section 2.1)
 - **HTTP hosting** - Acceptable for internal networks (HTTPS optional)
 
 This is the industry-standard approach documented in [Microsoft's official Office Add-ins deployment guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins).
@@ -188,7 +164,7 @@ This is the industry-standard approach documented in [Microsoft's official Offic
    - Select **Web Server (IIS)** role
    - Include **Management Tools** and **Static Content** features
 
-2. **Network share configured** for manifest distribution (see Section 3.1)
+2. **Network share configured** for manifest distribution (see Section 2.1)
    - Create folder (e.g., `C:\OfficeAddIns`)
    - Share with users (Read permissions)
    - Note the UNC path (e.g., `\\SERVERNAME\OfficeAddIns`)
@@ -236,26 +212,6 @@ Start-Process "http://localhost:8080/taskpane.html"
    - Browser should open to `http://localhost:8080/taskpane.html`
    - Check file dates match today's date
 
-<details>
-<summary><b>Alternative: Manual IIS Configuration</b> (click to expand)</summary>
-
-If you prefer manual setup:
-
-1. Copy `dist\*` to `C:\inetpub\wwwroot\termnorm\`
-
-2. Open IIS Manager (run `inetmgr`)
-
-3. Right-click **Sites** → **Add Website**:
-   - **Site name**: TermNorm
-   - **Physical path**: `C:\inetpub\wwwroot\termnorm`
-   - **Binding**: HTTP, port 8080
-   - Click **OK**
-
-4. Test: Open browser to `http://localhost:8080/taskpane.html`
-   - Should display the TermNorm interface
-
-</details>
-
 **Step 3: Distribute Manifest to Network Share**
 
 Copy the manifest from IIS to your network share:
@@ -263,56 +219,23 @@ Copy the manifest from IIS to your network share:
 copy C:\inetpub\wwwroot\termnorm\manifest-iis.xml \\SERVERNAME\OfficeAddIns\
 ```
 
-> **Note:** End users still need to complete Section 3.1 steps to configure Excel's Trusted Add-in Catalog and install the add-in from the shared folder.
-
 **Troubleshooting:**
 
 For troubleshooting IIS deployment issues, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)** → Windows Server / IIS Deployment Issues section.
-
----
 
 ## 4. Next Steps
 
 Installation is now complete!
 
-For a quick start guide showing how to set up and use TermNorm, see the **[Setup Guide](SETUP-GUIDE.md)**.
+For a quick start guide showing how to use TermNorm, see the **[Setup Guide](SETUP-GUIDE.md)**.
 
-For detailed configuration options including authentication, API keys, and advanced settings, see the **[Configuration Guide](CONFIGURATION.md)**.
+## 5. Version Control and Security
 
----
-
-## 5. For Developers
-
-**If you need to modify the source code or build from scratch:**
-
-See the **[Developer Guide](DEVELOPER.md)** for complete development setup including:
-- Prerequisites and environment setup
-- Cloning the repository
-- Frontend and backend development workflows
-- Build commands for different deployment scenarios
-- Debugging and testing
-- Architecture overview
-
----
-
-## 6. Version Control and Security
-
-### 6.1 📦 Official Releases Only
+### 5.1 📦 Official Releases Only
 
 **IMPORTANT:** Download files exclusively from official releases:
 - **Release page:** https://github.com/runfish5/TermNorm-excel/releases
-- You will receive email notifications for each new version (e.g., v1.0.0)
-- Only update when you receive an email notification
 
-### 6.2 ⚠️ Development Branches
+### 5.2 🆘 Support
 
-**Do NOT use the master branch or other branches:**
-- These are for development and untested
-- Release branches (release/v1.x.x) are immutable and stable
-- This protects against unnoticed code changes and ensures traceability
-
-### 6.3 🆘 Support
-
-- Always provide your version number for support requests
-- Version number location: `<Version>` tag in manifest.xml
 - Contact: uniqued4ve@gmail.com
