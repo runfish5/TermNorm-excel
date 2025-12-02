@@ -105,8 +105,7 @@ export async function startTracking(config, mappings) {
     activeTrackers.set(workbookId, tracker);
     console.log(`✓ Tracking started for workbook: ${workbookId}`);
 
-    // Return tracking status info
-    return {
+    const trackingInfo = {
       workbookId,
       columnCount: tracker.columnMap.size,
       confidenceTotal: Object.keys(config.confidence_column_map || {}).length,
@@ -114,6 +113,12 @@ export async function startTracking(config, mappings) {
       confidenceFound,
       confidenceMissing,
     };
+
+    // CHECKPOINT 7: Emit tracking started event
+    eventBus.emit(Events.TRACKING_STARTED, trackingInfo);
+
+    // Return tracking status info
+    return trackingInfo;
   } finally {
     activationInProgress.delete(workbookId);
   }
@@ -362,6 +367,9 @@ export async function stopTracking(workbookId) {
   activeTrackers.delete(workbookId);
   cellStateByWorkbook.delete(workbookId);
   console.log(`✓ Tracking stopped: ${workbookId}`);
+
+  // CHECKPOINT 7: Emit tracking stopped event
+  eventBus.emit(Events.TRACKING_STOPPED, { workbookId });
 }
 
 export function getActiveTrackers() {
