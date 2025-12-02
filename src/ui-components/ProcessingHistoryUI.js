@@ -1,11 +1,19 @@
 import { buildActivityRow } from "./activity-row-builder.js";
 import { addEvent, clearEvents, getCount as getEventCount, getMaxEntries } from "../services/event-log.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 let container = null;
 let tableBody = null;
 
 // Track expanded row state for collapse/restore
 let expandedRowState = null; // { originalRow, expandedRow }
+
+// CHECKPOINT 5: Listen to history cache initialization event
+eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => {
+  console.log("[ProcessingHistory] Received cache initialization event");
+  populateFromCache(entries);
+});
 
 export function init(containerId = "processing-history-feed") {
   container = document.getElementById(containerId);

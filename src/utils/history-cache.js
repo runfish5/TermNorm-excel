@@ -3,11 +3,15 @@
  *
  * Called when server transitions from offline → online to populate
  * the history view with previously processed matches.
+ *
+ * CHECKPOINT 5: Fixed layering violation - removed direct UI import.
+ * Now uses event bus to notify UI instead of calling it directly.
  */
 
 import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
 import { getHost, getHeaders } from "./server-utilities.js";
-import { populateFromCache } from "../ui-components/ProcessingHistoryUI.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 /**
  * Initialize history cache from backend if not already initialized.
@@ -49,10 +53,14 @@ export async function initializeHistoryCache() {
       const entryCount = Object.keys(result.data.entries).length;
       console.log(`[HISTORY] Cache initialized with ${entryCount} entries`);
 
-      // Populate the history view with cached entries
-      populateFromCache(result.data.entries);
-
       notifyStateChange();
+
+      // Emit event for UI to listen to (no direct UI coupling)
+      eventBus.emit(Events.HISTORY_CACHE_INITIALIZED, {
+        entries: result.data.entries,
+        count: entryCount,
+      });
+
       return true;
     }
 
