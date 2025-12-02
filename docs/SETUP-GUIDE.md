@@ -11,15 +11,13 @@ This guide walks you through getting TermNorm up and running quickly after insta
 
 ---
 
-## Quick Start: 4 Steps to Get Running
+## Quick Start: 3 Steps to Get Running
 
 ### Step 1: Go through the installation process
 
 Jump to the **[Installation Guide](INSTALLATION.md)** and come back after.
 
-### Step 2:  Add the add-in to Excel
-
-### Step 3: Start the Python Server
+### Step 2: Start the Python Server
 
 The Python server handles the intelligent term normalization and matching.
 
@@ -63,7 +61,7 @@ Start server:
 
 ---
 
-### Step 4: Using the add-in
+### Step 3: Using the add-in
 
 1. Open TermNorm task pane, it will show you 4 stages for setup
 2. Drag your `app.config.json` into the field, see here on how to prepare one: **[Configuration Guide](CONFIGURATION.md)**
@@ -127,7 +125,6 @@ For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTI
 - Check the Activity Feed for processing logs
 - Look for error messages in sys-status
 - Review terminal output for server errors
-
 
 
 ---

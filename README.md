@@ -77,7 +77,7 @@ Logging & State Update
 
 ### Installation for End Users
 
-**For users who just want to deploy and use the add-in** (no development):
+**For users who just want to deploy and use the add-in**:
 
 **1. Download the deployment package**
 
@@ -85,13 +85,11 @@ Visit the releases page and download `termnorm-deploy-vX.X.X.zip`:
 
 **👉 [Download from GitHub Releases](https://github.com/runfish5/TermNorm-excel/releases)**
 
-This package contains only the pre-built files needed for deployment (~5-10MB):
+This package contains only the pre-built files needed for deployment:
 - ✅ Pre-built frontend (`dist/`)
 - ✅ Python backend (`backend-api/`)
 - ✅ Manifest files
 - ✅ Configuration templates
-- ❌ **No npm install needed!**
-- ❌ **No node_modules (~900MB) downloaded!**
 
 Extract the zip file to your desired location (e.g., `C:\TermNorm-excel\`)
 
@@ -149,8 +147,6 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 - Configuring Trust Center on each user's Excel
 
 📖 **[Complete deployment guide with step-by-step instructions](docs/INSTALLATION.md#3-desktop-excel-deployment-network-sideloading)**
-
-> **Note for developers:** When building from source, use `npm run build:iis` to ensure the UI displays correct server paths. See [Developer Guide](docs/DEVELOPER.md) for build options.
 
 ---
 
