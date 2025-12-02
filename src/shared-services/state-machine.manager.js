@@ -1,11 +1,14 @@
 /**
- * State Manager - Frontend State with Session-Based Backend
+ * State Manager - COMPATIBILITY LAYER (CHECKPOINT 8)
  *
- * Architecture:
- * 1. Frontend caches mappings in memory for fast exact/fuzzy matching
- * 2. Frontend initializes backend session with terms array when mappings load
- * 3. Backend stores terms in user session, subsequent requests are lightweight
- * 4. Simple loading states: idle → loading → synced | error
+ * This file is now a thin wrapper around the new state-store.js.
+ * It maintains backward compatibility while migrating to the new state system.
+ *
+ * MIGRATION STATUS:
+ * - ✅ Uses stateStore internally
+ * - ✅ Direct mutations still work (proxied)
+ * - ✅ notifyStateChange() triggers state-store subscribers
+ * - ⏳ TODO: Migrate all functions to use state-actions
  */
 
 import { showMessage } from "../utils/error-display.js";
@@ -15,105 +18,89 @@ import { apiPost } from "../utils/api-fetch.js";
 import { retryWithBackoff } from "../utils/async-utils.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS, LOG_PREFIX, ERROR_MESSAGES } from "../config/session.config.js";
 
-// Global State - Simplified
-const appState = {
-  ui: {
-    currentView: "config",
-    statusMessage: "Ready",
-    isError: false,
-  },
-  server: {
-    online: false,
-    host: null,
-    lastChecked: null,
-    info: {}, // Server connection info (provider, environment, etc.)
-  },
-  config: {
-    loaded: false,
-    data: null,
-    raw: null, // Raw config data for reloading
-  },
-  mappings: {
-    sources: {}, // index → {status, data, error}
-    combined: null, // Combined forward/reverse mappings cache
-    loaded: false,
-  },
-  session: {
-    initialized: false,
-    termCount: 0,
-    lastInitialized: null,
-    error: null,
-  },
-  settings: {
-    requireServerOnline: true, // Default: server required for operations
-    loaded: false,
-  },
-  webSearch: {
-    status: "idle", // "idle" | "success" | "failed"
-    error: null, // Error message from last failed search
-  },
-  history: {
-    cacheInitialized: false, // True after fetching processed entries from backend
-    entries: {}, // match_database cached here (identifier → {entity_profile, aliases, ...})
-  },
-};
+// CHECKPOINT 8: Import new state management
+import { stateStore } from "../core/state-store.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
+// Export state directly from store (backward compatibility)
+// This allows `state.ui.currentView` etc. to work
+export const state = new Proxy({}, {
+  get(_, prop) {
+    return stateStore.get(prop);
+  },
+  set(_, prop, value) {
+    console.warn(`[DEPRECATED] Direct mutation: state.${prop} = ... (use state-actions instead)`);
+    stateStore.set(prop, value);
+    return true;
+  }
+});
+
+// Legacy callbacks (now proxy to state-store subscriptions)
 let stateChangeCallbacks = [];
 
 export function onStateChange(callback) {
   stateChangeCallbacks.push(callback);
+  // Also subscribe to state-store
+  stateStore.subscribe(() => callback(state));
 }
 
 export function notifyStateChange() {
-  stateChangeCallbacks.forEach((cb) => cb(appState));
+  // Trigger legacy callbacks
+  const currentState = stateStore.getState();
+  stateChangeCallbacks.forEach((cb) => {
+    try {
+      cb(currentState);
+    } catch (error) {
+      console.error('Error in state change callback:', error);
+    }
+  });
 }
 
 export function setConfig(config) {
-  appState.config.data = config;
-  appState.config.loaded = true;
+  stateStore.merge('config', {
+    data: config,
+    loaded: true,
+  });
+  eventBus.emit(Events.CONFIG_LOADED, { config });
   notifyStateChange();
 }
 
 /**
  * Load Mapping Source - Simplified (stateless backend)
- *
- * Steps:
- * 1. Set status to loading
- * 2. Load data from Excel
- * 3. Cache result in frontend state
- * 4. Combine all sources
  */
 export async function loadMappingSource(index, loadFunction, params) {
   await checkServerStatus();
 
-  if (appState.settings.requireServerOnline && !appState.server.online) {
+  const requireServerOnline = stateStore.get('settings.requireServerOnline');
+  const serverOnline = stateStore.get('server.online');
+
+  if (requireServerOnline && !serverOnline) {
     const error = "Server connection required to load mappings (disable in Settings for offline mode)";
     showMessage(`❌ ${error}`, "error");
     throw new Error(error);
   }
 
-  // Initialize source state if needed
-  if (!appState.mappings.sources[index]) {
-    appState.mappings.sources[index] = {
-      status: "idle",
-      data: null,
-      error: null,
-    };
+  // Get or initialize source
+  const sources = stateStore.get('mappings.sources') || {};
+  if (!sources[index]) {
+    sources[index] = { status: "idle", data: null, error: null };
+    stateStore.set('mappings.sources', sources);
   }
 
-  const source = appState.mappings.sources[index];
-
   try {
-    source.status = "loading";
-    source.error = null;
+    sources[index].status = "loading";
+    sources[index].error = null;
+    stateStore.set('mappings.sources', sources);
     showMessage("Loading mapping table...");
 
-    // Execute load operation (reads Excel only - no backend sync)
+    // Execute load operation
     const result = await loadFunction(params);
 
-    // Update frontend cache
-    source.status = "synced";
-    source.data = result;
+    // Update source
+    sources[index].status = "synced";
+    sources[index].data = result;
+    stateStore.set('mappings.sources', sources);
 
     const termCount = Object.keys(result.reverse || {}).length;
 
@@ -124,9 +111,10 @@ export async function loadMappingSource(index, loadFunction, params) {
 
     return result;
   } catch (error) {
-    source.status = "error";
-    source.error = error.message;
-    source.data = null;
+    sources[index].status = "error";
+    sources[index].error = error.message;
+    sources[index].data = null;
+    stateStore.set('mappings.sources', sources);
 
     showMessage(`❌ Failed to load mapping ${index + 1}: ${error.message}`, "error");
     notifyStateChange();
@@ -136,10 +124,7 @@ export async function loadMappingSource(index, loadFunction, params) {
 }
 
 /**
- * Initialize backend session with retry logic and exponential backoff
- *
- * @param {string[]} terms - Array of terms to initialize in backend session
- * @returns {Promise<boolean>} True if initialization succeeded, false otherwise
+ * Initialize backend session with retry logic
  */
 async function initializeBackendSessionWithRetry(terms) {
   return await retryWithBackoff(async () => await initializeBackendSession(terms), {
@@ -152,17 +137,17 @@ async function initializeBackendSessionWithRetry(terms) {
     onFailure: (attempts) => {
       const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
       console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
-      appState.session.error = errorMsg;
+
+      stateStore.merge('session', {
+        error: errorMsg,
+      });
       notifyStateChange();
     },
   });
 }
 
 /**
- * Initialize backend session with terms array (single attempt)
- *
- * @param {string[]} terms - Array of terms to initialize in backend session
- * @returns {Promise<boolean>} True if initialization succeeded, false otherwise
+ * Initialize backend session (single attempt)
  */
 async function initializeBackendSession(terms) {
   try {
@@ -170,7 +155,7 @@ async function initializeBackendSession(terms) {
       `${getHost()}${SESSION_ENDPOINTS.INIT}`,
       { terms },
       getHeaders(),
-      { silent: true } // Don't show loading/success messages during mapping load
+      { silent: true }
     );
 
     if (data) {
@@ -179,7 +164,6 @@ async function initializeBackendSession(terms) {
       return true;
     }
 
-    // apiPost returns null on failure instead of throwing
     console.error(`${LOG_PREFIX.SESSION} ${ERROR_MESSAGES.SESSION_INIT_FAILED}`);
     updateSessionState(false, 0, ERROR_MESSAGES.SESSION_INIT_FAILED);
     return false;
@@ -192,30 +176,30 @@ async function initializeBackendSession(terms) {
 }
 
 /**
- * Update session state and notify listeners
- *
- * @param {boolean} initialized - Whether session is initialized
- * @param {number} termCount - Number of terms in session
- * @param {string|null} error - Error message if any
+ * Update session state
  */
 function updateSessionState(initialized, termCount, error) {
-  appState.session.initialized = initialized;
-  appState.session.termCount = termCount;
-  appState.session.lastInitialized = initialized ? new Date() : null;
-  appState.session.error = error;
+  stateStore.merge('session', {
+    initialized,
+    termCount,
+    lastInitialized: initialized ? new Date().toISOString() : null,
+    error,
+  });
   notifyStateChange();
 }
 
 /**
- * Combine all synced mapping sources into frontend cache
- * Also initializes backend session with terms
+ * Combine all synced mapping sources
  */
 async function combineMappingSources() {
-  const syncedSources = Object.values(appState.mappings.sources).filter((s) => s.status === "synced" && s.data);
+  const sources = stateStore.get('mappings.sources') || {};
+  const syncedSources = Object.values(sources).filter((s) => s.status === "synced" && s.data);
 
   if (syncedSources.length === 0) {
-    appState.mappings.combined = null;
-    appState.mappings.loaded = false;
+    stateStore.merge('mappings', {
+      combined: null,
+      loaded: false,
+    });
     return;
   }
 
@@ -232,28 +216,31 @@ async function combineMappingSources() {
     });
   });
 
-  appState.mappings.combined = combined;
-  appState.mappings.loaded = true;
+  stateStore.merge('mappings', {
+    combined,
+    loaded: true,
+  });
 
-  // Initialize backend session with terms (with retry logic)
+  // Emit event
+  eventBus.emit(Events.MAPPINGS_LOADED, { mappings: combined });
+
+  // Initialize backend session
   const terms = Object.keys(combined.reverse || {});
   if (terms.length > 0) {
     const success = await initializeBackendSessionWithRetry(terms);
 
     if (!success) {
-      // Show error to user - session init failed but frontend caching still works
       showMessage(ERROR_MESSAGES.SESSION_WARNING, "error");
     }
   }
 }
 
 /**
- * Export session initialization for external use (e.g., auto-recovery in normalizer)
- *
- * @returns {Promise<boolean>} True if reinitialization succeeded, false otherwise
+ * Reinitialize session
  */
 export async function reinitializeSession() {
-  const terms = Object.keys(appState.mappings.combined?.reverse || {});
+  const combined = stateStore.get('mappings.combined');
+  const terms = Object.keys(combined?.reverse || {});
 
   if (terms.length === 0) {
     console.error(`${LOG_PREFIX.SESSION} ${ERROR_MESSAGES.SESSION_REINIT_NO_TERMS}`);
@@ -265,40 +252,50 @@ export async function reinitializeSession() {
 }
 
 /**
- * Clear all mapping sources
+ * Clear all mappings
  */
 export function clearMappings() {
-  appState.mappings.sources = {};
-  appState.mappings.combined = null;
-  appState.mappings.loaded = false;
+  stateStore.merge('mappings', {
+    sources: {},
+    combined: null,
+    loaded: false,
+  });
 
-  // Clear session state when mappings are cleared
-  appState.session.initialized = false;
-  appState.session.termCount = 0;
-  appState.session.error = null;
+  stateStore.merge('session', {
+    initialized: false,
+    termCount: 0,
+    error: null,
+  });
 
+  eventBus.emit(Events.MAPPINGS_CLEARED);
   notifyStateChange();
 }
 
 /**
  * Initialize settings from localStorage
- * Call this during app startup
  */
 export function initializeSettings() {
   const settings = loadSettings();
-  appState.settings = { ...settings, loaded: true };
+  stateStore.merge('settings', {
+    ...settings,
+    loaded: true,
+  });
   notifyStateChange();
   return settings;
 }
 
 /**
- * Update a single setting and persist to localStorage
+ * Save setting
  */
 export function saveSetting(key, value) {
-  const updated = persistSetting(key, value, appState.settings);
-  appState.settings = { ...updated, loaded: true };
+  const currentSettings = stateStore.get('settings') || {};
+  const updated = persistSetting(key, value, currentSettings);
+
+  stateStore.merge('settings', {
+    ...updated,
+    loaded: true,
+  });
+
+  eventBus.emit(Events.SETTING_CHANGED, { key, value });
   notifyStateChange();
 }
-
-// Direct state access (preferred approach per architecture principles)
-export const state = appState;
