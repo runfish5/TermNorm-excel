@@ -2,13 +2,19 @@
  * State Manager - COMPATIBILITY LAYER (CHECKPOINT 8)
  *
  * This file is now a thin wrapper around the new state-store.js.
- * It maintains backward compatibility while migrating to the new state system.
+ * It maintains backward compatibility while the codebase gradually migrates to state-actions.
  *
- * MIGRATION STATUS:
- * - ✅ Uses stateStore internally
- * - ✅ Direct mutations still work (proxied)
- * - ✅ notifyStateChange() triggers state-store subscribers
- * - ⏳ TODO: Migrate all functions to use state-actions
+ * **Architecture:**
+ * - Proxy intercepts all state reads/writes and delegates to stateStore
+ * - Functions in this file use stateStore.merge/set for mutations
+ * - Legacy code can still access state.prop.subprop (proxied to stateStore.get)
+ * - All mutations flow through immutable state-store with event emissions
+ *
+ * **Migration Status:**
+ * - ✅ State migrated to immutable store (CHECKPOINT 8)
+ * - ✅ Domain layer uses state-actions (CHECKPOINTS 3-4)
+ * - ✅ Event-driven architecture complete (CHECKPOINT 9)
+ * - ⏳ Remaining files can migrate to state-actions incrementally
  */
 
 import { showMessage } from "../utils/error-display.js";

@@ -1,5 +1,3 @@
-// CHECKPOINT 6: Removed UI import - using event bus instead
-// import { addCandidate } from "../ui-components/CandidateRankingUI.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { processTermNormalization } from "./normalizer.functions.js";
