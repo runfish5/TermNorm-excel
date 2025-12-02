@@ -16,6 +16,16 @@ import { Events } from './events.js';
 
 /**
  * Initial state structure
+ *
+ * IMPORTANT: This initialState must include ALL top-level state properties used throughout the app.
+ * Missing properties will cause `state.propertyName` to return undefined via the Proxy in
+ * state-machine.manager.js, breaking any code that tries to read/write nested values.
+ *
+ * When adding new state slices, always add them here first!
+ *
+ * Historical note: The `history` property was initially forgotten during CHECKPOINT 8 migration,
+ * causing activity history to break completely. If you're debugging similar "undefined" issues,
+ * check that the property exists here.
  */
 const initialState = {
   // UI state
@@ -74,6 +84,12 @@ const initialState = {
   webSearch: {
     status: 'idle', // "idle" | "success" | "failed"
     error: null,
+  },
+
+  // History cache state - stores entities from backend
+  history: {
+    cacheInitialized: false,
+    entries: {},  // identifier → {entity_profile, aliases, web_sources, last_updated}
   },
 };
 
