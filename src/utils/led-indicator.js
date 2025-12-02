@@ -1,15 +1,16 @@
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 
 export function updateLED() {
   const led = document.getElementById("server-status-led");
   const textElement = document.getElementById("server-status-text");
   if (!led) return;
 
-  led.className = state.server.online ? "led led-success" : "led led-error";
+  const isOnline = getStateValue('server.online');
+  led.className = isOnline ? "led led-success" : "led led-error";
   led.title = "Click to refresh";
 
   if (textElement) {
-    textElement.textContent = state.server.online ? "Online" : "Offline";
+    textElement.textContent = isOnline ? "Online" : "Offline";
   }
 }
 

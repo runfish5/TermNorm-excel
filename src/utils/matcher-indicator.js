@@ -1,11 +1,11 @@
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 
 export function updateMatcherIndicator() {
   const indicator = document.getElementById("matcher-status-indicator");
   if (!indicator) return;
 
-  const mappings = state.mappings.combined;
-  const serverOnline = state.server.online;
+  const mappings = getStateValue('mappings.combined');
+  const serverOnline = getStateValue('server.online');
 
   const forwardCount = Object.keys(mappings?.forward || {}).length;
   const reverseCount = Object.keys(mappings?.reverse || {}).length;
@@ -18,7 +18,7 @@ export function updateMatcherIndicator() {
 
   let status, statusText, title;
 
-  if (!state.mappings.loaded || totalTerms === 0) {
+  if (!getStateValue('mappings.loaded') || totalTerms === 0) {
     status = "not-ready";
     statusText = "Not loaded";
     title = "Mappings: Not loaded\nClick to see details";
@@ -52,25 +52,25 @@ export function setupMatcherIndicator() {
 }
 
 function showMatcherDetails() {
-  const mappings = state.mappings.combined;
-  const serverInfo = state.server.info || {};
+  const mappings = getStateValue('mappings.combined');
+  const serverInfo = getStateValue('server.info') || {};
   const forwardCount = Object.keys(mappings?.forward || {}).length;
   const reverseCount = Object.keys(mappings?.reverse || {}).length;
 
   let details = `📊 MAPPINGS STATUS\n\n`;
   details += `Forward: ${forwardCount} | Reverse: ${reverseCount}\n`;
-  details += `Status: ${state.mappings.loaded ? "Loaded" : "Not loaded"}\n\n`;
-  details += `Backend: ${state.server.online ? "Online" : "Offline"}\n`;
-  details += `Host: ${state.server.host || "Not configured"}\n`;
+  details += `Status: ${getStateValue('mappings.loaded') ? "Loaded" : "Not loaded"}\n\n`;
+  details += `Backend: ${getStateValue('server.online') ? "Online" : "Offline"}\n`;
+  details += `Host: ${getStateValue('server.host') || "Not configured"}\n`;
 
-  if (state.server.online && serverInfo.provider) {
+  if (getStateValue('server.online') && serverInfo.provider) {
     details += `LLM: ${serverInfo.provider}\n`;
   }
 
   details += `\nCapabilities:\n`;
-  if (!state.mappings.loaded) {
+  if (!getStateValue('mappings.loaded')) {
     details += `❌ Load mappings first\n`;
-  } else if (state.server.online) {
+  } else if (getStateValue('server.online')) {
     details += `✅ Exact/Fuzzy/LLM\n`;
   } else {
     details += `✅ Exact/Fuzzy\n⚠️ LLM unavailable\n`;

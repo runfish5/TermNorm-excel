@@ -1,4 +1,4 @@
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 
 /**
  * Warning Manager - Centralized Warning Badge Control
@@ -29,7 +29,8 @@ function updateOfflineModeWarning() {
   if (!warning) return;
 
   // Show warning when offline mode is enabled (server not required)
-  if (state.settings?.requireServerOnline === false) {
+  const requireServerOnline = getStateValue('settings.requireServerOnline');
+  if (requireServerOnline === false) {
     warning.classList.remove("hidden");
   } else {
     warning.classList.add("hidden");
@@ -44,9 +45,10 @@ function updateWebSearchWarning() {
   const warning = document.getElementById("web-search-warning");
   if (!warning) return;
 
-  if (state.webSearch?.status === "failed") {
+  const webSearchStatus = getStateValue('webSearch.status');
+  if (webSearchStatus === "failed") {
     warning.classList.remove("hidden");
-    const errorMsg = state.webSearch?.error || "Unknown error";
+    const errorMsg = getStateValue('webSearch.error') || "Unknown error";
     warning.title = `Web scraping failed: ${errorMsg}`;
   } else {
     // Hide on success or idle (new request started)

@@ -29,16 +29,17 @@ import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
-// Export state directly from store (backward compatibility)
-// This allows `state.ui.currentView` etc. to work
+// Export state Proxy - throws errors to enforce event-driven architecture
+// All state access must use getStateValue() from state-actions.js
+// All state mutations must use state-actions.js functions
 export const state = new Proxy({}, {
   get(_, prop) {
-    return stateStore.get(prop);
+    console.error(`[ERROR] Direct state access deprecated: state.${prop} (use getStateValue('${prop}') instead)`);
+    throw new Error(`Direct state access is no longer supported. Use getStateValue('${prop}') from state-actions.js`);
   },
   set(_, prop, value) {
-    console.warn(`[DEPRECATED] Direct mutation: state.${prop} = ... (use state-actions instead)`);
-    stateStore.set(prop, value);
-    return true;
+    console.error(`[ERROR] Direct state mutation deprecated: state.${prop} = ... (use state-actions instead)`);
+    throw new Error('Direct state mutations are no longer supported. Use state-actions.js');
   }
 });
 

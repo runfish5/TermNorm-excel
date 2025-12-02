@@ -4,7 +4,8 @@ import { init as initProcessingHistory, updateHistoryTabCounter } from "../ui-co
 import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { state, onStateChange, initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
+import { initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
@@ -14,6 +15,35 @@ import { showMessage } from "../utils/error-display.js";
 import { updateLED, setupLED } from "../utils/led-indicator.js";
 import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
 import { updateWarnings } from "../utils/warning-manager.js";
+
+/**
+ * Setup event-driven UI reactivity
+ * All UI components automatically update when state changes via event bus
+ */
+function setupUIReactivity() {
+  // LED updates on server status changes
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateLED());
+
+  // Matcher indicator updates on mappings or server changes
+  eventBus.on(Events.MAPPINGS_LOADED, () => updateMatcherIndicator());
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateMatcherIndicator());
+
+  // Warning badges update on settings or server changes
+  eventBus.on(Events.SETTING_CHANGED, () => updateWarnings());
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateWarnings());
+
+  // Button states update on config, mappings, or server changes
+  eventBus.on(Events.CONFIG_LOADED, () => updateButtonStates());
+  eventBus.on(Events.MAPPINGS_LOADED, () => updateButtonStates());
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateButtonStates());
+  eventBus.on(Events.SETTING_CHANGED, () => updateButtonStates());
+
+  // Initial renders
+  updateLED();
+  updateMatcherIndicator();
+  updateWarnings();
+  updateButtonStates();
+}
 
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) {
@@ -44,17 +74,17 @@ Office.onReady(async (info) => {
     initializeHistoryCache();
   });
 
+  // Setup event-driven UI reactivity
+  setupUIReactivity();
+
   checkServerStatus();
-  updateLED();
-  updateMatcherIndicator();
-  updateWarnings(); // Initial warning update after settings load
   initializeVersionDisplay();
   initializeProjectPathDisplay();
 
   // Setup settings checkbox handlers
   const requireServerCheckbox = document.getElementById("require-server-online");
   if (requireServerCheckbox) {
-    requireServerCheckbox.checked = state.settings.requireServerOnline;
+    requireServerCheckbox.checked = getStateValue('settings.requireServerOnline');
     requireServerCheckbox.addEventListener("change", (e) => {
       saveSetting("requireServerOnline", e.target.checked);
       updateButtonStates();
@@ -66,7 +96,7 @@ Office.onReady(async (info) => {
 
   const useWebSearchCheckbox = document.getElementById("use-web-search");
   if (useWebSearchCheckbox) {
-    useWebSearchCheckbox.checked = state.settings.useWebSearch;
+    useWebSearchCheckbox.checked = getStateValue('settings.useWebSearch');
     useWebSearchCheckbox.addEventListener("change", async (e) => {
       const enabled = e.target.checked;
       saveSetting("useWebSearch", enabled);
@@ -86,7 +116,7 @@ Office.onReady(async (info) => {
 
   const useBraveApiCheckbox = document.getElementById("use-brave-api");
   if (useBraveApiCheckbox) {
-    useBraveApiCheckbox.checked = state.settings.useBraveApi;
+    useBraveApiCheckbox.checked = getStateValue('settings.useBraveApi');
     useBraveApiCheckbox.addEventListener("change", async (e) => {
       const enabled = e.target.checked;
       saveSetting("useBraveApi", enabled);
@@ -152,18 +182,6 @@ Office.onReady(async (info) => {
     }
   });
 
-  onStateChange((newState) => {
-    console.log("State changed:", {
-      mappingsLoaded: newState.mappings.loaded,
-      sourceCount: Object.keys(newState.mappings.sources).length,
-      syncedCount: Object.values(newState.mappings.sources).filter((s) => s.status === "synced").length,
-    });
-    updateLED();
-    updateMatcherIndicator();
-    updateWarnings(); // Update warnings on state changes
-    updateButtonStates();
-  });
-
   window.showView = showView;
 
   updateContentMargin();
@@ -180,7 +198,7 @@ Office.onReady(async (info) => {
   window.addEventListener("resize", updateContentMargin);
   try {
     await loadStaticConfig();
-    Object.assign(window, { state, mappingModules: [] });
+    Object.assign(window, { mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
     showMessage(`Initialization failed: ${error.message}`, "error");
@@ -188,30 +206,34 @@ Office.onReady(async (info) => {
 });
 
 function canActivateTracking() {
-  const { config, mappings, server, settings } = state;
+  const configLoaded = getStateValue('config.loaded');
+  const mappingsLoaded = getStateValue('mappings.loaded');
+  const mappingsCombined = getStateValue('mappings.combined');
+  const serverOnline = getStateValue('server.online');
+  const requireServerOnline = getStateValue('settings.requireServerOnline');
 
-  if (!config.loaded) {
+  if (!configLoaded) {
     return { allowed: false, reason: "Configuration not loaded - load config file first" };
   }
 
-  if (!mappings.loaded || !mappings.combined) {
+  if (!mappingsLoaded || !mappingsCombined) {
     return { allowed: false, reason: "Mappings not loaded - load mapping files first" };
   }
 
-  const forward = mappings.combined?.forward || {};
-  const reverse = mappings.combined?.reverse || {};
+  const forward = mappingsCombined?.forward || {};
+  const reverse = mappingsCombined?.reverse || {};
   if (Object.keys(forward).length === 0 && Object.keys(reverse).length === 0) {
     return { allowed: false, reason: "No mapping data available - check mapping files" };
   }
 
-  if (settings.requireServerOnline && !server.online) {
+  if (requireServerOnline && !serverOnline) {
     return {
       allowed: false,
       reason: "Server connection required (change in Settings to allow offline mode)",
     };
   }
 
-  if (!server.online) {
+  if (!serverOnline) {
     return {
       allowed: true,
       warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)",
@@ -223,8 +245,8 @@ function canActivateTracking() {
 
 function getTrackingContext() {
   return {
-    config: state.config.data,
-    mappings: state.mappings.combined,
+    config: getStateValue('config.data'),
+    mappings: getStateValue('mappings.combined'),
   };
 }
 
@@ -268,7 +290,8 @@ async function startLiveTracking() {
     let statusParts = [];
 
     // Main tracking status
-    const trackingStatus = state.server.online
+    const serverOnline = getStateValue('server.online');
+    const trackingStatus = serverOnline
       ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)`
       : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`;
     statusParts.push(trackingStatus);

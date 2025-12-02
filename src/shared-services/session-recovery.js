@@ -6,7 +6,8 @@
  * API calls and can recover from session loss (e.g., after server restart).
  */
 
-import { state, reinitializeSession } from "./state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
+import { reinitializeSession } from "./state-machine.manager.js";
 import { showMessage } from "../utils/error-display.js";
 import { LOG_PREFIX, ERROR_MESSAGES } from "../config/session.config.js";
 
@@ -26,7 +27,7 @@ import { LOG_PREFIX, ERROR_MESSAGES } from "../config/session.config.js";
  * }
  */
 export async function ensureSessionInitialized() {
-  if (state.session.initialized) {
+  if (getStateValue('session.initialized')) {
     return true; // Already initialized
   }
 

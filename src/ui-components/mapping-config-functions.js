@@ -1,7 +1,7 @@
 // ui-components/mapping-config-functions.js
 import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../data-processing/mapping.processor.js";
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 import { loadMappingSource } from "../shared-services/state-machine.manager.js";
 import { showMessage } from "../utils/error-display.js";
 
@@ -148,7 +148,8 @@ export function setupMappingConfigEvents(element, mappingConfig, index, onMappin
       await loadMappingSource(index, loadAndProcessMappings, customParams);
 
       // Update local reference for backward compatibility
-      mappings = state.mappings.sources[index]?.data || { forward: {}, reverse: {}, metadata: null };
+      const sources = getStateValue('mappings.sources') || {};
+      mappings = sources[index]?.data || { forward: {}, reverse: {}, metadata: null };
 
       handleMappingSuccess(mappings);
       onMappingLoaded?.(index, mappings, mappings);
