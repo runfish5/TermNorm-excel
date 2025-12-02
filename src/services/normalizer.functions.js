@@ -1,4 +1,5 @@
 // services/normalizer.functions.js - Pure functions for term normalization
+import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
 import { findBestMatch } from "./normalizer.fuzzy.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
@@ -16,32 +17,9 @@ function normalizeValue(value) {
   return value ? String(value).trim() : "";
 }
 
-/**
- * Get exact cached match from forward or reverse mappings
- *
- * @param {string} value - Value to match
- * @param {Object} forward - Forward mapping (source → target)
- * @param {Object} reverse - Reverse mapping (target → target)
- * @returns {Object|null} Match result or null if no exact match found
- */
-export function getCachedMatch(value, forward, reverse) {
-  const normalized = normalizeValue(value);
-  if (!normalized) return null;
-
-  if (normalized in forward) {
-    const mapping = forward[normalized];
-    return {
-      target: typeof mapping === "string" ? mapping : mapping.target,
-      method: "cached",
-      confidence: 1.0,
-      timestamp: new Date().toISOString(),
-      source: normalized,
-    };
-  }
-  return normalized in reverse
-    ? { target: normalized, method: "cached", confidence: 1.0, timestamp: new Date().toISOString(), source: normalized }
-    : null;
-}
+// Re-export getCachedMatch from domain layer for backward compatibility
+// (already imported at top of file)
+export { getCachedMatch };
 
 /**
  * Find fuzzy match using string similarity algorithms
