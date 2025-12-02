@@ -1,6 +1,6 @@
 // services/normalizer.functions.js - Pure functions for term normalization
 import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
-import { findBestMatch } from "./normalizer.fuzzy.js";
+import { findFuzzyMatch as findFuzzyMatchDomain } from "../domain/normalization/fuzzy-matcher.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-services/session-recovery.js";
@@ -23,6 +23,7 @@ export { getCachedMatch };
 
 /**
  * Find fuzzy match using string similarity algorithms
+ * (Re-exported from domain layer for backward compatibility)
  *
  * @param {string} value - Value to match
  * @param {Object} forward - Forward mapping (source → target)
@@ -30,30 +31,7 @@ export { getCachedMatch };
  * @returns {Object|null} Match result or null if no fuzzy match above threshold
  */
 export function findFuzzyMatch(value, forward, reverse) {
-  const normalized = normalizeValue(value);
-  if (!normalized) return null;
-
-  const fwd = findBestMatch(normalized, forward, FUZZY_FORWARD_THRESHOLD);
-  if (fwd) {
-    return {
-      target: typeof fwd.value === "string" ? fwd.value : fwd.value.target,
-      method: "fuzzy",
-      confidence: fwd.score,
-      timestamp: new Date().toISOString(),
-      source: normalized,
-    };
-  }
-
-  const rev = findBestMatch(normalized, reverse, FUZZY_REVERSE_THRESHOLD);
-  return rev
-    ? {
-        target: rev.key,
-        method: "fuzzy",
-        confidence: rev.score,
-        timestamp: new Date().toISOString(),
-        source: normalized,
-      }
-    : null;
+  return findFuzzyMatchDomain(value, forward, reverse, FUZZY_FORWARD_THRESHOLD, FUZZY_REVERSE_THRESHOLD);
 }
 
 /**
