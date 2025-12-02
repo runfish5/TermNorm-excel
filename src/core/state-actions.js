@@ -1,14 +1,13 @@
 /**
- * State Actions - Predefined mutation functions for common operations
+ * State Actions - Centralized mutation functions
  *
- * Instead of direct state mutations scattered across 13 files,
- * all mutations go through these centralized actions.
+ * CHECKPOINT 11.3: Removed unused exports (Phase 2 cleanup).
+ * Only actively used actions remain.
  *
- * Benefits:
+ * All mutations go through these centralized actions for:
  * - Consistent mutation patterns
  * - Easier debugging (log actions)
- * - Type safety (can add TypeScript later)
- * - Single source of truth for state changes
+ * - Event emission for reactive UI
  */
 
 import { stateStore } from './state-store.js';
@@ -25,18 +24,6 @@ import { Events } from './events.js';
  */
 export function setView(view) {
   stateStore.set('ui.currentView', view);
-}
-
-/**
- * Set status message displayed in the UI
- * @param {string} message - Message to display
- * @param {boolean} [isError=false] - Whether this is an error message
- */
-export function setStatusMessage(message, isError = false) {
-  stateStore.merge('ui', {
-    statusMessage: message,
-    isError,
-  });
 }
 
 // ============================================================================
@@ -101,227 +88,6 @@ export function setConfig(configData, rawData = null) {
   eventBus.emit(Events.CONFIG_LOADED, { config: configData });
 }
 
-/**
- * Clear configuration state
- */
-export function clearConfig() {
-  stateStore.merge('config', {
-    loaded: false,
-    data: null,
-    raw: null,
-  });
-}
-
-// ============================================================================
-// MAPPINGS ACTIONS
-// ============================================================================
-
-/**
- * Update a single mapping source status
- * @param {number} index - Mapping source index
- * @param {string} status - Status ('idle' | 'loading' | 'synced' | 'error')
- * @param {Object} [data=null] - Mapping data (forward/reverse objects)
- * @param {string} [error=null] - Error message if status is 'error'
- */
-export function setMappingSource(index, status, data = null, error = null) {
-  const sources = stateStore.get('mappings.sources') || {};
-  sources[index] = { status, data, error };
-  stateStore.set('mappings.sources', sources);
-}
-
-/**
- * Set combined mappings (merged from all sources)
- * Emits MAPPINGS_LOADED event
- * @param {Object} combined - Combined mapping object with forward/reverse/metadata
- */
-export function setMappingsCombined(combined) {
-  stateStore.merge('mappings', {
-    combined,
-    loaded: true,
-  });
-
-  eventBus.emit(Events.MAPPINGS_LOADED, { mappings: combined });
-}
-
-/**
- * Clear all mappings
- * Emits MAPPINGS_CLEARED event
- */
-export function clearMappings() {
-  stateStore.merge('mappings', {
-    sources: {},
-    combined: null,
-    loaded: false,
-  });
-
-  eventBus.emit(Events.MAPPINGS_CLEARED);
-}
-
-// ============================================================================
-// SESSION ACTIONS
-// ============================================================================
-
-/**
- * Set backend session initialization status
- * @param {boolean} initialized - Whether session is initialized
- * @param {number} [termCount=0] - Number of terms in session
- */
-export function setSessionInitialized(initialized, termCount = 0) {
-  stateStore.merge('session', {
-    initialized,
-    termCount,
-    lastInitialized: initialized ? new Date().toISOString() : null,
-    error: null,
-  });
-}
-
-/**
- * Set session error
- * @param {string} error - Error message
- */
-export function setSessionError(error) {
-  stateStore.merge('session', {
-    initialized: false,
-    error,
-  });
-}
-
-/**
- * Initialize workbook session state
- * @param {string} workbookId - Workbook identifier
- */
-export function initWorkbookSession(workbookId) {
-  const workbooks = stateStore.get('session.workbooks') || {};
-
-  if (!workbooks[workbookId]) {
-    workbooks[workbookId] = {
-      tracking: {
-        active: false,
-        columnMap: null,
-        confidenceColumnMap: null,
-      },
-      cells: new Map(),
-      history: [],
-    };
-
-    stateStore.set('session.workbooks', workbooks);
-  }
-}
-
-/**
- * Set workbook tracking state
- * Emits TRACKING_STARTED or TRACKING_STOPPED events
- * @param {string} workbookId - Workbook identifier
- * @param {boolean} active - Whether tracking is active
- * @param {Map} [columnMap=null] - Column mapping (col index → target col index)
- * @param {Map} [confidenceColumnMap=null] - Confidence column mapping
- */
-export function setWorkbookTracking(workbookId, active, columnMap = null, confidenceColumnMap = null) {
-  const workbooks = stateStore.get('session.workbooks') || {};
-
-  if (!workbooks[workbookId]) {
-    initWorkbookSession(workbookId);
-  }
-
-  workbooks[workbookId].tracking = {
-    active,
-    columnMap,
-    confidenceColumnMap,
-  };
-
-  stateStore.set('session.workbooks', workbooks);
-
-  if (active) {
-    eventBus.emit(Events.TRACKING_STARTED, { workbookId });
-  } else {
-    eventBus.emit(Events.TRACKING_STOPPED, { workbookId });
-  }
-}
-
-// ============================================================================
-// CACHE ACTIONS
-// ============================================================================
-
-/**
- * Set or update a cache entity
- * @param {string} identifier - Entity identifier (target value)
- * @param {Object} entityData - Entity data (entity_profile, aliases, web_sources)
- */
-export function setCacheEntity(identifier, entityData) {
-  const entities = stateStore.get('cache.entities') || {};
-  entities[identifier] = entityData;
-  stateStore.set('cache.entities', entities);
-}
-
-/**
- * Merge updates into existing cache entity
- * @param {string} identifier - Entity identifier
- * @param {Object} updates - Properties to merge
- */
-export function mergeCacheEntity(identifier, updates) {
-  const entities = stateStore.get('cache.entities') || {};
-  entities[identifier] = {
-    ...entities[identifier],
-    ...updates,
-  };
-  stateStore.set('cache.entities', entities);
-}
-
-/**
- * Set cache initialization status
- * Emits HISTORY_CACHE_INITIALIZED when set to true
- * @param {boolean} initialized - Whether cache is initialized
- */
-export function setCacheInitialized(initialized) {
-  stateStore.set('cache.initialized', initialized);
-
-  if (initialized) {
-    eventBus.emit(Events.HISTORY_CACHE_INITIALIZED);
-  }
-}
-
-/**
- * Clear all cached entities
- */
-export function clearCache() {
-  stateStore.merge('cache', {
-    entities: {},
-    initialized: false,
-  });
-}
-
-// ============================================================================
-// SETTINGS ACTIONS
-// ============================================================================
-
-/**
- * Update a single setting
- * Emits SETTING_CHANGED event
- * @param {string} key - Setting key (e.g., 'requireServerOnline', 'useWebSearch')
- * @param {any} value - Setting value
- */
-export function setSetting(key, value) {
-  const settings = stateStore.get('settings') || {};
-  settings[key] = value;
-  stateStore.set('settings', settings);
-
-  eventBus.emit(Events.SETTING_CHANGED, { key, value });
-}
-
-/**
- * Set all settings at once
- * Emits SETTINGS_LOADED event
- * @param {Object} settingsObject - Settings object
- */
-export function setSettings(settingsObject) {
-  stateStore.merge('settings', {
-    ...settingsObject,
-    loaded: true,
-  });
-
-  eventBus.emit(Events.SETTINGS_LOADED, { settings: settingsObject });
-}
-
 // ============================================================================
 // WEB SEARCH ACTIONS
 // ============================================================================
@@ -339,7 +105,7 @@ export function setWebSearchStatus(status, error = null) {
 }
 
 // ============================================================================
-// HISTORY ACTIONS (NEW - CHECKPOINT 11)
+// HISTORY ACTIONS
 // ============================================================================
 
 /**
@@ -374,16 +140,8 @@ export function setHistoryCacheInitialized(initialized, entryCount = 0) {
 }
 
 // ============================================================================
-// HELPER: Get entire state
+// HELPER: Get nested state value
 // ============================================================================
-
-/**
- * Get the entire immutable state
- * @returns {Object} Frozen copy of full state
- */
-export function getState() {
-  return stateStore.getState();
-}
 
 /**
  * Get a nested value from state by path
@@ -392,13 +150,4 @@ export function getState() {
  */
 export function getStateValue(path) {
   return stateStore.get(path);
-}
-
-/**
- * Subscribe to state changes
- * @param {Function} callback - Called with new state on every change
- * @returns {Function} Unsubscribe function
- */
-export function subscribeToState(callback) {
-  return stateStore.subscribe(callback);
 }

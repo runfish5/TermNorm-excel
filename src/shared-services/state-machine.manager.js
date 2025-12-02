@@ -1,20 +1,18 @@
 /**
- * State Manager - COMPATIBILITY LAYER (CHECKPOINT 8)
+ * State Manager - Business Logic Layer
  *
- * This file is now a thin wrapper around the new state-store.js.
- * It maintains backward compatibility while the codebase gradually migrates to state-actions.
+ * CHECKPOINT 11.3: Cleaned up dead code and legacy compatibility layer.
+ * Now focuses on complex business logic:
+ * - Mapping source management (loadMappingSource, combineMappingSources)
+ * - Backend session initialization (reinitializeSession)
+ * - Settings persistence (initializeSettings, saveSetting)
+ * - Configuration loading (setConfig)
  *
  * **Architecture:**
- * - Proxy intercepts all state reads/writes and delegates to stateStore
- * - Functions in this file use stateStore.merge/set for mutations
- * - Legacy code can still access state.prop.subprop (proxied to stateStore.get)
- * - All mutations flow through immutable state-store with event emissions
- *
- * **Migration Status:**
- * - ✅ State migrated to immutable store (CHECKPOINT 8)
- * - ✅ Domain layer uses state-actions (CHECKPOINTS 3-4)
- * - ✅ Event-driven architecture complete (CHECKPOINT 9)
- * - ⏳ Remaining files can migrate to state-actions incrementally
+ * - Error-throwing state Proxy enforces migration to state-actions
+ * - Complex business logic remains here (session management, mapping merging)
+ * - Simple mutations delegated to state-actions.js
+ * - All state changes emit events for reactive UI
  */
 
 import { showMessage } from "../utils/error-display.js";
@@ -43,25 +41,10 @@ export const state = new Proxy({}, {
   }
 });
 
-// Legacy callbacks (now proxy to state-store subscriptions)
-let stateChangeCallbacks = [];
-
-export function onStateChange(callback) {
-  stateChangeCallbacks.push(callback);
-  // Also subscribe to state-store
-  stateStore.subscribe(() => callback(state));
-}
-
-export function notifyStateChange() {
-  // Trigger legacy callbacks
-  const currentState = stateStore.getState();
-  stateChangeCallbacks.forEach((cb) => {
-    try {
-      cb(currentState);
-    } catch (error) {
-      console.error('Error in state change callback:', error);
-    }
-  });
+// Internal notification for legacy code that still depends on imperative state updates
+function notifyStateChange() {
+  // No-op - keeping for backward compatibility with internal code
+  // Event bus handles all reactive updates now
 }
 
 export function setConfig(config) {
@@ -256,26 +239,6 @@ export async function reinitializeSession() {
 
   console.log(`${LOG_PREFIX.RECOVERY} Auto-reinitializing session after session loss`);
   return await initializeBackendSessionWithRetry(terms);
-}
-
-/**
- * Clear all mappings
- */
-export function clearMappings() {
-  stateStore.merge('mappings', {
-    sources: {},
-    combined: null,
-    loaded: false,
-  });
-
-  stateStore.merge('session', {
-    initialized: false,
-    termCount: 0,
-    error: null,
-  });
-
-  eventBus.emit(Events.MAPPINGS_CLEARED);
-  notifyStateChange();
 }
 
 /**

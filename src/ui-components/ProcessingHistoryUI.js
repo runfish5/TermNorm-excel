@@ -72,7 +72,7 @@ export async function addEntry(source, cellKey, timestamp, result) {
     };
 
     // Cache entity (unifies session and cached data)
-    const { cacheEntity } = await import("../services/entity-cache.js");
+    const { cacheEntity } = await import("../utils/history-cache.js");
     cacheEntity(source, displayResult);
 
     // Create row using shared builder
@@ -209,7 +209,7 @@ export async function handleCellSelection(cellKey, state, identifier) {
 
 // Fetch entity details - uses entity cache abstraction
 async function fetchAndDisplayDetails(identifier, targetRow) {
-  const { getEntity } = await import("../services/entity-cache.js");
+  const { getEntity } = await import("../utils/history-cache.js");
 
   const entry = await getEntity(identifier);
 
