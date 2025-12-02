@@ -114,42 +114,6 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
 - Press `F5` in VS Code with Office Add-ins Developer Kit extension
 - Auto-sideloads add-in in Excel for testing
 
-### Building for Production
-
-**Choose build command based on deployment scenario:**
-
-```bash
-# Standard build (GitHub Pages / development)
-npm run build
-
-# IIS Server deployment (shows filesystem paths to admins)
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-npm run build:iis
-
-# Microsoft 365 deployment (hides all filesystem paths)
-npm run build:m365
-
-# Custom deployment with full control
-set DEPLOYMENT_URL=http://your-server:8080/
-set DEPLOYMENT_PATH=C:\inetpub\wwwroot\termnorm
-set DEPLOYMENT_TYPE=iis
-npm run build
-```
-
-**Output:** `dist/` folder contains all frontend files ready for deployment.
-
-### Testing
-
-```bash
-# Backend health check
-curl http://127.0.0.1:8000/health
-
-# Test research pipeline (requires API key)
-curl -X POST http://127.0.0.1:8000/research-and-match \
-  -H "Content-Type: application/json" \
-  -d '{"query":"stainless steel","candidates":["SS 304","SS 316","Carbon Steel"]}'
-```
-
 ## Important Technical Details
 
 ### Office.js API Usage
@@ -163,33 +127,6 @@ curl -X POST http://127.0.0.1:8000/research-and-match \
 - Always batch operations inside `Excel.run(async (context) => { ... })`
 - Use `context.sync()` to commit changes to Excel
 - Handle errors with `context.sync().catch()`
-
-### Configuration Schema (`app.config.json`)
-
-Critical structure developers must understand:
-
-```json
-{
-  "my_excel_files": {
-    "Workbook.xlsx": {
-      "columns": {
-        "InputColumn": "OutputColumn"
-      },
-      "confidence_column_map": {
-        "OutputColumn": "ConfidenceColumn"
-      },
-      "reference_lists": [
-        {
-          "reference_file_location": "C:\\path\\to\\reference.xlsx",
-          "tab_name": "Sheet1",
-          "lookup_column": "StandardTerms",
-          "alias_column": "Aliases"  // Optional
-        }
-      ]
-    }
-  }
-}
-```
 
 ### State Machine Behavior
 
@@ -205,20 +142,6 @@ Idle → Config Loaded → Mappings Loading → Mappings Loaded → Tracking Act
 - `state.server.online` - Backend availability status
 - `state.session.initialized` - Backend has received reference terms
 - `state.settings.requireServerOnline` - If `true`, disable tracking when offline
-
-### LLM Provider Configuration
-
-Backend supports multiple LLM providers via environment variables:
-
-```bash
-# Groq (default, recommended)
-setx GROQ_API_KEY "your_key"
-
-# OpenAI (alternative)
-setx OPENAI_API_KEY "your_key"
-```
-
-**Provider Selection:** Auto-detected in `core/llm_providers.py` based on available API keys.
 
 ### Logging and Debugging
 
