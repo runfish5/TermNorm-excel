@@ -1,4 +1,5 @@
-import { state } from "../shared-services/state-machine.manager.js";
+import { setView } from "../core/state-actions.js";
+
 export function showView(viewName) {
   const views = ["setup-view", "results-view", "history-view", "settings-view"];
   const viewElement = `${viewName}-view`;
@@ -11,5 +12,5 @@ export function showView(viewName) {
     const isActive = tab.getAttribute("data-view") === viewName;
     tab.classList.toggle("ms-Button--primary", isActive);
   });
-  state.ui.currentView = viewName;
+  setView(viewName);
 }

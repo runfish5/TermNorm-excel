@@ -6,7 +6,8 @@ import {
   setupMappingConfigEvents,
   loadMappingConfigData,
 } from "./mapping-config-functions.js";
-import { state, setConfig } from "../shared-services/state-machine.manager.js";
+import { getStateValue, setConfig as setConfigAction, setServerHost } from "../core/state-actions.js";
+import { setConfig } from "../shared-services/state-machine.manager.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 import { showMessage } from "../utils/error-display.js";
@@ -18,7 +19,7 @@ function setStepStates(s1, s2, s3, s4) {
 }
 
 function updateBackendUrl(url) {
-  state.server.host = url;
+  setServerHost(url);
   const input = document.getElementById("server-url-input");
   if (input) input.value = url;
 }
@@ -37,10 +38,9 @@ export async function loadStaticConfig() {
   try {
     const workbook = await getCurrentWorkbookName();
 
-    let configData = state.config.raw;
+    let configData = getStateValue('config.raw');
     if (!configData) {
       configData = (await import("../../config/app.config.json")).default;
-      state.config.raw = configData;
     }
 
     if (configData.backend_url) updateBackendUrl(configData.backend_url);
@@ -57,7 +57,7 @@ export async function loadStaticConfig() {
       throw new Error(`No config for "${workbook}". Available: ${available}`);
     }
 
-    setConfig({ ...config, workbook });
+    setConfig({ ...config, workbook }, configData);
 
     await ensureUISetup();
     await reloadMappingModules();
@@ -65,7 +65,7 @@ export async function loadStaticConfig() {
     showMessage(`Loaded ${config.standard_mappings.length} mapping(s)`);
     setStepStates(false, false, true, true);
   } catch (error) {
-    const configData = state.config.raw;
+    const configData = getStateValue('config.raw');
     const errorMessage = buildConfigErrorMessage(error, configData);
     showMessage(errorMessage, "error");
     setStepStates(false, true, false, true);
@@ -140,7 +140,6 @@ async function loadConfigData(configData, fileName) {
     if (!configData?.["excel-projects"]) {
       throw new Error("Invalid config - missing excel-projects");
     }
-    state.config.raw = configData;
 
     const workbook = await getCurrentWorkbookName();
     const projects = configData["excel-projects"];
@@ -151,7 +150,7 @@ async function loadConfigData(configData, fileName) {
       throw new Error(`No config for "${workbook}". Available: ${available}`);
     }
 
-    setConfig({ ...config, workbook });
+    setConfig({ ...config, workbook }, configData);
 
     await ensureUISetup();
     await reloadMappingModules();
@@ -181,7 +180,7 @@ async function ensureUISetup() {
 }
 
 export async function reloadMappingModules() {
-  const config = state.config.data;
+  const config = getStateValue('config.data');
   const standardMappings = config?.standard_mappings || [];
 
   if (!standardMappings?.length) {

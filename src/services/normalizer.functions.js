@@ -2,7 +2,7 @@
 import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
 import { findFuzzyMatch as findFuzzyMatchDomain } from "../domain/normalization/fuzzy-matcher.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
+import { setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-services/session-recovery.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
@@ -46,8 +46,7 @@ export async function findTokenMatch(value) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
 
-  state.webSearch = { status: "idle", error: null };
-  notifyStateChange();
+  setWebSearchStatus('idle');
 
   if (!(await ensureSessionInitialized())) return null;
 
@@ -62,8 +61,7 @@ export async function findTokenMatch(value) {
 
 function processResearchResponse(data) {
   if (data.web_search_status) {
-    state.webSearch = { status: data.web_search_status, error: data.web_search_error || null };
-    notifyStateChange();
+    setWebSearchStatus(data.web_search_status, data.web_search_error || null);
   }
 
   const best = data.ranked_candidates?.[0];

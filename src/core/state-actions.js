@@ -339,6 +339,38 @@ export function setWebSearchStatus(status, error = null) {
 }
 
 // ============================================================================
+// HISTORY ACTIONS (NEW - CHECKPOINT 11)
+// ============================================================================
+
+/**
+ * Set history cache entries
+ * @param {Object} entries - Entity entries (identifier → {entity_profile, aliases, web_sources})
+ */
+export function setHistoryEntries(entries) {
+  stateStore.merge('history', {
+    entries,
+  });
+}
+
+/**
+ * Set history cache initialization status
+ * Emits HISTORY_CACHE_INITIALIZED event when set to true
+ * @param {boolean} initialized - Whether cache is initialized
+ * @param {number} [entryCount=0] - Number of entries loaded
+ */
+export function setHistoryCacheInitialized(initialized, entryCount = 0) {
+  stateStore.merge('history', {
+    cacheInitialized: initialized,
+  });
+
+  if (initialized) {
+    eventBus.emit(Events.HISTORY_CACHE_INITIALIZED, {
+      count: entryCount,
+    });
+  }
+}
+
+// ============================================================================
 // HELPER: Get entire state
 // ============================================================================
 

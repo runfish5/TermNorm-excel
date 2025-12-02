@@ -1,5 +1,5 @@
 import { showMessage } from "./error-display.js";
-import { state } from "../shared-services/state-machine.manager.js";
+import { setServerStatus } from "../core/state-actions.js";
 import { getHost } from "./server-utilities.js";
 import { ERROR_GUIDANCE } from "../config/session.config.js";
 
@@ -25,8 +25,7 @@ export async function apiFetch(url, options = {}) {
     const response = await fetch(fullUrl, options);
     const data = await response.json();
 
-    state.server.online = true;
-    state.server.lastChecked = Date.now();
+    setServerStatus(true);
 
     if (response.ok) {
       if (!silent) showMessage(data.message || "Operation successful");
@@ -40,8 +39,7 @@ export async function apiFetch(url, options = {}) {
     }
     return null;
   } catch (error) {
-    state.server.online = false;
-    state.server.lastChecked = Date.now();
+    setServerStatus(false);
 
     if (!silent) {
       const errorMessage = `Server offline - Check backend is running on port 8000\n\n${ERROR_GUIDANCE.OFFLINE}`;

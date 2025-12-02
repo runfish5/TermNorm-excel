@@ -8,7 +8,7 @@
  * Now uses event bus to notify UI instead of calling it directly.
  */
 
-import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
+import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
 import { getHost, getHeaders } from "./server-utilities.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -22,13 +22,13 @@ import { Events } from "../core/events.js";
  */
 export async function initializeHistoryCache() {
   // Skip if already initialized
-  if (state.history.cacheInitialized) {
+  if (getStateValue('history.cacheInitialized')) {
     console.log("[HISTORY] Cache already initialized, skipping");
     return true;
   }
 
   // Skip if server is offline
-  if (!state.server.online) {
+  if (!getStateValue('server.online')) {
     console.log("[HISTORY] Server offline, cannot initialize cache");
     return false;
   }
@@ -47,19 +47,11 @@ export async function initializeHistoryCache() {
     const result = await response.json();
 
     if (result.status === "success" && result.data?.entries) {
-      state.history.entries = result.data.entries;
-      state.history.cacheInitialized = true;
-
       const entryCount = Object.keys(result.data.entries).length;
       console.log(`[HISTORY] Cache initialized with ${entryCount} entries`);
 
-      notifyStateChange();
-
-      // Emit event for UI to listen to (no direct UI coupling)
-      eventBus.emit(Events.HISTORY_CACHE_INITIALIZED, {
-        entries: result.data.entries,
-        count: entryCount,
-      });
+      setHistoryEntries(result.data.entries);
+      setHistoryCacheInitialized(true, entryCount);
 
       return true;
     }
@@ -78,7 +70,8 @@ export async function initializeHistoryCache() {
  * @returns {Object|null} Entry with entity_profile, aliases, web_sources, or null
  */
 export function getCachedEntry(identifier) {
-  return state.history.entries[identifier] || null;
+  const entries = getStateValue('history.entries') || {};
+  return entries[identifier] || null;
 }
 
 /**
@@ -86,7 +79,7 @@ export function getCachedEntry(identifier) {
  * @returns {boolean}
  */
 export function isHistoryCacheReady() {
-  return state.history.cacheInitialized;
+  return getStateValue('history.cacheInitialized') || false;
 }
 
 /**
@@ -98,7 +91,8 @@ export function isHistoryCacheReady() {
 export function findTargetBySource(sourceValue) {
   if (!sourceValue) return null;
 
-  for (const [identifier, entry] of Object.entries(state.history.entries)) {
+  const entries = getStateValue('history.entries') || {};
+  for (const [identifier, entry] of Object.entries(entries)) {
     if (entry.aliases?.[sourceValue]) {
       return identifier;
     }

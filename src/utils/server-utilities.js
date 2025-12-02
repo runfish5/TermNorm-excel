@@ -1,7 +1,7 @@
-import { state, notifyStateChange } from "../shared-services/state-machine.manager.js";
+import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
 
 export function getHost() {
-  return state.server.host || "http://127.0.0.1:8000";
+  return getStateValue('server.host') || "http://127.0.0.1:8000";
 }
 
 export function getHeaders() {
@@ -9,15 +9,6 @@ export function getHeaders() {
 }
 
 let serverCheckPromise = null;
-let onServerReconnectedHandler = null;
-
-/**
- * Register a handler to be called when server transitions from offline → online
- * @param {Function} handler - Async function to call on reconnection
- */
-export function onServerReconnected(handler) {
-  onServerReconnectedHandler = handler;
-}
 
 export async function checkServerStatus() {
   if (serverCheckPromise) {
@@ -26,11 +17,9 @@ export async function checkServerStatus() {
 
   serverCheckPromise = (async () => {
     const host = getHost();
-    const wasOffline = !state.server.online;
 
     if (!host) {
-      state.server.online = false;
-      notifyStateChange();
+      setServerStatus(false);
       return;
     }
 
@@ -43,26 +32,13 @@ export async function checkServerStatus() {
       const data = await response.json();
 
       if (response.ok) {
-        state.server.online = true;
-        state.server.host = host;
-        state.server.info = data.data || {};
-
-        // Trigger reconnection handler if transitioning from offline → online
-        if (wasOffline && onServerReconnectedHandler) {
-          onServerReconnectedHandler();
-        }
+        setServerStatus(true, host, data.data || {});
       } else {
-        state.server.online = false;
-        state.server.host = host;
-        state.server.info = {};
+        setServerStatus(false, host);
       }
     } catch (error) {
-      state.server.online = false;
-      state.server.host = host;
-      state.server.info = {};
+      setServerStatus(false, host);
     }
-
-    notifyStateChange();
   })();
 
   try {
@@ -74,12 +50,12 @@ export async function checkServerStatus() {
 
 export function setupServerEvents() {
   const backendUrl = getHost();
-  state.server.host = backendUrl;
+  setServerHost(backendUrl);
 
   const serverUrlInput = document.getElementById("server-url-input");
   if (serverUrlInput) {
     serverUrlInput.addEventListener("input", (e) => {
-      state.server.host = e.target.value.trim();
+      setServerHost(e.target.value.trim());
     });
   }
 }
