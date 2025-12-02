@@ -364,7 +364,10 @@ export function setHistoryCacheInitialized(initialized, entryCount = 0) {
   });
 
   if (initialized) {
+    // Emit with entries from state for UI to consume
+    const entries = stateStore.get('history.entries') || {};
     eventBus.emit(Events.HISTORY_CACHE_INITIALIZED, {
+      entries,
       count: entryCount,
     });
   }
