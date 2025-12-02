@@ -2,7 +2,7 @@
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
 
 let selectedRange = null;
@@ -97,7 +97,7 @@ async function processBatch() {
     return;
   }
 
-  if (!state.mappings.loaded) {
+  if (!getStateValue('mappings.loaded')) {
     showMessage("Mappings not loaded", "error");
     return;
   }

@@ -4,7 +4,8 @@
  * Prepares for future architectural shift to include session entries
  */
 
-import { state } from "../shared-services/state-machine.manager.js";
+import { getStateValue } from "../core/state-actions.js";
+import { stateStore } from "../core/state-store.js";
 import { apiGet } from "../utils/api-fetch.js";
 import { getHost } from "../utils/server-utilities.js";
 
@@ -19,7 +20,8 @@ export async function getEntity(identifier) {
   if (!identifier) return null;
 
   // Check local cache first
-  const cached = state.history.entries[identifier];
+  const entries = getStateValue('history.entries') || {};
+  const cached = entries[identifier];
   if (cached) {
     return cached;
   }
@@ -47,7 +49,7 @@ export async function getEntity(identifier) {
  * @returns {Object} All entities {identifier: {aliases, entity_profile, ...}}
  */
 export function getAllEntities() {
-  return state.history.entries || {};
+  return getStateValue('history.entries') || {};
 }
 
 /**
@@ -56,7 +58,7 @@ export function getAllEntities() {
  * @returns {boolean} True if cache is ready
  */
 export function isCacheReady() {
-  return state.history.cacheInitialized || false;
+  return getStateValue('history.cacheInitialized') || false;
 }
 
 /**
@@ -69,7 +71,8 @@ export function isCacheReady() {
 export function findTargetBySource(sourceValue) {
   if (!sourceValue) return null;
 
-  for (const [identifier, entry] of Object.entries(state.history.entries)) {
+  const entries = getStateValue('history.entries') || {};
+  for (const [identifier, entry] of Object.entries(entries)) {
     if (entry.aliases?.[sourceValue]) {
       return identifier;
     }
@@ -99,30 +102,43 @@ export function cacheEntity(source, result) {
     return;
   }
 
+  // Get current entries immutably
+  const entries = getStateValue('history.entries') || {};
+  const updatedEntries = { ...entries };
+
   // Initialize entry if doesn't exist
-  if (!state.history.entries[target]) {
-    state.history.entries[target] = {
+  if (!updatedEntries[target]) {
+    updatedEntries[target] = {
       entity_profile: entity_profile || null,
       aliases: {},
       web_sources: web_sources || [],
       last_updated: timestamp,
     };
+  } else {
+    // Clone existing entry to maintain immutability
+    updatedEntries[target] = {
+      ...updatedEntries[target],
+      aliases: { ...updatedEntries[target].aliases }
+    };
   }
 
   // Add this source as an alias
-  state.history.entries[target].aliases[source] = {
+  updatedEntries[target].aliases[source] = {
     method,
     confidence,
     timestamp,
   };
 
   // Update metadata if newer
-  const entry = state.history.entries[target];
+  const entry = updatedEntries[target];
   if (!entry.last_updated || timestamp > entry.last_updated) {
     entry.last_updated = timestamp;
     if (entity_profile) entry.entity_profile = entity_profile;
     if (web_sources?.length) entry.web_sources = web_sources;
   }
+
+  // Update state immutably
+  stateStore.set('history.entries', updatedEntries);
 
   console.log(`[EntityCache] Cached entity: ${source} → ${target} (${method})`);
 }

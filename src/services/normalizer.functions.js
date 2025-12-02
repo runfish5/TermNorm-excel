@@ -2,7 +2,7 @@
 import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
 import { findFuzzyMatch as findFuzzyMatchDomain } from "../domain/normalization/fuzzy-matcher.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
-import { setWebSearchStatus } from "../core/state-actions.js";
+import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-services/session-recovery.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
@@ -136,7 +136,7 @@ export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return normalizeResultShape(createDefaultResult(value, "Empty value"));
 
-  if (!state.mappings.loaded) {
+  if (!getStateValue('mappings.loaded')) {
     showMessage("Mappings not loaded", "error");
     return normalizeResultShape(createDefaultResult(normalized, "Mappings not loaded"));
   }
