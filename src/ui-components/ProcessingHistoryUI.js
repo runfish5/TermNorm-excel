@@ -15,6 +15,12 @@ eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => {
   populateFromCache(entries);
 });
 
+// CHECKPOINT 9: Listen to cell selected event (replaces direct UI call from live.tracker.js)
+eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier }) => {
+  console.log("[ProcessingHistory] Received cell selected event");
+  await handleCellSelection(cellKey, state, identifier);
+});
+
 export function init(containerId = "processing-history-feed") {
   container = document.getElementById(containerId);
   if (!container) {

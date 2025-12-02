@@ -7,6 +7,8 @@ import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { SESSION_ENDPOINTS } from "../config/session.config.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 // Fuzzy matching thresholds (0.0 - 1.0 similarity score)
 const FUZZY_FORWARD_THRESHOLD = 0.7; // Higher threshold for forward mappings (more strict)
@@ -141,12 +143,41 @@ export async function processTermNormalization(value, forward, reverse) {
     return normalizeResultShape(createDefaultResult(normalized, "Mappings not loaded"));
   }
 
+  // CHECKPOINT 9: Emit normalization method events for observability
   const cached = getCachedMatch(normalized, forward, reverse);
-  if (cached) return normalizeResultShape(cached);
+  if (cached) {
+    eventBus.emit(Events.NORMALIZATION_METHOD_CACHE, {
+      source: normalized,
+      target: cached.target,
+      confidence: cached.confidence,
+    });
+    return normalizeResultShape(cached);
+  }
 
   const fuzzy = findFuzzyMatch(normalized, forward, reverse);
-  if (fuzzy) return normalizeResultShape(fuzzy);
+  if (fuzzy) {
+    eventBus.emit(Events.NORMALIZATION_METHOD_FUZZY, {
+      source: normalized,
+      target: fuzzy.target,
+      confidence: fuzzy.confidence,
+    });
+    return normalizeResultShape(fuzzy);
+  }
 
   const tokenMatch = await findTokenMatch(normalized);
-  return normalizeResultShape(tokenMatch || createDefaultResult(normalized, "No matches found"));
+  if (tokenMatch) {
+    eventBus.emit(Events.NORMALIZATION_METHOD_LLM, {
+      source: normalized,
+      target: tokenMatch.target,
+      confidence: tokenMatch.confidence,
+      candidates: tokenMatch.candidates,
+    });
+    return normalizeResultShape(tokenMatch);
+  }
+
+  // No match found by any method
+  eventBus.emit(Events.NORMALIZATION_NO_MATCH, {
+    source: normalized,
+  });
+  return normalizeResultShape(createDefaultResult(normalized, "No matches found"));
 }

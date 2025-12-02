@@ -107,6 +107,62 @@ export const Events = {
 
   /** Fired when settings are loaded */
   SETTINGS_LOADED: 'settings:loaded',
+
+
+  // ============================================================================
+  // NORMALIZATION METHOD EVENTS (CHECKPOINT 9)
+  // ============================================================================
+
+  /** Fired when exact cache match is found */
+  NORMALIZATION_METHOD_CACHE: 'normalization:method:cache',
+
+  /** Fired when fuzzy match is found */
+  NORMALIZATION_METHOD_FUZZY: 'normalization:method:fuzzy',
+
+  /** Fired when LLM/ProfileRank match is used */
+  NORMALIZATION_METHOD_LLM: 'normalization:method:llm',
+
+  /** Fired when no match is found by any method */
+  NORMALIZATION_NO_MATCH: 'normalization:no:match',
+
+
+  // ============================================================================
+  // CACHE PERFORMANCE EVENTS (CHECKPOINT 9)
+  // ============================================================================
+
+  /** Fired when cache hit occurs (exact match found) */
+  CACHE_HIT: 'cache:hit',
+
+  /** Fired when cache miss occurs (no exact match) */
+  CACHE_MISS: 'cache:miss',
+
+
+  // ============================================================================
+  // CELL STATE EVENTS (CHECKPOINT 9)
+  // ============================================================================
+
+  /** Fired when cell state changes (e.g., idle → processing → complete) */
+  CELL_STATE_CHANGED: 'cell:state:changed',
+
+  /** Fired when cell result is logged to state */
+  CELL_RESULT_LOGGED: 'cell:result:logged',
+
+
+  // ============================================================================
+  // WEB SEARCH EVENTS (CHECKPOINT 9)
+  // ============================================================================
+
+  /** Fired when web search starts */
+  WEB_SEARCH_STARTED: 'web:search:started',
+
+  /** Fired when web search completes successfully */
+  WEB_SEARCH_COMPLETED: 'web:search:completed',
+
+  /** Fired when web search fails */
+  WEB_SEARCH_FAILED: 'web:search:failed',
+
+  /** Fired when web search status changes */
+  WEB_SEARCH_STATUS_CHANGED: 'web:search:status:changed',
 };
 
 /**

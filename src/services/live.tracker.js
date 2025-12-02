@@ -223,9 +223,6 @@ const handleSelectionChange = async (e, tracker) => {
     const cellKey = createCellKey(row, col);
     const cleanedValue = String(cellValue).trim();
 
-    // Dynamically import to avoid circular dependency
-    const { handleCellSelection } = await import("../ui-components/ProcessingHistoryUI.js");
-
     // Input column: lookup target identifier from mappings or history
     const targetCol = tracker.columnMap.get(col);
     if (targetCol !== undefined) {
@@ -234,20 +231,50 @@ const handleSelectionChange = async (e, tracker) => {
         const { findTargetBySource } = await import("../utils/history-cache.js");
         targetIdentifier = findTargetBySource(cleanedValue);
       }
-      if (targetIdentifier) handleCellSelection(null, null, targetIdentifier);
+
+      // CHECKPOINT 9: Emit CELL_SELECTED event instead of direct UI call
+      if (targetIdentifier) {
+        eventBus.emit(Events.CELL_SELECTED, {
+          cellKey: null,
+          state: null,
+          identifier: targetIdentifier,
+        });
+      }
       return;
     }
 
     // Output column: check cellState first, then historical lookup
     const state = getCellStateMap(tracker.workbookId).get(cellKey);
-    state?.status === "complete"
-      ? handleCellSelection(cellKey, state, null) // Current session
-      : handleCellSelection(null, null, cleanedValue); // Historical lookup
+
+    // CHECKPOINT 9: Emit CELL_SELECTED event instead of direct UI call
+    if (state?.status === "complete") {
+      eventBus.emit(Events.CELL_SELECTED, {
+        cellKey,
+        state,
+        identifier: null,
+      });
+    } else {
+      eventBus.emit(Events.CELL_SELECTED, {
+        cellKey: null,
+        state: null,
+        identifier: cleanedValue,
+      });
+    }
   });
 };
 
 async function processCell(row, col, targetCol, value, tracker) {
   const outputCellKey = createCellKey(row, targetCol);
+  const inputCellKey = createCellKey(row, col);
+
+  // CHECKPOINT 9: Emit cell processing started event
+  eventBus.emit(Events.CELL_PROCESSING_STARTED, {
+    cellKey: inputCellKey,
+    value,
+    row,
+    col,
+    targetCol,
+  });
 
   try {
     const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
@@ -263,7 +290,27 @@ async function processCell(row, col, targetCol, value, tracker) {
 
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
     logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, result, "complete", row, targetCol);
+
+    // CHECKPOINT 9: Emit cell processing complete event
+    eventBus.emit(Events.CELL_PROCESSING_COMPLETE, {
+      cellKey: inputCellKey,
+      source: value,
+      result,
+      row,
+      col,
+      targetCol,
+    });
   } catch (error) {
+    // CHECKPOINT 9: Emit cell processing error event
+    eventBus.emit(Events.CELL_PROCESSING_ERROR, {
+      cellKey: inputCellKey,
+      value,
+      error: error.message || String(error),
+      row,
+      col,
+      targetCol,
+    });
+
     await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
   }
 }

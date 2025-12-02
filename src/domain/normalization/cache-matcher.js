@@ -13,7 +13,12 @@
  * - 100% testable (no Office.js, no server, no state)
  * - Reusable across different contexts
  * - Clear separation of concerns
+ *
+ * CHECKPOINT 9: Added cache performance event emissions for observability
  */
+
+import { eventBus } from '../../core/event-bus.js';
+import { Events } from '../../core/events.js';
 
 /**
  * Normalize value to trimmed string (handles Excel cell types)
@@ -80,13 +85,32 @@ export function getCachedMatch(value, forward, reverse) {
     const mapping = forward[normalized];
     const target = typeof mapping === 'string' ? mapping : mapping.target;
 
+    // CHECKPOINT 9: Emit cache hit event
+    eventBus.emit(Events.CACHE_HIT, {
+      source: normalized,
+      target,
+      mappingType: 'forward',
+    });
+
     return createMatchResult(normalized, target, 'cached', 1.0);
   }
 
   // Check reverse mapping (target → target)
   if (normalized in reverse) {
+    // CHECKPOINT 9: Emit cache hit event
+    eventBus.emit(Events.CACHE_HIT, {
+      source: normalized,
+      target: normalized,
+      mappingType: 'reverse',
+    });
+
     return createMatchResult(normalized, normalized, 'cached', 1.0);
   }
+
+  // CHECKPOINT 9: Emit cache miss event
+  eventBus.emit(Events.CACHE_MISS, {
+    source: normalized,
+  });
 
   return null;
 }
