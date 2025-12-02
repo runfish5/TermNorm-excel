@@ -2,9 +2,11 @@ import { startTracking } from "../services/live.tracker.js";
 import { renewPrompt } from "../services/aiPromptRenewer.js";
 import { init as initProcessingHistory, updateHistoryTabCounter } from "../ui-components/ProcessingHistoryUI.js";
 import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
-import { setupServerEvents, checkServerStatus, onServerReconnected } from "../utils/server-utilities.js";
+import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { state, onStateChange, initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
 import { showView } from "../ui-components/view-manager.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
@@ -37,8 +39,10 @@ Office.onReady(async (info) => {
   setupLED();
   setupMatcherIndicator();
 
-  // Register handler for server reconnection - initializes history cache when server comes online
-  onServerReconnected(initializeHistoryCache);
+  // Register event listener for server reconnection - initializes history cache when server comes online
+  eventBus.on(Events.SERVER_RECONNECTED, () => {
+    initializeHistoryCache();
+  });
 
   checkServerStatus();
   updateLED();

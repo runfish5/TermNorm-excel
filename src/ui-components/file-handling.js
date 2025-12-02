@@ -233,7 +233,7 @@ function onMappingLoaded() {
 
 function updateJsonDump() {
   const content = document.getElementById("metadata-content"),
-    sources = state.mappings.sources || {};
+    sources = getStateValue('mappings.sources') || {};
   if (!content || !Object.keys(sources).length) return;
   content.innerHTML = `<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>Raw Data:</strong><pre style="margin: 5px 0; white-space: pre-wrap; word-break: break-all;">${JSON.stringify(
     Object.entries(sources).map(([index, source]) => ({
@@ -250,8 +250,8 @@ function updateJsonDump() {
 }
 
 function updateGlobalStatus() {
-  const loaded = Object.keys(state.mappings.sources || {}).length,
-    total = state.config.data?.standard_mappings?.length || 0;
+  const loaded = Object.keys(getStateValue('mappings.sources') || {}).length,
+    total = getStateValue('config.data')?.standard_mappings?.length || 0;
   showMessage(
     loaded === 0
       ? "Ready to load mapping configurations..."
