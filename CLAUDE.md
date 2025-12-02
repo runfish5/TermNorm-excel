@@ -18,8 +18,7 @@ TermNorm is an Excel add-in that performs AI-powered terminology normalization a
   - `normalizer.functions.js` - Pure functions for term normalization (exact cache, fuzzy matching)
   - `normalizer.fuzzy.js` - String similarity algorithms (Levenshtein, Jaro-Winkler)
   - `live.tracker.js` - Real-time cell change detection and processing
-  - `entity-cache.js` - Client-side caching of processed entities
-  - `result-lookup.js` - Historical match lookups
+  - `entity-cache.js` - Storage and retrieval for match database (manages `state.history.entries`, provides CRUD operations for entity profiles, aliases, and web sources)
 
 ### Backend (Python FastAPI)
 - **Entry Point:** `backend-api/main.py` - FastAPI application with middleware setup
@@ -76,6 +75,11 @@ The system uses a **session-less stateful frontend** with **stateless backend**:
 - Stateless API endpoints (no user sessions)
 - `match_database.json` - Persistent identifier index (rebuilt from activity logs on startup)
 - `logs/activity_log_*.json` - Single source of truth for all matches
+
+**Data Access Pattern:**
+- Current session data: Direct access via `live.tracker.js` → `getCellState(cellKey)`
+- Historical/cached data: Direct access via `entity-cache.js` → `getEntity(identifier)`
+- No routing layer needed - consumers import and call the appropriate service directly
 
 **Configuration Flow:**
 1. User drags `app.config.json` into UI (`file-handling.js`)
