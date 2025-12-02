@@ -1,8 +1,16 @@
 import { init as initProcessingHistory } from "./ProcessingHistoryUI.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 let container = null;
 let candidatesData = [];
 let currentContext = null;
+
+// CHECKPOINT 6: Listen to candidates available event
+eventBus.on(Events.CANDIDATES_AVAILABLE, ({ source, result, applyChoice }) => {
+  console.log("[CandidateRanking] Received candidates available event");
+  addCandidate(source, result, { applyChoice });
+});
 
 export function init() {
   container = document.getElementById("results-view");

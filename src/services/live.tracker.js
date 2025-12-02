@@ -1,4 +1,7 @@
-import { addCandidate } from "../ui-components/CandidateRankingUI.js";
+// CHECKPOINT 6: Removed UI import - using event bus instead
+// import { addCandidate } from "../ui-components/CandidateRankingUI.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, cleanCellValue } from "../utils/cell-utilities.js";
@@ -245,7 +248,10 @@ async function processCell(row, col, targetCol, value, tracker) {
     const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
 
     if (result.candidates) {
-      addCandidate(value, result, {
+      // CHECKPOINT 6: Emit event instead of calling UI directly
+      eventBus.emit(Events.CANDIDATES_AVAILABLE, {
+        source: value,
+        result,
         applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker),
       });
     }
