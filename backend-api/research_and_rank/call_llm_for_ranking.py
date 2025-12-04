@@ -2,6 +2,7 @@
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
+from utils.prompt_registry import get_prompt_registry
 
 GREEN = '\033[92m'
 RESET = '\033[0m'
@@ -40,35 +41,20 @@ async def call_llm_for_ranking(profile_info, entity_profile, match_results, quer
     matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
     
-    prompt = f"""You are a candidate evaluation expert.
-
-TASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)  
-- Summarize the profile in 1-2 sentences capturing key details
-- Describe what the core concept "{core_concept}" fundamentally is and identify its foundational category - this represents the fundamental intent, all other profile terms are modifying specifiers
-
-TASK 2: Score each candidate (0-5 scale)
-- Core concept score: semantic alignment with fundamental intent "{core_concept}" - candidates must match the same foundational category to score above 2
-- Specification score: match with profile modifying specifiers
-- Prioritize core concept alignment over specification details
-
-CRITICAL: If core concept and candidate belong to different foundational categories (e.g. process vs material, object vs method), core concept score must be 0-2 regardless of relatedness. Match the core concept exactly as stated - do not add words or interpret it as a compound concept with additional terms.
-
-### QUERY:
-{query}
-### CORE CONCEPT:
-{core_concept}
-
-## PROFILE:
-{profile_info}
-
-## CANDIDATES: 
-{matches}
-
-Evaluate semantic alignment with core concept "{core_concept}" first, then specification matching."""
-
-    print(GREEN + prompt + RESET)
+    # Get prompt from registry
+    registry = get_prompt_registry()
+    import json as json_lib
+    entity_profile_json = json_lib.dumps(entity_profile, indent=2)
     
-    # Use json mode instead of schema mode for better reliability with Groq
+    prompt = registry.render_prompt(
+        family="llm_ranking",
+        version=1,  # Explicit version for reproducibility
+        query=query,
+        core_concept=core_concept,
+        entity_profile_json=entity_profile_json,
+        matches=matches
+    )
+    
     enhanced_prompt = f"""{prompt}
 
 IMPORTANT: Return a valid JSON response matching this exact structure:

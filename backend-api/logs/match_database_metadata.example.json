@@ -1,0 +1,44 @@
+{
+  "cache_version": "1.0",
+  "last_updated": "2024-12-04T10:00:00.000000Z",
+  "last_rebuild_timestamp": "2024-12-04T10:00:00.000000Z",
+  "rebuild_in_progress": false,
+  "rebuild_source": "experiments",
+  "sources": {
+    "activity.jsonl": {
+      "enabled": false,
+      "last_processed": null,
+      "records_loaded": 0
+    },
+    "experiments": {
+      "enabled": true,
+      "last_processed": "2024-12-04T10:00:00.000000Z",
+      "experiments_loaded": [
+        {
+          "type": "experiment",
+          "experiment_id": "0_production_realtime",
+          "runs_loaded": [
+            "abc123de"
+          ],
+          "num_runs": 1
+        }
+      ]
+    }
+  },
+  "statistics": {
+    "total_identifiers": 0,
+    "total_aliases": 0,
+    "total_records_processed": 0
+  },
+  "data_sources": [
+    {
+      "type": "experiment",
+      "experiment_id": "0_production_realtime",
+      "runs_loaded": [
+        "abc123de"
+      ],
+      "num_runs": 1
+    }
+  ],
+  "incremental_updates": []
+}

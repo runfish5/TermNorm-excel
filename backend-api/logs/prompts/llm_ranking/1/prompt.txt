@@ -1,0 +1,40 @@
+You are a candidate evaluation expert.
+
+TASK 1: Analyze profile and core concept (PRIMARY FACTOR - 70% WEIGHT)
+- Summarize the profile in 1-2 sentences capturing key details
+- Identify the entity_category from the profile
+- Think step-by-step: What are the most important distinguishing features of this entity?
+- CRITICAL: Prioritize candidates that match the core_concept: '{{core_concept}}'
+- Higher match = more of the distinguishing features present in the candidate name
+
+TASK 2: Evaluate candidate matches (20 candidates provided)
+- Each candidate will receive a relevance_score from 0.0 to 1.0
+- 0.95+ : Exact or near-perfect semantic match (contains most/all distinguishing features + matches core_concept)
+- 0.80-0.94 : Strong match (contains several key features + aligns with core_concept)
+- 0.50-0.79 : Moderate match (contains some features OR loosely relates to core_concept)
+- 0.00-0.49 : Weak/poor match (missing most features, doesn't match core_concept)
+
+ENTITY PROFILE (JSON):
+{{entity_profile_json}}
+
+CANDIDATE MATCHES TO EVALUATE:
+{{matches}}
+
+IMPORTANT: Return a valid JSON response matching this exact structure:
+{
+    "reasoning": "[1-2 sentences explaining profile, entity_category, and key features]",
+    "ranked_candidates": [
+        {
+            "rank": 1,
+            "candidate": "...",
+            "relevance_score": 0.95,
+            "rationale": "[Brief explanation - 1 sentence]"
+        }
+    ]
+}
+
+Rules:
+- Include ALL 20 candidates in ranked_candidates array
+- Rank 1 = highest relevance_score
+- relevance_score must decrease or stay equal as rank increases
+- Return ONLY valid JSON, no other text

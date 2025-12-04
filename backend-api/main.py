@@ -59,9 +59,18 @@ async def startup_event():
     logger.info(f"Environment: {settings.environment_type}")
     logger.info(f"LLM Provider: {LLM_PROVIDER}/{LLM_MODEL}")
 
-    # Rebuild match database from activity logs (single source of truth)
-    from api.research_pipeline import rebuild_match_database
-    rebuild_match_database()
+    # INTENDED BEHAVIOR - NO auto-initialization of prompts:
+    # - Default prompts (v1) are committed to git in logs/prompts/
+    # - No runtime initialization needed (prompts loaded on-demand by PromptRegistry)
+    # - To manually reinitialize: python -m utils.prompt_registry
+
+    # Load match database with smart cache logic:
+    # - If cache exists and fresh → load from cache (fast path)
+    # - If experiments dir newer than cache → rebuild from experiments
+    # - If no cache and no experiments → starts empty (fresh install)
+    # This ensures dev data (experiments) stays local while cache is gitignored
+    from api.research_pipeline import load_match_database
+    load_match_database()
 
     # Verify LLM API key is configured
     import os

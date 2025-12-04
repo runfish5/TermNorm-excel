@@ -18,6 +18,8 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
+from utils.cache_metadata import CacheMetadata
+from utils.live_experiment_logger import log_to_experiments
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,21 +33,63 @@ with open(_schema_path, 'r') as f:
 MATCH_DB_PATH = Path(__file__).parent.parent / "logs" / "match_database.json"
 match_database: Dict[str, Any] = {}
 
+# Cache metadata tracker - sophisticated tracking of loaded data
+cache_metadata = CacheMetadata()
+
 
 def load_match_database():
-    """Load match database from JSON file on startup"""
+    """
+    Load match database from JSON file on startup.
+
+    Smart rebuild logic:
+    - If cache missing → rebuild
+    - If experiments directory newer than cache → rebuild
+    - Otherwise → load from cache
+
+    This ensures cache stays fresh without expensive staleness checks.
+    """
     global match_database
-    if MATCH_DB_PATH.exists():
-        try:
-            with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
-                match_database = json.load(f)
-            logger.info(f"[MATCH_DB] Loaded {len(match_database)} identifiers")
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"[MATCH_DB] Failed to load: {e}, starting fresh")
-            match_database = {}
-    else:
-        logger.info("[MATCH_DB] No database file, starting fresh")
-        match_database = {}
+
+    experiments_path = Path(__file__).parent.parent / "logs" / "experiments"
+
+    # Check if rebuild needed (simple file timestamp comparison)
+    needs_rebuild = False
+
+    if not MATCH_DB_PATH.exists():
+        logger.info("[MATCH_DB] Cache missing, will rebuild")
+        needs_rebuild = True
+    elif experiments_path.exists():
+        # Compare timestamps: is experiments dir newer than cache?
+        cache_mtime = MATCH_DB_PATH.stat().st_mtime
+
+        # Check if ANY experiment has newer content
+        for exp_dir in experiments_path.iterdir():
+            if not exp_dir.is_dir() or exp_dir.name.startswith('.'):
+                continue
+
+            runs_dir = exp_dir / "runs"
+            if runs_dir.exists() and runs_dir.stat().st_mtime > cache_mtime:
+                logger.info(f"[MATCH_DB] Experiment {exp_dir.name} has new data, will rebuild")
+                needs_rebuild = True
+                break
+
+    # Rebuild if needed
+    if needs_rebuild:
+        rebuild_match_database()
+        return
+
+    # Load existing cache
+    try:
+        with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
+            match_database = json.load(f)
+        logger.info(f"[MATCH_DB] Loaded {len(match_database)} identifiers from cache")
+
+        # Log cache summary
+        summary = cache_metadata.get_summary()
+        logger.info(f"[MATCH_DB] Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning(f"[MATCH_DB] Failed to load cache: {e}, rebuilding...")
+        rebuild_match_database()
 
 
 def save_match_database():
@@ -88,33 +132,134 @@ def update_match_database(record: Dict[str, Any]):
         entry["web_sources"] = record.get("web_sources", [])
         entry["last_updated"] = record.get("timestamp")
 
+
+    # Track incremental update in metadata
+    identifiers_added = 1 if target not in match_database else 0
+    identifiers_updated = 0 if identifiers_added else 1
+    cache_metadata.add_incremental_update(
+        source="backend_pipeline",
+        records_added=1,
+        identifiers_added=identifiers_added,
+        identifiers_updated=identifiers_updated,
+    )
+
     save_match_database()
 
 
 def rebuild_match_database():
-    """Rebuild mode: Regenerate database from activity.jsonl"""
+    """
+    Rebuild mode: Regenerate database from experiments structure.
+
+    Scans all experiments for evaluation_results.jsonl files and corresponding traces.
+    Extracts entity profiles, aliases, and web sources to build the match database.
+
+    INTENDED BEHAVIOR - Reads ONLY from experiments structure:
+    - activity.jsonl is LEGACY (for dual-logging transition period)
+    - rebuild ONLY reads from experiments/ (the single source of truth)
+    - If you need activity.jsonl data, run migration script first:
+      python backend-api/archive/convert_activity_to_experiments.py
+    """
     global match_database
     match_database = {}
 
-    logs_path = Path(__file__).parent.parent / "logs" / "activity.jsonl"
-    if not logs_path.exists():
-        logger.warning("[MATCH_DB] No activity.jsonl to rebuild from")
+    experiments_path = Path(__file__).parent.parent / "logs" / "experiments"
+
+    if not experiments_path.exists():
+        logger.warning("[MATCH_DB] No experiments directory found")
         save_match_database()
         return 0
 
-    count = 0
-    with open(logs_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            try:
-                record = json.loads(line)
-                _update_db_entry(record)
-                count += 1
-            except json.JSONDecodeError:
+    logger.info("[MATCH_DB] Rebuilding from experiments structure...")
+    cache_metadata.mark_rebuild_start("experiments")
+
+    data_sources = []
+    total_records = 0
+
+    for exp_dir in experiments_path.iterdir():
+        if not exp_dir.is_dir():
+            continue
+
+        experiment_id = exp_dir.name
+        runs_loaded = []
+
+        runs_dir = exp_dir / "runs"
+        if not runs_dir.exists():
+            continue
+
+        for run_dir in runs_dir.iterdir():
+            if not run_dir.is_dir():
                 continue
 
+            run_id = run_dir.name
+            results_file = run_dir / "artifacts" / "evaluation_results.jsonl"
+
+            if not results_file.exists():
+                continue
+
+            # Load evaluation results
+            run_records = 0
+            with open(results_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        record = json.loads(line)
+                        # Convert from evaluation_results format to internal format
+                        normalized_record = {
+                            "source": record.get("query"),
+                            "target": record.get("predicted"),
+                            "method": record.get("method"),
+                            "confidence": record.get("confidence"),
+                            "timestamp": record.get("timestamp"),
+                            "session_id": record.get("session_id"),
+                        }
+
+                        # Load full trace if available
+                        trace_id = record.get("trace_id")
+                        if trace_id:
+                            trace_file = run_dir / "artifacts" / "traces" / f"{trace_id}.json"
+                            if trace_file.exists():
+                                with open(trace_file) as tf:
+                                    trace = json.load(tf)
+                                    # Extract entity_profile and web_sources from trace
+                                    for obs in trace.get("observations", []):
+                                        if obs.get("name") == "entity_profiling":
+                                            normalized_record["entity_profile"] = obs.get("output")
+                                        elif obs.get("name") == "web_search":
+                                            normalized_record["web_sources"] = obs.get("output", {}).get("sources", [])
+
+                        _update_db_entry(normalized_record)
+                        run_records += 1
+                        total_records += 1
+                    except json.JSONDecodeError:
+                        continue
+
+            if run_records > 0:
+                runs_loaded.append(run_id)
+
+        if runs_loaded:
+            data_sources.append({
+                "type": "experiment",
+                "experiment_id": experiment_id,
+                "runs_loaded": runs_loaded,
+                "num_runs": len(runs_loaded),
+            })
+
+    # Count identifiers and aliases
+    identifiers_count = len(match_database)
+    aliases_count = sum(len(entry["aliases"]) for entry in match_database.values())
+
     save_match_database()
-    logger.info(f"[MATCH_DB] Rebuilt with {len(match_database)} identifiers from {count} records")
-    return len(match_database)
+
+    # Update cache metadata
+    cache_metadata.mark_rebuild_complete(
+        source_type="experiments",
+        records_processed=total_records,
+        identifiers_count=identifiers_count,
+        aliases_count=aliases_count,
+        data_sources=data_sources,
+    )
+
+    logger.info(f"[MATCH_DB] Rebuilt from experiments: {identifiers_count} identifiers, {total_records} records")
+    return identifiers_count
 
 
 def _update_db_entry(record: Dict[str, Any]):
@@ -358,11 +503,19 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # Check for errors and move to first position if detected
     training_record = _prioritize_errors(training_record)
 
-    # Write to activity.jsonl
+    # DUAL LOGGING (transition period):
+    # 1. Write to activity.jsonl (legacy)
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(training_record) + "\n")
+
+    # 2. Write to experiments structure (NEW - main production experiment)
+    try:
+        trace_id = log_to_experiments(training_record)
+        logger.info(f"[EXPERIMENTS] Logged to production_realtime experiment, trace_id={trace_id}")
+    except Exception as e:
+        logger.error(f"[EXPERIMENTS] Failed to log to experiments: {e}")
 
     # Update match database (live mode)
     update_match_database(training_record)

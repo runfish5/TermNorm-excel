@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "family": "llm_ranking",
+  "description": "Rank candidate matches based on entity profile relevance with core concept weighting",
+  "created_at": "2025-12-04T11:28:44.613463Z",
+  "template_variables": [
+    "core_concept",
+    "entity_profile_json",
+    "matches"
+  ],
+  "metadata": {
+    "author": "TermNorm Team",
+    "use_case": "Candidate ranking for semantic matching",
+    "model_recommendation": "llama-3.3-70b or gpt-4",
+    "temperature": 0.0
+  }
+}

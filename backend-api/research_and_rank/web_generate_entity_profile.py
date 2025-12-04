@@ -10,6 +10,7 @@ from urllib.parse import quote_plus
 from core.llm_providers import llm_call
 from utils.utils import CYAN, MAGENTA, RED, RESET, YELLOW, GREEN, BOLD
 from config.settings import settings
+from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 
@@ -299,34 +300,15 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
 
     format_string = generate_format_string_from_schema(schema)
 
-    return f"""You are a comprehensive technical database API specialized in exhaustive entity profiling. Extract ALL possible information about '{query}' from the research data and return it in this exact JSON format:
-{format_string}
-
-CRITICAL SPELLING REQUIREMENT: In ALL arrays, after each term, immediately add its US/GB spelling variant if different. Example: ["colour", "color", "analyse", "analyze"]. This is MANDATORY for every array field.
-
-CORE CONCEPT IDENTIFICATION: Within '{query}', certain words carry more semantic weight than others. Material names, product codes, and specifications describe WHAT is involved, but other terms describe the fundamental NATURE of what is being expressed. Identify the single word that defines the conceptual essence - typically the term that indicates an activity, action, method, or process rather than an object or material. Output only this one defining word.
-
-PROFESSIONAL CLASSIFICATION ALIASES: Generate the full spectrum of expert-level references for this entity, spanning precise technical descriptors to broader categorical terms. These terms stem from domain-specific terminology and industry-standard nomenclature that professionals recognize. Include approximations and near-equivalent terms that experts use when exact terminology doesn't exist, accepting that some terms may not be perfect equivalents but represent the best available expert terminology for referencing similar concepts.
-
-GENERIC TECHNICAL INFERENCE INSTRUCTION: Given the product or technical description '{query}', perform comprehensive analysis to extract and infer:
-
-1. **Explicit Information**: Directly stated specifications, dimensions, materials, codes, and properties
-2. **Implicit Information**: Commonly associated materials, manufacturing processes, applications, and technical characteristics that are standard for this type of product/component, even if not explicitly mentioned
-3. **Manufacturing Processes**: Both stated and inferred processes based on product type, materials, and specifications
-4. **Material Composition**: Complete material breakdown including standard/typical materials used in such products
-5. **Applications & Use Cases**: Direct and derived applications based on product characteristics
-
-**Include domain knowledge**: Draw from technical standards, industry practices, and material science to infer missing but relevant information.
-
-CRITICAL INSTRUCTIONS FOR RICH ATTRIBUTE COLLECTION:
-- MAXIMIZE diversity: Include ALL synonyms, trade names, scientific names, abbreviations, acronyms, regional terms, industry terminology
-- COMPREHENSIVE extraction: Capture every property, specification, feature, attribute, including numerical values and compositional data
-- PRIORITIZE completeness over brevity: Aim for 5-10+ items per array field - be thorough, not minimal
----
-RESEARCH DATA:
-{combined_text}
----
-REMEMBER: Every term must be followed by its US/GB variant if different. Return only the JSON object with ALL fields maximally populated."""
+    # Get prompt from registry (versioned)
+    registry = get_prompt_registry()
+    return registry.render_prompt(
+        family="entity_profiling",
+        version=1,  # Explicit version for reproducibility
+        query=query,
+        format_string=format_string,
+        combined_text=combined_text
+    )
 
 
 def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit):

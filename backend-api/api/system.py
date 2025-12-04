@@ -13,6 +13,7 @@ from config.environment import get_connection_info
 from config.settings import settings
 from core import llm_providers
 from utils.responses import success_response
+from utils.live_experiment_logger import log_to_experiments
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -139,11 +140,19 @@ async def log_activity(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         "confidence": confidence
     }
 
-    # Log to activity.jsonl
+    # DUAL LOGGING:
+    # 1. Log to activity.jsonl (legacy)
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
     with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
+
+    # 2. Log to experiments structure (NEW)
+    try:
+        trace_id = log_to_experiments(record)
+        logger.info(f"[EXPERIMENTS] Logged to production_realtime, trace_id={trace_id}")
+    except Exception as e:
+        logger.error(f"[EXPERIMENTS] Failed to log: {e}")
 
     # Update match database
     from api.research_pipeline import update_match_database
@@ -204,4 +213,47 @@ async def get_processed_entries() -> Dict[str, Any]:
     return success_response(
         message=f"Retrieved {len(match_database)} processed entries",
         data={"entries": match_database}
+    )
+
+@router.get("/cache/status")
+async def get_cache_status() -> Dict[str, Any]:
+    """
+    Get sophisticated cache metadata status.
+
+    Returns information about:
+    - Which experiments/runs are loaded in cache
+    - When cache was last updated
+    - Total identifiers and aliases
+    - Data sources and freshness
+    """
+    from api.research_pipeline import match_database, cache_metadata
+
+    cache_summary = cache_metadata.get_summary()
+
+    return success_response(
+        message="Cache status retrieved",
+        data={
+            "match_database": {
+                "identifiers": len(match_database),
+                "aliases": sum(len(entry["aliases"]) for entry in match_database.values()),
+            },
+            "cache_metadata": cache_summary,
+        }
+    )
+
+
+@router.post("/cache/rebuild")
+async def rebuild_cache() -> Dict[str, Any]:
+    """
+    Manually trigger cache rebuild from experiments or activity.jsonl.
+
+    Useful for forcing a refresh of the match_database.
+    """
+    from api.research_pipeline import rebuild_match_database
+
+    identifiers_count = rebuild_match_database()
+
+    return success_response(
+        message=f"Cache rebuilt with {identifiers_count} identifiers",
+        data={"identifiers": identifiers_count}
     )

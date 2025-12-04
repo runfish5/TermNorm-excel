@@ -20,11 +20,24 @@ build/
 Thumbs.db
 nul
 
-# Logs
+# Logs - ignore production data, keep structure files
 *.log
 server.log
-backend-api/logs/activity.jsonl
+backend-api/logs/activity*.jsonl
 backend-api/logs/match_database.json
+backend-api/logs/match_database_metadata.json
+backend-api/logs/app.log
+
+# Experiments - ignore actual data files, keep structure (meta.yaml, params, tags, metrics, READMEs)
+**/evaluation_results.jsonl
+**/traces/*.json
+!**/traces/.gitkeep
+
+# Ignore entire 1_production_historical (your local dev data)
+backend-api/logs/experiments/1_production_historical/
+
+# Archive directory (old code, local only)
+.archive/
 
 # Python
 *.pyc
