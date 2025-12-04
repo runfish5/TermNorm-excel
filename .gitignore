@@ -30,8 +30,14 @@ backend-api/logs/app.log
 
 # Experiments - ignore actual data files, keep structure (meta.yaml, params, tags, metrics, READMEs)
 **/evaluation_results.jsonl
-**/traces/*.json
-!**/traces/.gitkeep
+**/artifacts/traces/*.json
+!**/artifacts/traces/.gitkeep
+
+# MLflow traces - ignore all except one example
+backend-api/logs/experiments/*/traces/
+!backend-api/logs/experiments/0_production_realtime/traces/
+backend-api/logs/experiments/0_production_realtime/traces/*/
+!backend-api/logs/experiments/0_production_realtime/traces/0a14407cd267/
 
 # Ignore entire 1_production_historical (your local dev data)
 backend-api/logs/experiments/1_production_historical/
@@ -61,4 +67,3 @@ venv/
 # Test coverage
 coverage/
 .nyc_output/
-backend-api/logs/

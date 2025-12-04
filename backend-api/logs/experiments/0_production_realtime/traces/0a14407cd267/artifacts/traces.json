@@ -1,0 +1,757 @@
+{
+  "info": {
+    "trace_id": "0a14407cd267",
+    "experiment_id": "0_production_realtime",
+    "request_time": 1764844446853,
+    "execution_duration": 0,
+    "state": "OK",
+    "request_preview": "{\"query\": \"aluminimum argenitna\"}",
+    "response_preview": "{\"target\": \"Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S\", \"method\": \"ProfileRank\", \"confidence\": 0}",
+    "trace_metadata": {
+      "run_id": "2fc6fe2a",
+      "session_id": "admin"
+    },
+    "tags": {}
+  },
+  "data": {
+    "spans": [
+      {
+        "span_id": "0a14407cd2670000",
+        "trace_id": "0a14407cd267",
+        "parent_id": null,
+        "name": "termnorm_pipeline",
+        "start_time_ns": 1764844446853939712,
+        "end_time_ns": 1764844446854009088,
+        "status": {
+          "status_code": "OK"
+        },
+        "inputs": {
+          "query": "aluminimum argenitna"
+        },
+        "outputs": {
+          "target": "Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S",
+          "method": "ProfileRank",
+          "confidence": 0
+        },
+        "attributes": {
+          "session_id": "admin",
+          "run_id": "2fc6fe2a",
+          "experiment_id": "0_production_realtime",
+          "score.confidence": 0,
+          "score.latency_ms": 19650.0
+        },
+        "events": [],
+        "span_type": "CHAIN"
+      },
+      {
+        "span_id": "0a14407c00000000",
+        "trace_id": "0a14407cd267",
+        "parent_id": "0a14407cd2670000",
+        "name": "web_search",
+        "start_time_ns": 1764844446853957632,
+        "end_time_ns": 1764844446853957888,
+        "status": {
+          "status_code": "OK"
+        },
+        "inputs": {
+          "query": "aluminimum argenitna"
+        },
+        "outputs": {
+          "sources": [
+            {
+              "title": "Aluar - Wikipedia",
+              "url": "https://en.wikipedia.org/wiki/Aluar"
+            },
+            {
+              "title": "QB 18-124 Absolute Quota for Aluminum Products: Argentina | U.S. Customs and Border Protection",
+              "url": "https://www.cbp.gov/trade/quota/bulletins/qb-18-124-absolute-quota-aluminum-products-argentina"
+            },
+            {
+              "title": "QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina | U.S. Customs and Border Protection",
+              "url": "https://www.cbp.gov/trade/quota/bulletins/qb-25-701-2025"
+            },
+            {
+              "title": "CSMS # 63442560 - Information: QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina",
+              "url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3c80e80"
+            }
+          ],
+          "status": "success",
+          "num_sources": 4
+        },
+        "attributes": {
+          "search_method": "Brave Search API"
+        },
+        "events": [],
+        "span_type": "CHAIN"
+      },
+      {
+        "span_id": "0a14407c00000001",
+        "trace_id": "0a14407cd267",
+        "parent_id": "0a14407cd2670000",
+        "name": "entity_profiling",
+        "start_time_ns": 1764844446853971200,
+        "end_time_ns": 1764844446853971456,
+        "status": {
+          "status_code": "OK"
+        },
+        "inputs": {
+          "query": "aluminimum argenitna",
+          "web_content": [
+            {
+              "title": "Aluar - Wikipedia",
+              "url": "https://en.wikipedia.org/wiki/Aluar"
+            },
+            {
+              "title": "QB 18-124 Absolute Quota for Aluminum Products: Argentina | U.S. Customs and Border Protection",
+              "url": "https://www.cbp.gov/trade/quota/bulletins/qb-18-124-absolute-quota-aluminum-products-argentina"
+            },
+            {
+              "title": "QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina | U.S. Customs and Border Protection",
+              "url": "https://www.cbp.gov/trade/quota/bulletins/qb-25-701-2025"
+            },
+            {
+              "title": "CSMS # 63442560 - Information: QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina",
+              "url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3c80e80"
+            }
+          ]
+        },
+        "outputs": {
+          "entity_name": "Aluminio Argentino",
+          "core_concept": "Aluminium",
+          "distinguishing_features": [
+            "Aluminium",
+            "Aluminum",
+            "Argentine",
+            "Argentinian",
+            "Aluar",
+            "Aluminio"
+          ],
+          "key_properties": [
+            "Aluminium alloys",
+            "Aluminum alloys",
+            "aluminium products",
+            "aluminum products",
+            "quota",
+            "absolute quota"
+          ],
+          "technical_specifications": [
+            "aluminium",
+            "aluminum",
+            "alloy",
+            "alloyed",
+            "products",
+            "alloys"
+          ],
+          "alternative_names": [
+            "Aluar",
+            "Aluminio Argentino S.A.I.C",
+            "Aluminio Argentino",
+            "Argentine Aluminium",
+            "Argentinian Aluminium"
+          ],
+          "classification_aliases": [
+            "aluminium industry",
+            "aluminum industry",
+            "metal production",
+            "metal manufacturing",
+            "aluminium products manufacturing",
+            "aluminum products manufacturing"
+          ],
+          "constituent_materials": [
+            "aluminium",
+            "aluminum",
+            "aluminium alloys",
+            "aluminum alloys",
+            "metal",
+            "metals"
+          ],
+          "manufacturing_processes": [
+            "smelting",
+            "rolling",
+            "extrusion",
+            "casting",
+            "alloying"
+          ],
+          "applications": [
+            "construction",
+            "aerospace",
+            "automotive",
+            "packaging",
+            "electrical transmission"
+          ],
+          "notes": [
+            "Argentine company",
+            "Aluar",
+            "quota restrictions",
+            "US customs regulations",
+            "aluminium production",
+            "aluminum production"
+          ],
+          "_metadata": {
+            "query": "aluminimum argenitna",
+            "sources_count": 4,
+            "processing_time_seconds": 14.25,
+            "sources": [
+              {
+                "title": "Aluar - Wikipedia",
+                "url": "https://en.wikipedia.org/wiki/Aluar"
+              },
+              {
+                "title": "QB 18-124 Absolute Quota for Aluminum Products: Argentina | U.S. Customs and Border Protection",
+                "url": "https://www.cbp.gov/trade/quota/bulletins/qb-18-124-absolute-quota-aluminum-products-argentina"
+              },
+              {
+                "title": "QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina | U.S. Customs and Border Protection",
+                "url": "https://www.cbp.gov/trade/quota/bulletins/qb-25-701-2025"
+              },
+              {
+                "title": "CSMS # 63442560 - Information: QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina",
+                "url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3c80e80"
+              }
+            ]
+          }
+        },
+        "attributes": {
+          "model": "groq/meta-llama/llama-4-maverick-17b-128e-instruct",
+          "usage": {}
+        },
+        "events": [],
+        "span_type": "LLM"
+      },
+      {
+        "span_id": "0a14407c00000002",
+        "trace_id": "0a14407cd267",
+        "parent_id": "0a14407cd2670000",
+        "name": "token_matching",
+        "start_time_ns": 1764844446853980160,
+        "end_time_ns": 1764844446853980416,
+        "status": {
+          "status_code": "OK"
+        },
+        "inputs": {
+          "entity_profile": {
+            "entity_name": "Aluminio Argentino",
+            "core_concept": "Aluminium",
+            "distinguishing_features": [
+              "Aluminium",
+              "Aluminum",
+              "Argentine",
+              "Argentinian",
+              "Aluar",
+              "Aluminio"
+            ],
+            "key_properties": [
+              "Aluminium alloys",
+              "Aluminum alloys",
+              "aluminium products",
+              "aluminum products",
+              "quota",
+              "absolute quota"
+            ],
+            "technical_specifications": [
+              "aluminium",
+              "aluminum",
+              "alloy",
+              "alloyed",
+              "products",
+              "alloys"
+            ],
+            "alternative_names": [
+              "Aluar",
+              "Aluminio Argentino S.A.I.C",
+              "Aluminio Argentino",
+              "Argentine Aluminium",
+              "Argentinian Aluminium"
+            ],
+            "classification_aliases": [
+              "aluminium industry",
+              "aluminum industry",
+              "metal production",
+              "metal manufacturing",
+              "aluminium products manufacturing",
+              "aluminum products manufacturing"
+            ],
+            "constituent_materials": [
+              "aluminium",
+              "aluminum",
+              "aluminium alloys",
+              "aluminum alloys",
+              "metal",
+              "metals"
+            ],
+            "manufacturing_processes": [
+              "smelting",
+              "rolling",
+              "extrusion",
+              "casting",
+              "alloying"
+            ],
+            "applications": [
+              "construction",
+              "aerospace",
+              "automotive",
+              "packaging",
+              "electrical transmission"
+            ],
+            "notes": [
+              "Argentine company",
+              "Aluar",
+              "quota restrictions",
+              "US customs regulations",
+              "aluminium production",
+              "aluminum production"
+            ],
+            "_metadata": {
+              "query": "aluminimum argenitna",
+              "sources_count": 4,
+              "processing_time_seconds": 14.25,
+              "sources": [
+                {
+                  "title": "Aluar - Wikipedia",
+                  "url": "https://en.wikipedia.org/wiki/Aluar"
+                },
+                {
+                  "title": "QB 18-124 Absolute Quota for Aluminum Products: Argentina | U.S. Customs and Border Protection",
+                  "url": "https://www.cbp.gov/trade/quota/bulletins/qb-18-124-absolute-quota-aluminum-products-argentina"
+                },
+                {
+                  "title": "QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina | U.S. Customs and Border Protection",
+                  "url": "https://www.cbp.gov/trade/quota/bulletins/qb-25-701-2025"
+                },
+                {
+                  "title": "CSMS # 63442560 - Information: QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina",
+                  "url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3c80e80"
+                }
+              ]
+            }
+          }
+        },
+        "outputs": {
+          "candidates": [
+            [
+              "Metal working, average for aluminium product manufacturing {RER}| metal working, average for aluminium product manufacturing | Cut-off, S",
+              0.36363636363636365
+            ],
+            [
+              "Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S",
+              0.3333333333333333
+            ],
+            [
+              "Metal working, average for metal product manufacturing {RER}| metal working, average for metal product manufacturing | Cut-off, S",
+              0.3
+            ],
+            [
+              "Sheet rolling, steel {RER}| sheet rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic film {RoW}| extrusion, plastic film | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Hot rolling, steel {RoW}| hot rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Sheet rolling, copper {RoW}| sheet rolling, copper | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic film {RER}| extrusion, plastic film | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "N-olefins {RER}| N-olefins production | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Sheet rolling, steel {RoW}| sheet rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic pipes {RER}| extrusion, plastic pipes | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Metal working, average for steel product manufacturing {RER}| metal working, average for steel product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for steel product manufacturing {RoW}| metal working, average for steel product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for copper product manufacturing {RoW}| metal working, average for copper product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for copper product manufacturing {RER}| metal working, average for copper product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Sheet rolling, chromium steel {RER}| sheet rolling, chromium steel | Cut-off, S",
+              0.25
+            ],
+            [
+              "Light emitting diode {GLO}| light emitting diode production | Cut-off, S",
+              0.25
+            ],
+            [
+              "Urea formaldehyde resin {RER}| urea formaldehyde resin production | Cut-off, S",
+              0.25
+            ],
+            [
+              "Metal working, average for chromium steel product manufacturing {RoW}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              0.25
+            ],
+            [
+              "Metal working, average for chromium steel product manufacturing {RER}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              0.25
+            ]
+          ],
+          "num_candidates": 20
+        },
+        "attributes": {
+          "fuzzy_threshold": 0.7
+        },
+        "events": [],
+        "span_type": "CHAIN"
+      },
+      {
+        "span_id": "0a14407c00000003",
+        "trace_id": "0a14407cd267",
+        "parent_id": "0a14407cd2670000",
+        "name": "llm_ranking",
+        "start_time_ns": 1764844446853989120,
+        "end_time_ns": 1764844446853989120,
+        "status": {
+          "status_code": "OK"
+        },
+        "inputs": {
+          "entity_profile": {
+            "entity_name": "Aluminio Argentino",
+            "core_concept": "Aluminium",
+            "distinguishing_features": [
+              "Aluminium",
+              "Aluminum",
+              "Argentine",
+              "Argentinian",
+              "Aluar",
+              "Aluminio"
+            ],
+            "key_properties": [
+              "Aluminium alloys",
+              "Aluminum alloys",
+              "aluminium products",
+              "aluminum products",
+              "quota",
+              "absolute quota"
+            ],
+            "technical_specifications": [
+              "aluminium",
+              "aluminum",
+              "alloy",
+              "alloyed",
+              "products",
+              "alloys"
+            ],
+            "alternative_names": [
+              "Aluar",
+              "Aluminio Argentino S.A.I.C",
+              "Aluminio Argentino",
+              "Argentine Aluminium",
+              "Argentinian Aluminium"
+            ],
+            "classification_aliases": [
+              "aluminium industry",
+              "aluminum industry",
+              "metal production",
+              "metal manufacturing",
+              "aluminium products manufacturing",
+              "aluminum products manufacturing"
+            ],
+            "constituent_materials": [
+              "aluminium",
+              "aluminum",
+              "aluminium alloys",
+              "aluminum alloys",
+              "metal",
+              "metals"
+            ],
+            "manufacturing_processes": [
+              "smelting",
+              "rolling",
+              "extrusion",
+              "casting",
+              "alloying"
+            ],
+            "applications": [
+              "construction",
+              "aerospace",
+              "automotive",
+              "packaging",
+              "electrical transmission"
+            ],
+            "notes": [
+              "Argentine company",
+              "Aluar",
+              "quota restrictions",
+              "US customs regulations",
+              "aluminium production",
+              "aluminum production"
+            ],
+            "_metadata": {
+              "query": "aluminimum argenitna",
+              "sources_count": 4,
+              "processing_time_seconds": 14.25,
+              "sources": [
+                {
+                  "title": "Aluar - Wikipedia",
+                  "url": "https://en.wikipedia.org/wiki/Aluar"
+                },
+                {
+                  "title": "QB 18-124 Absolute Quota for Aluminum Products: Argentina | U.S. Customs and Border Protection",
+                  "url": "https://www.cbp.gov/trade/quota/bulletins/qb-18-124-absolute-quota-aluminum-products-argentina"
+                },
+                {
+                  "title": "QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina | U.S. Customs and Border Protection",
+                  "url": "https://www.cbp.gov/trade/quota/bulletins/qb-25-701-2025"
+                },
+                {
+                  "title": "CSMS # 63442560 - Information: QB 25-701 2025 Aluminum Absolute Quota First Quarter Argentina",
+                  "url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3c80e80"
+                }
+              ]
+            }
+          },
+          "candidates": [
+            [
+              "Metal working, average for aluminium product manufacturing {RER}| metal working, average for aluminium product manufacturing | Cut-off, S",
+              0.36363636363636365
+            ],
+            [
+              "Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S",
+              0.3333333333333333
+            ],
+            [
+              "Metal working, average for metal product manufacturing {RER}| metal working, average for metal product manufacturing | Cut-off, S",
+              0.3
+            ],
+            [
+              "Sheet rolling, steel {RER}| sheet rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic film {RoW}| extrusion, plastic film | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Hot rolling, steel {RoW}| hot rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Sheet rolling, copper {RoW}| sheet rolling, copper | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic film {RER}| extrusion, plastic film | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "N-olefins {RER}| N-olefins production | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Sheet rolling, steel {RoW}| sheet rolling, steel | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Extrusion, plastic pipes {RER}| extrusion, plastic pipes | Cut-off, S",
+              0.2857142857142857
+            ],
+            [
+              "Metal working, average for steel product manufacturing {RER}| metal working, average for steel product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for steel product manufacturing {RoW}| metal working, average for steel product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for copper product manufacturing {RoW}| metal working, average for copper product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Metal working, average for copper product manufacturing {RER}| metal working, average for copper product manufacturing | Cut-off, S",
+              0.2727272727272727
+            ],
+            [
+              "Sheet rolling, chromium steel {RER}| sheet rolling, chromium steel | Cut-off, S",
+              0.25
+            ],
+            [
+              "Light emitting diode {GLO}| light emitting diode production | Cut-off, S",
+              0.25
+            ],
+            [
+              "Urea formaldehyde resin {RER}| urea formaldehyde resin production | Cut-off, S",
+              0.25
+            ],
+            [
+              "Metal working, average for chromium steel product manufacturing {RoW}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              0.25
+            ],
+            [
+              "Metal working, average for chromium steel product manufacturing {RER}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              0.25
+            ]
+          ]
+        },
+        "outputs": {
+          "ranked_candidates": [
+            {
+              "rank": 0,
+              "name": "Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S",
+              "score": null,
+              "core_score": 0.95,
+              "spec_score": 0.9
+            },
+            {
+              "rank": 1,
+              "name": "Metal working, average for aluminium product manufacturing {RER}| metal working, average for aluminium product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.9,
+              "spec_score": 0.85
+            },
+            {
+              "rank": 2,
+              "name": "Metal working, average for copper product manufacturing {RoW}| metal working, average for copper product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.4,
+              "spec_score": 0.3
+            },
+            {
+              "rank": 3,
+              "name": "Metal working, average for copper product manufacturing {RER}| metal working, average for copper product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.4,
+              "spec_score": 0.3
+            },
+            {
+              "rank": 4,
+              "name": "Metal working, average for steel product manufacturing {RoW}| metal working, average for steel product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.3,
+              "spec_score": 0.2
+            },
+            {
+              "rank": 5,
+              "name": "Metal working, average for steel product manufacturing {RER}| metal working, average for steel product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.3,
+              "spec_score": 0.2
+            },
+            {
+              "rank": 6,
+              "name": "Metal working, average for chromium steel product manufacturing {RoW}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.2,
+              "spec_score": 0.1
+            },
+            {
+              "rank": 7,
+              "name": "Metal working, average for chromium steel product manufacturing {RER}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.2,
+              "spec_score": 0.1
+            },
+            {
+              "rank": 8,
+              "name": "Metal working, average for metal product manufacturing {RER}| metal working, average for metal product manufacturing | Cut-off, S",
+              "score": null,
+              "core_score": 0.5,
+              "spec_score": 0.4
+            },
+            {
+              "rank": 9,
+              "name": "Sheet rolling, steel {RER}| sheet rolling, steel | Cut-off, S",
+              "score": null,
+              "core_score": 0.1,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 10,
+              "name": "Sheet rolling, steel {RoW}| sheet rolling, steel | Cut-off, S",
+              "score": null,
+              "core_score": 0.1,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 11,
+              "name": "Sheet rolling, copper {RoW}| sheet rolling, copper | Cut-off, S",
+              "score": null,
+              "core_score": 0.2,
+              "spec_score": 0.1
+            },
+            {
+              "rank": 12,
+              "name": "Hot rolling, steel {RoW}| hot rolling, steel | Cut-off, S",
+              "score": null,
+              "core_score": 0.1,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 13,
+              "name": "Extrusion, plastic film {RoW}| extrusion, plastic film | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 14,
+              "name": "Extrusion, plastic film {RER}| extrusion, plastic film | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 15,
+              "name": "Extrusion, plastic pipes {RER}| extrusion, plastic pipes | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 16,
+              "name": "N-olefins {RER}| N-olefins production | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 17,
+              "name": "Urea formaldehyde resin {RER}| urea formaldehyde resin production | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            },
+            {
+              "rank": 18,
+              "name": "Light emitting diode {GLO}| light emitting diode production | Cut-off, S",
+              "score": null,
+              "core_score": 0.0,
+              "spec_score": 0.0
+            }
+          ],
+          "top_candidate": "Aluminium, wrought alloy {GLO}| market for aluminium, wrought alloy | Cut-off, S"
+        },
+        "attributes": {
+          "model": "groq/meta-llama/llama-4-maverick-17b-128e-instruct",
+          "usage": {}
+        },
+        "events": [],
+        "span_type": "LLM"
+      }
+    ]
+  }
+}

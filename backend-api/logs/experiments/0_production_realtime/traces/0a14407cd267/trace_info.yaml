@@ -1,0 +1,11 @@
+trace_id: 0a14407cd267
+trace_location:
+  type: MLFLOW_EXPERIMENT
+  mlflow_experiment:
+    experiment_id: 0_production_realtime
+request_time: '2025-12-04T10:34:06.853940Z'
+execution_duration_ms: 0
+state: OK
+request_preview: '{"query": "aluminimum argenitna"}'
+response_preview: '{"target": "Aluminium, wrought alloy {GLO}| market for aluminium,
+  wrought alloy | Cut-off, S", "method": "ProfileRank", "confidence": 0}'

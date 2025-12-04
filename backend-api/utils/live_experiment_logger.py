@@ -59,16 +59,18 @@ class LiveExperimentLogger:
 
         Returns run_id if found, None otherwise.
         """
-        runs_path = self.base_path / self.experiment_id / "runs"
+        # Path without /runs/ subdirectory (MLflow-compatible structure)
+        exp_path = self.base_path / self.experiment_id
 
-        if not runs_path.exists():
+        if not exp_path.exists():
             return None
 
         run_name_prefix = f"production_{today}"
 
-        # Check all runs
-        for run_dir in runs_path.iterdir():
-            if not run_dir.is_dir():
+        # Check all runs (run directories are directly under experiment, not under /runs/)
+        for run_dir in exp_path.iterdir():
+            # Skip non-directories and special files (meta.yaml, etc.)
+            if not run_dir.is_dir() or run_dir.name in ("runs", "models"):
                 continue
 
             meta_file = run_dir / "meta.yaml"
@@ -287,7 +289,8 @@ class LiveExperimentLogger:
     def _update_run_metrics(self, run_id: str, record: Dict[str, Any]):
         """Update aggregate metrics for the run."""
         # Read existing evaluation results to compute aggregate metrics
-        run_path = self.base_path / self.experiment_id / "runs" / run_id
+        # Path without /runs/ subdirectory (MLflow-compatible structure)
+        run_path = self.base_path / self.experiment_id / run_id
         results_file = run_path / "artifacts" / "evaluation_results.jsonl"
 
         if not results_file.exists():

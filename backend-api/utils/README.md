@@ -19,7 +19,7 @@ Infrastructure for experiment tracking, prompt versioning, and standards-complia
 
 **`standards_logger.py`**
 - MLflow-compatible experiment/run/trace writer (no MLflow dependency)
-- Generates: `meta.yaml`, `params.json`, `tags.json`, `metrics.json`, traces
+- Generates: `meta.yaml`, `params/`, `tags/`, `metrics/` directories (MLflow FileStore format)
 
 **`responses.py`**, **`utils.py`**
 - API helpers, terminal colors, utilities
