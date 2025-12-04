@@ -46,14 +46,13 @@ class ExperimentManager:
 
         # Create experiment directory
         exp_path.mkdir(parents=True, exist_ok=True)
-        (exp_path / "runs").mkdir(exist_ok=True)
 
         # Create meta.yaml (MLflow format)
         meta = {
             "experiment_id": experiment_id,
             "name": name,
             "description": description,
-            "artifact_location": str(exp_path / "runs"),
+            "artifact_location": str(exp_path),
             "lifecycle_stage": "active",
             "creation_time": int(time.time() * 1000),
             "last_update_time": int(time.time() * 1000),
@@ -123,7 +122,7 @@ class RunManager:
 
     def __init__(self, experiment_id: str, base_path: str = "logs/experiments"):
         self.experiment_id = experiment_id
-        self.base_path = Path(base_path) / experiment_id / "runs"
+        self.base_path = Path(base_path) / experiment_id
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.current_run_id: Optional[str] = None
 
@@ -154,7 +153,7 @@ class RunManager:
             "run_id": run_id,
             "run_name": run_name,
             "experiment_id": self.experiment_id,
-            "status": "RUNNING",
+            "status": 1,  # 1=RUNNING, 3=FINISHED (MLflow requires numeric)
             "start_time": int(time.time() * 1000),
             "end_time": None,
             "lifecycle_stage": "active",
@@ -182,7 +181,9 @@ class RunManager:
 
         # Update meta.yaml
         meta = self._read_yaml(meta_file)
-        meta["status"] = status
+        # Map status to MLflow numeric codes
+        status_map = {"RUNNING": 1, "FINISHED": 3, "FAILED": 4, "KILLED": 5}
+        meta["status"] = status_map.get(status, 3)  # Default to FINISHED
         meta["end_time"] = int(time.time() * 1000)
 
         self._write_yaml(meta_file, meta)
