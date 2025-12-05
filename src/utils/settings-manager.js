@@ -1,9 +1,7 @@
-// utils/settings-manager.js - Settings persistence using localStorage
+import { apiGet, apiPost } from "./api-fetch.js";
 
 const STORAGE_KEY = "termnorm_settings";
 const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true };
-
-export function getDefaultSettings() { return { ...DEFAULTS }; }
 
 export function loadSettings() {
   try {
@@ -18,22 +16,7 @@ export function saveSetting(key, value, currentSettings) {
   return updated;
 }
 
-export async function loadAvailableProviders() {
-  const { apiGet } = await import("./api-fetch.js");
-  return apiGet("/llm-providers", {}, true);
-}
-
-export async function saveLlmProvider(provider, model) {
-  const { apiPost } = await import("./api-fetch.js");
-  return apiPost("/set-llm-provider", { provider, model });
-}
-
-export async function setBraveApi(enabled) {
-  const { apiPost } = await import("./api-fetch.js");
-  return apiPost("/set-brave-api", { enabled });
-}
-
-export async function setWebSearch(enabled) {
-  const { apiPost } = await import("./api-fetch.js");
-  return apiPost("/set-web-search", { enabled });
-}
+export function loadAvailableProviders() { return apiGet("/llm-providers", {}, true); }
+export function saveLlmProvider(provider, model) { return apiPost("/set-llm-provider", { provider, model }); }
+export function setBraveApi(enabled) { return apiPost("/set-brave-api", { enabled }); }
+export function setWebSearch(enabled) { return apiPost("/set-web-search", { enabled }); }

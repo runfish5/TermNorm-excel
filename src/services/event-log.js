@@ -11,5 +11,4 @@ export function addEvent(event) {
 }
 
 export function clearEvents() { sessionEvents.length = 0; }
-export function getCount() { return sessionEvents.length; }
 export function getMaxEntries() { return EVENT_LOG.MAX_ENTRIES; }
