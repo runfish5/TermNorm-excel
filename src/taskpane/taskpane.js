@@ -114,32 +114,23 @@ function updateButtonStates() {
 
 async function startLiveTracking() {
   await checkServerStatus();
-  const validation = canActivateTracking();
-  if (!validation.allowed) return showMessage(`❌ ${validation.reason}`, "error");
-  if (validation.warning) showMessage(validation.warning);
+  const v = canActivateTracking();
+  if (!v.allowed) return showMessage(`❌ ${v.reason}`, "error");
+  if (v.warning) showMessage(v.warning);
 
   try {
     const config = getStateValue('config.data'), mappings = getStateValue('mappings.combined');
-    const termCount = Object.keys(mappings.reverse || {}).length;
-    const trackingInfo = await startTracking(config, mappings);
+    const terms = Object.keys(mappings.reverse || {}).length, online = getStateValue('server.online');
+    const info = await startTracking(config, mappings);
 
-    let statusParts = [];
-    const serverOnline = getStateValue('server.online');
-    statusParts.push(serverOnline ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)` : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`);
-
-    if (trackingInfo.confidenceTotal > 0) {
-      const { confidenceTotal, confidenceMapped, confidenceFound, confidenceMissing } = trackingInfo;
-      if (confidenceMapped === confidenceTotal) {
-        statusParts.push(`✅ Confidence: ${confidenceTotal} columns active`);
-        if (confidenceFound.length) statusParts.push(`   Mapped: ${confidenceFound.join(", ")}`);
-      } else {
-        statusParts.push(`⚠️ Confidence: ${confidenceMapped}/${confidenceTotal} columns active`);
-        if (confidenceFound.length) statusParts.push(`   ✅ Found: ${confidenceFound.join(", ")}`);
-        if (confidenceMissing.length) statusParts.push(`   ❌ Missing: ${confidenceMissing.join(", ")}`);
-      }
+    const status = [`✅ Tracking active: ${terms} terms (${online ? "exact/fuzzy/LLM enabled" : "exact/fuzzy only - server offline"})`];
+    if (info.confidenceTotal > 0) {
+      const { confidenceTotal: t, confidenceMapped: m, confidenceFound: f, confidenceMissing: x } = info;
+      status.push(m === t ? `✅ Confidence: ${t} columns active` : `⚠️ Confidence: ${m}/${t} columns active`);
+      if (f.length) status.push(`   ${m === t ? "Mapped" : "✅ Found"}: ${f.join(", ")}`);
+      if (x.length) status.push(`   ❌ Missing: ${x.join(", ")}`);
     }
-
-    showMessage(statusParts.join("\n"));
+    showMessage(status.join("\n"));
     showView("results");
   } catch (error) { showMessage(`Error: ${error.message}`, "error"); }
 }
@@ -180,34 +171,23 @@ async function initializeLlmSettings() {
 }
 
 function setupSettingsCheckboxes() {
-  const setupCheckbox = (id, settingKey, onChange) => {
-    const checkbox = document.getElementById(id);
-    if (!checkbox) return;
-    checkbox.checked = getStateValue(`settings.${settingKey}`);
-    checkbox.addEventListener("change", (e) => onChange(e.target.checked, e.target));
+  const setup = (id, key, fn) => {
+    const cb = document.getElementById(id);
+    if (cb) { cb.checked = getStateValue(`settings.${key}`); cb.addEventListener("change", (e) => fn(e.target.checked, e.target)); }
   };
 
-  setupCheckbox("require-server-online", "requireServerOnline", (checked) => {
+  setup("require-server-online", "requireServerOnline", (checked) => {
     saveSetting("requireServerOnline", checked);
     updateButtonStates(); updateLED(); updateMatcherIndicator();
     showMessage(`Server requirement ${checked ? "enabled" : "disabled"}`);
   });
 
-  setupCheckbox("use-web-search", "useWebSearch", async (checked, target) => {
-    saveSetting("useWebSearch", checked);
-    try {
-      const { setWebSearch } = await import("../utils/settings-manager.js");
-      await setWebSearch(checked);
-      showMessage(`Web search ${checked ? "enabled" : "disabled (LLM only mode)"}`);
-    } catch (error) { showMessage(`Failed to update web search setting: ${error.message}`, "error"); target.checked = !checked; }
-  });
+  const apiCheckbox = async (key, apiFn, msgOn, msgOff) => async (checked, target) => {
+    saveSetting(key, checked);
+    try { await (await import("../utils/settings-manager.js"))[apiFn](checked); showMessage(checked ? msgOn : msgOff); }
+    catch (e) { showMessage(`Failed: ${e.message}`, "error"); target.checked = !checked; }
+  };
 
-  setupCheckbox("use-brave-api", "useBraveApi", async (checked, target) => {
-    saveSetting("useBraveApi", checked);
-    try {
-      const { setBraveApi } = await import("../utils/settings-manager.js");
-      await setBraveApi(checked);
-      showMessage(`Brave API ${checked ? "enabled" : "disabled (testing fallbacks)"}`);
-    } catch (error) { showMessage(`Failed to update Brave API setting: ${error.message}`, "error"); target.checked = !checked; }
-  });
+  setup("use-web-search", "useWebSearch", apiCheckbox("useWebSearch", "setWebSearch", "Web search enabled", "Web search disabled (LLM only mode)"));
+  setup("use-brave-api", "useBraveApi", apiCheckbox("useBraveApi", "setBraveApi", "Brave API enabled", "Brave API disabled (testing fallbacks)"));
 }
