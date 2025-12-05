@@ -3,11 +3,9 @@ import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
-import { createCellKey, cleanCellValue } from "../utils/cell-utilities.js";
 import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { writeCellResult } from "../utils/cell-writing.js";
-import { logCellResult } from "../utils/cell-logging.js";
-import { countTrackedCells } from "../utils/paste-detection.js";
+import { addEntry as addHistoryEntry } from "../ui-components/ProcessingHistoryUI.js";
 import { showMessage } from "../utils/error-display.js";
 
 const activeTrackers = new Map();
@@ -32,25 +30,18 @@ export async function startTracking(config, mappings) {
       await ctx.sync();
 
       const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
-      const worksheetName = ws.name;
       const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
       headers.load("values");
       await ctx.sync();
 
       const headerNames = headers.values[0].map((h) => String(h || "").trim());
-      const confResult = buildConfidenceColumnMap(headerNames, config.confidence_column_map, worksheetName);
+      const confResult = buildConfidenceColumnMap(headerNames, config.confidence_column_map, ws.name);
 
-      return {
-        columnMap: buildColumnMap(headerNames, config.column_map, worksheetName),
-        confidenceColumnMap: confResult.map,
-        confidenceFound: confResult.found,
-        confidenceMissing: confResult.missing,
-      };
+      return { columnMap: buildColumnMap(headerNames, config.column_map, ws.name), confidenceColumnMap: confResult.map, confidenceFound: confResult.found, confidenceMissing: confResult.missing };
     });
 
     const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap, confidenceFound, confidenceMissing, mappings, config, workbookId };
 
-    // Remove existing tracker
     const existing = activeTrackers.get(workbookId);
     if (existing?.active) {
       existing.active = false;
@@ -62,7 +53,6 @@ export async function startTracking(config, mappings) {
       });
     }
 
-    // Setup handlers
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       tracker.handler = ws.onChanged.add((e) => handleWorksheetChange(e, tracker));
@@ -75,9 +65,7 @@ export async function startTracking(config, mappings) {
     const trackingInfo = { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.keys(config.confidence_column_map || {}).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
     eventBus.emit(Events.TRACKING_STARTED, trackingInfo);
     return trackingInfo;
-  } finally {
-    activationInProgress.delete(workbookId);
-  }
+  } finally { activationInProgress.delete(workbookId); }
 }
 
 const handleWorksheetChange = async (e, tracker) => {
@@ -91,8 +79,14 @@ const handleWorksheetChange = async (e, tracker) => {
 
     const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
 
-    // Multi-cell paste detection
-    const trackedCount = countTrackedCells({ rowCount, columnCount, rowIndex, columnIndex }, tracker.columnMap);
+    // Count tracked cells for paste detection
+    let trackedCount = 0;
+    for (let r = 0; r < rowCount; r++) {
+      for (let c = 0; c < columnCount; c++) {
+        if (rowIndex + r > 0 && tracker.columnMap.has(columnIndex + c)) trackedCount++;
+      }
+    }
+
     if (trackedCount >= 2) {
       for (let r = 0; r < rowCount; r++) {
         for (let c = 0; c < columnCount; c++) {
@@ -107,7 +101,6 @@ const handleWorksheetChange = async (e, tracker) => {
       return;
     }
 
-    // Process cells
     const tasks = [];
     for (let r = 0; r < rowCount; r++) {
       for (let c = 0; c < columnCount; c++) {
@@ -116,8 +109,8 @@ const handleWorksheetChange = async (e, tracker) => {
         const value = values[r][c];
 
         if (row > 0 && targetCol && value) {
-          const cellKey = createCellKey(row, col);
-          const cleanValue = cleanCellValue(value);
+          const cellKey = `${row}:${col}`;
+          const cleanValue = String(value || "").trim();
           const state = getWorkbookCellState(tracker.workbookId, cellKey);
 
           if (state?.status !== "processing" && state?.value !== cleanValue) {
@@ -147,10 +140,9 @@ const handleSelectionChange = async (e, tracker) => {
     const row = range.rowIndex, col = range.columnIndex, cellValue = range.values[0][0];
     if (!cellValue || row === 0) return;
 
-    const cellKey = createCellKey(row, col);
+    const cellKey = `${row}:${col}`;
     const cleanedValue = String(cellValue).trim();
 
-    // Input column: lookup target
     const targetCol = tracker.columnMap.get(col);
     if (targetCol !== undefined) {
       let targetId = tracker.mappings.forward[cleanedValue];
@@ -162,35 +154,32 @@ const handleSelectionChange = async (e, tracker) => {
       return;
     }
 
-    // Output column
     const state = getWorkbookCellState(tracker.workbookId, cellKey);
-    eventBus.emit(Events.CELL_SELECTED, state?.status === "complete"
-      ? { cellKey, state, identifier: null }
-      : { cellKey: null, state: null, identifier: cleanedValue });
+    eventBus.emit(Events.CELL_SELECTED, state?.status === "complete" ? { cellKey, state, identifier: null } : { cellKey: null, state: null, identifier: cleanedValue });
   });
 };
 
-async function processCell(row, col, targetCol, value, tracker) {
-  const outputCellKey = createCellKey(row, targetCol);
-  const inputCellKey = createCellKey(row, col);
+function logResult(workbookId, cellKey, value, result, status, row, col) {
+  setCellState(workbookId, cellKey, { value, result, status, row, col, timestamp: result.timestamp });
+  addHistoryEntry(value, cellKey, result.timestamp, result);
+}
 
-  eventBus.emit(Events.CELL_PROCESSING_STARTED, { cellKey: inputCellKey, value, row, col, targetCol });
+async function processCell(row, col, targetCol, value, tracker) {
+  const outputCellKey = `${row}:${targetCol}`;
+  eventBus.emit(Events.CELL_PROCESSING_STARTED, { cellKey: `${row}:${col}`, value, row, col, targetCol });
 
   try {
     const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
 
     if (result.candidates) {
-      eventBus.emit(Events.CANDIDATES_AVAILABLE, {
-        source: value, result,
-        applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker),
-      });
+      eventBus.emit(Events.CANDIDATES_AVAILABLE, { source: value, result, applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) });
     }
 
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
-    logCellResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-    eventBus.emit(Events.CELL_PROCESSING_COMPLETE, { cellKey: inputCellKey, source: value, result, row, col, targetCol });
+    logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
+    eventBus.emit(Events.CELL_PROCESSING_COMPLETE, { cellKey: `${row}:${col}`, source: value, result, row, col, targetCol });
   } catch (error) {
-    eventBus.emit(Events.CELL_PROCESSING_ERROR, { cellKey: inputCellKey, value, error: error.message || String(error), row, col, targetCol });
+    eventBus.emit(Events.CELL_PROCESSING_ERROR, { cellKey: `${row}:${col}`, value, error: error.message || String(error), row, col, targetCol });
     await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
   }
 }
@@ -202,35 +191,25 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
-
     ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.ERROR;
     const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
     tgtCell.values = [[errorMsg]];
     tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
-
     const confCol = tracker.confidenceColumnMap.get(col);
     if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[0]];
-
     await ctx.sync();
     ctx.runtime.enableEvents = true;
   });
 
-  logCellResult(tracker.workbookId, outputCellKey, value, {
-    target: errorMsg, method: "error", confidence: 0, timestamp, source: value,
-    candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle",
-  }, "error", row, targetCol);
+  logResult(tracker.workbookId, outputCellKey, value, { target: errorMsg, method: "error", confidence: 0, timestamp, source: value, candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle" }, "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const timestamp = new Date().toISOString();
-  const choiceResult = {
-    target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp, source: value,
-    candidates: null, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null,
-    total_time: null, llm_provider: null, web_search_status: "idle",
-  };
+  const choiceResult = { target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp, source: value, candidates: null, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null, total_time: null, llm_provider: null, web_search_status: "idle" };
 
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
-  logCellResult(tracker.workbookId, outputCellKey, value, choiceResult, "complete", row, targetCol);
+  logResult(tracker.workbookId, outputCellKey, value, choiceResult, "complete", row, targetCol);
 
   try {
     const { apiPost } = await import("../utils/api-fetch.js");
@@ -257,6 +236,4 @@ export async function stopTracking(workbookId) {
   eventBus.emit(Events.TRACKING_STOPPED, { workbookId });
 }
 
-export function getActiveTrackers() {
-  return Array.from(activeTrackers.keys());
-}
+export function getActiveTrackers() { return Array.from(activeTrackers.keys()); }

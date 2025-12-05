@@ -1,12 +1,9 @@
-/**
- * State Manager - Business logic for mappings, sessions, and settings
- */
+/** State Manager - Business logic for mappings, sessions, and settings */
 
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
 import { checkServerStatus, getHost, getHeaders } from "../utils/server-utilities.js";
 import { apiPost } from "../utils/api-fetch.js";
-import { retryWithBackoff } from "../utils/async-utils.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS, LOG_PREFIX, ERROR_MESSAGES } from "../config/session.config.js";
 import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
@@ -52,15 +49,15 @@ export async function loadMappingSource(index, loadFunction, params) {
 
 /** Initialize backend session with retry */
 async function initializeBackendSessionWithRetry(terms) {
-  return retryWithBackoff(() => initializeBackendSession(terms), {
-    maxAttempts: SESSION_RETRY.MAX_ATTEMPTS,
-    delays: SESSION_RETRY.DELAYS_MS,
-    onFailure: (attempts) => {
-      const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
-      console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
-      stateStore.merge('session', { error: errorMsg });
-    },
-  });
+  const { maxAttempts, delays } = { maxAttempts: SESSION_RETRY.MAX_ATTEMPTS, delays: SESSION_RETRY.DELAYS_MS };
+  for (let i = 0; i < maxAttempts; i++) {
+    if (await initializeBackendSession(terms)) return true;
+    if (i < maxAttempts - 1) await new Promise(r => setTimeout(r, delays[i] || delays[delays.length - 1]));
+  }
+  const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(maxAttempts);
+  console.error(`${LOG_PREFIX.SESSION} ${errorMsg}`);
+  stateStore.merge('session', { error: errorMsg });
+  return false;
 }
 
 /** Initialize backend session (single attempt) */

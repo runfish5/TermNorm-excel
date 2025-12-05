@@ -97,7 +97,7 @@ export function updateHistoryTabCounter() {
 }
 
 export async function handleCellSelection(cellKey, state, identifier) {
-  const { showView } = await import("./view-manager.js");
+  const { showView } = await import("../utils/dom-helpers.js");
   showView("history");
 
   const lookupId = identifier || state?.result?.target;
