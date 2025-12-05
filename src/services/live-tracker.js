@@ -11,12 +11,21 @@ import { showMessage } from "../utils/error-display.js";
 const activeTrackers = new Map();
 const activationInProgress = new Set();
 
+const removeHandlers = async (tracker) => {
+  if (!tracker) return;
+  tracker.active = false;
+  await Excel.run(async (ctx) => {
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    if (tracker.handler) ws.onChanged.remove(tracker.handler);
+    if (tracker.selectionHandler) ws.onSelectionChanged.remove(tracker.selectionHandler);
+    await ctx.sync();
+  });
+};
+
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
-
   const workbookId = await getCurrentWorkbookName();
   if (activationInProgress.has(workbookId)) return;
-
   activationInProgress.add(workbookId);
 
   try {
@@ -29,39 +38,27 @@ export async function startTracking(config, mappings) {
       usedRange.load("columnIndex, columnCount");
       await ctx.sync();
 
-      const lastCol = usedRange.columnIndex + usedRange.columnCount - 1;
-      const headers = ws.getRangeByIndexes(0, 0, 1, lastCol + 1);
+      const headers = ws.getRangeByIndexes(0, 0, 1, usedRange.columnIndex + usedRange.columnCount);
       headers.load("values");
       await ctx.sync();
 
-      const headerNames = headers.values[0].map((h) => String(h || "").trim());
+      const headerNames = headers.values[0].map(h => String(h || "").trim());
       const confResult = buildConfidenceColumnMap(headerNames, config.confidence_column_map, ws.name);
-
-      return { columnMap: buildColumnMap(headerNames, config.column_map, ws.name), confidenceColumnMap: confResult.map, confidenceFound: confResult.found, confidenceMissing: confResult.missing };
+      return { columnMap: buildColumnMap(headerNames, config.column_map, ws.name), ...confResult };
     });
 
-    const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap, confidenceFound, confidenceMissing, mappings, config, workbookId };
+    await removeHandlers(activeTrackers.get(workbookId));
 
-    const existing = activeTrackers.get(workbookId);
-    if (existing?.active) {
-      existing.active = false;
-      await Excel.run(async (ctx) => {
-        const ws = ctx.workbook.worksheets.getActiveWorksheet();
-        if (existing.handler) ws.onChanged.remove(existing.handler);
-        if (existing.selectionHandler) ws.onSelectionChanged.remove(existing.selectionHandler);
-        await ctx.sync();
-      });
-    }
+    const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap: confidenceColumnMap || new Map(), confidenceFound, confidenceMissing, mappings, config, workbookId };
 
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      tracker.handler = ws.onChanged.add((e) => handleWorksheetChange(e, tracker));
-      tracker.selectionHandler = ws.onSelectionChanged.add((e) => handleSelectionChange(e, tracker));
+      tracker.handler = ws.onChanged.add(e => handleWorksheetChange(e, tracker));
+      tracker.selectionHandler = ws.onSelectionChanged.add(e => handleSelectionChange(e, tracker));
       await ctx.sync();
     });
 
     activeTrackers.set(workbookId, tracker);
-
     const trackingInfo = { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.keys(config.confidence_column_map || {}).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
     eventBus.emit(Events.TRACKING_STARTED, trackingInfo);
     return trackingInfo;
@@ -195,15 +192,7 @@ export async function stopTracking(workbookId) {
   workbookId = workbookId || (await getCurrentWorkbookName());
   const tracker = activeTrackers.get(workbookId);
   if (!tracker) return;
-
-  tracker.active = false;
-  await Excel.run(async (ctx) => {
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    if (tracker.handler) ws.onChanged.remove(tracker.handler);
-    if (tracker.selectionHandler) ws.onSelectionChanged.remove(tracker.selectionHandler);
-    await ctx.sync();
-  });
-
+  await removeHandlers(tracker);
   activeTrackers.delete(workbookId);
   deleteWorkbook(workbookId);
   eventBus.emit(Events.TRACKING_STOPPED, { workbookId });
