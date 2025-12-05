@@ -13,7 +13,7 @@
 
 import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
 import { stateStore } from "../core/state-store.js";
-import { apiGet } from "./api-fetch.js";
+import { serverFetch, apiGet } from "./api-fetch.js";
 import { getHost, getHeaders } from "./server-utilities.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -39,7 +39,7 @@ export async function initializeHistoryCache() {
   }
 
   try {
-    const response = await fetch(`${getHost()}/history/processed-entries`, {
+    const response = await serverFetch("/history/processed-entries", {
       method: "GET",
       headers: getHeaders(),
     });

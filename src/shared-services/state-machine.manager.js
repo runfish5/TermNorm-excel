@@ -41,19 +41,12 @@ export const state = new Proxy({}, {
   }
 });
 
-// Internal notification for legacy code that still depends on imperative state updates
-function notifyStateChange() {
-  // No-op - keeping for backward compatibility with internal code
-  // Event bus handles all reactive updates now
-}
-
 export function setConfig(config) {
   stateStore.merge('config', {
     data: config,
     loaded: true,
   });
   eventBus.emit(Events.CONFIG_LOADED, { config });
-  notifyStateChange();
 }
 
 /**
@@ -97,7 +90,6 @@ export async function loadMappingSource(index, loadFunction, params) {
     await combineMappingSources();
 
     showMessage(`✅ Mapping ${index + 1} loaded (${termCount} terms)`);
-    notifyStateChange();
 
     return result;
   } catch (error) {
@@ -107,7 +99,6 @@ export async function loadMappingSource(index, loadFunction, params) {
     stateStore.set('mappings.sources', sources);
 
     showMessage(`❌ Failed to load mapping ${index + 1}: ${error.message}`, "error");
-    notifyStateChange();
 
     throw error;
   }
@@ -131,7 +122,6 @@ async function initializeBackendSessionWithRetry(terms) {
       stateStore.merge('session', {
         error: errorMsg,
       });
-      notifyStateChange();
     },
   });
 }
@@ -175,7 +165,6 @@ function updateSessionState(initialized, termCount, error) {
     lastInitialized: initialized ? new Date().toISOString() : null,
     error,
   });
-  notifyStateChange();
 }
 
 /**
@@ -250,7 +239,6 @@ export function initializeSettings() {
     ...settings,
     loaded: true,
   });
-  notifyStateChange();
   return settings;
 }
 
@@ -267,5 +255,4 @@ export function saveSetting(key, value) {
   });
 
   eventBus.emit(Events.SETTING_CHANGED, { key, value });
-  notifyStateChange();
 }

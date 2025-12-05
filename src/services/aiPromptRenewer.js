@@ -1,4 +1,5 @@
 import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { serverFetch } from "../utils/api-fetch.js";
 
 let isGenerating = false;
 let abortController = null;
@@ -42,9 +43,7 @@ async function callBackend(mappings) {
   const serverHost = getHost();
   const headers = getHeaders();
 
-  await fetch(`${serverHost}/test-connection`, { method: "POST" });
-
-  const response = await fetch(`${serverHost}/analyze-patterns`, {
+  const response = await serverFetch(`${serverHost}/analyze-patterns`, {
     method: "POST",
     headers: headers,
     body: JSON.stringify({

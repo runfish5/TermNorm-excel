@@ -80,9 +80,6 @@ export const Events = {
   /** Fired when server reconnects after being offline */
   SERVER_RECONNECTED: 'server:reconnected',
 
-  /** Fired when server connection fails */
-  SERVER_CONNECTION_FAILED: 'server:connection:failed',
-
 
   // ============================================================================
   // TRACKING EVENTS

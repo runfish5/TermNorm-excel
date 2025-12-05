@@ -4,6 +4,31 @@ import { getHost } from "./server-utilities.js";
 import { ERROR_GUIDANCE } from "../config/session.config.js";
 
 /**
+ * Server-aware fetch - updates LED on success/failure
+ * Low-level wrapper around native fetch that handles server status.
+ * Use this when you need raw Response access (e.g., for AbortController).
+ *
+ * @param {string} url - Endpoint (relative or absolute)
+ * @param {Object} options - Standard fetch options (including signal for abort)
+ * @returns {Promise<Response>} Native Response object
+ * @throws {Error} On network failure (after updating LED)
+ */
+export async function serverFetch(url, options = {}) {
+  const fullUrl = url.startsWith("http") ? url : `${getHost()}${url}`;
+
+  try {
+    const response = await fetch(fullUrl, options);
+    setServerStatus(true);
+    return response;
+  } catch (error) {
+    if (error.name !== "AbortError") {
+      setServerStatus(false);
+    }
+    throw error;
+  }
+}
+
+/**
  * Generic API fetch with error handling and state management
  *
  * @param {string} url - API endpoint URL (relative or absolute)
@@ -14,33 +39,25 @@ import { ERROR_GUIDANCE } from "../config/session.config.js";
  */
 export async function apiFetch(url, options = {}) {
   const silent = options.silent;
-  delete options.silent; // Remove before fetch
+  delete options.silent;
 
   if (!silent) showMessage(options.processingMessage || "Processing...", "processing");
 
-  // Handle relative vs absolute URLs
-  const fullUrl = url.startsWith("http") ? url : `${getHost()}${url}`;
-
   try {
-    const response = await fetch(fullUrl, options);
+    const response = await serverFetch(url, options);
     const data = await response.json();
-
-    setServerStatus(true);
 
     if (response.ok) {
       if (!silent) showMessage(data.message || "Operation successful");
       return data.data ?? null;
     }
 
-    // Handle different error types with specific guidance
     if (!silent) {
       const errorMessage = buildErrorMessage(response.status, data);
       showMessage(errorMessage, "error");
     }
     return null;
   } catch (error) {
-    setServerStatus(false);
-
     if (!silent) {
       const errorMessage = `Server offline - Check backend is running on port 8000\n\n${ERROR_GUIDANCE.OFFLINE}`;
       showMessage(errorMessage, "error");
