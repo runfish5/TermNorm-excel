@@ -40,16 +40,13 @@ function calculateSimilarity(words1, words2) {
   return totalScore / Math.max(words1.length, words2.length);
 }
 
-// Exported for testing
 export function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   const queryWords = normalizeText(query);
   return candidates
-    .map(c => ({ text: c, similarity: calculateSimilarity(queryWords, normalizeText(c)) }))
-    .map(r => ({ ...r, isMatch: r.similarity >= threshold }))
+    .map(c => { const similarity = calculateSimilarity(queryWords, normalizeText(c)); return { text: c, similarity, isMatch: similarity >= threshold }; })
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-// Exported for testing
 export function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   if (!query || !mappingData) return null;
 
@@ -81,7 +78,6 @@ export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY
   return null;
 }
 
-// Exported for testing
 export function getAllMatches(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   if (!query || !mappingData) return [];
 
