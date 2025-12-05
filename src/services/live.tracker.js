@@ -78,49 +78,28 @@ const handleWorksheetChange = async (e, tracker) => {
     await ctx.sync();
 
     const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
-
-    // Count tracked cells for paste detection
-    let trackedCount = 0;
+    const cells = [];
     for (let r = 0; r < rowCount; r++) {
       for (let c = 0; c < columnCount; c++) {
-        if (rowIndex + r > 0 && tracker.columnMap.has(columnIndex + c)) trackedCount++;
+        const row = rowIndex + r, col = columnIndex + c, targetCol = tracker.columnMap.get(col);
+        if (row > 0 && targetCol !== undefined) cells.push({ row, col, targetCol, value: values[r][c] });
       }
     }
 
-    if (trackedCount >= 2) {
-      for (let r = 0; r < rowCount; r++) {
-        for (let c = 0; c < columnCount; c++) {
-          const row = rowIndex + r, col = columnIndex + c;
-          if (row > 0 && tracker.columnMap.has(col) && values[r][c]) {
-            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
-          }
-        }
-      }
+    if (cells.filter(c => c.value).length >= 2) {
+      cells.filter(c => c.value).forEach(c => ws.getRangeByIndexes(c.row, c.col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING);
       await ctx.sync();
-      showMessage(`Paste detected (${trackedCount} cells). Edit individually to process.`, "warning");
-      return;
+      return showMessage(`Paste detected (${cells.length} cells). Edit individually to process.`, "warning");
     }
 
-    const tasks = [];
-    for (let r = 0; r < rowCount; r++) {
-      for (let c = 0; c < columnCount; c++) {
-        const row = rowIndex + r, col = columnIndex + c;
-        const targetCol = tracker.columnMap.get(col);
-        const value = values[r][c];
+    const tasks = cells.filter(c => c.value).map(({ row, col, targetCol, value }) => {
+      const cellKey = `${row}:${col}`, cleanValue = String(value).trim(), state = getWorkbookCellState(tracker.workbookId, cellKey);
+      if (state?.status === "processing" || state?.value === cleanValue) return null;
+      setCellState(tracker.workbookId, cellKey, { value: cleanValue, status: "processing", row, col, targetCol });
+      ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
+      return () => processCell(row, col, targetCol, cleanValue, tracker);
+    }).filter(Boolean);
 
-        if (row > 0 && targetCol && value) {
-          const cellKey = `${row}:${col}`;
-          const cleanValue = String(value || "").trim();
-          const state = getWorkbookCellState(tracker.workbookId, cellKey);
-
-          if (state?.status !== "processing" && state?.value !== cleanValue) {
-            setCellState(tracker.workbookId, cellKey, { value: cleanValue, status: "processing", row, col, targetCol });
-            ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING;
-            tasks.push(() => processCell(row, col, targetCol, cleanValue, tracker));
-          }
-        }
-      }
-    }
     await ctx.sync();
     for (const task of tasks) await task();
   });
@@ -184,37 +163,31 @@ async function processCell(row, col, targetCol, value, tracker) {
   }
 }
 
+const makeResult = (target, method, confidence, source, extras = {}) => ({ target, method, confidence, timestamp: new Date().toISOString(), source, candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle", ...extras });
+
 async function handleCellError(row, col, targetCol, value, error, outputCellKey, tracker) {
   const errorMsg = error?.message || String(error);
-  const timestamp = new Date().toISOString();
-
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
     const ws = ctx.workbook.worksheets.getActiveWorksheet();
     ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.ERROR;
-    const tgtCell = ws.getRangeByIndexes(row, targetCol, 1, 1);
-    tgtCell.values = [[errorMsg]];
-    tgtCell.format.fill.color = PROCESSING_COLORS.ERROR;
+    ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[errorMsg]];
+    ws.getRangeByIndexes(row, targetCol, 1, 1).format.fill.color = PROCESSING_COLORS.ERROR;
     const confCol = tracker.confidenceColumnMap.get(col);
     if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[0]];
     await ctx.sync();
     ctx.runtime.enableEvents = true;
   });
-
-  logResult(tracker.workbookId, outputCellKey, value, { target: errorMsg, method: "error", confidence: 0, timestamp, source: value, candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle" }, "error", row, targetCol);
+  logResult(tracker.workbookId, outputCellKey, value, makeResult(errorMsg, "error", 0, value), "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
-  const timestamp = new Date().toISOString();
-  const choiceResult = { target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp, source: value, candidates: null, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null, total_time: null, llm_provider: null, web_search_status: "idle" };
-
+  const result = makeResult(choice.candidate, "UserChoice", choice.relevance_score, value, { entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
-  logResult(tracker.workbookId, outputCellKey, value, choiceResult, "complete", row, targetCol);
-
+  logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
   try {
-    const { apiPost } = await import("../utils/api-fetch.js");
-    const { getHost, getHeaders } = await import("../utils/server-utilities.js");
-    await apiPost(`${getHost()}/log-activity`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp }, getHeaders());
+    const [{ apiPost }, { getHost, getHeaders }] = await Promise.all([import("../utils/api-fetch.js"), import("../utils/server-utilities.js")]);
+    await apiPost(`${getHost()}/log-activity`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders());
   } catch {}
 }
 
