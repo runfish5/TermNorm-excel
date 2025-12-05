@@ -35,16 +35,6 @@ export function addEvent(event) {
 }
 
 /**
- * Get all events
- * Returns a copy to prevent external mutation
- *
- * @returns {Array} Copy of events array
- */
-export function getEvents() {
-  return [...sessionEvents];
-}
-
-/**
  * Clear all events
  */
 export function clearEvents() {

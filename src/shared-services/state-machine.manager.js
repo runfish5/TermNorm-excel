@@ -41,14 +41,6 @@ export const state = new Proxy({}, {
   }
 });
 
-export function setConfig(config) {
-  stateStore.merge('config', {
-    data: config,
-    loaded: true,
-  });
-  eventBus.emit(Events.CONFIG_LOADED, { config });
-}
-
 /**
  * Load Mapping Source - Simplified (stateless backend)
  */

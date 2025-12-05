@@ -171,10 +171,6 @@ export function updateHistoryTabCounter() {
   }
 }
 
-export function getCount() {
-  return getEventCount();
-}
-
 /**
  * Handle cell selection from Excel - switch to history tab, scroll to entry, show details
  * @param {string|null} cellKey - Cell key (row:col format) for current session

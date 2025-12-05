@@ -6,11 +6,36 @@ import {
   setupMappingConfigEvents,
   loadMappingConfigData,
 } from "./mapping-config-functions.js";
-import { getStateValue, setConfig as setConfigAction, setServerHost } from "../core/state-actions.js";
-import { setConfig } from "../shared-services/state-machine.manager.js";
+import { getStateValue, setConfig, setServerHost } from "../core/state-actions.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "./view-manager.js";
 import { showMessage } from "../utils/error-display.js";
+
+// Module-level mapping modules array (replaces window.mappingModules)
+let mappingModules = [];
+
+/**
+ * Extract and validate project config for a workbook
+ * @param {Object} configData - Raw config data
+ * @param {string} workbook - Workbook name
+ * @returns {Object} Project config with standard_mappings
+ * @throws {Error} If config invalid or workbook not found
+ */
+function extractProjectConfig(configData, workbook) {
+  if (!configData?.["excel-projects"]) {
+    throw new Error("Invalid config - missing excel-projects");
+  }
+
+  const projects = configData["excel-projects"];
+  const config = projects[workbook] || projects["*"];
+
+  if (!config?.standard_mappings?.length) {
+    const available = Object.keys(projects).join(", ");
+    throw new Error(`No config for "${workbook}". Available: ${available}`);
+  }
+
+  return config;
+}
 
 function setStepStates(s1, s2, s3, s4) {
   document.querySelectorAll("#setup-view .settings-group").forEach((el, i) => {
@@ -45,18 +70,7 @@ export async function loadStaticConfig() {
 
     if (configData.backend_url) updateBackendUrl(configData.backend_url);
 
-    if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config - missing excel-projects");
-    }
-
-    const projects = configData["excel-projects"];
-    const config = projects[workbook] || projects["*"];
-
-    if (!config?.standard_mappings?.length) {
-      const available = Object.keys(projects).join(", ");
-      throw new Error(`No config for "${workbook}". Available: ${available}`);
-    }
-
+    const config = extractProjectConfig(configData, workbook);
     setConfig({ ...config, workbook }, configData);
 
     await ensureUISetup();
@@ -137,19 +151,8 @@ async function loadConfigData(configData, fileName) {
   try {
     if (configData.backend_url) updateBackendUrl(configData.backend_url);
 
-    if (!configData?.["excel-projects"]) {
-      throw new Error("Invalid config - missing excel-projects");
-    }
-
     const workbook = await getCurrentWorkbookName();
-    const projects = configData["excel-projects"];
-    const config = projects[workbook] || projects["*"];
-
-    if (!config?.standard_mappings?.length) {
-      const available = Object.keys(projects).join(", ");
-      throw new Error(`No config for "${workbook}". Available: ${available}`);
-    }
-
+    const config = extractProjectConfig(configData, workbook);
     setConfig({ ...config, workbook }, configData);
 
     await ensureUISetup();
@@ -176,7 +179,7 @@ async function ensureUISetup() {
   }
 
   // Initialize global modules if needed
-  window.mappingModules = window.mappingModules || [];
+  mappingModules = mappingModules || [];
 }
 
 export async function reloadMappingModules() {
@@ -194,10 +197,10 @@ export async function reloadMappingModules() {
 
   // Reset state
   container.innerHTML = "";
-  window.mappingModules = [];
+  mappingModules = [];
 
   // Create new modules using direct functions
-  window.mappingModules = standardMappings.map((config, index) => {
+  mappingModules = standardMappings.map((config, index) => {
     const elementId = `mapping-config-${index}`;
 
     try {

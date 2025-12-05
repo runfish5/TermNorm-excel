@@ -1,4 +1,5 @@
 import { getStateValue } from "../core/state-actions.js";
+import { showMessage } from "./error-display.js";
 
 export function updateMatcherIndicator() {
   const indicator = document.getElementById("matcher-status-indicator");
@@ -76,5 +77,5 @@ function showMatcherDetails() {
     details += `✅ Exact/Fuzzy\n⚠️ LLM unavailable\n`;
   }
 
-  alert(details);
+  showMessage(details);
 }

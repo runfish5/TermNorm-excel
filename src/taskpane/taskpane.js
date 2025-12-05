@@ -182,8 +182,6 @@ Office.onReady(async (info) => {
     }
   });
 
-  window.showView = showView;
-
   updateContentMargin();
   const statusMessage = document.getElementById("main-status-message");
   if (statusMessage) {
@@ -198,7 +196,6 @@ Office.onReady(async (info) => {
   window.addEventListener("resize", updateContentMargin);
   try {
     await loadStaticConfig();
-    Object.assign(window, { mappingModules: [] });
   } catch (error) {
     console.error("Failed to initialize:", error);
     showMessage(`Initialization failed: ${error.message}`, "error");
