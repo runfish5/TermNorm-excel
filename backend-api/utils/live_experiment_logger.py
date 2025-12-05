@@ -69,8 +69,8 @@ class LiveExperimentLogger:
 
         # Check all runs (run directories are directly under experiment, not under /runs/)
         for run_dir in exp_path.iterdir():
-            # Skip non-directories and special files (meta.yaml, etc.)
-            if not run_dir.is_dir() or run_dir.name in ("runs", "models"):
+            # Skip non-directories, special directories, and metadata files
+            if not run_dir.is_dir() or run_dir.name in ("runs", "models", "tags", "traces"):
                 continue
 
             meta_file = run_dir / "meta.yaml"
@@ -84,7 +84,8 @@ class LiveExperimentLogger:
 
             # Check if this run is for today and still active
             if meta.get("run_name", "").startswith(run_name_prefix):
-                if meta.get("status") in ["RUNNING", None]:
+                # MLflow uses numeric status: 1=RUNNING, 3=FINISHED, 4=FAILED, 5=KILLED
+                if meta.get("status") in [1, "RUNNING", None]:
                     return run_dir.name
 
         return None

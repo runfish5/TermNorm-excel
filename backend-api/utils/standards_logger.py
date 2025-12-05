@@ -151,15 +151,24 @@ class RunManager:
         (run_path / "artifacts").mkdir(exist_ok=True)
         (run_path / "artifacts" / "traces").mkdir(exist_ok=True)
 
-        # Create meta.yaml
+        # Create meta.yaml with all MLflow-required RunInfo fields
+        artifacts_path = (run_path / "artifacts").resolve()
         meta = {
             "run_id": run_id,
+            "run_uuid": run_id,  # MLflow expects run_uuid = run_id
             "run_name": run_name,
             "experiment_id": self.experiment_id,
             "status": 1,  # 1=RUNNING, 3=FINISHED (MLflow requires numeric)
             "start_time": int(time.time() * 1000),
             "end_time": None,
             "lifecycle_stage": "active",
+            "source_type": 4,  # LOCAL (MLflow SourceType enum)
+            "source_name": "",
+            "source_version": "",
+            "entry_point_name": "",
+            "user_id": "system",
+            "artifact_uri": f"file:///{artifacts_path.as_posix()}",
+            "tags": [],
         }
 
         self._write_yaml(run_path / "meta.yaml", meta)
