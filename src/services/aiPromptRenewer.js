@@ -1,19 +1,13 @@
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { serverFetch } from "../utils/api-fetch.js";
 
-let isGenerating = false;
-let abortController = null;
+let isGenerating = false, abortController = null;
 
 export async function renewPrompt(mappings, config, showStatus) {
-  if (isGenerating) {
-    abortController?.abort();
-    return;
-  }
+  if (isGenerating) { abortController?.abort(); return; }
 
-  if (!hasMappings(mappings)) {
-    showStatus("No mappings available. Load mapping table first.", true);
-    return;
-  }
+  const fwdKeys = Object.keys(mappings?.forward || {}), revKeys = Object.keys(mappings?.reverse || {});
+  if (!fwdKeys.length && !revKeys.length) return showStatus("No mappings available. Load mapping table first.", true);
 
   isGenerating = true;
   abortController = new AbortController();
@@ -22,91 +16,34 @@ export async function renewPrompt(mappings, config, showStatus) {
   try {
     showStatus("Generating new prompt...", false);
 
-    const result = await callBackend(mappings);
+    const forward = Object.fromEntries(Object.entries(mappings?.forward || {}).map(([k, v]) => [k, typeof v === "string" ? v : v?.target || v?.value || String(v)]));
+    const entries = Object.entries(mappings?.forward || {});
+    const methods = {}, confidences = [];
+    entries.forEach(([, v]) => { const d = typeof v === "string" ? { method: "legacy", confidence: 1 } : v; methods[d.method] = (methods[d.method] || 0) + 1; confidences.push(d.confidence || 1); });
+
+    const response = await serverFetch(`${getHost()}/analyze-patterns`, {
+      method: "POST", headers: getHeaders(), signal: abortController.signal,
+      body: JSON.stringify({
+        dictionary: forward, project_name: mappings?.metadata?.project_name || "unnamed_project",
+        bidirectional: fwdKeys.length > 0 && revKeys.length > 0,
+        mapping_metadata: { methods, confidence_stats: confidences.length ? { min: Math.min(...confidences), max: Math.max(...confidences), avg: confidences.reduce((a, b) => a + b) / confidences.length } : { min: 1, max: 0, avg: 0 }, total_mappings: entries.length },
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Backend ${response.status}: ${await response.text()}`);
+    const result = await response.json();
     if (!result?.final_prompt) throw new Error("No prompt generated");
 
     config.standardization_prompt ??= [];
     config.standardization_prompt.push(result.final_prompt);
-
     showStatus("New prompt generated and saved", false);
   } catch (error) {
     const cancelled = error.name === "AbortError" || error.message?.includes("499");
     showStatus(cancelled ? "Generation cancelled" : `Failed: ${error.message}`, !cancelled);
-  } finally {
-    isGenerating = false;
-    abortController = null;
-    updateButton(false);
-  }
-}
-
-async function callBackend(mappings) {
-  const serverHost = getHost();
-  const headers = getHeaders();
-
-  const response = await serverFetch(`${serverHost}/analyze-patterns`, {
-    method: "POST",
-    headers: headers,
-    body: JSON.stringify({
-      dictionary: toStrings(mappings?.forward),
-      project_name: mappings?.metadata?.project_name || "unnamed_project",
-      bidirectional: hasBoth(mappings),
-      mapping_metadata: getStats(mappings),
-    }),
-    signal: abortController.signal,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Backend ${response.status}: ${error}`);
-  }
-
-  return response.json();
-}
-
-function hasMappings(mappings) {
-  return Object.keys(mappings?.forward || {}).length > 0 || Object.keys(mappings?.reverse || {}).length > 0;
-}
-
-function hasBoth(mappings) {
-  return Object.keys(mappings?.forward || {}).length > 0 && Object.keys(mappings?.reverse || {}).length > 0;
-}
-
-function toStrings(forward = {}) {
-  const result = {};
-  for (const [key, val] of Object.entries(forward)) {
-    result[key] = typeof val === "string" ? val : val?.target || val?.value || String(val);
-  }
-  return result;
-}
-
-function getStats(mappings) {
-  const entries = Object.entries(mappings?.forward || {});
-  if (!entries.length) return { methods: {}, confidence_stats: { min: 1, max: 0, avg: 0 }, total_mappings: 0 };
-
-  const methods = {};
-  const confidences = [];
-
-  entries.forEach(([, val]) => {
-    const data = typeof val === "string" ? { method: "legacy", confidence: 1.0 } : val;
-    methods[data.method] = (methods[data.method] || 0) + 1;
-    confidences.push(data.confidence || 1.0);
-  });
-
-  return {
-    methods,
-    confidence_stats: {
-      min: Math.min(...confidences),
-      max: Math.max(...confidences),
-      avg: confidences.reduce((a, b) => a + b) / confidences.length,
-    },
-    total_mappings: entries.length,
-  };
+  } finally { isGenerating = false; abortController = null; updateButton(false); }
 }
 
 function updateButton(generating) {
   const btn = document.getElementById("renew-prompt");
-  if (btn) {
-    btn.textContent = generating ? "Cancel Generation🤖" : "Renew Prompt🤖";
-    btn.classList.toggle("generating", generating);
-  }
+  if (btn) { btn.textContent = generating ? "Cancel Generation🤖" : "Renew Prompt🤖"; btn.classList.toggle("generating", generating); }
 }
