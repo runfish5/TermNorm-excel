@@ -33,11 +33,17 @@ backend-api/logs/app.log
 **/artifacts/traces/*.json
 !**/artifacts/traces/.gitkeep
 
-# MLflow traces - ignore all except one example
-backend-api/logs/experiments/*/traces/
+# MLflow 0_production_realtime - only track example run and traces
+# Ignore all runs except 2fc6fe2a
+backend-api/logs/experiments/0_production_realtime/*/
+!backend-api/logs/experiments/0_production_realtime/2fc6fe2a/
 !backend-api/logs/experiments/0_production_realtime/traces/
+!backend-api/logs/experiments/0_production_realtime/tags/
+
+# Ignore all traces except two examples
 backend-api/logs/experiments/0_production_realtime/traces/*/
 !backend-api/logs/experiments/0_production_realtime/traces/0a14407cd267/
+!backend-api/logs/experiments/0_production_realtime/traces/379df3205c52/
 
 # Ignore entire 1_production_historical (your local dev data)
 backend-api/logs/experiments/1_production_historical/
