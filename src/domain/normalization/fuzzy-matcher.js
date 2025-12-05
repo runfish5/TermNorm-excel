@@ -1,4 +1,5 @@
 /** Fuzzy Matcher - Second tier of three-tier pipeline: Exact → Fuzzy → LLM */
+import { FUZZY_THRESHOLDS } from "../../config/normalization.config.js";
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/[^\w\s%]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 0);
@@ -40,7 +41,7 @@ function calculateSimilarity(words1, words2) {
 }
 
 // Exported for testing
-export function fuzzyMatch(query, candidates, threshold = 0.6) {
+export function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   const queryWords = normalizeText(query);
   return candidates
     .map(c => ({ text: c, similarity: calculateSimilarity(queryWords, normalizeText(c)) }))
@@ -49,7 +50,7 @@ export function fuzzyMatch(query, candidates, threshold = 0.6) {
 }
 
 // Exported for testing
-export function findBestMatch(query, mappingData, threshold = 0.6) {
+export function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   if (!query || !mappingData) return null;
 
   const isMap = mappingData instanceof Map;
@@ -64,7 +65,7 @@ export function findBestMatch(query, mappingData, threshold = 0.6) {
     : null;
 }
 
-export function findFuzzyMatch(value, forward, reverse, forwardThreshold = 0.7, reverseThreshold = 0.5) {
+export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY_THRESHOLDS.FORWARD, reverseThreshold = FUZZY_THRESHOLDS.REVERSE) {
   const normalized = value ? String(value).trim() : '';
   if (!normalized) return null;
 
@@ -81,7 +82,7 @@ export function findFuzzyMatch(value, forward, reverse, forwardThreshold = 0.7, 
 }
 
 // Exported for testing
-export function getAllMatches(query, mappingData, threshold = 0.6) {
+export function getAllMatches(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   if (!query || !mappingData) return [];
 
   const isMap = mappingData instanceof Map;

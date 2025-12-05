@@ -4,64 +4,32 @@ export function findColumnIndex(headers, columnName) {
 }
 
 export function buildColumnMap(headers, columnMap, worksheetName = null) {
-  const result = new Map();
-  const missingSources = [];
-  const missingTargets = [];
+  const result = new Map(), missing = [];
 
   Object.entries(columnMap).forEach(([src, tgt]) => {
-    const srcIdx = findColumnIndex(headers, src);
-    const tgtIdx = findColumnIndex(headers, tgt);
-
-    if (srcIdx === -1) missingSources.push(src);
-    else if (tgtIdx === -1) missingTargets.push(tgt);
+    const srcIdx = findColumnIndex(headers, src), tgtIdx = findColumnIndex(headers, tgt);
+    if (srcIdx === -1) missing.push(`source "${src}"`);
+    else if (tgtIdx === -1) missing.push(`target "${tgt}"`);
     else result.set(srcIdx, tgtIdx);
   });
 
-  if (missingSources.length > 0 || missingTargets.length > 0) {
-    // Build concise error message
-    const worksheetInfo = worksheetName ? ` (worksheet: ${worksheetName})` : "";
-    const configuredMappings = Object.entries(columnMap)
-      .map(([src, tgt]) => `    • ${src} → ${tgt}`)
-      .join("\n");
-
-    let errorParts = [`❌ Cannot find required column headers in your Excel worksheet${worksheetInfo}:\n`];
-    errorParts.push(`Your config expects these column mappings:`);
-    errorParts.push(configuredMappings);
-    errorParts.push(`\nNote: Check column headers in row 1 or update column_map in your config file.`);
-
-    throw new Error(errorParts.join("\n"));
+  if (missing.length) {
+    const ws = worksheetName ? ` in ${worksheetName}` : "";
+    throw new Error(`Column headers not found${ws}: ${missing.join(", ")}. Check row 1 or update config.`);
   }
-
   return result;
 }
 
-/**
- * Build confidence column mapping (input column → confidence column)
- * @param {string[]} headers - Excel column headers
- * @param {Object} confidenceColumnMap - Mapping from input column name to confidence column name
- * @param {string} worksheetName - Optional worksheet name for error messages
- * @returns {Map<number, number>} Map from input column index to confidence column index
- */
-export function buildConfidenceColumnMap(headers, confidenceColumnMap, worksheetName = null) {
+export function buildConfidenceColumnMap(headers, confidenceColumnMap) {
   if (!confidenceColumnMap) return { map: new Map(), found: [], missing: [] };
 
-  const result = new Map();
-  const found = [];
-  const missing = [];
+  const map = new Map(), found = [], missing = [];
 
   Object.entries(confidenceColumnMap).forEach(([src, confCol]) => {
-    const srcIdx = findColumnIndex(headers, src);
-    const confIdx = findColumnIndex(headers, confCol);
-
-    if (srcIdx === -1) {
-      missing.push(`${src} (input column not in Excel)`);
-    } else if (confIdx === -1) {
-      missing.push(`${confCol} (header not in Excel row 1)`);
-    } else {
-      result.set(srcIdx, confIdx);
-      found.push(`${src}→${confCol} (cols ${srcIdx}→${confIdx})`);
-    }
+    const srcIdx = findColumnIndex(headers, src), confIdx = findColumnIndex(headers, confCol);
+    if (srcIdx === -1 || confIdx === -1) missing.push(confIdx === -1 ? confCol : src);
+    else { map.set(srcIdx, confIdx); found.push(`${src}→${confCol}`); }
   });
 
-  return { map: result, found, missing };
+  return { map, found, missing };
 }

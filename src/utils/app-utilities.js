@@ -1,4 +1,7 @@
 // utils/app-utilities.js - Consolidated application utilities
+import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../config/normalization.config.js";
+
+export { PROCESSING_COLORS };
 
 export function updateContentMargin() {
   const statusBar = document.querySelector(".status-bar");
@@ -11,14 +14,12 @@ export async function getCurrentWorkbookName() {
 
 export function getRelevanceColor(score) {
   const s = score > 1 ? score / 100 : score;
-  if (s >= 0.9) return "#C6EFCE";
-  if (s >= 0.8) return "#FFEB9C";
-  if (s >= 0.6) return "#FFD1A9";
-  if (s >= 0.2) return "#FFC7CE";
-  return "#E1E1E1";
+  if (s >= RELEVANCE_THRESHOLDS.EXCELLENT) return RELEVANCE_COLORS.EXCELLENT;
+  if (s >= RELEVANCE_THRESHOLDS.GOOD) return RELEVANCE_COLORS.GOOD;
+  if (s >= RELEVANCE_THRESHOLDS.MODERATE) return RELEVANCE_COLORS.MODERATE;
+  if (s >= RELEVANCE_THRESHOLDS.LOW) return RELEVANCE_COLORS.LOW;
+  return RELEVANCE_COLORS.NONE;
 }
-
-export const PROCESSING_COLORS = { PENDING: "#FFFB9D", ERROR: "#FFC7CE", CLEAR: null };
 
 const version = "1.0.2", commit = "ab11d3a", commitDate = "2025-11-27 18:56", branch = "master", repository = "runfish5/TermNorm-excel";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
