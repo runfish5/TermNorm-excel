@@ -7,6 +7,9 @@ import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilitie
 import { writeCellResult } from "../utils/cell-writing.js";
 import { addEntry as addHistoryEntry } from "../ui-components/processing-history.js";
 import { showMessage } from "../utils/error-display.js";
+import { findTargetBySource } from "../utils/history-cache.js";
+import { apiPost } from "../utils/api-fetch.js";
+import { getHost, getHeaders } from "../utils/server-utilities.js";
 
 const activeTrackers = new Map();
 const activationInProgress = new Set();
@@ -121,11 +124,7 @@ const handleSelectionChange = async (e, tracker) => {
 
     const targetCol = tracker.columnMap.get(col);
     if (targetCol !== undefined) {
-      let targetId = tracker.mappings.forward[cleanedValue];
-      if (!targetId) {
-        const { findTargetBySource } = await import("../utils/history-cache.js");
-        targetId = findTargetBySource(cleanedValue);
-      }
+      const targetId = tracker.mappings.forward[cleanedValue] || findTargetBySource(cleanedValue);
       if (targetId) eventBus.emit(Events.CELL_SELECTED, { cellKey: null, state: null, identifier: targetId });
       return;
     }
@@ -182,10 +181,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   const result = makeResult(choice.candidate, "UserChoice", choice.relevance_score, value, { entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-  try {
-    const [{ apiPost }, { getHost, getHeaders }] = await Promise.all([import("../utils/api-fetch.js"), import("../utils/server-utilities.js")]);
-    await apiPost(`${getHost()}/log-activity`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders());
-  } catch {}
+  try { await apiPost(`${getHost()}/log-activity`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()); } catch {}
 }
 
 export async function stopTracking(workbookId) {

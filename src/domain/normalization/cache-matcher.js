@@ -1,6 +1,4 @@
 /** Cache Matcher - First tier of three-tier pipeline: Exact → Fuzzy → LLM */
-import { eventBus } from '../../core/event-bus.js';
-import { Events } from '../../core/events.js';
 
 const normalize = (v) => v ? String(v).trim() : '';
 const result = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
@@ -8,17 +6,8 @@ const result = (source, target) => ({ target, method: 'cached', confidence: 1.0,
 export function getCachedMatch(value, forward, reverse) {
   const n = normalize(value);
   if (!n) return null;
-
-  if (n in forward) {
-    const target = typeof forward[n] === 'string' ? forward[n] : forward[n].target;
-    eventBus.emit(Events.CACHE_HIT, { source: n, target, mappingType: 'forward' });
-    return result(n, target);
-  }
-  if (n in reverse) {
-    eventBus.emit(Events.CACHE_HIT, { source: n, target: n, mappingType: 'reverse' });
-    return result(n, n);
-  }
-  eventBus.emit(Events.CACHE_MISS, { source: n });
+  if (n in forward) return result(n, typeof forward[n] === 'string' ? forward[n] : forward[n].target);
+  if (n in reverse) return result(n, n);
   return null;
 }
 
