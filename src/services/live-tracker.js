@@ -166,19 +166,19 @@ async function processCell(row, col, targetCol, value, tracker) {
 const makeResult = (target, method, confidence, source, extras = {}) => ({ target, method, confidence, timestamp: new Date().toISOString(), source, candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle", ...extras });
 
 async function handleCellError(row, col, targetCol, value, error, outputCellKey, tracker) {
-  const errorMsg = error?.message || String(error);
+  const msg = error?.message || String(error);
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    ws.getRangeByIndexes(row, col, 1, 1).format.fill.color = PROCESSING_COLORS.ERROR;
-    ws.getRangeByIndexes(row, targetCol, 1, 1).values = [[errorMsg]];
-    ws.getRangeByIndexes(row, targetCol, 1, 1).format.fill.color = PROCESSING_COLORS.ERROR;
+    const ws = ctx.workbook.worksheets.getActiveWorksheet(), cell = (r, c) => ws.getRangeByIndexes(r, c, 1, 1);
+    cell(row, col).format.fill.color = PROCESSING_COLORS.ERROR;
+    cell(row, targetCol).values = [[msg]];
+    cell(row, targetCol).format.fill.color = PROCESSING_COLORS.ERROR;
     const confCol = tracker.confidenceColumnMap.get(col);
-    if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[0]];
+    if (confCol !== undefined) cell(row, confCol).values = [[0]];
     await ctx.sync();
     ctx.runtime.enableEvents = true;
   });
-  logResult(tracker.workbookId, outputCellKey, value, makeResult(errorMsg, "error", 0, value), "error", row, targetCol);
+  logResult(tracker.workbookId, outputCellKey, value, makeResult(msg, "error", 0, value), "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
