@@ -8,82 +8,61 @@ import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
-export async function loadMappingSource(index, loadFunction, params) {
+export async function loadMappingSource(index, loadFn, params) {
   await checkServerStatus();
+  if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) throw (showMessage("❌ Server required", "error"), new Error("Server required"));
 
-  if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) {
-    const error = "Server connection required to load mappings (disable in Settings for offline mode)";
-    showMessage(`❌ ${error}`, "error");
-    throw new Error(error);
-  }
-
-  const updateSource = (updates) => {
-    const sources = { ...stateStore.get('mappings.sources') };
-    sources[index] = { ...sources[index], ...updates };
-    stateStore.set('mappings.sources', sources);
-  };
-
-  updateSource({ status: "loading", error: null });
-  showMessage("Loading mapping table...");
+  const update = (u) => { const s = { ...stateStore.get('mappings.sources') }; s[index] = { ...s[index], ...u }; stateStore.set('mappings.sources', s); };
+  update({ status: "loading", error: null });
+  showMessage("Loading...");
 
   try {
-    const result = await loadFunction(params);
-    updateSource({ status: "synced", data: result });
+    const result = await loadFn(params);
+    update({ status: "synced", data: result });
     await combineMappingSources();
-    showMessage(`✅ Mapping ${index + 1} loaded (${Object.keys(result.reverse || {}).length} terms)`);
+    showMessage(`✅ ${Object.keys(result.reverse || {}).length} terms loaded`);
     return result;
-  } catch (error) {
-    updateSource({ status: "error", error: error.message, data: null });
-    showMessage(`❌ Failed to load mapping ${index + 1}: ${error.message}`, "error");
-    throw error;
-  }
+  } catch (e) { update({ status: "error", error: e.message, data: null }); showMessage(`❌ ${e.message}`, "error"); throw e; }
 }
 
-async function initializeBackendSessionWithRetry(terms) {
+async function initSessionWithRetry(terms) {
   const { MAX_ATTEMPTS, DELAYS_MS } = SESSION_RETRY;
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    if (await initializeBackendSession(terms)) return true;
+    if (await initSession(terms)) return true;
     if (i < MAX_ATTEMPTS - 1) await new Promise(r => setTimeout(r, DELAYS_MS[i] || DELAYS_MS.at(-1)));
   }
-  stateStore.merge('session', { error: `Session init failed after ${MAX_ATTEMPTS} attempts` });
+  stateStore.merge('session', { error: "Session init failed" });
   return false;
 }
 
-async function initializeBackendSession(terms) {
+async function initSession(terms) {
   try {
     if (await apiPost(`${getHost()}${SESSION_ENDPOINTS.INIT}`, { terms }, getHeaders(), { silent: true })) {
       stateStore.merge('session', { initialized: true, termCount: terms.length, lastInitialized: new Date().toISOString(), error: null });
       return true;
     }
   } catch {}
-  stateStore.merge('session', { initialized: false, termCount: 0, lastInitialized: null, error: "Session init failed" });
+  stateStore.merge('session', { initialized: false, termCount: 0, lastInitialized: null, error: "Failed" });
   return false;
 }
 
 async function combineMappingSources() {
-  const sources = stateStore.get('mappings.sources') || {};
-  const synced = Object.values(sources).filter(s => s.status === "synced" && s.data);
+  const sources = stateStore.get('mappings.sources') || {}, synced = Object.values(sources).filter(s => s.status === "synced" && s.data);
   if (!synced.length) return stateStore.merge('mappings', { combined: null, loaded: false });
 
   const combined = { forward: {}, reverse: {}, metadata: { sources: [] } };
-  synced.forEach((s, i) => {
-    Object.assign(combined.forward, s.data.forward);
-    Object.assign(combined.reverse, s.data.reverse);
-    combined.metadata.sources.push({ index: i + 1, termCount: Object.keys(s.data.reverse || {}).length });
-  });
+  synced.forEach((s, i) => { Object.assign(combined.forward, s.data.forward); Object.assign(combined.reverse, s.data.reverse); combined.metadata.sources.push({ index: i + 1, termCount: Object.keys(s.data.reverse || {}).length }); });
 
   stateStore.merge('mappings', { combined, loaded: true });
   eventBus.emit(Events.MAPPINGS_LOADED, { mappings: combined });
 
   const terms = Object.keys(combined.reverse);
-  if (terms.length && !(await initializeBackendSessionWithRetry(terms))) {
-    showMessage("⚠️ Backend session init failed. LLM features unavailable.", "error");
-  }
+  if (terms.length && !(await initSessionWithRetry(terms))) showMessage("⚠️ Session failed - LLM unavailable", "error");
 }
 
 export async function reinitializeSession() {
   const terms = Object.keys(stateStore.get('mappings.combined')?.reverse || {});
-  return terms.length ? initializeBackendSessionWithRetry(terms) : false;
+  return terms.length ? initSessionWithRetry(terms) : false;
 }
 
 export function initializeSettings() {

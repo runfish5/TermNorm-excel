@@ -90,18 +90,19 @@ function displayDetailsPanel(d, row) {
   if (!row.isConnected && d.identifier) row = tableBody?.querySelector(`[data-identifier="${CSS.escape(d.identifier)}"]`);
   if (!row) return;
 
-  const aliases = Object.entries(d.aliases || {});
-  const p = d.entity_profile;
-  const profile = p ? `<div class="profile-field"><strong>Name:</strong> ${p.entity_name || p.name || "N/A"}</div><div class="profile-field"><strong>Core Concept:</strong> ${p.core_concept || "N/A"}</div><div class="profile-field"><strong>Key Features:</strong> ${p.distinguishing_features?.slice(0, 5).join(", ") || p.key_features?.join(", ") || "N/A"}</div>` : "<p>No profile</p>";
+  const aliases = Object.entries(d.aliases || {}), p = d.entity_profile;
+  const profile = p ? `<div><strong>Name:</strong> ${p.entity_name || p.name || "N/A"}</div><div><strong>Core:</strong> ${p.core_concept || "N/A"}</div><div><strong>Features:</strong> ${p.distinguishing_features?.slice(0, 5).join(", ") || p.key_features?.join(", ") || "N/A"}</div>` : "<p>No profile</p>";
+  const aliasHTML = aliases.map(([a, i]) => `<div class="list-item-bordered"><span>${a}</span><span class="badge badge-sm ${i.method}">${i.method}</span><span>${Math.round((i.confidence || 0) * 100)}%</span></div>`).join("") || "<div>None</div>";
+  const srcHTML = d.web_sources?.map(s => `<li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>`).join("") || "<li>None</li>";
 
-  const expanded = document.createElement("tr");
-  expanded.className = "history-row expanded-details";
-  expanded.dataset.identifier = d.identifier || "";
-  expanded.innerHTML = `<td colspan="5" class="details-cell"><div class="inline-details-panel"><div class="details-header"><div class="details-title"><strong>Target:</strong> ${d.identifier || "Unknown"}</div><button class="btn-collapse" title="Collapse">▲</button></div><div class="details-content"><div class="detail-section"><h5>Entity Profile</h5><div class="card-sm card-muted">${profile}</div></div><div class="detail-section"><h5>Matched Aliases (${aliases.length})</h5><div class="card-sm card-muted">${aliases.map(([a, i]) => `<div class="list-item-bordered"><span class="name">${a}</span><span class="badge badge-sm badge-uppercase ${i.method}">${i.method}</span><span class="score">${Math.round((i.confidence || 0) * 100)}%</span></div>`).join("") || "<div>No aliases</div>"}</div></div><div class="detail-section"><h5>Web Sources (${d.web_sources?.length || 0})</h5><ul class="list-plain list-scrollable">${d.web_sources?.map(s => `<li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>`).join("") || "<li>No sources</li>"}</ul></div><div class="detail-meta"><span>Last updated: ${d.last_updated ? new Date(d.last_updated).toLocaleString() : "N/A"}</span></div></div></div></td>`;
+  const tr = document.createElement("tr");
+  tr.className = "history-row expanded-details";
+  tr.dataset.identifier = d.identifier || "";
+  tr.innerHTML = `<td colspan="5" class="details-cell"><div class="inline-details-panel"><div class="details-header"><div class="details-title"><strong>Target:</strong> ${d.identifier || "?"}</div><button class="btn-collapse">▲</button></div><div class="details-content"><div class="detail-section"><h5>Profile</h5><div class="card-sm card-muted">${profile}</div></div><div class="detail-section"><h5>Aliases (${aliases.length})</h5><div class="card-sm card-muted">${aliasHTML}</div></div><div class="detail-section"><h5>Sources (${d.web_sources?.length || 0})</h5><ul class="list-plain list-scrollable">${srcHTML}</ul></div><div class="detail-meta">${d.last_updated ? new Date(d.last_updated).toLocaleString() : ""}</div></div></div></td>`;
 
-  row.parentNode.replaceChild(expanded, row);
-  expandedRowState = { originalRow: row.cloneNode(true), expandedRow: expanded };
-  expanded.querySelector(".btn-collapse").onclick = (e) => { e.stopPropagation(); collapseExpandedRow(); };
+  row.parentNode.replaceChild(tr, row);
+  expandedRowState = { originalRow: row.cloneNode(true), expandedRow: tr };
+  tr.querySelector(".btn-collapse").onclick = (e) => { e.stopPropagation(); collapseExpandedRow(); };
 }
 
 export function populateFromCache(entries) {
