@@ -796,6 +796,12 @@ class TraceLogger:
 
         return {"spans": all_spans}
 
+    def _write_yaml(self, file_path: Path, data: Dict):
+        """Write proper YAML format."""
+        import yaml
+        with open(file_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
     def save_trace(self, trace_id: str):
         """Save trace to disk (legacy method, calls both formats)."""
         self._save_langfuse_trace(trace_id)
