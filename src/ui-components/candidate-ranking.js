@@ -24,7 +24,30 @@ export function addCandidate(value, result, context) {
   const section = container.querySelector("#candidate-ranking-section");
   if (!section) return;
 
-  section.innerHTML = `<div class="candidate-entry"><div class="candidate-header">Input: "${value}"</div><div class="candidate-inline-header"><button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First</button><span class="candidate-drag-hint">Drag to reorder</span></div><table class="candidate-table"><thead><tr><th>🔀</th>${cols.map(c => `<th>${names[c] || c.replace(/_/g, " ")}</th>`).join("")}</tr></thead><tbody>${candidatesData.map((c, i) => `<tr draggable="true" data-index="${i}"><td class="drag-handle">⋮⋮</td>${cols.map(col => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  section.innerHTML = `
+    <div class="candidate-entry">
+      <div class="candidate-header">Input: "${value}"</div>
+      <div class="candidate-inline-header">
+        <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First</button>
+        <span class="candidate-drag-hint">Drag to reorder</span>
+      </div>
+      <table class="candidate-table">
+        <thead>
+          <tr>
+            <th>🔀</th>
+            ${cols.map(c => `<th>${names[c] || c.replace(/_/g, " ")}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${candidatesData.map((c, i) => `
+            <tr draggable="true" data-index="${i}">
+              <td class="drag-handle">⋮⋮</td>
+              ${cols.map(col => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>`;
 
   setupDragDrop(section);
   const btn = section.querySelector("#apply-first");

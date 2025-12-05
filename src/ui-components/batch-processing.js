@@ -11,7 +11,39 @@ export function init() {
   const view = $("results-view");
   if (!view) return false;
   const section = Object.assign(document.createElement("div"), { id: "batch-processing-section", className: "card card-lg card-muted" });
-  section.innerHTML = `<details class="card batch-collapsible"><summary class="panel-header panel-header-collapsible batch-header">Batch Processing</summary><div class="batch-content"><p class="batch-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p><button id="select-range-btn" class="ms-Button ms-Button--primary"><span class="ms-Button-label">Select Range in Excel</span></button><div id="range-display" class="range-display hidden"><span class="range-label">Selected:</span><span id="range-address" class="range-address">-</span><span id="range-count" class="range-count">0 cells</span></div><div class="context-input-section"><label for="batch-context">Context Message (optional):</label><textarea id="batch-context" class="input input-md input-full input-textarea" placeholder="Provide additional context..." rows="3"></textarea></div><div class="batch-actions"><button id="batch-process-btn" class="ms-Button ms-Button--primary" disabled><span class="ms-Button-label">Process Batch</span></button><button id="cancel-batch-btn" class="ms-Button ms-Button--default"><span class="ms-Button-label">Clear</span></button></div><div id="batch-progress" class="batch-progress hidden"><div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div><div class="progress-text">Processing: 0 / 0</div></div></div></details>`;
+  section.innerHTML = `
+    <details class="card batch-collapsible">
+      <summary class="panel-header panel-header-collapsible batch-header">Batch Processing</summary>
+      <div class="batch-content">
+        <p class="batch-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p>
+        <button id="select-range-btn" class="ms-Button ms-Button--primary">
+          <span class="ms-Button-label">Select Range in Excel</span>
+        </button>
+        <div id="range-display" class="range-display hidden">
+          <span class="range-label">Selected:</span>
+          <span id="range-address" class="range-address">-</span>
+          <span id="range-count" class="range-count">0 cells</span>
+        </div>
+        <div class="context-input-section">
+          <label for="batch-context">Context Message (optional):</label>
+          <textarea id="batch-context" class="input input-md input-full input-textarea" placeholder="Provide additional context..." rows="3"></textarea>
+        </div>
+        <div class="batch-actions">
+          <button id="batch-process-btn" class="ms-Button ms-Button--primary" disabled>
+            <span class="ms-Button-label">Process Batch</span>
+          </button>
+          <button id="cancel-batch-btn" class="ms-Button ms-Button--default">
+            <span class="ms-Button-label">Clear</span>
+          </button>
+        </div>
+        <div id="batch-progress" class="batch-progress hidden">
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:0%"></div>
+          </div>
+          <div class="progress-text">Processing: 0 / 0</div>
+        </div>
+      </div>
+    </details>`;
   view.appendChild(section);
   $("select-range-btn")?.addEventListener("click", selectRange);
   $("batch-process-btn")?.addEventListener("click", processBatch);
