@@ -8,7 +8,6 @@ let currentContext = null;
 
 // CHECKPOINT 6: Listen to candidates available event
 eventBus.on(Events.CANDIDATES_AVAILABLE, ({ source, result, applyChoice }) => {
-  console.log("[CandidateRanking] Received candidates available event");
   addCandidate(source, result, { applyChoice });
 });
 
@@ -75,9 +74,9 @@ export function addCandidate(value, result, context) {
   rankedContainer.innerHTML = `
         <div class="candidate-entry">
             <div class="candidate-header">Input: "${value}"</div>
-            <div style="display: flex; align-items: center; margin-bottom: 10px; gap: 10px;">
+            <div class="candidate-inline-header">
                 <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
-                <span style="color: #666; font-size: 14px;">Drag rows to reorder</span>
+                <span class="candidate-drag-hint">Drag rows to reorder</span>
             </div>
             <table class="candidate-table">
                 <thead><tr><th>🔀</th>${columns
@@ -115,29 +114,30 @@ function setupFirstChoice(containerElement) {
     const first = candidatesData[0];
     if (!first || !currentContext) return;
 
-    const feedback = showFeedback(containerElement, "Processing...", "#f3f2f1");
+    const feedback = showFeedback(containerElement, "Processing...", "bg-muted");
 
     try {
       await currentContext.applyChoice(first);
       feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${
         first.core_concept_score || first.spec_score || first.relevance_score || "N/A"
       }`;
-      feedback.style.background = "#d4edda";
+      feedback.classList.remove("bg-muted");
+      feedback.classList.add("bg-success");
       setTimeout(() => feedback.remove(), 3000);
     } catch (error) {
       feedback.innerHTML = "❌ Error: Failed to apply first choice";
-      feedback.style.background = "#f8d7da";
+      feedback.classList.remove("bg-muted");
+      feedback.classList.add("bg-error");
       setTimeout(() => feedback.remove(), 3000);
     }
   };
 }
 
-function showFeedback(containerElement, message, bg) {
+function showFeedback(containerElement, message, bgClass = "bg-muted") {
   let feedback = containerElement.querySelector(".feedback");
   if (!feedback) {
     feedback = document.createElement("div");
-    feedback.className = "feedback";
-    feedback.style.cssText = `padding:8px;margin:8px 0;border-radius:4px;background:${bg};`;
+    feedback.className = "feedback p-md mb-md rounded-lg";
     const table = containerElement.querySelector("table");
     if (table) {
       table.before(feedback);
@@ -145,6 +145,9 @@ function showFeedback(containerElement, message, bg) {
       containerElement.appendChild(feedback);
     }
   }
+  // Update background class
+  feedback.classList.remove("bg-muted", "bg-success", "bg-error");
+  feedback.classList.add(bgClass);
   feedback.innerHTML = message;
   return feedback;
 }

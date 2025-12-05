@@ -554,3 +554,251 @@
 .help-modal.hidden {
     display: none;
 }
+
+/* ===================================
+   CONFIG PANEL COMPONENTS
+   =================================== */
+
+/* Deployment info banner */
+.info-banner {
+    background: #e6f3ff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    border-left: 3px solid #0078d4;
+    font-size: 12px;
+    color: #323130;
+}
+
+/* Path display section */
+.path-section {
+    background: #f9f9f9;
+    padding: 14px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.path-section-label {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    color: #323130;
+}
+
+/* Code path box with copy button */
+.code-path-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    padding: 8px;
+    border: 1px solid #d1d1d1;
+    border-radius: 3px;
+    box-sizing: border-box;
+}
+
+.code-path-box code {
+    flex: 1;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    color: #0078d4;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.btn-copy {
+    background: #0078d4;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.btn-copy:hover {
+    background: #005a9e;
+}
+
+/* Hint text below inputs */
+.hint-text {
+    margin: 4px 0 0 0;
+    font-size: 11px;
+    color: #797775;
+    word-wrap: break-word;
+}
+
+/* Collapsible details sections */
+.collapsible-header {
+    cursor: pointer;
+    color: #0078d4;
+    font-size: 13px;
+    padding: 4px 0;
+    user-select: none;
+}
+
+.collapsible-content {
+    padding: 8px 0 0 0;
+}
+
+.collapsible-content-indented {
+    padding: 8px 0 0 16px;
+    font-size: 12px;
+    color: #605e5c;
+    line-height: 1.6;
+}
+
+/* Instruction list */
+.instruction-list {
+    margin: 0;
+    padding-left: 20px;
+    line-height: 1.8;
+    font-size: 12px;
+    color: #605e5c;
+}
+
+.instruction-list li {
+    margin-bottom: 8px;
+}
+
+/* Code blocks inside instructions */
+.code-block {
+    display: block;
+    margin-top: 4px;
+    padding: 4px 6px;
+    background: #f3f2f1;
+    border-radius: 2px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+}
+
+/* Example box */
+.example-box {
+    margin-top: 10px;
+    padding: 8px;
+    background: #f3f2f1;
+    border-radius: 2px;
+}
+
+.example-box-title {
+    margin: 0 0 4px 0;
+    font-weight: 600;
+    font-size: 12px;
+    color: #323130;
+}
+
+.example-box-content {
+    margin: 0;
+    font-size: 11px;
+    color: #605e5c;
+    line-height: 1.6;
+}
+
+/* Form field container */
+.form-field {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #323130;
+    font-size: 13px;
+}
+
+.form-input {
+    padding: 6px 8px;
+    border: 1px solid #d1d1d1;
+    border-radius: 2px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+/* Settings row */
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.setting-row input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.setting-row span {
+    flex: 1;
+}
+
+.setting-description {
+    margin: 8px 0 0 24px;
+    font-size: 12px;
+    color: #666;
+    line-height: 1.5;
+}
+
+/* LLM settings form */
+.llm-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.llm-settings-form label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.llm-settings-form select,
+.llm-settings-form input[type="text"] {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #d1d1d1;
+    border-radius: 3px;
+    box-sizing: border-box;
+}
+
+/* Help modal content */
+.modal-content {
+    background: white;
+    padding: 20px;
+    border: 1px solid #ccc;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.btn-modal-close {
+    border: none;
+    background: none;
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+/* Candidate ranking inline header */
+.candidate-inline-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+
+.candidate-drag-hint {
+    color: #666;
+    font-size: 14px;
+}

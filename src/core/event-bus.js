@@ -125,4 +125,5 @@ class EventBus {
 // Singleton instance
 const eventBus = new EventBus();
 
+// EventBus class exported for testing only - production code uses eventBus singleton
 export { eventBus, EventBus };

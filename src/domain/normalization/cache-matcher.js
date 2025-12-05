@@ -130,6 +130,7 @@ export function getCachedMatch(value, forward, reverse) {
  * hasExactMatch("ABC Inc", forward, reverse); // → true
  * hasExactMatch("Unknown", forward, reverse); // → false
  */
+// Exported for testing - production code uses getCachedMatch()
 export function hasExactMatch(value, forward, reverse) {
   const normalized = normalizeValue(value);
   if (!normalized) return false;
@@ -153,6 +154,7 @@ export function hasExactMatch(value, forward, reverse) {
  * // → Map { "ABC Inc" => {...}, "XYZ Ltd" => {...} }
  * // Note: "Unknown" is not in the map (no match)
  */
+// Exported for testing
 export function getCachedMatches(values, forward, reverse) {
   const matches = new Map();
 
@@ -181,6 +183,7 @@ export function getCachedMatches(values, forward, reverse) {
  * validateMappings(null, {}); // → false
  * validateMappings("invalid", {}); // → false
  */
+// Exported for testing
 export function validateMappings(forward, reverse) {
   return (
     forward != null &&

@@ -15,6 +15,7 @@ import { showMessage } from "../utils/error-display.js";
 import { updateLED, setupLED } from "../utils/led-indicator.js";
 import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
 import { updateWarnings } from "../utils/warning-manager.js";
+import { setupButton } from "../utils/dom-helpers.js";
 
 /**
  * Setup event-driven UI reactivity
@@ -57,9 +58,13 @@ Office.onReady(async (info) => {
   initBatchProcessing();
   updateHistoryTabCounter();
 
-  const [sideloadMsg, appBody] = ["sideload-msg", "app-body"].map((id) => document.getElementById(id));
-  sideloadMsg.style.display = "none";
-  appBody.style.display = "flex";
+  // Hide sideload message, show main app
+  document.getElementById("sideload-msg")?.classList.add("hidden");
+  const appBody = document.getElementById("app-body");
+  if (appBody) {
+    appBody.classList.remove("hidden");
+    appBody.style.display = "flex";
+  }
 
   // Initialize settings from localStorage
   initializeSettings();
@@ -81,66 +86,13 @@ Office.onReady(async (info) => {
   initializeVersionDisplay();
   initializeProjectPathDisplay();
 
-  // Setup settings checkbox handlers
-  const requireServerCheckbox = document.getElementById("require-server-online");
-  if (requireServerCheckbox) {
-    requireServerCheckbox.checked = getStateValue('settings.requireServerOnline');
-    requireServerCheckbox.addEventListener("change", (e) => {
-      saveSetting("requireServerOnline", e.target.checked);
-      updateButtonStates();
-      updateLED();
-      updateMatcherIndicator();
-      showMessage(`Server requirement ${e.target.checked ? "enabled" : "disabled"}`);
-    });
-  }
+  // Setup settings checkbox handlers using helper
+  setupSettingsCheckboxes();
 
-  const useWebSearchCheckbox = document.getElementById("use-web-search");
-  if (useWebSearchCheckbox) {
-    useWebSearchCheckbox.checked = getStateValue('settings.useWebSearch');
-    useWebSearchCheckbox.addEventListener("change", async (e) => {
-      const enabled = e.target.checked;
-      saveSetting("useWebSearch", enabled);
-
-      // Update backend setting
-      try {
-        const { setWebSearch } = await import("../utils/settings-manager.js");
-        await setWebSearch(enabled);
-        showMessage(`Web search ${enabled ? "enabled" : "disabled (LLM only mode)"}`);
-      } catch (error) {
-        showMessage(`Failed to update web search setting: ${error.message}`, "error");
-        // Revert checkbox on error
-        e.target.checked = !enabled;
-      }
-    });
-  }
-
-  const useBraveApiCheckbox = document.getElementById("use-brave-api");
-  if (useBraveApiCheckbox) {
-    useBraveApiCheckbox.checked = getStateValue('settings.useBraveApi');
-    useBraveApiCheckbox.addEventListener("change", async (e) => {
-      const enabled = e.target.checked;
-      saveSetting("useBraveApi", enabled);
-
-      // Update backend setting
-      try {
-        const { setBraveApi } = await import("../utils/settings-manager.js");
-        await setBraveApi(enabled);
-        showMessage(`Brave API ${enabled ? "enabled" : "disabled (testing fallbacks)"}`);
-      } catch (error) {
-        showMessage(`Failed to update Brave API setting: ${error.message}`, "error");
-        // Revert checkbox on error
-        e.target.checked = !enabled;
-      }
-    });
-  }
-
-  const offlineWarning = document.getElementById("offline-mode-warning");
-  if (offlineWarning) {
-    offlineWarning.addEventListener("click", () => {
-      showView("settings");
-      showMessage("Offline mode active - re-enable server requirement in Connection Requirements");
-    });
-  }
+  setupButton("offline-mode-warning", () => {
+    showView("settings");
+    showMessage("Offline mode active - re-enable server requirement in Connection Requirements");
+  });
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
     content &&
@@ -373,5 +325,59 @@ async function initializeLlmSettings() {
   } catch (error) {
     console.error("Failed to initialize LLM settings:", error);
     providerSelect.innerHTML = '<option value="">Error loading</option>';
+  }
+}
+
+/**
+ * Setup settings checkboxes with state sync and backend integration
+ */
+function setupSettingsCheckboxes() {
+  // Server requirement checkbox
+  const requireServerCheckbox = document.getElementById("require-server-online");
+  if (requireServerCheckbox) {
+    requireServerCheckbox.checked = getStateValue('settings.requireServerOnline');
+    requireServerCheckbox.addEventListener("change", (e) => {
+      saveSetting("requireServerOnline", e.target.checked);
+      updateButtonStates();
+      updateLED();
+      updateMatcherIndicator();
+      showMessage(`Server requirement ${e.target.checked ? "enabled" : "disabled"}`);
+    });
+  }
+
+  // Web search checkbox with backend sync
+  const useWebSearchCheckbox = document.getElementById("use-web-search");
+  if (useWebSearchCheckbox) {
+    useWebSearchCheckbox.checked = getStateValue('settings.useWebSearch');
+    useWebSearchCheckbox.addEventListener("change", async (e) => {
+      const enabled = e.target.checked;
+      saveSetting("useWebSearch", enabled);
+      try {
+        const { setWebSearch } = await import("../utils/settings-manager.js");
+        await setWebSearch(enabled);
+        showMessage(`Web search ${enabled ? "enabled" : "disabled (LLM only mode)"}`);
+      } catch (error) {
+        showMessage(`Failed to update web search setting: ${error.message}`, "error");
+        e.target.checked = !enabled; // Revert on error
+      }
+    });
+  }
+
+  // Brave API checkbox with backend sync
+  const useBraveApiCheckbox = document.getElementById("use-brave-api");
+  if (useBraveApiCheckbox) {
+    useBraveApiCheckbox.checked = getStateValue('settings.useBraveApi');
+    useBraveApiCheckbox.addEventListener("change", async (e) => {
+      const enabled = e.target.checked;
+      saveSetting("useBraveApi", enabled);
+      try {
+        const { setBraveApi } = await import("../utils/settings-manager.js");
+        await setBraveApi(enabled);
+        showMessage(`Brave API ${enabled ? "enabled" : "disabled (testing fallbacks)"}`);
+      } catch (error) {
+        showMessage(`Failed to update Brave API setting: ${error.message}`, "error");
+        e.target.checked = !enabled; // Revert on error
+      }
+    });
   }
 }

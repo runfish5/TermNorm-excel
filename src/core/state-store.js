@@ -284,5 +284,5 @@ class StateStore {
 // Singleton instance
 const stateStore = new StateStore();
 
-// Export both class and singleton
+// StateStore/initialState exported for testing only - production code uses stateStore singleton
 export { stateStore, StateStore, initialState };

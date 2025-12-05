@@ -31,7 +31,6 @@ export async function ensureSessionInitialized() {
     return true; // Already initialized
   }
 
-  console.log(`${LOG_PREFIX.NORMALIZER} Session not initialized, reinitializing...`);
   showMessage("Initializing backend session...");
 
   const success = await reinitializeSession();
@@ -67,7 +66,6 @@ export async function executeWithSessionRecovery(apiCallFn) {
   }
 
   // First attempt failed - try session recovery
-  console.log(`${LOG_PREFIX.NORMALIZER} Request failed, attempting session recovery...`);
   showMessage("Recovering backend session...");
 
   const recoverySuccess = await reinitializeSession();

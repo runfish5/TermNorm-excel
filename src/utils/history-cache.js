@@ -28,13 +28,11 @@ import { Events } from "../core/events.js";
 export async function initializeHistoryCache() {
   // Skip if already initialized
   if (getStateValue('history.cacheInitialized')) {
-    console.log("[HISTORY] Cache already initialized, skipping");
     return true;
   }
 
   // Skip if server is offline
   if (!getStateValue('server.online')) {
-    console.log("[HISTORY] Server offline, cannot initialize cache");
     return false;
   }
 
@@ -53,11 +51,8 @@ export async function initializeHistoryCache() {
 
     if (result.status === "success" && result.data?.entries) {
       const entryCount = Object.keys(result.data.entries).length;
-      console.log(`[HISTORY] Cache initialized with ${entryCount} entries`);
-
       setHistoryEntries(result.data.entries);
       setHistoryCacheInitialized(true, entryCount);
-
       return true;
     }
 
@@ -182,6 +177,4 @@ export function cacheEntity(source, result) {
 
   // Update state immutably
   stateStore.set('history.entries', updatedEntries);
-
-  console.log(`[EntityCache] Cached entity: ${source} → ${target} (${method})`);
 }

@@ -104,67 +104,65 @@
                     <div class="settings-group-content">
 
                         <!-- Deployment Type Indicator -->
-                        <div style="background: #e6f3ff; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; border-left: 3px solid #0078d4;">
-                            <span style="font-size: 12px; color: #323130;">
-                                <strong>Deployment:</strong> <span id="deployment-type-indicator" style="color: #0078d4;">Loading...</span>
-                            </span>
+                        <div class="info-banner">
+                            <strong>Deployment:</strong> <span id="deployment-type-indicator" class="text-primary-brand">Loading...</span>
                         </div>
 
                         <!-- Development Deployment Instructions -->
-                        <div id="path-display-development" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px;">
-                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                        <div id="path-display-development" class="path-section">
+                            <p class="path-section-label">
                                 <strong>Development Mode:</strong> Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder:
                             </p>
-                            <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box;">
-                                <code id="config-path-display" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
-                                <button id="copy-path-btn" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            <div class="code-path-box">
+                                <code id="config-path-display">Loading...</code>
+                                <button id="copy-path-btn" class="btn-copy" title="Copy path to clipboard">Copy</button>
                             </div>
                         </div>
 
                         <!-- IIS Server Deployment Instructions -->
-                        <div id="path-display-iis" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px; display: none;">
-                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                        <div id="path-display-iis" class="path-section hidden">
+                            <p class="path-section-label">
                                 <strong>IIS Server:</strong> Server files are located at:
                             </p>
-                            <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box; margin-bottom: 8px;">
-                                <code id="config-path-display-iis" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
-                                <button id="copy-path-btn-iis" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            <div class="code-path-box mb-md">
+                                <code id="config-path-display-iis">Loading...</code>
+                                <button id="copy-path-btn-iis" class="btn-copy" title="Copy path to clipboard">Copy</button>
                             </div>
-                            <p style="margin: 0; font-size: 11px; color: #797775;">
+                            <p class="hint-text">
                                 <strong>Note:</strong> Only administrators with server access can edit files. Regular users should use drag-and-drop to load configs.
                             </p>
                         </div>
 
                         <!-- M365 Deployment Instructions -->
-                        <div id="path-display-m365" style="background: #f9f9f9; padding: 14px; border-radius: 4px; margin-bottom: 8px; display: none;">
-                            <p style="margin: 0 0 6px 0; font-size: 13px; color: #323130;">
+                        <div id="path-display-m365" class="path-section hidden">
+                            <p class="path-section-label">
                                 <strong>Microsoft 365:</strong> This add-in is hosted centrally. Configuration changes are managed via drag-and-drop only.
                             </p>
-                            <p style="margin: 0; font-size: 11px; color: #797775;">
+                            <p class="hint-text">
                                 <strong>Note:</strong> No direct filesystem access. Contact your administrator for server configuration changes.
                             </p>
                         </div>
                         <!-- Manual Start Section -->
                         <details>
-                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                            <summary class="collapsible-header">
                                 <strong>Alternative:</strong> Manual Start
                             </summary>
-                            <div style="padding: 8px 0 0 16px; font-size: 12px; color: #605e5c; line-height: 1.6;">
-                                <ol style="margin: 0; padding-left: 20px;">
-                                    <li style="margin-bottom: 8px;">Open terminal (Windows: <kbd>Win</kbd> key → type "cmd")</li>
-                                    <li style="margin-bottom: 8px;">Navigate to backend folder:<br>
-                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">cd [your-path]\TermNorm-excel\backend-api</code>
+                            <div class="collapsible-content-indented">
+                                <ol class="instruction-list">
+                                    <li>Open terminal (Windows: <kbd>Win</kbd> key → type "cmd")</li>
+                                    <li>Navigate to backend folder:<br>
+                                        <code class="code-block">cd [your-path]\TermNorm-excel\backend-api</code>
                                     </li>
-                                    <li style="margin-bottom: 8px;">Activate virtual environment:<br>
-                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">.\venv\Scripts\activate</code>
+                                    <li>Activate virtual environment:<br>
+                                        <code class="code-block">.\venv\Scripts\activate</code>
                                     </li>
-                                    <li style="margin-bottom: 8px;">Start server:<br>
-                                        <code style="display: block; margin-top: 4px; padding: 4px 6px; background: #f3f2f1; border-radius: 2px;">python -m uvicorn main:app --reload</code>
+                                    <li>Start server:<br>
+                                        <code class="code-block">python -m uvicorn main:app --reload</code>
                                     </li>
                                 </ol>
-                                <p style="margin: 12px 0 0 0; font-size: 11px; color: #797775;">
+                                <p class="hint-text mt-md">
                                     For network access, use: <code>--host 0.0.0.0 --port 8000</code><br>
-                                    <a href="https://github.com/runfish5/TermNorm-excel#4-set-up-the-python-server" target="_blank" style="color: #0078d4; text-decoration: none;">📖 Full instructions on GitHub</a>
+                                    <a href="https://github.com/runfish5/TermNorm-excel#4-set-up-the-python-server" target="_blank" class="text-primary-brand">📖 Full instructions on GitHub</a>
                                 </p>
                             </div>
                         </details>
@@ -174,40 +172,33 @@
 
 
                         <!-- Server URL Section -->
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #323130; font-size: 13px;">
-                                Server URL
-                            </label>
-                            <input type="text" id="server-url-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000"
-                                   style="padding: 6px 8px; border: 1px solid #d1d1d1; border-radius: 2px; font-size: 13px; box-sizing: border-box;">
-                            <p style="margin: 4px 0 0 0; font-size: 11px; color: #797775; word-wrap: break-word;">
-                                Change takes effect immediately (session only)
-                            </p>
+                        <div class="form-field">
+                            <label class="form-label">Server URL</label>
+                            <input type="text" id="server-url-input" class="form-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                            <p class="hint-text">Change takes effect immediately (session only)</p>
                         </div>
 
                         <!-- Permanent URL Change Section -->
                         <details>
-                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                            <summary class="collapsible-header">
                                 <strong>Advanced:</strong> Permanent URL Change
                             </summary>
-                            <div style="padding: 8px 0 0 0;">
-                                <p style="margin: 0 0 6px 0; font-size: 12px; color: #605e5c;">
-                                    Navigate to the config folder:
-                                </p>
-                                <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; margin-bottom: 12px; box-sizing: border-box;">
-                                    <code id="config-folder-path" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
-                                    <button id="copy-path-btn-2" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            <div class="collapsible-content">
+                                <p class="path-section-label">Navigate to the config folder:</p>
+                                <div class="code-path-box mb-md">
+                                    <code id="config-folder-path">Loading...</code>
+                                    <button id="copy-path-btn-2" class="btn-copy" title="Copy path to clipboard">Copy</button>
                                 </div>
-                                <ol style="margin: 0; padding-left: 20px; line-height: 1.8; font-size: 12px; color: #605e5c;">
+                                <ol class="instruction-list">
                                     <li>Open <code>app.config.json</code> as text</li>
                                     <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>
                                     <li>Save the file</li>
                                     <li>Drag it into TermNorm again</li>
                                 </ol>
 
-                                <div style="margin-top: 10px; padding: 8px; background: #f3f2f1; border-radius: 2px;">
-                                    <p style="margin: 0 0 4px 0; font-weight: 600; font-size: 12px; color: #323130;">Examples:</p>
-                                    <p style="margin: 0; font-size: 11px; color: #605e5c; line-height: 1.6;">
+                                <div class="example-box">
+                                    <p class="example-box-title">Examples:</p>
+                                    <p class="example-box-content">
                                         This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
                                         Network computer: <code>"backend_url": "http://100.0.0.100:8000",</code>
                                     </p>
@@ -228,19 +219,17 @@
 
                         <!-- Manual Configuration Section -->
                         <details>
-                            <summary style="cursor: pointer; color: #0078d4; font-size: 13px; padding: 4px 0; user-select: none;">
+                            <summary class="collapsible-header">
                                 <strong>Configure New Project</strong>
                             </summary>
-                            <div style="padding: 8px 0 0 0;">
-                                <p style="margin: 0 0 6px 0; font-size: 12px; color: #605e5c;">
-                                    Add new project by editing this file:
-                                </p>
-                                <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 8px; border: 1px solid #d1d1d1; border-radius: 3px; margin-bottom: 8px; box-sizing: border-box;">
-                                    <code id="config-file-path" style="flex: 1; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; color: #0078d4; overflow-x: auto; white-space: nowrap;">Loading...</code>
-                                    <button id="copy-config-file-path-btn" style="background: #0078d4; color: white; border: none; cursor: pointer; font-size: 11px; padding: 4px 10px; border-radius: 3px; flex-shrink: 0; font-weight: 600;" title="Copy path to clipboard">Copy</button>
+                            <div class="collapsible-content">
+                                <p class="path-section-label">Add new project by editing this file:</p>
+                                <div class="code-path-box mb-md">
+                                    <code id="config-file-path">Loading...</code>
+                                    <button id="copy-config-file-path-btn" class="btn-copy" title="Copy path to clipboard">Copy</button>
                                 </div>
-                                <p style="margin: 0; font-size: 11px; color: #797775;">
-                                    Template inside the file or <a href="https://github.com/runfish5/TermNorm-excel#2-create-your-configuration-file" target="_blank" style="color: #0078d4; text-decoration: none;">full guide on GitHub</a>
+                                <p class="hint-text">
+                                    Template inside the file or <a href="https://github.com/runfish5/TermNorm-excel#2-create-your-configuration-file" target="_blank" class="text-primary-brand">full guide on GitHub</a>
                                 </p>
                             </div>
                         </details>
@@ -261,7 +250,7 @@
                 <details class="settings-group" open>
                     <summary class="settings-group-header">▶️ Step 4: Activate Tracking</summary>
                     <div class="settings-group-content">
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="flex gap-lg">
                             <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
                             <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
                         </div>
@@ -315,11 +304,11 @@
                 <details class="settings-group" open>
                     <summary class="settings-group-header">🔌 Connection Requirements</summary>
                     <div class="settings-group-content">
-                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
-                            <input type="checkbox" id="require-server-online" checked style="cursor: pointer;">
-                            <span style="flex: 1;">Require server connection for mapping operations</span>
+                        <label class="setting-row">
+                            <input type="checkbox" id="require-server-online" checked>
+                            <span>Require server connection for mapping operations</span>
                         </label>
-                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                        <p class="setting-description">
                             <strong>When enabled (default):</strong> Loading mappings and activating tracking will fail if backend server is offline.<br>
                             <strong>When disabled:</strong> Offline mode allows exact/fuzzy matching (LLM features unavailable).
                         </p>
@@ -330,19 +319,19 @@
                 <details class="settings-group">
                     <summary class="settings-group-header">🤖 LLM Provider Configuration</summary>
                     <div class="settings-group-content">
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="llm-settings-form">
                             <div>
-                                <label for="llm-provider-select" style="display: block; margin-bottom: 4px; font-weight: 600;">Provider:</label>
-                                <select id="llm-provider-select" style="width: 100%; padding: 6px; border: 1px solid #d1d1d1; border-radius: 3px;">
+                                <label for="llm-provider-select">Provider:</label>
+                                <select id="llm-provider-select">
                                     <option value="">Loading...</option>
                                 </select>
                             </div>
                             <div>
-                                <label for="llm-model-input" style="display: block; margin-bottom: 4px; font-weight: 600;">Model:</label>
-                                <input type="text" id="llm-model-input" placeholder="Enter model name" style="width: 100%; padding: 6px; border: 1px solid #d1d1d1; border-radius: 3px; box-sizing: border-box;">
+                                <label for="llm-model-input">Model:</label>
+                                <input type="text" id="llm-model-input" placeholder="Enter model name">
                             </div>
-                            <button id="apply-llm-settings" class="ms-Button ms-Button--primary" style="align-self: flex-start;">Apply Settings</button>
-                            <p style="margin: 0; font-size: 12px; color: #666;">Only providers with configured API keys are shown.</p>
+                            <button id="apply-llm-settings" class="ms-Button ms-Button--primary">Apply Settings</button>
+                            <p class="hint-text m-0">Only providers with configured API keys are shown.</p>
                         </div>
                     </div>
                 </details>
@@ -351,24 +340,24 @@
                 <details class="settings-group">
                     <summary class="settings-group-header">⚡ Processing Options</summary>
                     <div class="settings-group-content">
-                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0;">
-                            <input type="checkbox" id="use-web-search" checked style="cursor: pointer;">
-                            <span style="flex: 1;">Use web search for research</span>
+                        <label class="setting-row">
+                            <input type="checkbox" id="use-web-search" checked>
+                            <span>Use web search for research</span>
                         </label>
-                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                        <p class="setting-description">
                             <strong>When enabled (default):</strong> Uses web search engines to gather context for LLM matching.<br>
                             <strong>When disabled:</strong> Skips all web search (faster, cheaper, but less accurate).
                         </p>
 
-                        <label class="setting-row" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; margin-top: 12px;">
-                            <input type="checkbox" id="use-brave-api" checked style="cursor: pointer;">
-                            <span style="flex: 1;">Use Brave Search API (if configured)</span>
+                        <label class="setting-row mt-md">
+                            <input type="checkbox" id="use-brave-api" checked>
+                            <span>Use Brave Search API (if configured)</span>
                         </label>
-                        <p class="setting-description" style="margin: 8px 0 0 24px; font-size: 12px; color: #666; line-height: 1.5;">
+                        <p class="setting-description">
                             <strong>When enabled (default):</strong> Uses Brave Search API as primary web scraper if API key configured.<br>
                             <strong>When disabled:</strong> Tests fallback chain (SearXNG → DuckDuckGo → Bing) without Brave.
                         </p>
-                        <div class="processing-options" style="margin-top: 12px;">
+                        <div class="processing-options mt-md">
                             <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
                         </div>
                     </div>
@@ -403,10 +392,10 @@
 
         <!-- Help Modal -->
         <div id="help-modal" class="help-modal hidden">
-            <div style="background: white; padding: 20px; border: 1px solid #ccc; max-width: 500px; max-height: 80vh; overflow-y: auto;" onclick="event.stopPropagation()">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                    <h3 style="margin: 0;">Terminology Legend</h3>
-                    <button id="close-help-modal" style="border: none; background: none; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>Terminology Legend</h3>
+                    <button id="close-help-modal" class="btn-modal-close">&times;</button>
                 </div>
 
                 <h4>Match Methods</h4>

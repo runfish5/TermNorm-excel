@@ -24,6 +24,8 @@ export async function checkServerStatus() {
     }
 
     try {
+      // Note: Uses raw fetch intentionally - this is the foundation for serverFetch()
+      // in api-fetch.js, which imports getHost() from here (would cause circular dep)
       const response = await fetch(`${host}/test-connection`, {
         method: "POST",
         headers: getHeaders(),

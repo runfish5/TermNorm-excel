@@ -96,7 +96,6 @@ export async function startTracking(config, mappings) {
 
     // Store tracker
     activeTrackers.set(workbookId, tracker);
-    console.log(`✓ Tracking started for workbook: ${workbookId}`);
 
     const trackingInfo = {
       workbookId,
@@ -405,7 +404,6 @@ export async function stopTracking(workbookId) {
 
   activeTrackers.delete(workbookId);
   deleteWorkbook(workbookId);
-  console.log(`✓ Tracking stopped: ${workbookId}`);
 
   // CHECKPOINT 7: Emit tracking stopped event
   eventBus.emit(Events.TRACKING_STOPPED, { workbookId });

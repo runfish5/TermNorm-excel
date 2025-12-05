@@ -37,7 +37,7 @@ export async function serverFetch(url, options = {}) {
  * @param {string} [options.processingMessage] - Custom processing message
  * @returns {Promise<any>} Response data or null on error
  */
-export async function apiFetch(url, options = {}) {
+async function apiFetch(url, options = {}) {
   const silent = options.silent;
   delete options.silent;
 

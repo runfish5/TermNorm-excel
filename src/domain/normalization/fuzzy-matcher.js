@@ -145,6 +145,7 @@ function calculateSimilarity(words1, words2) {
  * //   { text: "XYZ Corp", similarity: 0.3, isMatch: false }
  * // ]
  */
+// Exported for testing - production code uses findFuzzyMatch()
 export function fuzzyMatch(query, candidates, threshold = 0.6) {
   const queryWords = normalizeText(query);
 
@@ -182,6 +183,7 @@ export function fuzzyMatch(query, candidates, threshold = 0.6) {
  * findBestMatch("Unknown", mapping, 0.6);
  * // → null (no match above threshold)
  */
+// Exported for testing - production code uses findFuzzyMatch()
 export function findBestMatch(query, mappingData, threshold = 0.6) {
   if (!query || !mappingData) return null;
 
@@ -285,6 +287,7 @@ export function findFuzzyMatch(value, forward, reverse, forwardThreshold = 0.7, 
  * //   { key: "ABC Ltd", value: "ABC Company", score: 0.85 }
  * // ]
  */
+// Exported for testing
 export function getAllMatches(query, mappingData, threshold = 0.6) {
   if (!query || !mappingData) return [];
 

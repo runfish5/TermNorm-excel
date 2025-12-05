@@ -103,9 +103,8 @@ async function initializeBackendSessionWithRetry(terms) {
   return await retryWithBackoff(async () => await initializeBackendSession(terms), {
     maxAttempts: SESSION_RETRY.MAX_ATTEMPTS,
     delays: SESSION_RETRY.DELAYS_MS,
-    onRetry: (attempt, delay) => {
-      console.log(`${LOG_PREFIX.SESSION} Initialization attempt ${attempt}/${SESSION_RETRY.MAX_ATTEMPTS}`);
-      console.log(`${LOG_PREFIX.SESSION} Retrying in ${delay}ms...`);
+    onRetry: () => {
+      // Silent retry - errors logged on final failure
     },
     onFailure: (attempts) => {
       const errorMsg = ERROR_MESSAGES.SESSION_INIT_MAX_RETRIES(attempts);
@@ -131,7 +130,6 @@ async function initializeBackendSession(terms) {
     );
 
     if (data) {
-      console.log(`${LOG_PREFIX.SESSION} Backend session initialized with ${terms.length} terms`);
       updateSessionState(true, terms.length, null);
       return true;
     }
@@ -218,7 +216,6 @@ export async function reinitializeSession() {
     return false;
   }
 
-  console.log(`${LOG_PREFIX.RECOVERY} Auto-reinitializing session after session loss`);
   return await initializeBackendSessionWithRetry(terms);
 }
 

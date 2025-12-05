@@ -201,3 +201,48 @@
 .overflow-hidden { overflow: hidden; }
 .overflow-auto { overflow: auto; }
 .overflow-y-auto { overflow-y: auto; }
+
+/* ===================================
+   BORDER UTILITIES
+   =================================== */
+
+.border-none { border: none; }
+.border-left-primary { border-left: 3px solid var(--color-primary); }
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+
+/* ===================================
+   BACKGROUND UTILITIES
+   =================================== */
+
+.bg-info-light { background: #e6f3ff; }
+.bg-muted { background: #f9f9f9; }
+.bg-code { background: #f3f2f1; }
+.bg-white { background: white; }
+.bg-success { background: #d4edda; }
+.bg-error { background: #f8d7da; }
+
+/* ===================================
+   COLOR UTILITIES
+   =================================== */
+
+.text-primary-brand { color: #0078d4; }
+.text-body { color: #323130; }
+.text-hint { color: #797775; }
+
+/* ===================================
+   LINE HEIGHT
+   =================================== */
+
+.leading-relaxed { line-height: 1.5; }
+.leading-loose { line-height: 1.6; }
+.leading-extra { line-height: 1.8; }
+
+/* ===================================
+   WHITESPACE
+   =================================== */
+
+.whitespace-nowrap { white-space: nowrap; }
+.word-break { word-wrap: break-word; }
+.shrink-0 { flex-shrink: 0; }

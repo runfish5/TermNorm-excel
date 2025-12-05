@@ -11,13 +11,11 @@ let expandedRowState = null; // { originalRow, expandedRow }
 
 // CHECKPOINT 5: Listen to history cache initialization event
 eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => {
-  console.log("[ProcessingHistory] Received cache initialization event");
   populateFromCache(entries);
 });
 
 // CHECKPOINT 9: Listen to cell selected event (replaces direct UI call from live.tracker.js)
 eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier }) => {
-  console.log("[ProcessingHistory] Received cell selected event");
   await handleCellSelection(cellKey, state, identifier);
 });
 
@@ -80,7 +78,7 @@ export async function addEntry(source, cellKey, timestamp, result) {
     tableBody.insertBefore(row, tableBody.firstChild);
 
     // Make row clickable (same as cached entries)
-    row.style.cursor = "pointer";
+    row.classList.add("cursor-pointer");
     row.addEventListener("click", (e) => {
       e.stopPropagation();
       fetchAndDisplayDetails(displayResult.target, row);
@@ -149,7 +147,7 @@ function collapseExpandedRow() {
     expandedRow.parentNode.replaceChild(originalRow, expandedRow);
     const id = originalRow.dataset.identifier;
     if (id) {
-      originalRow.style.cursor = "pointer";
+      originalRow.classList.add("cursor-pointer");
       originalRow.addEventListener("click", (e) => {
         e.stopPropagation();
         fetchAndDisplayDetails(id, originalRow);
@@ -214,7 +212,6 @@ async function fetchAndDisplayDetails(identifier, targetRow) {
     return;
   }
 
-  console.log("[ProcessingHistory] Showing details for:", identifier.substring(0, 40));
   displayDetailsPanel({ identifier, ...entry }, targetRow);
 }
 
@@ -308,7 +305,6 @@ function formatEntityProfile(profile) {
  */
 export function populateFromCache(entries) {
   if (!entries || Object.keys(entries).length === 0) {
-    console.log("[ProcessingHistory] No cached entries to populate");
     return;
   }
 
@@ -361,7 +357,7 @@ export function populateFromCache(entries) {
     row.classList.add("cached-entry");
 
     // Make row clickable to show details in-place
-    row.style.cursor = "pointer";
+    row.classList.add("cursor-pointer");
     row.addEventListener("click", (e) => {
       e.stopPropagation();
       fetchAndDisplayDetails(target, row);
@@ -370,6 +366,5 @@ export function populateFromCache(entries) {
     tableBody.appendChild(row);
   }
 
-  console.log(`[ProcessingHistory] Populated ${toDisplay.length} entries from cache`);
   updateHistoryTabCounter();
 }
