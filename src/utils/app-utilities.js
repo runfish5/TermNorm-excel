@@ -3,6 +3,9 @@ import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../co
 
 export { PROCESSING_COLORS };
 
+const $ = id => document.getElementById(id);
+const setText = (id, text, title) => { const el = $(id); if (el) { el.textContent = text; if (title) el.title = title; } };
+
 export function updateContentMargin() {
   const statusBar = document.querySelector(".status-bar");
   if (statusBar) document.documentElement.style.setProperty("--status-bar-height", `${statusBar.offsetHeight}px`);
@@ -14,11 +17,8 @@ export async function getCurrentWorkbookName() {
 
 export function getRelevanceColor(score) {
   const s = score > 1 ? score / 100 : score;
-  if (s >= RELEVANCE_THRESHOLDS.EXCELLENT) return RELEVANCE_COLORS.EXCELLENT;
-  if (s >= RELEVANCE_THRESHOLDS.GOOD) return RELEVANCE_COLORS.GOOD;
-  if (s >= RELEVANCE_THRESHOLDS.MODERATE) return RELEVANCE_COLORS.MODERATE;
-  if (s >= RELEVANCE_THRESHOLDS.LOW) return RELEVANCE_COLORS.LOW;
-  return RELEVANCE_COLORS.NONE;
+  const { EXCELLENT, GOOD, MODERATE, LOW } = RELEVANCE_THRESHOLDS;
+  return s >= EXCELLENT ? RELEVANCE_COLORS.EXCELLENT : s >= GOOD ? RELEVANCE_COLORS.GOOD : s >= MODERATE ? RELEVANCE_COLORS.MODERATE : s >= LOW ? RELEVANCE_COLORS.LOW : RELEVANCE_COLORS.NONE;
 }
 
 const version = "1.0.2", commit = "ab11d3a", commitDate = "2025-11-27 18:56", branch = "master", repository = "runfish5/TermNorm-excel";
@@ -27,37 +27,25 @@ const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ :
 const deploymentType = typeof __DEPLOYMENT_TYPE__ !== "undefined" ? __DEPLOYMENT_TYPE__ : "development";
 
 export function initializeVersionDisplay() {
-  const set = (id, text, title) => { const el = document.getElementById(id); if (el) { el.textContent = text; if (title) el.title = title; } };
-  set("version-number", `v${version}`);
-  set("version-build", `${commit} (${commitDate})`, `Branch: ${branch}\nRepository: ${repository}`);
-  set("version-runtime", buildTime);
-  set("version-bundle-size", "N/A");
+  setText("version-number", `v${version}`);
+  setText("version-build", `${commit} (${commitDate})`, `Branch: ${branch}\nRepository: ${repository}`);
+  setText("version-runtime", buildTime);
+  setText("version-bundle-size", "N/A");
 }
 
 export function initializeProjectPathDisplay() {
-  const normalizedPath = projectPath.replace(/\\\\/g, "\\");
-  const configPath = normalizedPath + "\\config";
-  const configFilePath = configPath + "\\app.config.json";
-
+  const path = projectPath.replace(/\\\\/g, "\\"), configPath = path + "\\config", configFile = configPath + "\\app.config.json";
   const typeLabels = { development: "Development", iis: "IIS Server", m365: "Microsoft 365" };
-  ["development", "iis", "m365"].forEach(t => {
-    const el = document.getElementById(`path-display-${t}`);
-    if (el) el.style.display = deploymentType === t ? "block" : "none";
-  });
 
-  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  set("deployment-type-indicator", typeLabels[deploymentType] || deploymentType);
-  set("config-path-display", normalizedPath);
-  set("config-path-display-iis", normalizedPath);
-  set("config-folder-path", configPath);
-  set("config-file-path", configFilePath);
+  ["development", "iis", "m365"].forEach(t => { const el = $(`path-display-${t}`); if (el) el.style.display = deploymentType === t ? "block" : "none"; });
 
-  const setupCopy = (id, text) => {
-    const btn = document.getElementById(id);
-    if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = "✓"; setTimeout(() => btn.textContent = orig, 1500); };
-  };
-  setupCopy("copy-path-btn", normalizedPath);
-  setupCopy("copy-path-btn-iis", normalizedPath);
+  setText("deployment-type-indicator", typeLabels[deploymentType] || deploymentType);
+  ["config-path-display", "config-path-display-iis"].forEach(id => setText(id, path));
+  setText("config-folder-path", configPath);
+  setText("config-file-path", configFile);
+
+  const setupCopy = (id, text) => { const btn = $(id); if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = "✓"; setTimeout(() => btn.textContent = orig, 1500); }; };
+  ["copy-path-btn", "copy-path-btn-iis"].forEach(id => setupCopy(id, path));
   setupCopy("copy-path-btn-2", configPath);
-  setupCopy("copy-config-file-path-btn", configFilePath);
+  setupCopy("copy-config-file-path-btn", configFile);
 }
