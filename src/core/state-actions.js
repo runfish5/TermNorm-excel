@@ -140,6 +140,75 @@ export function setHistoryCacheInitialized(initialized, entryCount = 0) {
 }
 
 // ============================================================================
+// WORKBOOK CELL STATE ACTIONS
+// ============================================================================
+
+/**
+ * Set cell state for a specific workbook and cell
+ * @param {string} workbookId - Workbook identifier
+ * @param {string} cellKey - Cell key (e.g., "5:3")
+ * @param {Object} cellState - Cell state object
+ */
+export function setCellState(workbookId, cellKey, cellState) {
+  stateStore.setState(state => {
+    if (!state.session.workbooks[workbookId]) {
+      state.session.workbooks[workbookId] = { cells: {} };
+    }
+    state.session.workbooks[workbookId].cells[cellKey] = cellState;
+    return state;
+  });
+}
+
+/**
+ * Get cell state for a specific workbook and cell
+ * @param {string} workbookId - Workbook identifier
+ * @param {string} cellKey - Cell key (e.g., "5:3")
+ * @returns {Object|undefined} Cell state or undefined
+ */
+export function getWorkbookCellState(workbookId, cellKey) {
+  const workbook = stateStore.get(`session.workbooks.${workbookId}`);
+  return workbook?.cells?.[cellKey];
+}
+
+/**
+ * Clear all cell states for a workbook
+ * @param {string} workbookId - Workbook identifier
+ */
+export function clearWorkbookCells(workbookId) {
+  stateStore.setState(state => {
+    if (state.session.workbooks[workbookId]) {
+      state.session.workbooks[workbookId].cells = {};
+    }
+    return state;
+  });
+}
+
+/**
+ * Delete a workbook's state entirely
+ * @param {string} workbookId - Workbook identifier
+ */
+export function deleteWorkbook(workbookId) {
+  stateStore.setState(state => {
+    delete state.session.workbooks[workbookId];
+    return state;
+  });
+}
+
+/**
+ * Get cell state by searching all workbooks
+ * @param {string} cellKey - Cell key (e.g., "5:3")
+ * @returns {Object|undefined} Cell state or undefined
+ */
+export function findCellState(cellKey) {
+  const workbooks = stateStore.get('session.workbooks') || {};
+  for (const workbookId of Object.keys(workbooks)) {
+    const state = workbooks[workbookId]?.cells?.[cellKey];
+    if (state) return state;
+  }
+  return undefined;
+}
+
+// ============================================================================
 // HELPER: Get nested state value
 // ============================================================================
 

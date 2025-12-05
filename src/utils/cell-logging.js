@@ -1,10 +1,11 @@
 // utils/cell-logging.js - Centralized cell state and history logging
+import { setCellState } from "../core/state-actions.js";
 import { addEntry as addHistoryEntry } from "../ui-components/ProcessingHistoryUI.js";
 
 /**
  * Log cell processing result to state and activity feed
  *
- * @param {Map} cellStateMap - Cell state map for the workbook
+ * @param {string} workbookId - Workbook identifier
  * @param {string} outputCellKey - Cell key for output column (e.g., "5:3")
  * @param {string} inputValue - Original input value
  * @param {Object} result - Match result object
@@ -12,9 +13,9 @@ import { addEntry as addHistoryEntry } from "../ui-components/ProcessingHistoryU
  * @param {number} row - Row index
  * @param {number} outputCol - Output column index
  */
-export function logCellResult(cellStateMap, outputCellKey, inputValue, result, status, row, outputCol) {
+export function logCellResult(workbookId, outputCellKey, inputValue, result, status, row, outputCol) {
   // Store result in unified cell state (using OUTPUT cell key)
-  cellStateMap.set(outputCellKey, {
+  setCellState(workbookId, outputCellKey, {
     value: inputValue,
     result,
     status,

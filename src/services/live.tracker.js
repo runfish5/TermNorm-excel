@@ -1,5 +1,12 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
+import {
+  setCellState,
+  getWorkbookCellState,
+  clearWorkbookCells,
+  deleteWorkbook,
+  findCellState,
+} from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { createCellKey, cleanCellValue } from "../utils/cell-utilities.js";
@@ -10,17 +17,6 @@ import { countTrackedCells } from "../utils/paste-detection.js";
 import { showMessage } from "../utils/error-display.js";
 const activeTrackers = new Map();
 const activationInProgress = new Set();
-// Unified cell state scoped per workbook: workbookId → Map(cellKey → {value, result, status, row, col, targetCol, timestamp})
-const cellStateByWorkbook = new Map();
-
-/**
- * Get or create cellState Map for a specific workbook
- * @param {string} workbookId - Workbook identifier
- * @returns {Map} Cell state map for the workbook
- */
-function getCellStateMap(workbookId) {
-  return cellStateByWorkbook.get(workbookId) || cellStateByWorkbook.set(workbookId, new Map()).get(workbookId);
-}
 
 export async function startTracking(config, mappings) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
@@ -38,7 +34,7 @@ export async function startTracking(config, mappings) {
 
   try {
     // Clear cell state for THIS workbook only
-    getCellStateMap(workbookId).clear();
+    clearWorkbookCells(workbookId);
     const { columnMap, confidenceColumnMap, confidenceFound, confidenceMissing } = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       ws.load("name");
@@ -167,13 +163,12 @@ const handleWorksheetChange = async (e, tracker) => {
           const cleanValue = cleanCellValue(value);
 
           // Skip if already processing
-          const cellStateMap = getCellStateMap(tracker.workbookId);
-          const state = cellStateMap.get(cellKey);
+          const state = getWorkbookCellState(tracker.workbookId, cellKey);
           if (state?.status === "processing") continue;
 
           // Check if value changed
           if (state?.value !== cleanValue) {
-            cellStateMap.set(cellKey, {
+            setCellState(tracker.workbookId, cellKey, {
               value: cleanValue,
               status: "processing",
               row,
@@ -242,7 +237,7 @@ const handleSelectionChange = async (e, tracker) => {
     }
 
     // Output column: check cellState first, then historical lookup
-    const state = getCellStateMap(tracker.workbookId).get(cellKey);
+    const state = getWorkbookCellState(tracker.workbookId, cellKey);
 
     // CHECKPOINT 9: Emit CELL_SELECTED event instead of direct UI call
     if (state?.status === "complete") {
@@ -287,7 +282,7 @@ async function processCell(row, col, targetCol, value, tracker) {
     }
 
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
-    logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, result, "complete", row, targetCol);
+    logCellResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
 
     // CHECKPOINT 9: Emit cell processing complete event
     eventBus.emit(Events.CELL_PROCESSING_COMPLETE, {
@@ -353,7 +348,7 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
     web_search_status: "idle",
   };
 
-  logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, errorResult, "error", row, targetCol);
+  logCellResult(tracker.workbookId, outputCellKey, value, errorResult, "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
@@ -374,7 +369,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   };
 
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
-  logCellResult(getCellStateMap(tracker.workbookId), outputCellKey, value, choiceResult, "complete", row, targetCol);
+  logCellResult(tracker.workbookId, outputCellKey, value, choiceResult, "complete", row, targetCol);
 
   // Log user choice to backend
   try {
@@ -410,7 +405,7 @@ export async function stopTracking(workbookId) {
   });
 
   activeTrackers.delete(workbookId);
-  cellStateByWorkbook.delete(workbookId);
+  deleteWorkbook(workbookId);
   console.log(`✓ Tracking stopped: ${workbookId}`);
 
   // CHECKPOINT 7: Emit tracking stopped event
@@ -421,16 +416,12 @@ export function getActiveTrackers() {
   return Array.from(activeTrackers.keys());
 }
 
-// Export cell state accessors - searches all workbooks
+// Export cell state accessors - searches all workbooks via state store
 export function getCellState(cellKey) {
-  for (const cellStateMap of cellStateByWorkbook.values()) {
-    const state = cellStateMap.get(cellKey);
-    if (state) return state;
-  }
-  return undefined;
+  return findCellState(cellKey);
 }
 
 export function getCellStateByCoords(row, col) {
   const cellKey = createCellKey(row, col);
-  return getCellState(cellKey);
+  return findCellState(cellKey);
 }

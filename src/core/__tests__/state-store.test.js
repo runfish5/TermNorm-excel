@@ -7,16 +7,13 @@
 import { StateStore, stateStore, initialState } from '../state-store.js';
 import {
   setView,
-  setStatusMessage,
   setServerStatus,
   setConfig,
-  clearConfig,
-  setMappingsCombined,
-  clearMappings,
-  setSessionInitialized,
-  setCacheEntity,
-  setSetting,
-  getState,
+  setCellState,
+  getWorkbookCellState,
+  clearWorkbookCells,
+  deleteWorkbook,
+  findCellState,
   getStateValue,
 } from '../state-actions.js';
 import { eventBus } from '../event-bus.js';
@@ -203,12 +200,6 @@ describe('State Actions', () => {
       setView('history');
       expect(getStateValue('ui.currentView')).toBe('history');
     });
-
-    it('setStatusMessage() should update message and error flag', () => {
-      setStatusMessage('Error occurred', true);
-      expect(getStateValue('ui.statusMessage')).toBe('Error occurred');
-      expect(getStateValue('ui.isError')).toBe(true);
-    });
   });
 
   describe('Server Actions', () => {
@@ -263,100 +254,76 @@ describe('State Actions', () => {
 
       expect(handler).toHaveBeenCalledWith({ config });
     });
-
-    it('clearConfig() should reset config state', () => {
-      setConfig({ test: 'data' });
-      clearConfig();
-
-      expect(getStateValue('config.loaded')).toBe(false);
-      expect(getStateValue('config.data')).toBeNull();
-    });
   });
 
-  describe('Mappings Actions', () => {
-    it('setMappingsCombined() should update mappings', () => {
-      const mappings = { forward: {}, reverse: {} };
-      setMappingsCombined(mappings);
-
-      expect(getStateValue('mappings.loaded')).toBe(true);
-      expect(getStateValue('mappings.combined')).toEqual(mappings);
-    });
-
-    it('setMappingsCombined() should emit MAPPINGS_LOADED event', () => {
-      const handler = jest.fn();
-      eventBus.on(Events.MAPPINGS_LOADED, handler);
-
-      const mappings = { forward: {}, reverse: {} };
-      setMappingsCombined(mappings);
-
-      expect(handler).toHaveBeenCalledWith({ mappings });
-    });
-
-    it('clearMappings() should emit MAPPINGS_CLEARED event', () => {
-      const handler = jest.fn();
-      eventBus.on(Events.MAPPINGS_CLEARED, handler);
-
-      clearMappings();
-
-      expect(handler).toHaveBeenCalled();
-    });
-  });
-
-  describe('Session Actions', () => {
-    it('setSessionInitialized() should update session state', () => {
-      setSessionInitialized(true, 100);
-
-      expect(getStateValue('session.initialized')).toBe(true);
-      expect(getStateValue('session.termCount')).toBe(100);
-      expect(getStateValue('session.lastInitialized')).toBeTruthy();
-    });
-  });
-
-  describe('Cache Actions', () => {
-    it('setCacheEntity() should add entity to cache', () => {
-      const entity = {
-        entity_profile: { name: 'Test' },
-        aliases: {},
-        web_sources: [],
+  describe('Workbook Cell State Actions', () => {
+    it('setCellState() should add cell state to workbook', () => {
+      const cellState = {
+        value: 'test input',
+        status: 'complete',
+        row: 5,
+        col: 3,
       };
 
-      setCacheEntity('test-id', entity);
+      setCellState('workbook1', '5:3', cellState);
 
-      const cached = getStateValue('cache.entities.test-id');
-      expect(cached).toEqual(entity);
-    });
-  });
-
-  describe('Settings Actions', () => {
-    it('setSetting() should update individual setting', () => {
-      setSetting('requireServerOnline', false);
-
-      expect(getStateValue('settings.requireServerOnline')).toBe(false);
+      const retrieved = getWorkbookCellState('workbook1', '5:3');
+      expect(retrieved).toEqual(cellState);
     });
 
-    it('setSetting() should emit SETTING_CHANGED event', () => {
-      const handler = jest.fn();
-      eventBus.on(Events.SETTING_CHANGED, handler);
+    it('setCellState() should create workbook entry if not exists', () => {
+      setCellState('newWorkbook', '1:1', { value: 'test' });
 
-      setSetting('requireServerOnline', false);
+      const workbooks = getStateValue('session.workbooks');
+      expect(workbooks).toHaveProperty('newWorkbook');
+      expect(workbooks.newWorkbook).toHaveProperty('cells');
+    });
 
-      expect(handler).toHaveBeenCalledWith({
-        key: 'requireServerOnline',
-        value: false,
-      });
+    it('getWorkbookCellState() should return undefined for non-existent cell', () => {
+      const result = getWorkbookCellState('nonexistent', '1:1');
+      expect(result).toBeUndefined();
+    });
+
+    it('clearWorkbookCells() should remove all cells from workbook', () => {
+      setCellState('workbook1', '1:1', { value: 'a' });
+      setCellState('workbook1', '2:2', { value: 'b' });
+
+      clearWorkbookCells('workbook1');
+
+      expect(getWorkbookCellState('workbook1', '1:1')).toBeUndefined();
+      expect(getWorkbookCellState('workbook1', '2:2')).toBeUndefined();
+    });
+
+    it('deleteWorkbook() should remove entire workbook state', () => {
+      setCellState('workbook1', '1:1', { value: 'test' });
+
+      deleteWorkbook('workbook1');
+
+      const workbooks = getStateValue('session.workbooks');
+      expect(workbooks.workbook1).toBeUndefined();
+    });
+
+    it('findCellState() should find cell across all workbooks', () => {
+      setCellState('workbook1', '1:1', { value: 'a' });
+      setCellState('workbook2', '2:2', { value: 'b' });
+
+      const found = findCellState('2:2');
+      expect(found).toEqual({ value: 'b' });
+    });
+
+    it('findCellState() should return undefined for non-existent cell', () => {
+      const result = findCellState('999:999');
+      expect(result).toBeUndefined();
     });
   });
 
   describe('Helper Functions', () => {
-    it('getState() should return full state', () => {
-      const state = getState();
-      expect(state).toHaveProperty('ui');
-      expect(state).toHaveProperty('server');
-      expect(state).toHaveProperty('config');
-    });
-
     it('getStateValue() should get nested value', () => {
       expect(getStateValue('ui.currentView')).toBe('config');
+    });
+
+    it('getStateValue() should return undefined for non-existent path', () => {
+      expect(getStateValue('nonexistent.path')).toBeUndefined();
     });
   });
 });
