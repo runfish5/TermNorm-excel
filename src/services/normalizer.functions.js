@@ -10,59 +10,34 @@ import { SESSION_ENDPOINTS } from "../config/session.config.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
-// Fuzzy matching thresholds (0.0 - 1.0 similarity score)
-const FUZZY_FORWARD_THRESHOLD = 0.7; // Higher threshold for forward mappings (more strict)
-const FUZZY_REVERSE_THRESHOLD = 0.5; // Lower threshold for reverse mappings (more lenient)
+const FUZZY_FORWARD_THRESHOLD = 0.7;
+const FUZZY_REVERSE_THRESHOLD = 0.5;
 
-// Normalize value to trimmed string (handles Excel cell types: string, number, null, etc.)
 function normalizeValue(value) {
   return value ? String(value).trim() : "";
 }
 
-// Re-export getCachedMatch from domain layer for backward compatibility
-// (already imported at top of file)
 export { getCachedMatch };
 
-/**
- * Find fuzzy match using string similarity algorithms
- * (Re-exported from domain layer for backward compatibility)
- *
- * @param {string} value - Value to match
- * @param {Object} forward - Forward mapping (source → target)
- * @param {Object} reverse - Reverse mapping (target → target)
- * @returns {Object|null} Match result or null if no fuzzy match above threshold
- */
+/** Find fuzzy match using string similarity algorithms */
 export function findFuzzyMatch(value, forward, reverse) {
   return findFuzzyMatchDomain(value, forward, reverse, FUZZY_FORWARD_THRESHOLD, FUZZY_REVERSE_THRESHOLD);
 }
 
-/**
- * Find token match using backend research and ranking API
- *
- * @param {string} value - Value to match
- * @returns {Promise<Object|null>} Match result with candidate, method, confidence, etc., or null if no match
- */
+/** Find token match using backend research and ranking API */
 export async function findTokenMatch(value) {
   const normalized = normalizeValue(value);
   if (!normalized) return null;
 
   setWebSearchStatus('idle');
-
   if (!(await ensureSessionInitialized())) return null;
 
   const data = await executeWithSessionRecovery(async () =>
     apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query: normalized }, getHeaders())
   );
-
   if (!data) return null;
 
-  return processResearchResponse(data);
-}
-
-function processResearchResponse(data) {
-  if (data.web_search_status) {
-    setWebSearchStatus(data.web_search_status, data.web_search_error || null);
-  }
+  if (data.web_search_status) setWebSearchStatus(data.web_search_status, data.web_search_error || null);
 
   const best = data.ranked_candidates?.[0];
   if (!best) {
@@ -83,14 +58,8 @@ function processResearchResponse(data) {
   };
 }
 
-/**
- * Normalize result object to guaranteed schema
- * Ensures consistent structure regardless of match method (cached/fuzzy/LLM)
- *
- * @param {Object} result - Raw result object from any match method
- * @returns {Object} Normalized result with all fields explicitly defined
- */
-function normalizeResultShape(result) {
+/** Normalize result object to guaranteed schema */
+function normalizeResult(result) {
   return {
     target: result.target || "Unknown",
     method: result.method || "unknown",
@@ -106,76 +75,42 @@ function normalizeResultShape(result) {
   };
 }
 
-/**
- * Create default result when no match found
- *
- * @param {string} value - Source value
- * @param {string} reason - Reason for no match
- * @returns {Object} Default result object
- */
-function createDefaultResult(value, reason = "No matches found") {
-  return {
-    target: reason,
-    method: "no_match",
-    confidence: 0,
-    timestamp: new Date().toISOString(),
-    source: value,
-  };
+/** Create no-match result */
+function noMatch(value, reason = "No matches found") {
+  return normalizeResult({ target: reason, method: "no_match", confidence: 0, source: value });
 }
 
-/**
- * Process term normalization with three-tier fallback: Exact → Fuzzy → LLM
- * ALWAYS returns a valid result object (never null)
- *
- * @param {string} value - Value to normalize
- * @param {Object} forward - Forward mapping (source → target)
- * @param {Object} reverse - Reverse mapping (target → target)
- * @returns {Promise<Object>} Normalized result (always valid object)
- */
+/** Process term normalization with three-tier fallback: Exact → Fuzzy → LLM */
 export async function processTermNormalization(value, forward, reverse) {
   const normalized = normalizeValue(value);
-  if (!normalized) return normalizeResultShape(createDefaultResult(value, "Empty value"));
+  if (!normalized) return noMatch(value, "Empty value");
 
   if (!getStateValue('mappings.loaded')) {
     showMessage("Mappings not loaded", "error");
-    return normalizeResultShape(createDefaultResult(normalized, "Mappings not loaded"));
+    return noMatch(normalized, "Mappings not loaded");
   }
 
-  // CHECKPOINT 9: Emit normalization method events for observability
+  // Tier 1: Exact cache match
   const cached = getCachedMatch(normalized, forward, reverse);
   if (cached) {
-    eventBus.emit(Events.NORMALIZATION_METHOD_CACHE, {
-      source: normalized,
-      target: cached.target,
-      confidence: cached.confidence,
-    });
-    return normalizeResultShape(cached);
+    eventBus.emit(Events.NORMALIZATION_METHOD_CACHE, { source: normalized, target: cached.target, confidence: cached.confidence });
+    return normalizeResult(cached);
   }
 
+  // Tier 2: Fuzzy match
   const fuzzy = findFuzzyMatch(normalized, forward, reverse);
   if (fuzzy) {
-    eventBus.emit(Events.NORMALIZATION_METHOD_FUZZY, {
-      source: normalized,
-      target: fuzzy.target,
-      confidence: fuzzy.confidence,
-    });
-    return normalizeResultShape(fuzzy);
+    eventBus.emit(Events.NORMALIZATION_METHOD_FUZZY, { source: normalized, target: fuzzy.target, confidence: fuzzy.confidence });
+    return normalizeResult(fuzzy);
   }
 
+  // Tier 3: LLM research
   const tokenMatch = await findTokenMatch(normalized);
   if (tokenMatch) {
-    eventBus.emit(Events.NORMALIZATION_METHOD_LLM, {
-      source: normalized,
-      target: tokenMatch.target,
-      confidence: tokenMatch.confidence,
-      candidates: tokenMatch.candidates,
-    });
-    return normalizeResultShape(tokenMatch);
+    eventBus.emit(Events.NORMALIZATION_METHOD_LLM, { source: normalized, target: tokenMatch.target, confidence: tokenMatch.confidence, candidates: tokenMatch.candidates });
+    return normalizeResult(tokenMatch);
   }
 
-  // No match found by any method
-  eventBus.emit(Events.NORMALIZATION_NO_MATCH, {
-    source: normalized,
-  });
-  return normalizeResultShape(createDefaultResult(normalized, "No matches found"));
+  eventBus.emit(Events.NORMALIZATION_NO_MATCH, { source: normalized });
+  return noMatch(normalized);
 }

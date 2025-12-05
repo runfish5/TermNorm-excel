@@ -1,126 +1,61 @@
-/**
- * DOM Helper Utilities
- *
- * Consolidated DOM manipulation patterns to reduce code duplication.
- */
+/** DOM Helper Utilities - Consolidated DOM manipulation patterns */
 
-/**
- * Safely get an element by ID, logging a warning if not found
- * @param {string} id - Element ID
- * @returns {HTMLElement|null}
- */
+/** Safely get element by ID */
 export function getElement(id) {
   const el = document.getElementById(id);
-  if (!el) {
-    console.warn(`[DOM] Element not found: #${id}`);
-  }
+  if (!el) console.warn(`[DOM] Element not found: #${id}`);
   return el;
 }
 
-/**
- * Safely update element text content
- * @param {string} id - Element ID
- * @param {string} text - Text content to set
- * @returns {boolean} - True if element was found and updated
- */
+/** Safely update element text content */
 export function updateText(id, text) {
   const el = document.getElementById(id);
-  if (el) {
-    el.textContent = text;
-    return true;
-  }
-  return false;
+  if (el) el.textContent = text;
+  return !!el;
 }
 
-/**
- * Safely update element innerHTML
- * @param {string} id - Element ID
- * @param {string} html - HTML content to set
- * @returns {boolean} - True if element was found and updated
- */
+/** Safely update element innerHTML */
 export function updateHTML(id, html) {
   const el = document.getElementById(id);
-  if (el) {
-    el.innerHTML = html;
-    return true;
-  }
-  return false;
+  if (el) el.innerHTML = html;
+  return !!el;
 }
 
-/**
- * Toggle visibility using the 'hidden' class
- * @param {string} id - Element ID
- * @param {boolean} visible - Whether element should be visible
- * @returns {boolean} - True if element was found and updated
- */
+/** Toggle visibility using 'hidden' class */
 export function setVisible(id, visible) {
   const el = document.getElementById(id);
-  if (el) {
-    el.classList.toggle("hidden", !visible);
-    return true;
-  }
-  return false;
+  if (el) el.classList.toggle("hidden", !visible);
+  return !!el;
 }
 
-/**
- * Setup a checkbox that syncs with state and calls a handler on change
- * @param {string} id - Checkbox element ID
- * @param {boolean} initialValue - Initial checked state
- * @param {Function} onChange - Callback when checkbox changes (receives new value)
- * @returns {HTMLInputElement|null} - The checkbox element
- */
+/** Setup checkbox with initial value and change handler */
 export function setupCheckbox(id, initialValue, onChange) {
-  const checkbox = document.getElementById(id);
-  if (!checkbox) {
-    console.warn(`[DOM] Checkbox not found: #${id}`);
-    return null;
-  }
-
-  checkbox.checked = initialValue;
-  checkbox.addEventListener("change", () => {
-    onChange(checkbox.checked);
-  });
-
-  return checkbox;
+  const el = document.getElementById(id);
+  if (!el) return console.warn(`[DOM] Checkbox not found: #${id}`), null;
+  el.checked = initialValue;
+  el.addEventListener("change", () => onChange(el.checked));
+  return el;
 }
 
-/**
- * Setup a button with a click handler
- * @param {string} id - Button element ID
- * @param {Function} onClick - Click handler
- * @returns {HTMLButtonElement|null} - The button element
- */
+/** Setup button with click handler */
 export function setupButton(id, onClick) {
-  const button = document.getElementById(id);
-  if (!button) {
-    console.warn(`[DOM] Button not found: #${id}`);
-    return null;
-  }
-
-  button.addEventListener("click", onClick);
-  return button;
+  const el = document.getElementById(id);
+  if (!el) return console.warn(`[DOM] Button not found: #${id}`), null;
+  el.addEventListener("click", onClick);
+  return el;
 }
 
-/**
- * Copy text to clipboard and optionally update button text for feedback
- * @param {string} text - Text to copy
- * @param {HTMLElement} [button] - Optional button to show feedback
- * @param {string} [successText="Copied!"] - Text to show on success
- * @param {number} [resetMs=1500] - Time before resetting button text
- */
+/** Copy text to clipboard with optional button feedback */
 export async function copyToClipboard(text, button, successText = "Copied!", resetMs = 1500) {
   try {
     await navigator.clipboard.writeText(text);
     if (button) {
-      const originalText = button.textContent;
+      const orig = button.textContent;
       button.textContent = successText;
-      setTimeout(() => {
-        button.textContent = originalText;
-      }, resetMs);
+      setTimeout(() => button.textContent = orig, resetMs);
     }
     return true;
-  } catch (error) {
-    console.error("Failed to copy to clipboard:", error);
+  } catch {
     return false;
   }
 }
