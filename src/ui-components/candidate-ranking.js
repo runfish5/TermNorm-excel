@@ -15,84 +15,54 @@ export function init() {
 }
 
 export function addCandidate(value, result, context) {
-  const candidates = result?.candidates;
-  if (!candidates) return;
-  if (!container && (!init() || !container)) return;
-
-  candidatesData = [...candidates];
+  if (!result?.candidates || (!container && !init())) return;
+  candidatesData = [...result.candidates];
   currentContext = context;
 
-  const columnNames = { core_concept_score: "Core Score", spec_score: "Sp. Score", key_match_factors: "Match Factors", spec_gaps: "Gaps" };
-  const hiddenColumns = ["abc"];
-  const columns = [...new Set(candidates.flatMap((c) => Object.keys(c).filter((k) => !k.startsWith("_") && !hiddenColumns.includes(k))))];
+  const names = { core_concept_score: "Core", spec_score: "Spec", key_match_factors: "Factors", spec_gaps: "Gaps" };
+  const cols = [...new Set(candidatesData.flatMap(c => Object.keys(c).filter(k => !k.startsWith("_") && k !== "abc")))];
+  const section = container.querySelector("#candidate-ranking-section");
+  if (!section) return;
 
-  const rankedContainer = container.querySelector("#candidate-ranking-section");
-  if (!rankedContainer) return;
+  section.innerHTML = `<div class="candidate-entry"><div class="candidate-header">Input: "${value}"</div><div class="candidate-inline-header"><button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First</button><span class="candidate-drag-hint">Drag to reorder</span></div><table class="candidate-table"><thead><tr><th>🔀</th>${cols.map(c => `<th>${names[c] || c.replace(/_/g, " ")}</th>`).join("")}</tr></thead><tbody>${candidatesData.map((c, i) => `<tr draggable="true" data-index="${i}"><td class="drag-handle">⋮⋮</td>${cols.map(col => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 
-  rankedContainer.innerHTML = `<div class="candidate-entry">
-    <div class="candidate-header">Input: "${value}"</div>
-    <div class="candidate-inline-header">
-      <button id="apply-first" class="ms-Button ms-Button--primary ms-font-s">Apply First Choice</button>
-      <span class="candidate-drag-hint">Drag rows to reorder</span>
-    </div>
-    <table class="candidate-table">
-      <thead><tr><th>🔀</th>${columns.map((col) => `<th>${columnNames[col] || col.replace(/_/g, " ")}</th>`).join("")}</tr></thead>
-      <tbody>${candidatesData.map((c, i) => `<tr draggable="true" data-index="${i}"><td class="drag-handle">⋮⋮</td>${columns.map((col) => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}</tr>`).join("")}</tbody>
-    </table>
-  </div>`;
-
-  setupDragDrop(rankedContainer);
-
-  const applyButton = rankedContainer.querySelector("#apply-first");
-  if (applyButton) {
-    applyButton.onclick = async () => {
-      const first = candidatesData[0];
-      if (!first || !currentContext) return;
-
-      const feedback = showFeedback(rankedContainer, "Processing...", "bg-muted");
-      try {
-        await currentContext.applyChoice(first);
-        feedback.innerHTML = `✅ Applied: ${first.candidate} | Score: ${first.core_concept_score || first.spec_score || first.relevance_score || "N/A"}`;
-        feedback.classList.replace("bg-muted", "bg-success");
-      } catch { feedback.innerHTML = "❌ Error: Failed to apply first choice"; feedback.classList.replace("bg-muted", "bg-error"); }
-      setTimeout(() => feedback.remove(), 3000);
-    };
-  }
+  setupDragDrop(section);
+  const btn = section.querySelector("#apply-first");
+  if (btn) btn.onclick = async () => {
+    const first = candidatesData[0];
+    if (!first || !currentContext) return;
+    const fb = showFeedback(section, "Processing...", "bg-muted");
+    try { await currentContext.applyChoice(first); fb.innerHTML = `✅ ${first.candidate}`; fb.classList.replace("bg-muted", "bg-success"); }
+    catch { fb.innerHTML = "❌ Failed"; fb.classList.replace("bg-muted", "bg-error"); }
+    setTimeout(() => fb.remove(), 3000);
+  };
 }
 
-function showFeedback(containerElement, message, bgClass = "bg-muted") {
-  let feedback = containerElement.querySelector(".feedback");
-  if (!feedback) {
-    feedback = document.createElement("div");
-    feedback.className = "feedback p-md mb-md rounded-lg";
-    const table = containerElement.querySelector("table");
-    table ? table.before(feedback) : containerElement.appendChild(feedback);
-  }
-  feedback.classList.remove("bg-muted", "bg-success", "bg-error");
-  feedback.classList.add(bgClass);
-  feedback.innerHTML = message;
-  return feedback;
+function showFeedback(el, msg, bg = "bg-muted") {
+  let fb = el.querySelector(".feedback");
+  if (!fb) { fb = document.createElement("div"); fb.className = "feedback p-md mb-md rounded-lg"; const t = el.querySelector("table"); t ? t.before(fb) : el.appendChild(fb); }
+  fb.classList.remove("bg-muted", "bg-success", "bg-error");
+  fb.classList.add(bg);
+  fb.innerHTML = msg;
+  return fb;
 }
 
-function setupDragDrop(containerElement) {
-  const tbody = containerElement.querySelector("tbody");
+function setupDragDrop(el) {
+  const tbody = el.querySelector("tbody");
   if (!tbody) return;
+  let dragIdx = null;
 
-  let dragIndex = null;
-
-  tbody.ondragstart = (e) => { if (e.target.tagName === "TR") { dragIndex = parseInt(e.target.dataset.index); e.target.classList.add("dragging"); } };
-  tbody.ondragend = (e) => { if (e.target.tagName === "TR") { e.target.classList.remove("dragging"); tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over")); } };
-  tbody.ondragover = (e) => { e.preventDefault(); const targetRow = e.target.closest("tr"); if (targetRow && dragIndex !== null) { tbody.querySelectorAll("tr").forEach((row) => row.classList.remove("drag-over")); targetRow.classList.add("drag-over"); } };
+  tbody.ondragstart = (e) => { if (e.target.tagName === "TR") { dragIdx = +e.target.dataset.index; e.target.classList.add("dragging"); } };
+  tbody.ondragend = (e) => { if (e.target.tagName === "TR") { e.target.classList.remove("dragging"); tbody.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over")); } };
+  tbody.ondragover = (e) => { e.preventDefault(); const tr = e.target.closest("tr"); if (tr && dragIdx !== null) { tbody.querySelectorAll("tr").forEach(r => r.classList.remove("drag-over")); tr.classList.add("drag-over"); } };
   tbody.ondrop = (e) => {
     e.preventDefault();
-    const targetRow = e.target.closest("tr");
-    if (targetRow && dragIndex !== null) {
-      const targetIndex = parseInt(targetRow.dataset.index);
-      const [draggedItem] = candidatesData.splice(dragIndex, 1);
-      candidatesData.splice(targetIndex, 0, draggedItem);
-      const input = containerElement.querySelector(".candidate-header").textContent.match(/Input: "([^"]+)"/)?.[1];
-      addCandidate(input, { candidates: candidatesData }, currentContext);
+    const tr = e.target.closest("tr");
+    if (tr && dragIdx !== null) {
+      const [item] = candidatesData.splice(dragIdx, 1);
+      candidatesData.splice(+tr.dataset.index, 0, item);
+      addCandidate(el.querySelector(".candidate-header").textContent.match(/Input: "([^"]+)"/)?.[1], { candidates: candidatesData }, currentContext);
     }
-    dragIndex = null;
+    dragIdx = null;
   };
 }
