@@ -21,7 +21,7 @@ export function buildColumnMap(headers, columnMap, worksheetName = null) {
 }
 
 export function buildConfidenceColumnMap(headers, confidenceColumnMap) {
-  if (!confidenceColumnMap) return { map: new Map(), found: [], missing: [] };
+  if (!confidenceColumnMap) return { confidenceColumnMap: new Map(), confidenceFound: [], confidenceMissing: [] };
 
   const map = new Map(), found = [], missing = [];
 
@@ -31,5 +31,5 @@ export function buildConfidenceColumnMap(headers, confidenceColumnMap) {
     else { map.set(srcIdx, confIdx); found.push(`${src}→${confCol}`); }
   });
 
-  return { map, found, missing };
+  return { confidenceColumnMap: map, confidenceFound: found, confidenceMissing: missing };
 }
