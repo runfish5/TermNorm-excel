@@ -197,12 +197,3 @@ function setupDragDrop(containerElement) {
     dragIndex = null;
   };
 }
-
-export function clearCandidates() {
-  candidatesData = [];
-  currentContext = null;
-  const candidateSection = container?.querySelector("#candidate-ranking-section");
-  if (candidateSection) {
-    candidateSection.innerHTML = '<div class="placeholder-text">Results appear here during processing</div>';
-  }
-}

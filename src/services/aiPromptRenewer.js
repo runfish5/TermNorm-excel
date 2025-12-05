@@ -110,11 +110,3 @@ function updateButton(generating) {
     btn.classList.toggle("generating", generating);
   }
 }
-
-export function isRenewing() {
-  return isGenerating;
-}
-
-export function cancel() {
-  abortController?.abort();
-}

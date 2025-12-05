@@ -50,12 +50,3 @@ export function hideLoadingIndicator() {
     }
   }, 300);
 }
-
-/**
- * Check if the loading indicator is currently visible
- * @returns {boolean} True if visible, false otherwise
- */
-export function isLoadingIndicatorVisible() {
-  const indicator = getLoadingIndicatorElement();
-  return indicator ? indicator.classList.contains("visible") : false;
-}

@@ -5,7 +5,6 @@ import {
   getWorkbookCellState,
   clearWorkbookCells,
   deleteWorkbook,
-  findCellState,
 } from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
@@ -414,14 +413,4 @@ export async function stopTracking(workbookId) {
 
 export function getActiveTrackers() {
   return Array.from(activeTrackers.keys());
-}
-
-// Export cell state accessors - searches all workbooks via state store
-export function getCellState(cellKey) {
-  return findCellState(cellKey);
-}
-
-export function getCellStateByCoords(row, col) {
-  const cellKey = createCellKey(row, col);
-  return findCellState(cellKey);
 }
