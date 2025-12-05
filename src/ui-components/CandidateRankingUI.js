@@ -9,17 +9,7 @@ eventBus.on(Events.CANDIDATES_AVAILABLE, ({ source, result, applyChoice }) => ad
 export function init() {
   container = document.getElementById("results-view");
   if (!container) return false;
-
-  const style = document.createElement("style");
-  style.textContent = `.candidate-table tr { cursor: move; transition: background 0.2s; }
-    .candidate-table tr:hover { background: #f3f2f1; }
-    .candidate-table tr.dragging { opacity: 0.5; }
-    .candidate-table tr.drag-over { border-top: 2px solid #0078d4; }
-    .drag-handle { cursor: grab; padding: 4px; color: #605e5c; }
-    .drag-handle:hover { color: #0078d4; }
-    .drag-handle:active { cursor: grabbing; }`;
-  document.head.appendChild(style);
-
+  document.head.appendChild(Object.assign(document.createElement("style"), { textContent: `.candidate-table tr{cursor:move;transition:background .2s}.candidate-table tr:hover{background:#f3f2f1}.candidate-table tr.dragging{opacity:.5}.candidate-table tr.drag-over{border-top:2px solid #0078d4}.drag-handle{cursor:grab;padding:4px;color:#605e5c}.drag-handle:hover{color:#0078d4}.drag-handle:active{cursor:grabbing}` }));
   initProcessingHistory("processing-history-feed");
   return true;
 }
