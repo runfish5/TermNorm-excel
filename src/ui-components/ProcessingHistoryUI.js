@@ -12,65 +12,49 @@ export function init(containerId = "processing-history-feed") {
   container = document.getElementById(containerId);
   if (!container) return false;
   if (tableBody?.isConnected) return true;
-
   container.innerHTML = `<table class="table table-rounded table-elevated"><thead><tr><th>Time</th><th>Source</th><th>Target</th><th>Method</th><th>Confidence</th></tr></thead><tbody></tbody></table>`;
   tableBody = container?.querySelector("tbody");
-
   document.getElementById("clear-history")?.addEventListener("click", clear);
   showPlaceholder();
   return true;
 }
 
+function addClickHandler(row, target) {
+  row.classList.add("cursor-pointer");
+  row.addEventListener("click", (e) => { e.stopPropagation(); fetchAndDisplayDetails(target, row); });
+}
+
 export async function addEntry(source, cellKey, timestamp, result) {
   if (!tableBody && (!init() || !tableBody)) return;
-
-  try {
-    tableBody?.querySelector(".placeholder-row")?.remove();
-    addEvent({ source, cellKey, timestamp });
-
-    const displayResult = result || { target: "Unknown", method: "-", confidence: 0, timestamp, web_search_status: "idle" };
-    const { cacheEntity } = await import("../utils/history-cache.js");
-    cacheEntity(source, displayResult);
-
-    const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, displayResult);
-    tableBody.insertBefore(row, tableBody.firstChild);
-
-    row.classList.add("cursor-pointer");
-    row.addEventListener("click", (e) => { e.stopPropagation(); fetchAndDisplayDetails(displayResult.target, row); });
-
-    const maxEntries = getMaxEntries();
-    while (tableBody.children.length > maxEntries) tableBody.removeChild(tableBody.lastChild);
-
-    updateHistoryTabCounter();
-  } catch (error) {
-    console.error("ProcessingHistory.addEntry() error:", error);
-  }
+  tableBody?.querySelector(".placeholder-row")?.remove();
+  addEvent({ source, cellKey, timestamp });
+  const r = result || { target: "Unknown", method: "-", confidence: 0, timestamp, web_search_status: "idle" };
+  const { cacheEntity } = await import("../utils/history-cache.js");
+  cacheEntity(source, r);
+  const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, r);
+  tableBody.insertBefore(row, tableBody.firstChild);
+  addClickHandler(row, r.target);
+  while (tableBody.children.length > getMaxEntries()) tableBody.removeChild(tableBody.lastChild);
+  updateHistoryTabCounter();
 }
 
 export function clear() {
   if (!tableBody) return;
-  clearEvents();
-  tableBody.innerHTML = "";
-  showPlaceholder();
-  updateHistoryTabCounter();
+  clearEvents(); tableBody.innerHTML = ""; showPlaceholder(); updateHistoryTabCounter();
 }
 
 export function scrollToAndHighlight(key, type = "sessionKey") {
   if (!tableBody || !key) return null;
-
   const attr = type === "identifier" ? "data-identifier" : "data-session-key";
-  let targetRow = tableBody.querySelector(`[${attr}="${CSS.escape(key)}"]`);
-  if (!targetRow && type === "sessionKey") targetRow = tableBody.querySelector(`[data-identifier="${CSS.escape(key)}"]`);
-  if (!targetRow) return null;
-
+  const row = tableBody.querySelector(`[${attr}="${CSS.escape(key)}"]`) || (type === "sessionKey" ? tableBody.querySelector(`[data-identifier="${CSS.escape(key)}"]`) : null);
+  if (!row) return null;
   collapseExpandedRow();
-  targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
-  return targetRow;
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  return row;
 }
 
 function showPlaceholder() {
-  if (tableBody && !tableBody.querySelector(".history-row"))
-    tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>';
+  if (tableBody && !tableBody.querySelector(".history-row")) tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>';
 }
 
 function collapseExpandedRow() {
@@ -78,104 +62,60 @@ function collapseExpandedRow() {
   const { originalRow, expandedRow } = expandedRowState;
   if (expandedRow?.parentNode && originalRow) {
     expandedRow.parentNode.replaceChild(originalRow, expandedRow);
-    const id = originalRow.dataset.identifier;
-    if (id) {
-      originalRow.classList.add("cursor-pointer");
-      originalRow.addEventListener("click", (e) => { e.stopPropagation(); fetchAndDisplayDetails(id, originalRow); });
-    }
+    if (originalRow.dataset.identifier) addClickHandler(originalRow, originalRow.dataset.identifier);
   }
   expandedRowState = null;
 }
 
 export function updateHistoryTabCounter() {
-  const historyTab = document.getElementById("history-tab");
-  if (historyTab && tableBody) {
-    const count = tableBody.querySelectorAll(".history-row").length;
-    const tabIcon = historyTab.querySelector(".tab-icon");
-    if (tabIcon) tabIcon.textContent = `${count}📜`;
-  }
+  const tabIcon = document.getElementById("history-tab")?.querySelector(".tab-icon");
+  if (tabIcon && tableBody) tabIcon.textContent = `${tableBody.querySelectorAll(".history-row").length}📜`;
 }
 
 export async function handleCellSelection(cellKey, state, identifier) {
-  const { showView } = await import("../utils/dom-helpers.js");
-  showView("history");
-
-  const lookupId = identifier || state?.result?.target;
-  let targetRow = cellKey ? scrollToAndHighlight(cellKey, "sessionKey") : null;
-  if (!targetRow && lookupId) targetRow = scrollToAndHighlight(lookupId, "identifier");
-  if (lookupId && targetRow) await fetchAndDisplayDetails(lookupId, targetRow);
+  (await import("../utils/dom-helpers.js")).showView("history");
+  const id = identifier || state?.result?.target;
+  const row = (cellKey && scrollToAndHighlight(cellKey, "sessionKey")) || (id && scrollToAndHighlight(id, "identifier"));
+  if (id && row) fetchAndDisplayDetails(id, row);
 }
 
-async function fetchAndDisplayDetails(identifier, targetRow) {
-  const { getEntity } = await import("../utils/history-cache.js");
-  const entry = await getEntity(identifier);
-  if (entry) displayDetailsPanel({ identifier, ...entry }, targetRow);
+async function fetchAndDisplayDetails(identifier, row) {
+  const entry = await (await import("../utils/history-cache.js")).getEntity(identifier);
+  if (entry) displayDetailsPanel({ identifier, ...entry }, row);
 }
 
-function displayDetailsPanel(details, targetRow) {
-  if (!details || !targetRow) return;
+function displayDetailsPanel(d, row) {
+  if (!d || !row) return;
   collapseExpandedRow();
+  if (!row.isConnected && d.identifier) row = tableBody?.querySelector(`[data-identifier="${CSS.escape(d.identifier)}"]`);
+  if (!row) return;
 
-  if (!targetRow.isConnected && details.identifier) {
-    targetRow = tableBody?.querySelector(`[data-identifier="${CSS.escape(details.identifier)}"]`);
-    if (!targetRow) return;
-  }
+  const aliases = Object.entries(d.aliases || {});
+  const p = d.entity_profile;
+  const profile = p ? `<div class="profile-field"><strong>Name:</strong> ${p.entity_name || p.name || "N/A"}</div><div class="profile-field"><strong>Core Concept:</strong> ${p.core_concept || "N/A"}</div><div class="profile-field"><strong>Key Features:</strong> ${p.distinguishing_features?.slice(0, 5).join(", ") || p.key_features?.join(", ") || "N/A"}</div>` : "<p>No profile</p>";
 
-  const originalRow = targetRow.cloneNode(true);
-  const aliases = Object.entries(details.aliases || {});
+  const expanded = document.createElement("tr");
+  expanded.className = "history-row expanded-details";
+  expanded.dataset.identifier = d.identifier || "";
+  expanded.innerHTML = `<td colspan="5" class="details-cell"><div class="inline-details-panel"><div class="details-header"><div class="details-title"><strong>Target:</strong> ${d.identifier || "Unknown"}</div><button class="btn-collapse" title="Collapse">▲</button></div><div class="details-content"><div class="detail-section"><h5>Entity Profile</h5><div class="card-sm card-muted">${profile}</div></div><div class="detail-section"><h5>Matched Aliases (${aliases.length})</h5><div class="card-sm card-muted">${aliases.map(([a, i]) => `<div class="list-item-bordered"><span class="name">${a}</span><span class="badge badge-sm badge-uppercase ${i.method}">${i.method}</span><span class="score">${Math.round((i.confidence || 0) * 100)}%</span></div>`).join("") || "<div>No aliases</div>"}</div></div><div class="detail-section"><h5>Web Sources (${d.web_sources?.length || 0})</h5><ul class="list-plain list-scrollable">${d.web_sources?.map(s => `<li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>`).join("") || "<li>No sources</li>"}</ul></div><div class="detail-meta"><span>Last updated: ${d.last_updated ? new Date(d.last_updated).toLocaleString() : "N/A"}</span></div></div></div></td>`;
 
-  const expandedRow = document.createElement("tr");
-  expandedRow.className = "history-row expanded-details";
-  expandedRow.dataset.identifier = details.identifier || "";
-
-  expandedRow.innerHTML = `<td colspan="5" class="details-cell">
-  <div class="inline-details-panel">
-    <div class="details-header">
-      <div class="details-title"><strong>Target:</strong> ${details.identifier || "Unknown"}</div>
-      <button class="btn-collapse" title="Collapse">▲</button>
-    </div>
-    <div class="details-content">
-      <div class="detail-section"><h5>Entity Profile</h5><div class="card-sm card-muted">${formatEntityProfile(details.entity_profile)}</div></div>
-      <div class="detail-section"><h5>Matched Aliases (${aliases.length})</h5><div class="card-sm card-muted">${aliases.map(([alias, info]) => `<div class="list-item-bordered"><span class="name">${alias}</span><span class="badge badge-sm badge-uppercase ${info.method}">${info.method}</span><span class="score">${Math.round((info.confidence || 0) * 100)}%</span></div>`).join("") || "<div>No aliases</div>"}</div></div>
-      <div class="detail-section"><h5>Web Sources (${details.web_sources?.length || 0})</h5><ul class="list-plain list-scrollable">${details.web_sources?.map((s) => `<li><a href="${s.url || s}" target="_blank">${s.title || s.url || s}</a></li>`).join("") || "<li>No sources</li>"}</ul></div>
-      <div class="detail-meta"><span>Last updated: ${details.last_updated ? new Date(details.last_updated).toLocaleString() : "N/A"}</span></div>
-    </div>
-  </div>
-</td>`;
-
-  targetRow.parentNode.replaceChild(expandedRow, targetRow);
-  expandedRowState = { originalRow, expandedRow };
-  expandedRow.querySelector(".btn-collapse").onclick = (e) => { e.stopPropagation(); collapseExpandedRow(); };
-}
-
-function formatEntityProfile(profile) {
-  if (!profile) return "<p>No profile</p>";
-  return `<div class="profile-field"><strong>Name:</strong> ${profile.entity_name || profile.name || "N/A"}</div>
-<div class="profile-field"><strong>Core Concept:</strong> ${profile.core_concept || "N/A"}</div>
-<div class="profile-field"><strong>Key Features:</strong> ${profile.distinguishing_features?.slice(0, 5).join(", ") || profile.key_features?.join(", ") || "N/A"}</div>`;
+  row.parentNode.replaceChild(expanded, row);
+  expandedRowState = { originalRow: row.cloneNode(true), expandedRow: expanded };
+  expanded.querySelector(".btn-collapse").onclick = (e) => { e.stopPropagation(); collapseExpandedRow(); };
 }
 
 export function populateFromCache(entries) {
-  if (!entries || !Object.keys(entries).length) return;
-  if (!tableBody && (!init() || !tableBody)) return;
-
+  if (!entries || !Object.keys(entries).length || (!tableBody && !init())) return;
   tableBody?.querySelector(".placeholder-row")?.remove();
 
-  const cachedEvents = [];
-  for (const [identifier, entry] of Object.entries(entries)) {
-    for (const [source, info] of Object.entries(entry.aliases || {})) {
-      cachedEvents.push({ source, target: identifier, method: info.method || "unknown", confidence: info.confidence || 0, timestamp: info.timestamp });
-    }
-  }
+  const events = Object.entries(entries).flatMap(([id, e]) => Object.entries(e.aliases || {}).map(([src, i]) => ({ source: src, target: id, method: i.method || "unknown", confidence: i.confidence || 0, timestamp: i.timestamp })));
+  events.sort((a, b) => (b.timestamp ? new Date(b.timestamp) : 0) - (a.timestamp ? new Date(a.timestamp) : 0));
 
-  cachedEvents.sort((a, b) => (b.timestamp ? new Date(b.timestamp).getTime() : 0) - (a.timestamp ? new Date(a.timestamp).getTime() : 0));
-
-  for (const { source, target, method, confidence, timestamp } of cachedEvents.slice(0, getMaxEntries())) {
+  for (const { source, target, method, confidence, timestamp } of events.slice(0, getMaxEntries())) {
     const row = buildActivityRow({ source, sessionKey: null, timestamp }, { target, method, confidence, web_search_status: "idle" });
-    row.classList.add("cached-entry", "cursor-pointer");
-    row.addEventListener("click", (e) => { e.stopPropagation(); fetchAndDisplayDetails(target, row); });
+    row.classList.add("cached-entry");
+    addClickHandler(row, target);
     tableBody.appendChild(row);
   }
-
   updateHistoryTabCounter();
 }
