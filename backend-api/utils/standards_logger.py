@@ -13,6 +13,30 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 
 
+def generate_dated_id(length: int = 32) -> str:
+    """
+    Generate a datetime-prefixed hexadecimal ID.
+
+    Format: YYMMDD + HHMMSS + random hex to fill remaining length
+    Example (32 chars): 251205143052a7b8c9d0e1f2345678ab
+                        |date ||time ||--random hex--|
+
+    Args:
+        length: Total length of the ID (default 32 for UUID compatibility)
+
+    Returns:
+        Lowercase hexadecimal string with datetime prefix
+    """
+    # Datetime prefix: YYMMDDHHMMSS (12 chars)
+    datetime_prefix = datetime.utcnow().strftime("%y%m%d%H%M%S")
+
+    # Random suffix to fill remaining length
+    random_suffix_length = length - len(datetime_prefix)
+    random_hex = uuid.uuid4().hex[:random_suffix_length]
+
+    return f"{datetime_prefix}{random_hex}"
+
+
 class ExperimentManager:
     """Manages experiments (create, get, list) in MLflow-compatible format."""
 
@@ -143,7 +167,7 @@ class RunManager:
         Returns:
             run_id: Unique run identifier
         """
-        run_id = str(uuid.uuid4())[:8]  # Short UUID
+        run_id = generate_dated_id(32)  # Datetime-prefixed: 251205143052...
         self.current_run_id = run_id
 
         run_path = self.base_path / run_id
@@ -425,11 +449,11 @@ class TraceLogger:
     def _generate_span_id(self) -> str:
         """Generate a unique span ID (16 hex chars, OpenTelemetry format)."""
         self._span_counter += 1
-        return uuid.uuid4().hex[:16]
+        return generate_dated_id(16)  # Datetime-prefixed: 251205143052abcd
 
     def _generate_trace_id(self) -> str:
         """Generate a unique trace ID (32 hex chars, OpenTelemetry format)."""
-        return uuid.uuid4().hex
+        return generate_dated_id(32)  # Datetime-prefixed: 251205143052...
 
     def start_trace(self, query: str, session_id: str = None) -> str:
         """
