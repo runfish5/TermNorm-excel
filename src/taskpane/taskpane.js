@@ -17,33 +17,12 @@ import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-
 import { updateWarnings } from "../utils/warning-manager.js";
 import { setupButton } from "../utils/dom-helpers.js";
 
-/**
- * Setup event-driven UI reactivity
- * All UI components automatically update when state changes via event bus
- */
 function setupUIReactivity() {
-  // LED updates on server status changes
-  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateLED());
-
-  // Matcher indicator updates on mappings or server changes
-  eventBus.on(Events.MAPPINGS_LOADED, () => updateMatcherIndicator());
-  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateMatcherIndicator());
-
-  // Warning badges update on settings or server changes
-  eventBus.on(Events.SETTING_CHANGED, () => updateWarnings());
-  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateWarnings());
-
-  // Button states update on config, mappings, or server changes
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => { updateLED(); updateMatcherIndicator(); updateWarnings(); updateButtonStates(); });
+  eventBus.on(Events.MAPPINGS_LOADED, () => { updateMatcherIndicator(); updateButtonStates(); });
+  eventBus.on(Events.SETTING_CHANGED, () => { updateWarnings(); updateButtonStates(); });
   eventBus.on(Events.CONFIG_LOADED, () => updateButtonStates());
-  eventBus.on(Events.MAPPINGS_LOADED, () => updateButtonStates());
-  eventBus.on(Events.SERVER_STATUS_CHANGED, () => updateButtonStates());
-  eventBus.on(Events.SETTING_CHANGED, () => updateButtonStates());
-
-  // Initial renders
-  updateLED();
-  updateMatcherIndicator();
-  updateWarnings();
-  updateButtonStates();
+  updateLED(); updateMatcherIndicator(); updateWarnings(); updateButtonStates();
 }
 
 Office.onReady(async (info) => {
@@ -53,74 +32,42 @@ Office.onReady(async (info) => {
   }
 
   document.body.className = "ms-font-m ms-welcome ms-Fabric";
+  initProcessingHistory(); initBatchProcessing(); updateHistoryTabCounter();
 
-  initProcessingHistory();
-  initBatchProcessing();
-  updateHistoryTabCounter();
-
-  // Hide sideload message, show main app
   document.getElementById("sideload-msg")?.classList.add("hidden");
   const appBody = document.getElementById("app-body");
-  if (appBody) {
-    appBody.classList.remove("hidden");
-    appBody.style.display = "flex";
-  }
+  if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
 
-  // Initialize settings from localStorage
   initializeSettings();
-
-  setupFileHandling();
-  setupServerEvents();
-  setupLED();
-  setupMatcherIndicator();
-
-  // Register event listener for server reconnection - initializes history cache when server comes online
-  eventBus.on(Events.SERVER_RECONNECTED, () => {
-    initializeHistoryCache();
-  });
-
-  // Setup event-driven UI reactivity
+  setupFileHandling(); setupServerEvents(); setupLED(); setupMatcherIndicator();
+  eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
   setupUIReactivity();
-
-  checkServerStatus();
-  initializeVersionDisplay();
-  initializeProjectPathDisplay();
-
-  // Setup settings checkbox handlers using helper
+  checkServerStatus(); initializeVersionDisplay(); initializeProjectPathDisplay();
   setupSettingsCheckboxes();
 
-  setupButton("offline-mode-warning", () => {
-    showView("settings");
-    showMessage("Offline mode active - re-enable server requirement in Connection Requirements");
-  });
+  setupButton("offline-mode-warning", () => { showView("settings"); showMessage("Offline mode active - re-enable server requirement in Connection Requirements"); });
+
   document.getElementById("show-metadata-btn")?.addEventListener("click", () => {
     const content = document.getElementById("metadata-content");
-    content &&
-      (content.classList.toggle("hidden")
-        ? (document.getElementById("show-metadata-btn").textContent = "Show Processing Details")
-        : (document.getElementById("show-metadata-btn").textContent = "Hide Processing Details"));
+    if (content) {
+      content.classList.toggle("hidden");
+      document.getElementById("show-metadata-btn").textContent = content.classList.contains("hidden") ? "Show Processing Details" : "Hide Processing Details";
+    }
   });
 
-  // Help modal
   const helpModal = document.getElementById("help-modal");
   document.getElementById("help-icon-btn")?.addEventListener("click", () => helpModal?.classList.remove("hidden"));
   document.getElementById("close-help-modal")?.addEventListener("click", () => helpModal?.classList.add("hidden"));
   helpModal?.addEventListener("click", (e) => e.target === helpModal && helpModal.classList.add("hidden"));
 
   document.getElementById("setup-map-tracking")?.addEventListener("click", async (e) => {
-    e.target.disabled = true;
-    e.target.textContent = "Activating...";
-    try {
-      await startLiveTracking();
-    } catch (error) {
-      showMessage(`Activation failed: ${error.message}`, "error");
-    } finally {
-      e.target.disabled = false;
-      e.target.textContent = "Activate Tracking";
-    }
+    e.target.disabled = true; e.target.textContent = "Activating...";
+    try { await startLiveTracking(); }
+    catch (error) { showMessage(`Activation failed: ${error.message}`, "error"); }
+    finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
   });
 
-  document.getElementById("renew-prompt")?.addEventListener("click", () => renewPromptHandler());
+  document.getElementById("renew-prompt")?.addEventListener("click", renewPromptHandler);
 
   document.addEventListener("click", async (e) => {
     const navTab = e.target.closest(".nav-tab");
@@ -128,162 +75,79 @@ Office.onReady(async (info) => {
       e.preventDefault();
       const viewName = navTab.getAttribute("data-view");
       showView(viewName);
-      if (viewName === "settings") {
-        await initializeLlmSettings();
-      }
+      if (viewName === "settings") await initializeLlmSettings();
     }
   });
 
   updateContentMargin();
   const statusMessage = document.getElementById("main-status-message");
-  if (statusMessage) {
-    const observer = new MutationObserver(updateContentMargin);
-    observer.observe(statusMessage, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-  }
-
+  if (statusMessage) new MutationObserver(updateContentMargin).observe(statusMessage, { childList: true, subtree: true, characterData: true });
   window.addEventListener("resize", updateContentMargin);
-  try {
-    await loadStaticConfig();
-  } catch (error) {
-    console.error("Failed to initialize:", error);
-    showMessage(`Initialization failed: ${error.message}`, "error");
-  }
+
+  try { await loadStaticConfig(); }
+  catch (error) { console.error("Failed to initialize:", error); showMessage(`Initialization failed: ${error.message}`, "error"); }
 });
 
 function canActivateTracking() {
-  const configLoaded = getStateValue('config.loaded');
-  const mappingsLoaded = getStateValue('mappings.loaded');
-  const mappingsCombined = getStateValue('mappings.combined');
-  const serverOnline = getStateValue('server.online');
+  const configLoaded = getStateValue('config.loaded'), mappingsLoaded = getStateValue('mappings.loaded');
+  const mappingsCombined = getStateValue('mappings.combined'), serverOnline = getStateValue('server.online');
   const requireServerOnline = getStateValue('settings.requireServerOnline');
 
-  if (!configLoaded) {
-    return { allowed: false, reason: "Configuration not loaded - load config file first" };
-  }
+  if (!configLoaded) return { allowed: false, reason: "Configuration not loaded - load config file first" };
+  if (!mappingsLoaded || !mappingsCombined) return { allowed: false, reason: "Mappings not loaded - load mapping files first" };
 
-  if (!mappingsLoaded || !mappingsCombined) {
-    return { allowed: false, reason: "Mappings not loaded - load mapping files first" };
-  }
-
-  const forward = mappingsCombined?.forward || {};
-  const reverse = mappingsCombined?.reverse || {};
-  if (Object.keys(forward).length === 0 && Object.keys(reverse).length === 0) {
-    return { allowed: false, reason: "No mapping data available - check mapping files" };
-  }
-
-  if (requireServerOnline && !serverOnline) {
-    return {
-      allowed: false,
-      reason: "Server connection required (change in Settings to allow offline mode)",
-    };
-  }
-
-  if (!serverOnline) {
-    return {
-      allowed: true,
-      warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)",
-    };
-  }
-
+  const forward = mappingsCombined?.forward || {}, reverse = mappingsCombined?.reverse || {};
+  if (!Object.keys(forward).length && !Object.keys(reverse).length) return { allowed: false, reason: "No mapping data available - check mapping files" };
+  if (requireServerOnline && !serverOnline) return { allowed: false, reason: "Server connection required (change in Settings to allow offline mode)" };
+  if (!serverOnline) return { allowed: true, warning: "⚠️ Server offline - only exact/fuzzy matching available (no LLM)" };
   return { allowed: true };
-}
-
-function getTrackingContext() {
-  return {
-    config: getStateValue('config.data'),
-    mappings: getStateValue('mappings.combined'),
-  };
 }
 
 function updateButtonStates() {
   const activateBtn = document.getElementById("setup-map-tracking");
   if (!activateBtn) return;
-
   const validation = canActivateTracking();
   activateBtn.disabled = !validation.allowed;
-
-  if (!validation.allowed) {
-    activateBtn.title = validation.reason;
-    activateBtn.classList.add("disabled-with-reason");
-  } else {
-    activateBtn.title = "Start live cell tracking";
-    activateBtn.classList.remove("disabled-with-reason");
-  }
+  activateBtn.title = validation.allowed ? "Start live cell tracking" : validation.reason;
+  activateBtn.classList.toggle("disabled-with-reason", !validation.allowed);
 }
 
 async function startLiveTracking() {
   await checkServerStatus();
-
   const validation = canActivateTracking();
-
-  if (!validation.allowed) {
-    return showMessage(`❌ ${validation.reason}`, "error");
-  }
-
-  if (validation.warning) {
-    showMessage(validation.warning);
-  }
+  if (!validation.allowed) return showMessage(`❌ ${validation.reason}`, "error");
+  if (validation.warning) showMessage(validation.warning);
 
   try {
-    const { config, mappings } = getTrackingContext();
+    const config = getStateValue('config.data'), mappings = getStateValue('mappings.combined');
     const termCount = Object.keys(mappings.reverse || {}).length;
-
-    // Start tracking - returns status info
     const trackingInfo = await startTracking(config, mappings);
 
-    // Build COMPLETE status message
     let statusParts = [];
-
-    // Main tracking status
     const serverOnline = getStateValue('server.online');
-    const trackingStatus = serverOnline
-      ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)`
-      : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`;
-    statusParts.push(trackingStatus);
+    statusParts.push(serverOnline ? `✅ Tracking active: ${termCount} terms (exact/fuzzy/LLM enabled)` : `✅ Tracking active: ${termCount} terms (exact/fuzzy only - server offline)`);
 
-    // Confidence column status (if configured)
     if (trackingInfo.confidenceTotal > 0) {
       const { confidenceTotal, confidenceMapped, confidenceFound, confidenceMissing } = trackingInfo;
-
       if (confidenceMapped === confidenceTotal) {
         statusParts.push(`✅ Confidence: ${confidenceTotal} columns active`);
-        if (confidenceFound.length > 0) {
-          statusParts.push(`   Mapped: ${confidenceFound.join(", ")}`);
-        }
+        if (confidenceFound.length) statusParts.push(`   Mapped: ${confidenceFound.join(", ")}`);
       } else {
         statusParts.push(`⚠️ Confidence: ${confidenceMapped}/${confidenceTotal} columns active`);
-        if (confidenceFound.length > 0) {
-          statusParts.push(`   ✅ Found: ${confidenceFound.join(", ")}`);
-        }
-        if (confidenceMissing.length > 0) {
-          statusParts.push(`   ❌ Missing: ${confidenceMissing.join(", ")}`);
-        }
+        if (confidenceFound.length) statusParts.push(`   ✅ Found: ${confidenceFound.join(", ")}`);
+        if (confidenceMissing.length) statusParts.push(`   ❌ Missing: ${confidenceMissing.join(", ")}`);
       }
     }
 
-    // Show complete message ONCE
     showMessage(statusParts.join("\n"));
     showView("results");
-  } catch (error) {
-    showMessage(`Error: ${error.message}`, "error");
-  }
+  } catch (error) { showMessage(`Error: ${error.message}`, "error"); }
 }
 
 async function renewPromptHandler() {
-  const { config, mappings } = getTrackingContext();
-
-  if (!config) {
-    return showMessage("Configuration not loaded - load config file first", "error");
-  }
-
-  if (!mappings) {
-    return showMessage("Mappings not loaded - load mapping files first", "error");
-  }
-
+  const config = getStateValue('config.data'), mappings = getStateValue('mappings.combined');
+  if (!config) return showMessage("Configuration not loaded - load config file first", "error");
+  if (!mappings) return showMessage("Mappings not loaded - load mapping files first", "error");
   await renewPrompt(mappings, config, (msg, isError) => showMessage(msg, isError ? "error" : "info"));
 }
 
@@ -296,88 +160,54 @@ async function initializeLlmSettings() {
     const { loadAvailableProviders, saveLlmProvider } = await import("../utils/settings-manager.js");
     const data = await loadAvailableProviders();
 
-    if (!data || !data.available_providers) {
+    if (!data?.available_providers) {
       providerSelect.innerHTML = '<option value="">Server offline</option>';
-      modelInput.disabled = true;
-      applyBtn.disabled = true;
+      modelInput.disabled = applyBtn.disabled = true;
       return;
     }
 
-    providerSelect.innerHTML = data.available_providers
-      .map((p) => `<option value="${p}" ${p === data.current_provider ? "selected" : ""}>${p}</option>`)
-      .join("");
+    providerSelect.innerHTML = data.available_providers.map((p) => `<option value="${p}" ${p === data.current_provider ? "selected" : ""}>${p}</option>`).join("");
     modelInput.value = data.current_model || "";
-    modelInput.disabled = false;
-    applyBtn.disabled = false;
+    modelInput.disabled = applyBtn.disabled = false;
 
     applyBtn.onclick = async () => {
-      const provider = providerSelect.value;
-      const model = modelInput.value.trim();
+      const provider = providerSelect.value, model = modelInput.value.trim();
       if (!provider || !model) return showMessage("Provider and model required", "error");
-
-      try {
-        await saveLlmProvider(provider, model);
-        showMessage(`LLM provider set to ${provider}`, "success");
-      } catch (err) {
-        showMessage(`Failed to set provider: ${err.message}`, "error");
-      }
+      try { await saveLlmProvider(provider, model); showMessage(`LLM provider set to ${provider}`, "success"); }
+      catch (err) { showMessage(`Failed to set provider: ${err.message}`, "error"); }
     };
-  } catch (error) {
-    console.error("Failed to initialize LLM settings:", error);
-    providerSelect.innerHTML = '<option value="">Error loading</option>';
-  }
+  } catch (error) { providerSelect.innerHTML = '<option value="">Error loading</option>'; }
 }
 
-/**
- * Setup settings checkboxes with state sync and backend integration
- */
 function setupSettingsCheckboxes() {
-  // Server requirement checkbox
-  const requireServerCheckbox = document.getElementById("require-server-online");
-  if (requireServerCheckbox) {
-    requireServerCheckbox.checked = getStateValue('settings.requireServerOnline');
-    requireServerCheckbox.addEventListener("change", (e) => {
-      saveSetting("requireServerOnline", e.target.checked);
-      updateButtonStates();
-      updateLED();
-      updateMatcherIndicator();
-      showMessage(`Server requirement ${e.target.checked ? "enabled" : "disabled"}`);
-    });
-  }
+  const setupCheckbox = (id, settingKey, onChange) => {
+    const checkbox = document.getElementById(id);
+    if (!checkbox) return;
+    checkbox.checked = getStateValue(`settings.${settingKey}`);
+    checkbox.addEventListener("change", (e) => onChange(e.target.checked, e.target));
+  };
 
-  // Web search checkbox with backend sync
-  const useWebSearchCheckbox = document.getElementById("use-web-search");
-  if (useWebSearchCheckbox) {
-    useWebSearchCheckbox.checked = getStateValue('settings.useWebSearch');
-    useWebSearchCheckbox.addEventListener("change", async (e) => {
-      const enabled = e.target.checked;
-      saveSetting("useWebSearch", enabled);
-      try {
-        const { setWebSearch } = await import("../utils/settings-manager.js");
-        await setWebSearch(enabled);
-        showMessage(`Web search ${enabled ? "enabled" : "disabled (LLM only mode)"}`);
-      } catch (error) {
-        showMessage(`Failed to update web search setting: ${error.message}`, "error");
-        e.target.checked = !enabled; // Revert on error
-      }
-    });
-  }
+  setupCheckbox("require-server-online", "requireServerOnline", (checked) => {
+    saveSetting("requireServerOnline", checked);
+    updateButtonStates(); updateLED(); updateMatcherIndicator();
+    showMessage(`Server requirement ${checked ? "enabled" : "disabled"}`);
+  });
 
-  // Brave API checkbox with backend sync
-  const useBraveApiCheckbox = document.getElementById("use-brave-api");
-  if (useBraveApiCheckbox) {
-    useBraveApiCheckbox.checked = getStateValue('settings.useBraveApi');
-    useBraveApiCheckbox.addEventListener("change", async (e) => {
-      const enabled = e.target.checked;
-      saveSetting("useBraveApi", enabled);
-      try {
-        const { setBraveApi } = await import("../utils/settings-manager.js");
-        await setBraveApi(enabled);
-        showMessage(`Brave API ${enabled ? "enabled" : "disabled (testing fallbacks)"}`);
-      } catch (error) {
-        showMessage(`Failed to update Brave API setting: ${error.message}`, "error");
-        e.target.checked = !enabled; // Revert on error
-      }
-    });
-  }
+  setupCheckbox("use-web-search", "useWebSearch", async (checked, target) => {
+    saveSetting("useWebSearch", checked);
+    try {
+      const { setWebSearch } = await import("../utils/settings-manager.js");
+      await setWebSearch(checked);
+      showMessage(`Web search ${checked ? "enabled" : "disabled (LLM only mode)"}`);
+    } catch (error) { showMessage(`Failed to update web search setting: ${error.message}`, "error"); target.checked = !checked; }
+  });
+
+  setupCheckbox("use-brave-api", "useBraveApi", async (checked, target) => {
+    saveSetting("useBraveApi", checked);
+    try {
+      const { setBraveApi } = await import("../utils/settings-manager.js");
+      await setBraveApi(checked);
+      showMessage(`Brave API ${checked ? "enabled" : "disabled (testing fallbacks)"}`);
+    } catch (error) { showMessage(`Failed to update Brave API setting: ${error.message}`, "error"); target.checked = !checked; }
+  });
 }
