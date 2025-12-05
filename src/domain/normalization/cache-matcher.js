@@ -1,51 +1,38 @@
 /** Cache Matcher - First tier of three-tier pipeline: Exact → Fuzzy → LLM */
-
 import { eventBus } from '../../core/event-bus.js';
 import { Events } from '../../core/events.js';
 
-function normalizeValue(value) { return value ? String(value).trim() : ''; }
-
-function createMatchResult(source, target, method, confidence) {
-  return { target, method, confidence, timestamp: new Date().toISOString(), source };
-}
+const normalize = (v) => v ? String(v).trim() : '';
+const result = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
 
 export function getCachedMatch(value, forward, reverse) {
-  const normalized = normalizeValue(value);
-  if (!normalized) return null;
+  const n = normalize(value);
+  if (!n) return null;
 
-  if (normalized in forward) {
-    const mapping = forward[normalized];
-    const target = typeof mapping === 'string' ? mapping : mapping.target;
-    eventBus.emit(Events.CACHE_HIT, { source: normalized, target, mappingType: 'forward' });
-    return createMatchResult(normalized, target, 'cached', 1.0);
+  if (n in forward) {
+    const target = typeof forward[n] === 'string' ? forward[n] : forward[n].target;
+    eventBus.emit(Events.CACHE_HIT, { source: n, target, mappingType: 'forward' });
+    return result(n, target);
   }
-
-  if (normalized in reverse) {
-    eventBus.emit(Events.CACHE_HIT, { source: normalized, target: normalized, mappingType: 'reverse' });
-    return createMatchResult(normalized, normalized, 'cached', 1.0);
+  if (n in reverse) {
+    eventBus.emit(Events.CACHE_HIT, { source: n, target: n, mappingType: 'reverse' });
+    return result(n, n);
   }
-
-  eventBus.emit(Events.CACHE_MISS, { source: normalized });
+  eventBus.emit(Events.CACHE_MISS, { source: n });
   return null;
 }
 
-// Exported for testing
 export function hasExactMatch(value, forward, reverse) {
-  const normalized = normalizeValue(value);
-  return normalized ? (normalized in forward || normalized in reverse) : false;
+  const n = normalize(value);
+  return n ? (n in forward || n in reverse) : false;
 }
 
-// Exported for testing
 export function getCachedMatches(values, forward, reverse) {
   const matches = new Map();
-  for (const value of values) {
-    const match = getCachedMatch(value, forward, reverse);
-    if (match) matches.set(value, match);
-  }
+  for (const v of values) { const m = getCachedMatch(v, forward, reverse); if (m) matches.set(v, m); }
   return matches;
 }
 
-// Exported for testing
 export function validateMappings(forward, reverse) {
   return forward != null && reverse != null && typeof forward === 'object' && typeof reverse === 'object';
 }
