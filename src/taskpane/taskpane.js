@@ -1,10 +1,10 @@
-import { startTracking } from "../services/live.tracker.js";
-import { renewPrompt } from "../services/aiPromptRenewer.js";
-import { init as initProcessingHistory, updateHistoryTabCounter } from "../ui-components/ProcessingHistoryUI.js";
-import { init as initBatchProcessing } from "../ui-components/BatchProcessingUI.js";
+import { startTracking } from "../services/live-tracker.js";
+import { renewPrompt } from "../services/prompt-renewer.js";
+import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
+import { init as initBatch } from "../ui-components/batch-processing.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { initializeSettings, saveSetting } from "../shared-services/state-machine.manager.js";
+import { initializeSettings, saveSetting } from "../shared-services/state-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -12,16 +12,14 @@ import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMa
 import { showView, setupButton } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage } from "../utils/error-display.js";
-import { updateLED, setupLED } from "../utils/led-indicator.js";
-import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
-import { updateWarnings } from "../utils/warning-manager.js";
+import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
 
 function setupUIReactivity() {
-  eventBus.on(Events.SERVER_STATUS_CHANGED, () => { updateLED(); updateMatcherIndicator(); updateWarnings(); updateButtonStates(); });
-  eventBus.on(Events.MAPPINGS_LOADED, () => { updateMatcherIndicator(); updateButtonStates(); });
-  eventBus.on(Events.SETTING_CHANGED, () => { updateWarnings(); updateButtonStates(); });
+  eventBus.on(Events.SERVER_STATUS_CHANGED, () => { updateAllIndicators(); updateButtonStates(); });
+  eventBus.on(Events.MAPPINGS_LOADED, () => { updateAllIndicators(); updateButtonStates(); });
+  eventBus.on(Events.SETTING_CHANGED, () => { updateAllIndicators(); updateButtonStates(); });
   eventBus.on(Events.CONFIG_LOADED, () => updateButtonStates());
-  updateLED(); updateMatcherIndicator(); updateWarnings(); updateButtonStates();
+  updateAllIndicators(); updateButtonStates();
 }
 
 Office.onReady(async (info) => {
@@ -31,14 +29,14 @@ Office.onReady(async (info) => {
   }
 
   document.body.className = "ms-font-m ms-welcome ms-Fabric";
-  initProcessingHistory(); initBatchProcessing(); updateHistoryTabCounter();
+  initHistory(); initBatch(); updateHistoryTabCounter();
 
   document.getElementById("sideload-msg")?.classList.add("hidden");
   const appBody = document.getElementById("app-body");
   if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
 
   initializeSettings();
-  setupFileHandling(); setupServerEvents(); setupLED(); setupMatcherIndicator();
+  setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
   setupUIReactivity();
   checkServerStatus(); initializeVersionDisplay(); initializeProjectPathDisplay();
@@ -177,7 +175,7 @@ function setupSettingsCheckboxes() {
 
   setup("require-server-online", "requireServerOnline", (checked) => {
     saveSetting("requireServerOnline", checked);
-    updateButtonStates(); updateLED(); updateMatcherIndicator();
+    updateAllIndicators(); updateButtonStates();
     showMessage(`Server requirement ${checked ? "enabled" : "disabled"}`);
   });
 

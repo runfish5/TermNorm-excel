@@ -5,7 +5,7 @@ import { processTermNormalization } from "./normalizer.functions.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { writeCellResult } from "../utils/cell-writing.js";
-import { addEntry as addHistoryEntry } from "../ui-components/ProcessingHistoryUI.js";
+import { addEntry as addHistoryEntry } from "../ui-components/processing-history.js";
 import { showMessage } from "../utils/error-display.js";
 
 const activeTrackers = new Map();

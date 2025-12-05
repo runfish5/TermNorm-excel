@@ -1,4 +1,4 @@
-import { init as initProcessingHistory } from "./ProcessingHistoryUI.js";
+import { init as initHistory } from "./processing-history.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
@@ -10,7 +10,7 @@ export function init() {
   container = document.getElementById("results-view");
   if (!container) return false;
   document.head.appendChild(Object.assign(document.createElement("style"), { textContent: `.candidate-table tr{cursor:move;transition:background .2s}.candidate-table tr:hover{background:#f3f2f1}.candidate-table tr.dragging{opacity:.5}.candidate-table tr.drag-over{border-top:2px solid #0078d4}.drag-handle{cursor:grab;padding:4px;color:#605e5c}.drag-handle:hover{color:#0078d4}.drag-handle:active{cursor:grabbing}` }));
-  initProcessingHistory("processing-history-feed");
+  initHistory("processing-history-feed");
   return true;
 }
 
