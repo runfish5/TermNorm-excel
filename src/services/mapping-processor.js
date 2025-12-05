@@ -1,4 +1,4 @@
-// data-processing/mapping.processor.js
+// services/mapping-processor.js - Excel mapping file processor
 import * as XLSX from "xlsx";
 import { findColumnIndex } from "../utils/column-utilities.js";
 

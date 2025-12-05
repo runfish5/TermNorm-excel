@@ -43,17 +43,21 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
 - **core/**: Event-driven state management
   - `state-store.js` - Immutable state container with subscriber pattern
   - `event-bus.js` - Pub/sub event system for loose coupling
-  - `events.js` - Event type definitions (20+ event types)
+  - `events.js` - Event type definitions
   - `state-actions.js` - Centralized state mutations
-- **services/**: Business logic
-  - `live.tracker.js` - Excel cell change tracking per workbook
-  - `normalizer.functions.js` - Three-tier matching pipeline
+- **services/**: Business logic and data processing
+  - `live-tracker.js` - Excel cell change tracking per workbook
+  - `normalizer.js` - Three-tier matching pipeline
+  - `state-manager.js` - Mappings, sessions, and settings management
+  - `session-recovery.js` - Backend session initialization
+  - `mapping-processor.js` - Excel mapping file processor
 - **domain/normalization/**: Matching algorithms
   - `cache-matcher.js` - Exact match lookup
   - `fuzzy-matcher.js` - Similarity matching (thresholds: forward 0.7, reverse 0.5)
 - **taskpane/**: Main entry point (`taskpane.js` - Office.onReady initialization)
-- **ui-components/**: Reusable UI modules (BatchProcessingUI, CandidateRankingUI, etc.)
-- **utils/**: Helpers (api-fetch.js, cell-utilities.js, server-utilities.js)
+- **ui-components/**: Reusable UI modules (batch-processing, candidate-ranking, etc.)
+- **utils/**: Helpers (api-fetch, server-utilities, status-indicators, etc.)
+- **config/**: Configuration constants (normalization.config.js, session.config.js)
 - **design-system/**: CSS tokens and component styles
 
 ### Backend (backend-api/)
@@ -82,16 +86,16 @@ Brave API → SearXNG → DuckDuckGo → Bing fallback chain.
 Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.search.brave.com/register
 
 ### Key Patterns
-1. **Event-Driven UI**: All components react to events from event-bus, no direct DOM updates
-2. **Unified State Store**: All state (including per-workbook cell state) lives in `state-store.js`
+1. **Event-Driven UI**: Components react to events from event-bus (MAPPINGS_LOADED, CANDIDATES_AVAILABLE, etc.)
+2. **Unified State Store**: All state lives in `state-store.js`
    - Cell state: `session.workbooks[workbookId].cells[cellKey]`
    - Mutations via `state-actions.js` functions
 3. **Session-Based**: No database - in-memory state with JSON persistence
-4. **Three-Tier Matching**: Cache → Fuzzy → LLM (each fires method-specific events)
-   - Auto-apply threshold: confidence > 0.9
+4. **Three-Tier Matching**: Cache → Fuzzy → LLM (auto-apply threshold: confidence > 0.9)
 5. **Workbook-Scoped Tracking**: Multiple workbooks track cells independently
 6. **IP-Based Auth**: Users configured in `backend-api/config/users.json`
-7. **Office.js Operations**: Batch inside `Excel.run(async (context) => {...})`, commit with `context.sync()`
+7. **Office.js Operations**: Batch inside `Excel.run(async (ctx) => {...})`, commit with `ctx.sync()`
+8. **$ Helper Pattern**: DOM queries via `const $ = id => document.getElementById(id)`
 
 ## Code Quality Standards
 

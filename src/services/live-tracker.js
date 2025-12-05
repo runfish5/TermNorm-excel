@@ -1,7 +1,7 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
-import { processTermNormalization } from "./normalizer.functions.js";
+import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { writeCellResult } from "../utils/cell-writing.js";

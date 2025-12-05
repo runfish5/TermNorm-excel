@@ -5,7 +5,7 @@ import { init as initBatch } from "../ui-components/batch-processing.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { initializeSettings, saveSetting } from "../shared-services/state-manager.js";
+import { initializeSettings, saveSetting } from "../services/state-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";

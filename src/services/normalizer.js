@@ -1,10 +1,10 @@
-// services/normalizer.functions.js - Three-tier term normalization: Exact → Fuzzy → LLM
+// services/normalizer.js - Three-tier term normalization: Exact → Fuzzy → LLM
 import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
 import { findFuzzyMatch as findFuzzyMatchDomain } from "../domain/normalization/fuzzy-matcher.js";
 import { FUZZY_THRESHOLDS } from "../config/normalization.config.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
-import { ensureSessionInitialized, executeWithSessionRecovery } from "../shared-services/session-recovery.js";
+import { ensureSessionInitialized, executeWithSessionRecovery } from "./session-recovery.js";
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { SESSION_ENDPOINTS } from "../config/session.config.js";
