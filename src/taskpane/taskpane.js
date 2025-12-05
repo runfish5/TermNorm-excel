@@ -9,13 +9,12 @@ import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
-import { showView } from "../utils/dom-helpers.js";
+import { showView, setupButton } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage } from "../utils/error-display.js";
 import { updateLED, setupLED } from "../utils/led-indicator.js";
 import { updateMatcherIndicator, setupMatcherIndicator } from "../utils/matcher-indicator.js";
 import { updateWarnings } from "../utils/warning-manager.js";
-import { setupButton } from "../utils/dom-helpers.js";
 
 function setupUIReactivity() {
   eventBus.on(Events.SERVER_STATUS_CHANGED, () => { updateLED(); updateMatcherIndicator(); updateWarnings(); updateButtonStates(); });
