@@ -65,9 +65,15 @@ export async function reinitializeSession() {
   return terms.length ? initSessionWithRetry(terms) : false;
 }
 
-export function initializeSettings() {
+export async function initializeSettings() {
   const settings = loadSettings();
   stateStore.merge('settings', { ...settings, loaded: true });
+
+  // Sync backend-relevant settings (fire-and-forget, don't block startup)
+  const { setWebSearch, setBraveApi } = await import("../utils/settings-manager.js");
+  if (settings.useWebSearch === false) setWebSearch(false).catch(() => {});
+  if (settings.useBraveApi === false) setBraveApi(false).catch(() => {});
+
   return settings;
 }
 

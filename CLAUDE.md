@@ -51,7 +51,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `state-manager.js` - Mappings, sessions, and settings management
   - `session-recovery.js` - Backend session initialization
   - `mapping-processor.js` - Excel mapping file processor
-- **domain/normalization/**: Matching algorithms
+- **matchers/**: Matching algorithms
   - `cache-matcher.js` - Exact match lookup
   - `fuzzy-matcher.js` - Similarity matching (thresholds: forward 0.7, reverse 0.5)
 - **taskpane/**: Main entry point (`taskpane.js` - Office.onReady initialization)
@@ -140,7 +140,6 @@ Widget components (small, reusable UI elements like status indicators) are group
 
 Frontend tests are in `__tests__/` directories adjacent to source files:
 - `src/core/__tests__/` - State store and event bus tests
-- `src/domain/normalization/__tests__/` - Matcher tests
 
 Run a single test file:
 ```bash

@@ -1,6 +1,6 @@
 // services/normalizer.js - Three-tier term normalization: Exact → Fuzzy → LLM
-import { getCachedMatch } from "../domain/normalization/cache-matcher.js";
-import { findFuzzyMatch as findFuzzyMatchDomain } from "../domain/normalization/fuzzy-matcher.js";
+import { getCachedMatch } from "../matchers/cache-matcher.js";
+import { findFuzzyMatch as findFuzzyMatchDomain } from "../matchers/fuzzy-matcher.js";
 import { FUZZY_THRESHOLDS } from "../config/normalization.config.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";

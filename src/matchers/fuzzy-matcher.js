@@ -1,5 +1,5 @@
 /** Fuzzy Matcher - Second tier of three-tier pipeline: Exact → Fuzzy → LLM */
-import { FUZZY_THRESHOLDS } from "../../config/normalization.config.js";
+import { FUZZY_THRESHOLDS } from "../config/normalization.config.js";
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/[^\w\s%]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 0);

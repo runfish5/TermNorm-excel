@@ -1,5 +1,5 @@
 // ui-components/file-handling.js - File drag & drop and processing
-import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config-functions.js";
+import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config.js";
 import { getStateValue, setConfig, setServerHost } from "../core/state-actions.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { showView } from "../utils/dom-helpers.js";

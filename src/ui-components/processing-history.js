@@ -1,4 +1,4 @@
-import { buildActivityRow } from "./activity-row-builder.js";
+import { buildActivityRow } from "./history-row.js";
 import { addEvent, clearEvents, getMaxEntries } from "../services/event-log.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";

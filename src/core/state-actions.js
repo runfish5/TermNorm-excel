@@ -5,7 +5,10 @@ import { Events } from './events.js';
 
 export function setView(view) { stateStore.set('ui.currentView', view); }
 export function setServerHost(host) { stateStore.set('server.host', host); }
-export function setWebSearchStatus(status, error = null) { stateStore.merge('webSearch', { status, error }); }
+export function setWebSearchStatus(status, error = null) {
+  stateStore.merge('webSearch', { status, error });
+  import('../utils/status-indicators.js').then(m => m.updateWarnings());
+}
 export function setHistoryEntries(entries) { stateStore.merge('history', { entries }); }
 export function getStateValue(path) { return stateStore.get(path); }
 export function getWorkbookCellState(workbookId, cellKey) { return stateStore.get(`session.workbooks.${workbookId}`)?.cells?.[cellKey]; }
