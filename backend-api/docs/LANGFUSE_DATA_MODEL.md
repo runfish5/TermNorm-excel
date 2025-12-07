@@ -1,5 +1,14 @@
 # Langfuse-Compatible Data Model Specification
 
+**Dual Format Support**: This spec extends the existing MLflow-compatible structure.
+- **MLflow**: `logs/experiments/` - Experiment tracking, runs, artifacts (already working)
+- **Langfuse**: `logs/datasets/`, `logs/configs/` - Task ground truth, config variants
+- **Both**: Traces output to both formats via `standards_logger.py`
+
+**See also**: [FILE_ORGANIZATION_STRATEGY.md](./FILE_ORGANIZATION_STRATEGY.md) for file formats.
+
+---
+
 ## Core Concepts
 
 ### 1. TASK = Dataset Item
