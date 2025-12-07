@@ -455,9 +455,21 @@ class TraceLogger:
         """Generate a unique trace ID (32 hex chars, OpenTelemetry format)."""
         return generate_dated_id(32)  # Datetime-prefixed: 251205143052...
 
-    def start_trace(self, query: str, session_id: str = None) -> str:
+    def start_trace(
+        self,
+        query: str,
+        session_id: str = None,
+        task_id: str = None,
+        config_id: str = None,
+    ) -> str:
         """
         Start a new trace for a query.
+
+        Args:
+            query: The input query being processed
+            session_id: Optional session identifier
+            task_id: Task ID linking this trace to ground truth (Langfuse-compatible)
+            config_id: Config ID for this experiment variant (Langfuse-compatible)
 
         Returns:
             trace_id: Unique trace identifier
@@ -477,6 +489,9 @@ class TraceLogger:
                 "run_id": self.run_id,
                 "experiment_id": self.experiment_id,
             },
+            # Langfuse-compatible fields for task/config linking
+            "task_id": task_id,
+            "config_id": config_id,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "start_time": time.time(),
             "start_time_ns": start_time_ns,
@@ -504,6 +519,7 @@ class TraceLogger:
         start_time: float = None,
         end_time: float = None,
         metadata: Dict = None,
+        config: Dict = None,
     ):
         """
         Add an observation (intermediate step) to a trace.
@@ -517,6 +533,7 @@ class TraceLogger:
             start_time: Start timestamp (Unix epoch)
             end_time: End timestamp (Unix epoch)
             metadata: Additional metadata (model, tokens, etc.)
+            config: Stage-specific config (e.g., {"prompt": "v2", "model": "llama-70b"})
         """
         if trace_id not in self.active_traces:
             raise ValueError(f"Trace {trace_id} not found or already ended")
@@ -542,6 +559,7 @@ class TraceLogger:
                 else None
             ),
             "metadata": metadata or {},
+            "config": config,  # Stage-specific config for optimization
         }
 
         self.active_traces[trace_id]["observations"].append(observation)
@@ -832,41 +850,289 @@ class TraceLogger:
         self._save_mlflow_trace(trace_id)
 
 
-class DatasetManager:
-    """Manages evaluation datasets."""
+class TaskDatasetManager:
+    """
+    Manages tasks with ground truth (Langfuse-compatible).
+
+    Tasks represent normalization queries that need to be solved.
+    Ground truth (expected_output) is updated when UserChoice provides corrections.
+    All traces that attempted this task are linked for re-evaluation.
+
+    File format: logs/datasets/tasks/{task_id}.json
+    """
 
     def __init__(self, base_path: str = "logs/datasets"):
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path) / "tasks"
         self.base_path.mkdir(parents=True, exist_ok=True)
+        self._query_index: Dict[str, str] = {}  # query -> task_id
+        self._load_index()
 
-    def save_dataset(self, name: str, examples: List[Dict]):
+    def _load_index(self):
+        """Build query -> task_id index from existing tasks."""
+        for task_file in self.base_path.glob("*.json"):
+            try:
+                with open(task_file) as f:
+                    task = json.load(f)
+                    query = task.get("input", {}).get("query")
+                    if query:
+                        self._query_index[query] = task["id"]
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+    def _generate_task_id(self) -> str:
+        """Generate unique task ID."""
+        return f"task_{generate_dated_id(24)}"
+
+    def get_or_create_task(self, query: str) -> str:
         """
-        Save a dataset in JSONL format.
+        Get existing task for query or create new one.
+
+        Returns:
+            task_id: Unique task identifier
+        """
+        # Check if task already exists for this query
+        if query in self._query_index:
+            return self._query_index[query]
+
+        # Create new task
+        task_id = self._generate_task_id()
+        task = {
+            "id": task_id,
+            "input": {"query": query},
+            "expected_output": None,  # Set when UserChoice provides ground truth
+            "linked_traces": [],
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        task_file = self.base_path / f"{task_id}.json"
+        with open(task_file, "w") as f:
+            json.dump(task, f, indent=2)
+
+        self._query_index[query] = task_id
+        return task_id
+
+    def update_ground_truth(self, task_id: str, target: str) -> bool:
+        """
+        Update task's expected_output when UserChoice provides ground truth.
+
+        Returns:
+            True if updated, False if task not found
+        """
+        task_file = self.base_path / f"{task_id}.json"
+        if not task_file.exists():
+            return False
+
+        with open(task_file) as f:
+            task = json.load(f)
+
+        task["expected_output"] = {"target": target}
+        task["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
+        with open(task_file, "w") as f:
+            json.dump(task, f, indent=2)
+
+        return True
+
+    def link_trace(self, task_id: str, trace_id: str):
+        """Link a trace to a task for later re-evaluation."""
+        task_file = self.base_path / f"{task_id}.json"
+        if not task_file.exists():
+            return
+
+        with open(task_file) as f:
+            task = json.load(f)
+
+        if trace_id not in task["linked_traces"]:
+            task["linked_traces"].append(trace_id)
+            task["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
+            with open(task_file, "w") as f:
+                json.dump(task, f, indent=2)
+
+    def get_task(self, task_id: str) -> Optional[Dict]:
+        """Get task by ID."""
+        task_file = self.base_path / f"{task_id}.json"
+        if not task_file.exists():
+            return None
+
+        with open(task_file) as f:
+            return json.load(f)
+
+    def get_task_by_query(self, query: str) -> Optional[Dict]:
+        """Get task by query string."""
+        task_id = self._query_index.get(query)
+        return self.get_task(task_id) if task_id else None
+
+    def list_tasks_with_ground_truth(self) -> List[Dict]:
+        """List all tasks that have ground truth (for evaluation)."""
+        tasks = []
+        for task_file in self.base_path.glob("*.json"):
+            try:
+                with open(task_file) as f:
+                    task = json.load(f)
+                    if task.get("expected_output"):
+                        tasks.append(task)
+            except (json.JSONDecodeError, KeyError):
+                continue
+        return tasks
+
+
+class ConfigTreeManager:
+    """
+    Manages experiment config variants as a tree structure.
+
+    Each config node differs from its parent by one or more component changes.
+    This enables "which change helped?" analysis when comparing config branches.
+
+    Tree structure example:
+        1.0.0 (root)
+        ├── websearch: brave_v1
+        ├── profile_llm: prompt_v1, llama-70b
+        │
+        ├─► 1.1.0 (changed: profile_llm.prompt → v2)
+        │   └─► 1.1.1 (changed: profile_llm.model → llama-90b)
+        │
+        └─► 1.2.0 (changed: websearch → serper_v1)
+
+    File format: logs/configs/nodes/{config_id}.json
+    """
+
+    DEFAULT_CONFIG = {
+        "websearch": {"provider": "brave", "version": "v1"},
+        "profile_llm": {"prompt": "entity_profiling", "version": 1, "model": "llama-3.3-70b"},
+        "ranking": {"algorithm": "token_match", "version": "v1"},
+        "rerank_llm": {"prompt": "llm_ranking", "version": 1, "model": "llama-3.3-70b"},
+    }
+
+    def __init__(self, base_path: str = "logs/configs"):
+        self.base_path = Path(base_path) / "nodes"
+        self.base_path.mkdir(parents=True, exist_ok=True)
+        self._ensure_root_config()
+
+    def _ensure_root_config(self):
+        """Ensure root config (1.0.0) exists."""
+        root_file = self.base_path / "1.0.0.json"
+        if not root_file.exists():
+            root_config = {
+                "id": "1.0.0",
+                "parent_id": None,
+                "components": self.DEFAULT_CONFIG.copy(),
+                "diff_from_parent": None,
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+            with open(root_file, "w") as f:
+                json.dump(root_config, f, indent=2)
+
+    def get_current_config(self) -> str:
+        """
+        Get the current active config ID.
+
+        For now, returns latest config. In future, could be user-configurable.
+        """
+        configs = list(self.base_path.glob("*.json"))
+        if not configs:
+            self._ensure_root_config()
+            return "1.0.0"
+
+        # Return highest version (simple lexicographic sort works for semver)
+        latest = max(configs, key=lambda p: p.stem)
+        return latest.stem
+
+    def create_child_config(self, parent_id: str, changes: Dict[str, Any]) -> str:
+        """
+        Create a child config that differs from parent by specified changes.
 
         Args:
-            name: Dataset name (e.g., "material_forms_v1")
-            examples: List of examples with query, expected, trace, etc.
+            parent_id: Parent config ID (e.g., "1.0.0")
+            changes: Dict of component changes (e.g., {"profile_llm": {"prompt": "v2"}})
+
+        Returns:
+            New config ID (e.g., "1.1.0")
         """
-        dataset_file = self.base_path / f"{name}.jsonl"
+        parent = self.get_config(parent_id)
+        if not parent:
+            raise ValueError(f"Parent config {parent_id} not found")
 
-        with open(dataset_file, "w") as f:
-            for example in examples:
-                f.write(json.dumps(example) + "\n")
+        # Generate new version ID
+        new_id = self._next_child_id(parent_id)
 
-    def load_dataset(self, name: str) -> List[Dict]:
-        """Load a dataset from JSONL format."""
-        dataset_file = self.base_path / f"{name}.jsonl"
+        # Merge changes into parent components
+        new_components = parent["components"].copy()
+        for component, updates in changes.items():
+            if component in new_components:
+                new_components[component] = {**new_components[component], **updates}
+            else:
+                new_components[component] = updates
 
-        if not dataset_file.exists():
-            raise FileNotFoundError(f"Dataset {name} not found")
+        child_config = {
+            "id": new_id,
+            "parent_id": parent_id,
+            "components": new_components,
+            "diff_from_parent": changes,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
 
-        examples = []
-        with open(dataset_file) as f:
-            for line in f:
-                examples.append(json.loads(line))
+        config_file = self.base_path / f"{new_id}.json"
+        with open(config_file, "w") as f:
+            json.dump(child_config, f, indent=2)
 
-        return examples
+        return new_id
 
-    def list_datasets(self) -> List[str]:
-        """List all available datasets."""
-        return [f.stem for f in self.base_path.glob("*.jsonl")]
+    def _next_child_id(self, parent_id: str) -> str:
+        """Generate next child version ID."""
+        parts = parent_id.split(".")
+        major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+
+        # Find existing children
+        existing_children = []
+        for config_file in self.base_path.glob("*.json"):
+            try:
+                with open(config_file) as f:
+                    config = json.load(f)
+                    if config.get("parent_id") == parent_id:
+                        existing_children.append(config["id"])
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+        if not existing_children:
+            # First child: increment minor
+            return f"{major}.{minor + 1}.0"
+        else:
+            # Find max minor among siblings and increment
+            max_minor = max(int(c.split(".")[1]) for c in existing_children)
+            return f"{major}.{max_minor + 1}.0"
+
+    def get_config(self, config_id: str) -> Optional[Dict]:
+        """Get config by ID."""
+        config_file = self.base_path / f"{config_id}.json"
+        if not config_file.exists():
+            return None
+
+        with open(config_file) as f:
+            return json.load(f)
+
+    def get_config_lineage(self, config_id: str) -> List[Dict]:
+        """Get full lineage from root to this config."""
+        lineage = []
+        current_id = config_id
+
+        while current_id:
+            config = self.get_config(current_id)
+            if not config:
+                break
+            lineage.insert(0, config)
+            current_id = config.get("parent_id")
+
+        return lineage
+
+    def list_configs(self) -> List[Dict]:
+        """List all configs."""
+        configs = []
+        for config_file in self.base_path.glob("*.json"):
+            try:
+                with open(config_file) as f:
+                    configs.append(json.load(f))
+            except (json.JSONDecodeError, KeyError):
+                continue
+        return sorted(configs, key=lambda c: c["id"])

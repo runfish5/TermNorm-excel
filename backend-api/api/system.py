@@ -14,8 +14,19 @@ from config.settings import settings
 from core import llm_providers
 from utils.responses import success_response
 from utils.live_experiment_logger import log_to_experiments
+from utils.standards_logger import TaskDatasetManager
 
 logger = logging.getLogger(__name__)
+
+# Task dataset manager for ground truth (singleton)
+_task_manager: TaskDatasetManager = None
+
+def get_task_manager() -> TaskDatasetManager:
+    """Get or create singleton task manager."""
+    global _task_manager
+    if _task_manager is None:
+        _task_manager = TaskDatasetManager()
+    return _task_manager
 router = APIRouter()
 
 
@@ -153,6 +164,18 @@ async def log_activity(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         logger.info(f"[EXPERIMENTS] Logged to production_realtime, trace_id={trace_id}")
     except Exception as e:
         logger.error(f"[EXPERIMENTS] Failed to log: {e}")
+
+    # 3. Update ground truth when UserChoice provides correction (Langfuse-compatible)
+    if method == "UserChoice":
+        try:
+            task_manager = get_task_manager()
+            # Get or create task for this query
+            task_id = task_manager.get_or_create_task(source)
+            # Update expected_output (ground truth)
+            task_manager.update_ground_truth(task_id, target)
+            logger.info(f"[GROUND_TRUTH] Updated task {task_id}: {source} → {target}")
+        except Exception as e:
+            logger.error(f"[GROUND_TRUTH] Failed to update: {e}")
 
     # Update match database
     from api.research_pipeline import update_match_database

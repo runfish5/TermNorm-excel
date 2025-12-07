@@ -20,8 +20,27 @@ from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
 from utils.cache_metadata import CacheMetadata
 from utils.live_experiment_logger import log_to_experiments
+from utils.standards_logger import TaskDatasetManager, ConfigTreeManager
 
 logger = logging.getLogger(__name__)
+
+# Singleton managers for task/config tracking (Langfuse-compatible)
+_task_manager: TaskDatasetManager = None
+_config_manager: ConfigTreeManager = None
+
+def get_task_manager() -> TaskDatasetManager:
+    """Get or create singleton task manager."""
+    global _task_manager
+    if _task_manager is None:
+        _task_manager = TaskDatasetManager()
+    return _task_manager
+
+def get_config_manager() -> ConfigTreeManager:
+    """Get or create singleton config manager."""
+    global _config_manager
+    if _config_manager is None:
+        _config_manager = ConfigTreeManager()
+    return _config_manager
 router = APIRouter()
 
 # Load entity schema once at module level
@@ -456,6 +475,12 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     from datetime import datetime
     from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
+    # Get or create task and config for this query (Langfuse-compatible)
+    task_manager = get_task_manager()
+    config_manager = get_config_manager()
+    task_id = task_manager.get_or_create_task(query)
+    config_id = config_manager.get_current_config()
+
     # Get top ranked candidate and prepare flattened structure
     ranked_candidates = llm_response.get('ranked_candidates', [])
     target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches found"
@@ -474,6 +499,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         "target": target,
         "method": "ProfileRank",
         "confidence": confidence,
+        # Langfuse-compatible task/config linking
+        "task_id": task_id,
+        "config_id": config_id,
 
         # Flattened candidates (no nesting)
         "candidates": [
@@ -514,6 +542,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     try:
         trace_id = log_to_experiments(training_record)
         logger.info(f"[EXPERIMENTS] Logged to production_realtime experiment, trace_id={trace_id}")
+        # Link trace to task for re-evaluation when ground truth arrives
+        task_manager.link_trace(task_id, trace_id)
     except Exception as e:
         logger.error(f"[EXPERIMENTS] Failed to log to experiments: {e}")
 

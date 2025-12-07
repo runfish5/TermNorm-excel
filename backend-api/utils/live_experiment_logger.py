@@ -199,6 +199,8 @@ class LiveExperimentLogger:
         trace_id = self.trace_logger.start_trace(
             query=record.get("source"),
             session_id=record.get("session_id"),
+            task_id=record.get("task_id"),
+            config_id=record.get("config_id"),
         )
 
         # Add web search observation (if present)
