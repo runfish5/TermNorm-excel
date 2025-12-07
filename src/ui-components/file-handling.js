@@ -93,4 +93,18 @@ export async function reloadMappingModules() {
 function updateGlobalStatus() {
   const loaded = Object.keys(getStateValue('mappings.sources') || {}).length, total = getStateValue('config.data')?.standard_mappings?.length || 0;
   showMessage(!loaded ? "Ready to load mappings..." : loaded === total ? `All ${total} sources loaded` : `${loaded}/${total} sources loaded`);
+  updateJsonDump();
+}
+
+function updateJsonDump() {
+  const content = document.getElementById("metadata-content"), sources = getStateValue('mappings.sources') || {};
+  if (!content || !Object.keys(sources).length) return;
+  const data = Object.entries(sources).map(([i, s]) => ({
+    sourceIndex: +i + 1,
+    status: s.status,
+    forwardMappings: Object.keys(s.data?.forward || {}).length,
+    reverseMappings: Object.keys(s.data?.reverse || {}).length,
+    metadata: s.data?.metadata
+  }));
+  content.querySelector("#metadata-display").innerHTML = `<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px;">${JSON.stringify(data, null, 2)}</pre>`;
 }
