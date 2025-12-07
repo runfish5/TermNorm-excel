@@ -70,29 +70,25 @@ export async function startTracking(config, mappings) {
 
 const handleWorksheetChange = async (e, tracker) => {
   if (!tracker.active) return;
-
   await Excel.run(async (ctx) => {
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    const range = ws.getRange(e.address);
+    const ws = ctx.workbook.worksheets.getActiveWorksheet(), range = ws.getRange(e.address);
     range.load("values, rowIndex, columnIndex, rowCount, columnCount");
     await ctx.sync();
 
     const { rowCount, columnCount, rowIndex, columnIndex, values } = range;
-    const cells = [];
-    for (let r = 0; r < rowCount; r++) {
-      for (let c = 0; c < columnCount; c++) {
-        const row = rowIndex + r, col = columnIndex + c, targetCol = tracker.columnMap.get(col);
-        if (row > 0 && targetCol !== undefined) cells.push({ row, col, targetCol, value: values[r][c] });
-      }
-    }
+    const cells = Array.from({ length: rowCount }, (_, r) => Array.from({ length: columnCount }, (_, c) => {
+      const row = rowIndex + r, col = columnIndex + c, targetCol = tracker.columnMap.get(col);
+      return row > 0 && targetCol !== undefined ? { row, col, targetCol, value: values[r][c] } : null;
+    })).flat().filter(Boolean);
 
-    if (cells.filter(c => c.value).length >= 2) {
-      cells.filter(c => c.value).forEach(c => ws.getRangeByIndexes(c.row, c.col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING);
+    const withValue = cells.filter(c => c.value);
+    if (withValue.length >= 2) {
+      withValue.forEach(c => ws.getRangeByIndexes(c.row, c.col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING);
       await ctx.sync();
-      return showMessage(`Paste detected (${cells.length} cells). Edit individually to process.`, "warning");
+      return showMessage(`Paste detected (${cells.length} cells). Edit individually.`, "warning");
     }
 
-    const tasks = cells.filter(c => c.value).map(({ row, col, targetCol, value }) => {
+    const tasks = withValue.map(({ row, col, targetCol, value }) => {
       const cellKey = `${row}:${col}`, cleanValue = String(value).trim(), state = getWorkbookCellState(tracker.workbookId, cellKey);
       if (state?.status === "processing" || state?.value === cleanValue) return null;
       setCellState(tracker.workbookId, cellKey, { value: cleanValue, status: "processing", row, col, targetCol });
@@ -107,30 +103,21 @@ const handleWorksheetChange = async (e, tracker) => {
 
 const handleSelectionChange = async (e, tracker) => {
   if (!tracker.active) return;
-
   await Excel.run(async (ctx) => {
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    const range = ws.getRange(e.address);
+    const range = ctx.workbook.worksheets.getActiveWorksheet().getRange(e.address);
     range.load("rowIndex, columnIndex, rowCount, columnCount, values");
     await ctx.sync();
 
-    if (range.rowCount !== 1 || range.columnCount !== 1) return;
+    if (range.rowCount !== 1 || range.columnCount !== 1 || !range.values[0][0] || range.rowIndex === 0) return;
+    const row = range.rowIndex, col = range.columnIndex, cellKey = `${row}:${col}`, value = String(range.values[0][0]).trim();
 
-    const row = range.rowIndex, col = range.columnIndex, cellValue = range.values[0][0];
-    if (!cellValue || row === 0) return;
-
-    const cellKey = `${row}:${col}`;
-    const cleanedValue = String(cellValue).trim();
-
-    const targetCol = tracker.columnMap.get(col);
-    if (targetCol !== undefined) {
-      const targetId = tracker.mappings.forward[cleanedValue] || findTargetBySource(cleanedValue);
-      if (targetId) eventBus.emit(Events.CELL_SELECTED, { cellKey: null, state: null, identifier: targetId });
-      return;
+    if (tracker.columnMap.has(col)) {
+      const id = tracker.mappings.forward[value] || findTargetBySource(value);
+      if (id) eventBus.emit(Events.CELL_SELECTED, { cellKey: null, state: null, identifier: id });
+    } else {
+      const state = getWorkbookCellState(tracker.workbookId, cellKey);
+      eventBus.emit(Events.CELL_SELECTED, state?.status === "complete" ? { cellKey, state, identifier: null } : { cellKey: null, state: null, identifier: value });
     }
-
-    const state = getWorkbookCellState(tracker.workbookId, cellKey);
-    eventBus.emit(Events.CELL_SELECTED, state?.status === "complete" ? { cellKey, state, identifier: null } : { cellKey: null, state: null, identifier: cleanedValue });
   });
 };
 
@@ -141,20 +128,12 @@ function logResult(workbookId, cellKey, value, result, status, row, col) {
 
 async function processCell(row, col, targetCol, value, tracker) {
   const outputCellKey = `${row}:${targetCol}`;
-  eventBus.emit(Events.CELL_PROCESSING_STARTED, { cellKey: `${row}:${col}`, value, row, col, targetCol });
-
   try {
     const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
-
-    if (result.candidates) {
-      eventBus.emit(Events.CANDIDATES_AVAILABLE, { source: value, result, applyChoice: (choice) => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) });
-    }
-
+    if (result.candidates) eventBus.emit(Events.CANDIDATES_AVAILABLE, { source: value, result, applyChoice: choice => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) });
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
     logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-    eventBus.emit(Events.CELL_PROCESSING_COMPLETE, { cellKey: `${row}:${col}`, source: value, result, row, col, targetCol });
   } catch (error) {
-    eventBus.emit(Events.CELL_PROCESSING_ERROR, { cellKey: `${row}:${col}`, value, error: error.message || String(error), row, col, targetCol });
     await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
   }
 }

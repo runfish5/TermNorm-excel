@@ -31,22 +31,18 @@ export function init(containerId = "processing-history-feed") {
   return true;
 }
 
-function addClickHandler(row, target) {
-  row.classList.add("cursor-pointer");
-  row.addEventListener("click", (e) => { e.stopPropagation(); fetchAndDisplayDetails(target, row); });
-}
+const addClickHandler = (row, target) => { row.classList.add("cursor-pointer"); row.onclick = e => { e.stopPropagation(); fetchAndDisplayDetails(target, row); }; };
 
 export async function addEntry(source, cellKey, timestamp, result) {
-  if (!tableBody && (!init() || !tableBody)) return;
-  tableBody?.querySelector(".placeholder-row")?.remove();
+  if (!tableBody && !init()) return;
+  tableBody.querySelector(".placeholder-row")?.remove();
   addEvent({ source, cellKey, timestamp });
   const r = result || { target: "Unknown", method: "-", confidence: 0, timestamp, web_search_status: "idle" };
-  const { cacheEntity } = await import("../utils/history-cache.js");
-  cacheEntity(source, r);
+  (await import("../utils/history-cache.js")).cacheEntity(source, r);
   const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, r);
   tableBody.insertBefore(row, tableBody.firstChild);
   addClickHandler(row, r.target);
-  while (tableBody.children.length > getMaxEntries()) tableBody.removeChild(tableBody.lastChild);
+  while (tableBody.children.length > getMaxEntries()) tableBody.lastChild.remove();
   updateHistoryTabCounter();
 }
 
@@ -55,46 +51,32 @@ export function clear() {
   clearEvents(); tableBody.innerHTML = ""; showPlaceholder(); updateHistoryTabCounter();
 }
 
-export function scrollToAndHighlight(key, type = "sessionKey") {
+function scrollToAndHighlight(key, type = "sessionKey") {
   if (!tableBody || !key) return null;
-  const attr = type === "identifier" ? "data-identifier" : "data-session-key";
-  const row = tableBody.querySelector(`[${attr}="${CSS.escape(key)}"]`) || (type === "sessionKey" ? tableBody.querySelector(`[data-identifier="${CSS.escape(key)}"]`) : null);
-  if (!row) return null;
-  collapseExpandedRow();
-  row.scrollIntoView({ behavior: "smooth", block: "center" });
-  return row;
+  const attr = type === "identifier" ? "data-identifier" : "data-session-key", esc = CSS.escape(key);
+  const row = tableBody.querySelector(`[${attr}="${esc}"]`) || (type === "sessionKey" && tableBody.querySelector(`[data-identifier="${esc}"]`));
+  if (row) { collapseExpandedRow(); row.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  return row || null;
 }
 
-function showPlaceholder() {
-  if (tableBody && !tableBody.querySelector(".history-row")) tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>';
-}
+const showPlaceholder = () => tableBody && !tableBody.querySelector(".history-row") && (tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No activity yet. Start tracking.</td></tr>');
 
 function collapseExpandedRow() {
   if (!expandedRowState) return;
   const { originalRow, expandedRow } = expandedRowState;
-  if (expandedRow?.parentNode && originalRow) {
-    expandedRow.parentNode.replaceChild(originalRow, expandedRow);
-    if (originalRow.dataset.identifier) addClickHandler(originalRow, originalRow.dataset.identifier);
-  }
+  if (expandedRow?.parentNode && originalRow) { expandedRow.parentNode.replaceChild(originalRow, expandedRow); if (originalRow.dataset.identifier) addClickHandler(originalRow, originalRow.dataset.identifier); }
   expandedRowState = null;
 }
 
-export function updateHistoryTabCounter() {
-  const tabIcon = document.getElementById("history-tab")?.querySelector(".tab-icon");
-  if (tabIcon && tableBody) tabIcon.textContent = `${tableBody.querySelectorAll(".history-row").length}📜`;
-}
+export const updateHistoryTabCounter = () => { const t = document.getElementById("history-tab")?.querySelector(".tab-icon"); if (t && tableBody) t.textContent = `${tableBody.querySelectorAll(".history-row").length}📜`; };
 
 export async function handleCellSelection(cellKey, state, identifier) {
   (await import("../utils/dom-helpers.js")).showView("history");
-  const id = identifier || state?.result?.target;
-  const row = (cellKey && scrollToAndHighlight(cellKey, "sessionKey")) || (id && scrollToAndHighlight(id, "identifier"));
+  const id = identifier || state?.result?.target, row = scrollToAndHighlight(cellKey, "sessionKey") || scrollToAndHighlight(id, "identifier");
   if (id && row) fetchAndDisplayDetails(id, row);
 }
 
-async function fetchAndDisplayDetails(identifier, row) {
-  const entry = await (await import("../utils/history-cache.js")).getEntity(identifier);
-  if (entry) displayDetailsPanel({ identifier, ...entry }, row);
-}
+async function fetchAndDisplayDetails(id, row) { const e = await (await import("../utils/history-cache.js")).getEntity(id); if (e) displayDetailsPanel({ identifier: id, ...e }, row); }
 
 function displayDetailsPanel(d, row) {
   if (!d || !row) return;
@@ -154,16 +136,16 @@ function displayDetailsPanel(d, row) {
 
 export function populateFromCache(entries) {
   if (!entries || !Object.keys(entries).length || (!tableBody && !init())) return;
-  tableBody?.querySelector(".placeholder-row")?.remove();
-
-  const events = Object.entries(entries).flatMap(([id, e]) => Object.entries(e.aliases || {}).map(([src, i]) => ({ source: src, target: id, method: i.method || "unknown", confidence: i.confidence || 0, timestamp: i.timestamp })));
-  events.sort((a, b) => (b.timestamp ? new Date(b.timestamp) : 0) - (a.timestamp ? new Date(a.timestamp) : 0));
-
-  for (const { source, target, method, confidence, timestamp } of events.slice(0, getMaxEntries())) {
-    const row = buildActivityRow({ source, sessionKey: null, timestamp }, { target, method, confidence, web_search_status: "idle" });
-    row.classList.add("cached-entry");
-    addClickHandler(row, target);
-    tableBody.appendChild(row);
-  }
+  tableBody.querySelector(".placeholder-row")?.remove();
+  Object.entries(entries)
+    .flatMap(([id, e]) => Object.entries(e.aliases || {}).map(([src, i]) => ({ source: src, target: id, method: i.method || "unknown", confidence: i.confidence || 0, timestamp: i.timestamp })))
+    .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+    .slice(0, getMaxEntries())
+    .forEach(({ source, target, method, confidence, timestamp }) => {
+      const row = buildActivityRow({ source, sessionKey: null, timestamp }, { target, method, confidence, web_search_status: "idle" });
+      row.classList.add("cached-entry");
+      addClickHandler(row, target);
+      tableBody.appendChild(row);
+    });
   updateHistoryTabCounter();
 }
