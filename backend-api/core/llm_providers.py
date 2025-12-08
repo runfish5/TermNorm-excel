@@ -2,10 +2,8 @@
 
 import os
 import json
-import time
 import asyncio
 from typing import List, Dict, Optional, Literal, Union
-from pathlib import Path
 from fastapi import HTTPException
 
 # Global configuration - set once for entire application
@@ -29,7 +27,6 @@ async def llm_call(
     if total_tokens > 100000:
         raise HTTPException(400, "Request exceeds token limit")
 
-    start_time = time.time()
     if system:
         messages = [{"role": "system", "content": system}] + messages
     
@@ -93,10 +90,6 @@ async def llm_call(
                 response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=60)
                 content = response.choices[0].message.content if response.choices else ""
 
-            # Activity logging
-            elapsed_ms = (time.time() - start_time) * 1000
-            _log_activity(LLM_PROVIDER, LLM_MODEL, elapsed_ms, response, "success")
-
             # Parse JSON if needed
             if output_format in ["json", "schema"]:
                 return json.loads(content)
@@ -104,37 +97,9 @@ async def llm_call(
 
         except asyncio.TimeoutError:
             if attempt == 2:
-                _log_activity(LLM_PROVIDER, LLM_MODEL, 60000, None, "timeout")
                 raise HTTPException(503, "LLM request timeout")
             await asyncio.sleep(2 ** attempt)
         except Exception as e:
             if attempt == 2:
-                _log_activity(LLM_PROVIDER, LLM_MODEL, (time.time() - start_time) * 1000, None, f"error: {str(e)}")
                 raise HTTPException(503, f"LLM error: {str(e)}")
             await asyncio.sleep(2 ** attempt)
-
-
-def _log_activity(provider: str, model: str, latency_ms: float, response, status: str):
-    """Log LLM activity to logs/activity.jsonl"""
-    try:
-        logs_dir = Path("logs")
-        logs_dir.mkdir(exist_ok=True)
-
-        tokens = None
-        if response and hasattr(response, 'usage'):
-            tokens = response.usage.total_tokens
-
-        entry = {
-            "timestamp": time.time(),
-            "event": "llm_call",
-            "provider": provider,
-            "model": model,
-            "latency_ms": round(latency_ms, 2),
-            "tokens": tokens,
-            "status": status
-        }
-
-        with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-    except Exception:
-        pass  # Don't fail on logging errors

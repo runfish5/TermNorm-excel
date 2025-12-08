@@ -1,14 +1,13 @@
 """
 Cache metadata tracking for match_database.json.
 
-Tracks which experiments/runs are loaded in cache and when it was last updated.
-Enables sophisticated cache synchronization and staleness detection.
+Tracks when cache was last updated and provides staleness detection.
 """
 
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 
 class CacheMetadata:
@@ -16,8 +15,6 @@ class CacheMetadata:
     Tracks metadata about the loaded match_database cache.
 
     Stores information about:
-    - Which experiments are included in the cache
-    - Which runs from each experiment are included
     - When the cache was last updated
     - Total number of records loaded
     - Data freshness indicators
@@ -37,19 +34,14 @@ class CacheMetadata:
                 return json.load(f)
         else:
             return {
-                "cache_version": "1.0",
+                "cache_version": "2.0",
                 "last_updated": None,
                 "last_rebuild_timestamp": None,
                 "sources": {
-                    "activity.jsonl": {
+                    "langfuse": {
                         "enabled": True,
                         "last_processed": None,
-                        "records_loaded": 0,
-                    },
-                    "experiments": {
-                        "enabled": False,  # Will enable after migration
-                        "last_processed": None,
-                        "experiments_loaded": [],
+                        "traces_loaded": 0,
                     },
                 },
                 "statistics": {
@@ -57,7 +49,6 @@ class CacheMetadata:
                     "total_aliases": 0,
                     "total_records_processed": 0,
                 },
-                "data_sources": [],  # List of {type, path, timestamp, records_loaded}
             }
 
     def save(self):
@@ -81,40 +72,22 @@ class CacheMetadata:
         aliases_count: int,
         data_sources: List[Dict] = None,
     ):
-        """
-        Mark completion of cache rebuild and record statistics.
-
-        Args:
-            source_type: "activity.jsonl" or "experiments"
-            records_processed: Number of records processed
-            identifiers_count: Number of unique identifiers in cache
-            aliases_count: Number of alias mappings
-            data_sources: List of source details (experiments, runs, files)
-        """
+        """Mark completion of cache rebuild and record statistics."""
         now = datetime.utcnow().isoformat() + "Z"
 
         self.metadata["last_updated"] = now
         self.metadata["rebuild_in_progress"] = False
 
-        # Update source-specific info
-        if source_type == "activity.jsonl":
-            self.metadata["sources"]["activity.jsonl"]["last_processed"] = now
-            self.metadata["sources"]["activity.jsonl"]["records_loaded"] = records_processed
-        elif source_type == "experiments":
-            self.metadata["sources"]["experiments"]["last_processed"] = now
-            if data_sources:
-                self.metadata["sources"]["experiments"]["experiments_loaded"] = [
-                    ds for ds in data_sources if ds.get("type") == "experiment"
-                ]
+        # Update langfuse source info
+        if "langfuse" not in self.metadata["sources"]:
+            self.metadata["sources"]["langfuse"] = {"enabled": True}
+        self.metadata["sources"]["langfuse"]["last_processed"] = now
+        self.metadata["sources"]["langfuse"]["traces_loaded"] = records_processed
 
         # Update statistics
         self.metadata["statistics"]["total_identifiers"] = identifiers_count
         self.metadata["statistics"]["total_aliases"] = aliases_count
         self.metadata["statistics"]["total_records_processed"] = records_processed
-
-        # Update data sources list
-        if data_sources:
-            self.metadata["data_sources"] = data_sources
 
         self.save()
 
@@ -125,15 +98,7 @@ class CacheMetadata:
         identifiers_added: int = 0,
         identifiers_updated: int = 0,
     ):
-        """
-        Record an incremental update (e.g., after logging a new match).
-
-        Args:
-            source: Source of update ("frontend", "backend_pipeline", etc.)
-            records_added: Number of new records
-            identifiers_added: Number of new identifiers created
-            identifiers_updated: Number of existing identifiers updated
-        """
+        """Record an incremental update (e.g., after logging a new match)."""
         now = datetime.utcnow().isoformat() + "Z"
         self.metadata["last_updated"] = now
 
@@ -155,40 +120,8 @@ class CacheMetadata:
 
         self.save()
 
-    def get_loaded_experiments(self) -> List[str]:
-        """Get list of experiment IDs currently loaded in cache."""
-        if self.metadata["sources"]["experiments"]["enabled"]:
-            return [
-                exp["experiment_id"]
-                for exp in self.metadata["sources"]["experiments"]["experiments_loaded"]
-            ]
-        return []
-
-    def get_loaded_runs(self, experiment_id: str) -> List[str]:
-        """Get list of run IDs loaded from a specific experiment."""
-        if not self.metadata["sources"]["experiments"]["enabled"]:
-            return []
-
-        for exp in self.metadata["sources"]["experiments"]["experiments_loaded"]:
-            if exp.get("experiment_id") == experiment_id:
-                return exp.get("runs_loaded", [])
-
-        return []
-
-    def is_experiment_loaded(self, experiment_id: str) -> bool:
-        """Check if an experiment is currently loaded in cache."""
-        return experiment_id in self.get_loaded_experiments()
-
-    def is_run_loaded(self, experiment_id: str, run_id: str) -> bool:
-        """Check if a specific run is loaded in cache."""
-        return run_id in self.get_loaded_runs(experiment_id)
-
     def get_cache_age_seconds(self) -> Optional[float]:
-        """
-        Get age of cache in seconds since last update.
-
-        Returns None if cache has never been updated.
-        """
+        """Get age of cache in seconds since last update."""
         if not self.metadata.get("last_updated"):
             return None
 
@@ -197,74 +130,30 @@ class CacheMetadata:
         return (now - last_updated).total_seconds()
 
     def is_stale(self, max_age_seconds: int = 3600) -> bool:
-        """
-        Check if cache is stale (older than max_age_seconds).
-
-        Args:
-            max_age_seconds: Maximum age before considering stale (default: 1 hour)
-
-        Returns:
-            True if stale or never updated, False otherwise
-        """
+        """Check if cache is stale (older than max_age_seconds)."""
         age = self.get_cache_age_seconds()
         if age is None:
             return True
         return age > max_age_seconds
-
-    def needs_sync_with_experiments(self, experiments_path: Path) -> bool:
-        """
-        Check if cache needs to be synced with experiments structure.
-
-        Compares loaded experiments against what exists on disk.
-
-        Returns:
-            True if there are new experiments/runs not in cache
-        """
-        if not experiments_path.exists():
-            return False
-
-        if not self.metadata["sources"]["experiments"]["enabled"]:
-            # If experiments not enabled but directory exists, needs sync
-            return True
-
-        # Get experiments on disk
-        disk_experiments = set()
-        for exp_dir in experiments_path.iterdir():
-            if exp_dir.is_dir():
-                disk_experiments.add(exp_dir.name)
-
-        # Get loaded experiments
-        loaded_experiments = set(self.get_loaded_experiments())
-
-        # Check if there are new experiments
-        return not disk_experiments.issubset(loaded_experiments)
 
     def get_summary(self) -> Dict:
         """Get human-readable summary of cache status."""
         age = self.get_cache_age_seconds()
         age_str = f"{age:.0f} seconds ago" if age else "never"
 
-        summary = {
-            "cache_version": self.metadata["cache_version"],
+        # Handle both old and new metadata formats
+        langfuse_source = self.metadata.get("sources", {}).get("langfuse", {})
+
+        return {
+            "cache_version": self.metadata.get("cache_version", "1.0"),
             "last_updated": self.metadata.get("last_updated", "never"),
             "age": age_str,
             "is_stale": self.is_stale(),
-            "total_identifiers": self.metadata["statistics"]["total_identifiers"],
-            "total_aliases": self.metadata["statistics"]["total_aliases"],
-            "total_records": self.metadata["statistics"]["total_records_processed"],
-            "sources": {
-                "activity.jsonl": {
-                    "enabled": self.metadata["sources"]["activity.jsonl"]["enabled"],
-                    "records_loaded": self.metadata["sources"]["activity.jsonl"]["records_loaded"],
-                },
-                "experiments": {
-                    "enabled": self.metadata["sources"]["experiments"]["enabled"],
-                    "experiments_count": len(self.get_loaded_experiments()),
-                },
-            },
+            "total_identifiers": self.metadata.get("statistics", {}).get("total_identifiers", 0),
+            "total_aliases": self.metadata.get("statistics", {}).get("total_aliases", 0),
+            "total_records": self.metadata.get("statistics", {}).get("total_records_processed", 0),
+            "langfuse_traces_loaded": langfuse_source.get("traces_loaded", 0),
         }
-
-        return summary
 
     def __repr__(self):
         summary = self.get_summary()
