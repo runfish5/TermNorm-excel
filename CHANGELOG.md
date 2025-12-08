@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-12-08
+
+### Highlights
+
+**Direct-Prompt UI**
+- New UI component for custom LLM inference and testing
+- Send arbitrary prompts directly to backend LLM providers
+- Batch logging support for prompt experimentation
+
+**Langfuse-Compatible Logging System**
+- Production logging with traces, observations, scores, and datasets
+- Cache hits and fuzzy matches now logged for evaluation tracking
+- DirectEdit corrections logged as ground truth for model improvement
+- Datetime-prefixed IDs compatible with MLflow UI
+- New `events.jsonl` format bridging MLflow, Langfuse, and future tooling (replaces deprecated `activity.jsonl`)
+
+**Documentation Overhaul**
+- First comprehensive cleanup pass (~90% refinement)
+- Reorganized docs structure: INSTALLATION → SETUP-GUIDE → CONFIGURATION → TROUBLESHOOTING
+- Simplified guides for non-technical users
+- Langfuse data model specification (`LANGFUSE_DATA_MODEL.md`)
+
+**Architecture Modernization**
+- Event-driven architecture with pub/sub Event Bus
+- Immutable State Store replacing scattered state mutations
+- Domain layer extraction (Cache Matcher, Fuzzy Matcher)
+- Comprehensive test coverage for core modules
+
+**Code Quality**
+- ~2,500 lines removed through DRY utilities and dead code cleanup
+- Standardized file naming (kebab-case convention)
+- Centralized hyperparameters in configuration files
+- Simplified UI components (44-67% size reductions)
+
+### Technical Details
+- 94 commits since v1.0.2: 12 features, 45 refactors, 10 fixes, 15 docs
+- No breaking changes from v1.0.2
+- Configuration file format unchanged
+
 ## [1.0.2] - 2025-11-27
 
 ### Highlights
