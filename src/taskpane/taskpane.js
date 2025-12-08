@@ -1,7 +1,7 @@
 import { startTracking } from "../services/live-tracker.js";
 import { renewPrompt } from "../services/prompt-renewer.js";
 import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
-import { init as initBatch } from "../ui-components/batch-processing.js";
+import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
@@ -28,7 +28,7 @@ Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) return $("sideload-msg").textContent = "This add-in requires Microsoft Excel";
 
   document.body.className = "ms-font-m ms-welcome ms-Fabric";
-  initHistory(); initBatch(); initCandidates(); updateHistoryTabCounter();
+  initHistory(); initDirectPrompt(); initCandidates(); updateHistoryTabCounter();
   $("sideload-msg")?.classList.add("hidden");
   const appBody = $("app-body");
   if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
