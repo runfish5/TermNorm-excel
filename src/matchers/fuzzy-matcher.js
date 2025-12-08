@@ -69,11 +69,11 @@ export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY
   const fwd = findBestMatch(normalized, forward, forwardThreshold);
   if (fwd) {
     const target = typeof fwd.value === 'string' ? fwd.value : fwd.value.target;
-    return { target, method: 'fuzzy', confidence: fwd.score, timestamp: new Date().toISOString(), source: normalized };
+    return { target, method: 'fuzzy', confidence: fwd.score, timestamp: new Date().toISOString(), source: normalized, matched_key: fwd.key, direction: 'forward' };
   }
 
   const rev = findBestMatch(normalized, reverse, reverseThreshold);
-  if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized };
+  if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized, matched_key: rev.key, direction: 'reverse' };
 
   return null;
 }

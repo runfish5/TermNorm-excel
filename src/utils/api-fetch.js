@@ -31,3 +31,15 @@ export async function apiPost(url, body, headers = {}, opts = {}) {
 export async function apiGet(url, headers = {}, silent = false) {
   return apiFetch(url, { method: "GET", headers: { "Content-Type": "application/json", ...headers }, silent });
 }
+
+/**
+ * Fire-and-forget logging for cache/fuzzy matches.
+ * Non-blocking - does not wait for response or handle errors.
+ */
+export function logMatch(data, headers = {}) {
+  serverFetch(`${getHost()}/log-match`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(data)
+  }).catch(() => {});  // Fire-and-forget
+}

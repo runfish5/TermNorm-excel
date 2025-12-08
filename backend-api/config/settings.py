@@ -45,6 +45,7 @@ class Settings(BaseSettings):
         "/research-and-match",
         "/test-connection",
         "/log-activity",
+        "/log-match",
         "/analyze-patterns",
         "/match-term",
         "/batch/start",

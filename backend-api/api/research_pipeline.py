@@ -20,7 +20,10 @@ import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
 from utils.cache_metadata import CacheMetadata
-from utils.langfuse_logger import log_to_langfuse, log_batch_start, log_batch_complete, log_pipeline
+from utils.langfuse_logger import (
+    log_to_langfuse, log_batch_start, log_batch_complete, log_pipeline,
+    log_cache_match, log_fuzzy_match, log_user_correction
+)
 
 logger = logging.getLogger(__name__)
 
@@ -840,3 +843,104 @@ Return ONLY valid JSON."""
         message="Direct prompt completed",
         data=response_data
     )
+
+
+# =============================================================================
+# FRONTEND LOGGING ENDPOINTS
+# =============================================================================
+
+from pydantic import BaseModel
+from typing import Optional
+
+
+class LogMatchRequest(BaseModel):
+    """Request body for /log-match endpoint"""
+    source: str                    # Original input term
+    target: str                    # Matched result
+    method: str                    # "cached" | "fuzzy"
+    confidence: float              # 1.0 for cache, similarity score for fuzzy
+    workbook_id: Optional[str] = None
+    latency_ms: Optional[float] = None
+    matched_key: Optional[str] = None      # Key that matched (fuzzy only)
+    direction: Optional[str] = None        # "forward" | "reverse"
+
+
+class LogActivityRequest(BaseModel):
+    """Request body for /log-activity endpoint"""
+    source: str
+    target: str
+    method: str                    # "UserChoice" | "DirectEdit"
+    confidence: float
+    timestamp: Optional[str] = None
+
+
+@router.post("/log-match")
+async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any]:
+    """
+    Log cache/fuzzy match events from frontend to Langfuse.
+
+    Called fire-and-forget by frontend after cache/fuzzy matches return.
+    Creates trace, observation, scores, and links to dataset item.
+    """
+    user_id = getattr(request.state, 'user_id', 'anonymous')
+
+    try:
+        if payload.method == "cached":
+            trace_id = log_cache_match(
+                source=payload.source,
+                target=payload.target,
+                latency_ms=payload.latency_ms or 0,
+                user_id=user_id,
+                session_id=user_id,
+            )
+        elif payload.method == "fuzzy":
+            trace_id = log_fuzzy_match(
+                source=payload.source,
+                target=payload.target,
+                confidence=payload.confidence,
+                matched_key=payload.matched_key,
+                direction=payload.direction,
+                latency_ms=payload.latency_ms or 0,
+                user_id=user_id,
+                session_id=user_id,
+            )
+        else:
+            raise HTTPException(400, f"Unknown method: {payload.method}")
+
+        logger.info(f"[LOG_MATCH] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}... ({trace_id})")
+
+        return success_response(
+            message=f"{payload.method} match logged",
+            data={"trace_id": trace_id}
+        )
+
+    except Exception as e:
+        logger.error(f"[LOG_MATCH] Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/log-activity")
+async def log_activity(request: Request, payload: LogActivityRequest) -> Dict[str, Any]:
+    """
+    Log user corrections (UserChoice, DirectEdit) from frontend to Langfuse.
+
+    Called by frontend when user selects a candidate or directly edits output.
+    Updates ground truth in dataset item.
+    """
+    try:
+        success = log_user_correction(
+            source=payload.source,
+            target=payload.target,
+            method=payload.method,
+        )
+
+        logger.info(f"[LOG_ACTIVITY] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}...")
+
+        return success_response(
+            message=f"{payload.method} logged",
+            data={"success": success}
+        )
+
+    except Exception as e:
+        logger.error(f"[LOG_ACTIVITY] Error: {e}")
+        return {"status": "error", "message": str(e)}

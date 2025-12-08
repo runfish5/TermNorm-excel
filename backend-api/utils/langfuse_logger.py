@@ -455,6 +455,138 @@ def log_pipeline(
     return trace_id
 
 
+def log_cache_match(
+    source: str,
+    target: str,
+    latency_ms: float = 0,
+    user_id: str = None,
+    session_id: str = None,
+) -> str:
+    """
+    Log cache hit to Langfuse.
+
+    Creates trace, observation, scores, and links to dataset item.
+    Returns trace_id.
+    """
+    # Create trace
+    trace_id = create_trace(
+        name="termnorm_pipeline",
+        input={"query": source},
+        user_id=user_id or "anonymous",
+        session_id=session_id,
+        metadata={"method": "cached"},
+        tags=["cached"],
+    )
+
+    # Link to dataset item (same item as any LLM/fuzzy runs for this query)
+    item_id = get_or_create_item(source, source_trace_id=trace_id)
+
+    # Log to events.jsonl
+    _log_event({
+        "event": "pipeline",
+        "trace_id": trace_id,
+        "item_id": item_id,
+        "query": source,
+        "target": target,
+        "method": "cached",
+        "confidence": 1.0,
+        "latency_ms": latency_ms,
+        "session_id": session_id,
+    })
+
+    # Create observation
+    create_observation(
+        trace_id, "span", "cache_lookup",
+        input={"query": source},
+        output={"target": target},
+    )
+
+    # Add scores
+    create_score(trace_id, "confidence", 1.0)
+    if latency_ms:
+        create_score(trace_id, "latency_ms", latency_ms)
+
+    # Complete trace
+    update_trace(trace_id, output={
+        "target": target,
+        "method": "cached",
+        "confidence": 1.0,
+    })
+
+    return trace_id
+
+
+def log_fuzzy_match(
+    source: str,
+    target: str,
+    confidence: float,
+    matched_key: str = None,
+    direction: str = None,
+    latency_ms: float = 0,
+    user_id: str = None,
+    session_id: str = None,
+) -> str:
+    """
+    Log fuzzy match to Langfuse.
+
+    Creates trace, observation, scores, and links to dataset item.
+    Returns trace_id.
+    """
+    # Create trace
+    trace_id = create_trace(
+        name="termnorm_pipeline",
+        input={"query": source},
+        user_id=user_id or "anonymous",
+        session_id=session_id,
+        metadata={"method": "fuzzy", "direction": direction},
+        tags=["fuzzy"],
+    )
+
+    # Link to dataset item (same item as any LLM/cache runs for this query)
+    item_id = get_or_create_item(source, source_trace_id=trace_id)
+
+    # Log to events.jsonl
+    _log_event({
+        "event": "pipeline",
+        "trace_id": trace_id,
+        "item_id": item_id,
+        "query": source,
+        "target": target,
+        "method": "fuzzy",
+        "confidence": confidence,
+        "latency_ms": latency_ms,
+        "session_id": session_id,
+        "matched_key": matched_key,
+        "direction": direction,
+    })
+
+    # Create observation
+    create_observation(
+        trace_id, "span", "fuzzy_matching",
+        input={"query": source},
+        output={
+            "target": target,
+            "similarity_score": confidence,
+            "matched_key": matched_key,
+            "direction": direction,
+        },
+    )
+
+    # Add scores
+    create_score(trace_id, "confidence", confidence)
+    if latency_ms:
+        create_score(trace_id, "latency_ms", latency_ms)
+
+    # Complete trace
+    update_trace(trace_id, output={
+        "target": target,
+        "method": "fuzzy",
+        "confidence": confidence,
+    })
+
+    return trace_id
+
+
 def log_user_correction(source: str, target: str, method: str = "UserChoice") -> bool:
     """
     Log user correction and update ground truth.
