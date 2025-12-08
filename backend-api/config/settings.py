@@ -46,7 +46,11 @@ class Settings(BaseSettings):
         "/test-connection",
         "/log-activity",
         "/analyze-patterns",
-        "/match-term"
+        "/match-term",
+        "/batch/start",
+        "/batch/complete",
+        "/direct-prompt",
+        "/batch-process-single",
     ]
 
     # Cloud Environment Detection

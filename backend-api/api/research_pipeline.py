@@ -15,11 +15,12 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
 from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
+from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
 from utils.cache_metadata import CacheMetadata
-from utils.langfuse_logger import log_to_langfuse
+from utils.langfuse_logger import log_to_langfuse, log_batch_start, log_batch_complete, log_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -599,4 +600,243 @@ async def batch_process_single(
             "candidates": ranked_candidates[:3],  # Top 3 only for batch
             "total_time": total_time
         }
+    )
+
+
+# =============================================================================
+# DIRECT PROMPT - Single LLM call without web search
+# =============================================================================
+
+@router.post("/batch/start")
+async def batch_start(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+) -> Dict[str, Any]:
+    """
+    Start a batch operation. Returns batch_id for linking items.
+
+    Payload:
+        method: "DirectPrompt" (required)
+        user_prompt: User's instruction prompt (required)
+        item_count: Number of items to process (required)
+    """
+    user_id = request.state.user_id
+    method = payload.get("method", "DirectPrompt")
+    user_prompt = payload.get("user_prompt", "")
+    item_count = payload.get("item_count", 0)
+
+    if not user_prompt:
+        raise HTTPException(400, "user_prompt is required")
+    if item_count < 1:
+        raise HTTPException(400, "item_count must be >= 1")
+
+    batch_id = log_batch_start(
+        method=method,
+        user_prompt=user_prompt,
+        item_count=item_count,
+        session_id=user_id,
+    )
+
+    logger.info(f"[BATCH] Started batch {batch_id}: {method}, {item_count} items")
+
+    return success_response(
+        message=f"Batch started: {item_count} items",
+        data={"batch_id": batch_id}
+    )
+
+
+@router.post("/batch/complete")
+async def batch_complete(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+) -> Dict[str, Any]:
+    """
+    Complete a batch operation.
+
+    Payload:
+        batch_id: Batch ID from /batch/start (required)
+        success_count: Number of successful items (required)
+        error_count: Number of failed items (default: 0)
+        total_time_ms: Total batch time in milliseconds (default: 0)
+    """
+    batch_id = payload.get("batch_id")
+    success_count = payload.get("success_count", 0)
+    error_count = payload.get("error_count", 0)
+    total_time_ms = payload.get("total_time_ms", 0)
+
+    if not batch_id:
+        raise HTTPException(400, "batch_id is required")
+
+    log_batch_complete(
+        batch_id=batch_id,
+        success_count=success_count,
+        error_count=error_count,
+        total_time_ms=total_time_ms,
+    )
+
+    logger.info(f"[BATCH] Completed batch {batch_id}: {success_count} success, {error_count} errors")
+
+    return success_response(
+        message=f"Batch completed: {success_count}/{success_count + error_count} successful",
+        data={"batch_id": batch_id, "success_count": success_count, "error_count": error_count}
+    )
+
+
+@router.post("/direct-prompt")
+async def direct_prompt(
+    request: Request,
+    payload: Dict[str, Any] = Body(...)
+) -> Dict[str, Any]:
+    """
+    General-purpose LLM inference with validation against session terms.
+
+    Payload:
+        query: Input text to process (required)
+        user_prompt: User's instruction prompt (required)
+        batch_id: Optional batch ID (for batch operations)
+
+    Returns:
+        target: LLM output (processed/transformed value)
+        confidence: 0.0-1.0 (set to 0 if output not in session terms)
+        confidence_corrected: True if output was not in terms
+
+    Flow:
+    1. Send user_prompt + query to LLM
+    2. LLM returns output + confidence
+    3. Validate: if output not in session terms → confidence = 0
+    """
+    user_id = request.state.user_id
+    query = payload.get("query", "").strip()
+    user_prompt = payload.get("user_prompt", "").strip()
+    batch_id = payload.get("batch_id")  # Optional
+
+    logger.info(f"[DIRECT_PROMPT] Received: query='{query[:30] if query else 'EMPTY'}', prompt='{user_prompt[:30] if user_prompt else 'EMPTY'}', batch_id={batch_id}")
+
+    if not query:
+        logger.warning("[DIRECT_PROMPT] Rejected: empty query")
+        raise HTTPException(400, "Query is required")
+    if not user_prompt:
+        logger.warning("[DIRECT_PROMPT] Rejected: empty user_prompt")
+        raise HTTPException(400, "user_prompt is required")
+
+    # Retrieve terms from session for validation
+    if user_id not in user_sessions:
+        logger.warning(f"[DIRECT_PROMPT] Rejected: no session for user_id={user_id}")
+        raise HTTPException(
+            400,
+            "No session found - initialize session first with POST /session/init-terms"
+        )
+
+    terms = user_sessions[user_id]["terms"]
+    terms_set = set(terms)  # For O(1) lookup
+
+    logger.info(f"[DIRECT_PROMPT] Processing: {query[:50]}... (batch_id: {batch_id or 'none'})")
+    start_time = time.time()
+
+    # Build system prompt for general LLM inference
+    system_prompt = f"""You are a helpful assistant that processes text according to user instructions.
+
+USER INSTRUCTIONS:
+{user_prompt}
+
+For the given input, apply the user's instructions and return a JSON object:
+{{
+    "output": "the processed/transformed result",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation of what you did"
+}}
+
+Return ONLY valid JSON."""
+
+    # Single LLM call
+    try:
+        response = await llm_call(
+            messages=[{"role": "user", "content": f"Input: {query}"}],
+            system=system_prompt,
+            output_format="json",
+            temperature=0.0,
+            max_tokens=300,
+        )
+
+        target = response.get("output", query)  # Default to original if no output
+        confidence = float(response.get("confidence", 0.5))
+        reasoning = response.get("reasoning", "")
+
+    except Exception as e:
+        logger.error(f"[DIRECT_PROMPT] LLM error: {e}")
+        return {"status": "error", "message": f"LLM error: {str(e)}"}
+
+    total_time = round(time.time() - start_time, 2)
+
+    # VALIDATION: Check if output exists in session terms
+    # If not in terms → confidence = 0 (output is not a valid standardized term)
+    confidence_corrected = False
+    original_confidence = confidence
+
+    if target not in terms_set:
+        logger.info(f"[DIRECT_PROMPT] Output '{target[:50]}' not in terms, setting confidence to 0")
+        confidence_corrected = True
+        original_confidence = confidence
+        confidence = 0.0
+
+    # Build training record
+    training_record = {
+        "source": query,
+        "target": target,
+        "method": "DirectPrompt",
+        "confidence": confidence,
+        "reasoning": reasoning,  # LLM's explanation
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "total_time": total_time,
+    }
+
+    if confidence_corrected:
+        training_record["confidence_corrected"] = True
+        training_record["original_confidence"] = original_confidence
+
+    # Langfuse logging with batch_id and user_prompt
+    try:
+        trace_id = log_pipeline(
+            training_record,
+            session_id=user_id,
+            batch_id=batch_id,
+            user_prompt=user_prompt,
+        )
+        logger.info(f"[LANGFUSE] Logged DirectPrompt trace: {trace_id}")
+    except Exception as e:
+        logger.error(f"[LANGFUSE] Failed to log: {e}")
+
+    # Update match database (live mode) - only if output is valid
+    if not confidence_corrected:
+        update_match_database(training_record)
+
+    # Update session usage stats
+    if user_id in user_sessions:
+        user_sessions[user_id]["query_count"] += 1
+        if not confidence_corrected:
+            targets = user_sessions[user_id]["targets_used"]
+            targets[target] = targets.get(target, 0) + 1
+
+    status_msg = f"-> {target[:40]}..." if len(target) > 40 else f"-> {target}"
+    if confidence_corrected:
+        status_msg += f" (NOT IN TERMS, was {original_confidence:.0%})"
+    else:
+        status_msg += f" ({confidence:.0%})"
+
+    logger.info(f"[DIRECT_PROMPT] Completed: {query[:30]}... {status_msg} in {total_time}s")
+
+    response_data = {
+        "target": target,
+        "confidence": confidence,
+        "reasoning": reasoning,
+        "total_time": total_time,
+    }
+
+    if confidence_corrected:
+        response_data["confidence_corrected"] = True
+        response_data["original_confidence"] = original_confidence
+
+    return success_response(
+        message="Direct prompt completed",
+        data=response_data
     )

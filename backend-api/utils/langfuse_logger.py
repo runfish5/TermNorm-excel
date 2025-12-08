@@ -38,6 +38,11 @@ def _generate_id(length: int = 32) -> str:
     return dt + uuid.uuid4().hex[:length - 12]
 
 
+def _generate_batch_id() -> str:
+    """Generate batch ID with datetime prefix."""
+    return f"batch-{_generate_id(24)}"
+
+
 def _ensure_dirs():
     """Create directory structure if needed."""
     (BASE_PATH / "traces").mkdir(parents=True, exist_ok=True)
@@ -254,17 +259,99 @@ def get_item_by_query(query: str) -> Optional[Dict]:
 
 
 # =============================================================================
+# BATCH OPERATIONS
+# =============================================================================
+
+def log_batch_start(
+    method: str,
+    user_prompt: str,
+    item_count: int,
+    session_id: str = None,
+) -> str:
+    """
+    Log batch start event. Returns batch_id for linking items.
+
+    Args:
+        method: Pipeline method (e.g., "DirectPrompt")
+        user_prompt: User's prompt (critical hyperparameter for DirectPrompt)
+        item_count: Number of items in batch
+        session_id: Optional user session ID
+    """
+    batch_id = _generate_batch_id()
+
+    _log_event({
+        "event": "batch_start",
+        "batch_id": batch_id,
+        "method": method,
+        "user_prompt": user_prompt,
+        "item_count": item_count,
+        "session_id": session_id,
+    })
+
+    return batch_id
+
+
+def log_batch_complete(
+    batch_id: str,
+    success_count: int,
+    error_count: int = 0,
+    total_time_ms: float = 0,
+) -> None:
+    """
+    Log batch completion event.
+
+    Args:
+        batch_id: Batch ID from log_batch_start
+        success_count: Number of successfully processed items
+        error_count: Number of failed items
+        total_time_ms: Total batch processing time in milliseconds
+    """
+    _log_event({
+        "event": "batch_complete",
+        "batch_id": batch_id,
+        "success_count": success_count,
+        "error_count": error_count,
+        "total_time_ms": total_time_ms,
+    })
+
+
+# =============================================================================
 # HIGH-LEVEL API
 # =============================================================================
 
-def log_pipeline(record: Dict[str, Any], session_id: str = None) -> str:
+def log_pipeline(
+    record: Dict[str, Any],
+    session_id: str = None,
+    batch_id: str = None,
+    user_prompt: str = None,
+) -> str:
     """
     Log full pipeline result.
 
     Creates trace, observations, scores, and dataset item.
     Returns trace_id.
+
+    Args:
+        record: Pipeline result record with source, target, method, etc.
+        session_id: Optional user session ID
+        batch_id: Optional batch ID (for batch operations)
+        user_prompt: Optional user prompt (for DirectPrompt method)
     """
     query = record.get("source")
+    method = record.get("method")
+
+    # Build metadata
+    metadata = {
+        "method": method,
+        "llm_provider": record.get("llm_provider"),
+    }
+    if batch_id:
+        metadata["batch_id"] = batch_id
+    if user_prompt:
+        metadata["user_prompt"] = user_prompt
+    if record.get("confidence_corrected"):
+        metadata["confidence_corrected"] = True
+        metadata["original_confidence"] = record.get("original_confidence")
 
     # Create trace
     trace_id = create_trace(
@@ -272,10 +359,7 @@ def log_pipeline(record: Dict[str, Any], session_id: str = None) -> str:
         input={"query": query},
         user_id=session_id or "anonymous",
         session_id=session_id,
-        metadata={
-            "method": record.get("method"),
-            "llm_provider": record.get("llm_provider"),
-        },
+        metadata=metadata,
         tags=["production"],
     )
 
@@ -283,17 +367,28 @@ def log_pipeline(record: Dict[str, Any], session_id: str = None) -> str:
     item_id = get_or_create_item(query, source_trace_id=trace_id)
 
     # Log to events.jsonl (flat log with IDs for navigation)
-    _log_event({
+    event_data = {
         "event": "pipeline",
         "trace_id": trace_id,
         "item_id": item_id,
         "query": query,
         "target": record.get("target"),
-        "method": record.get("method"),
+        "method": method,
         "confidence": record.get("confidence", 0),
         "latency_ms": record.get("total_time", 0) * 1000,
         "session_id": session_id,
-    })
+        "batch_id": batch_id,  # None for single operations
+    }
+    # Include confidence correction info if present
+    if record.get("confidence_corrected"):
+        event_data["confidence_corrected"] = True
+        event_data["original_confidence"] = record.get("original_confidence")
+    if user_prompt:
+        event_data["user_prompt"] = user_prompt
+    if record.get("reasoning"):
+        event_data["reasoning"] = record.get("reasoning")
+
+    _log_event(event_data)
 
     # Add observations
     if record.get("web_sources"):
@@ -324,6 +419,25 @@ def log_pipeline(record: Dict[str, Any], session_id: str = None) -> str:
             model=record.get("llm_provider", "unknown"),
             input={"candidate_count": len(record.get("token_matches", []))},
             output={"ranked": record["candidates"], "top": record["target"]},
+        )
+
+    # DirectPrompt-specific observation (no web search, direct LLM mapping)
+    if method == "DirectPrompt":
+        obs_metadata = {}
+        if record.get("confidence_corrected"):
+            obs_metadata["confidence_corrected"] = True
+            obs_metadata["original_confidence"] = record.get("original_confidence")
+
+        create_observation(
+            trace_id, "generation", "direct_mapping",
+            model=record.get("llm_provider", "unknown"),
+            input={"query": query, "user_prompt": user_prompt},
+            output={
+                "target": record.get("target"),
+                "confidence": record.get("confidence", 0),
+                "reasoning": record.get("reasoning"),
+            },
+            metadata=obs_metadata if obs_metadata else None,
         )
 
     # Add scores
