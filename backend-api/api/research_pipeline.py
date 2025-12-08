@@ -19,28 +19,10 @@ import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
 from utils.cache_metadata import CacheMetadata
-from utils.live_experiment_logger import log_to_experiments
-from utils.standards_logger import TaskDatasetManager, ConfigTreeManager
+from utils.langfuse_logger import log_to_langfuse
 
 logger = logging.getLogger(__name__)
 
-# Singleton managers for task/config tracking (Langfuse-compatible)
-_task_manager: TaskDatasetManager = None
-_config_manager: ConfigTreeManager = None
-
-def get_task_manager() -> TaskDatasetManager:
-    """Get or create singleton task manager."""
-    global _task_manager
-    if _task_manager is None:
-        _task_manager = TaskDatasetManager()
-    return _task_manager
-
-def get_config_manager() -> ConfigTreeManager:
-    """Get or create singleton config manager."""
-    global _config_manager
-    if _config_manager is None:
-        _config_manager = ConfigTreeManager()
-    return _config_manager
 router = APIRouter()
 
 # Load entity schema once at module level
@@ -125,41 +107,42 @@ def update_match_database(record: Dict[str, Any]):
     if not target or not source or target == "No matches found":
         return
 
+    from datetime import datetime
+    now = datetime.utcnow().isoformat() + "Z"
+
+    # Track if new entry (before creating)
+    is_new = target not in match_database
+
     # Create or update identifier entry
-    if target not in match_database:
+    if is_new:
         match_database[target] = {
             "entity_profile": record.get("entity_profile"),
             "aliases": {},
             "web_sources": record.get("web_sources", []),
-            "last_updated": record.get("timestamp")
+            "last_updated": now
         }
 
     entry = match_database[target]
 
-    # Update alias (newer timestamp wins)
-    existing = entry["aliases"].get(source)
-    if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
-        entry["aliases"][source] = {
-            "timestamp": record.get("timestamp"),
-            "method": record.get("method"),
-            "confidence": record.get("confidence")
-        }
+    # Update alias (always update - latest call wins)
+    entry["aliases"][source] = {
+        "timestamp": now,
+        "method": record.get("method"),
+        "confidence": record.get("confidence")
+    }
 
-    # Update entity_profile if this is newer and has profile
-    if record.get("entity_profile") and record.get("timestamp", "") > entry.get("last_updated", ""):
+    # Update entity_profile if this record has one
+    if record.get("entity_profile"):
         entry["entity_profile"] = record.get("entity_profile")
         entry["web_sources"] = record.get("web_sources", [])
-        entry["last_updated"] = record.get("timestamp")
-
+        entry["last_updated"] = now
 
     # Track incremental update in metadata
-    identifiers_added = 1 if target not in match_database else 0
-    identifiers_updated = 0 if identifiers_added else 1
     cache_metadata.add_incremental_update(
         source="backend_pipeline",
         records_added=1,
-        identifiers_added=identifiers_added,
-        identifiers_updated=identifiers_updated,
+        identifiers_added=1 if is_new else 0,
+        identifiers_updated=0 if is_new else 1,
     )
 
     save_match_database()
@@ -167,100 +150,67 @@ def update_match_database(record: Dict[str, Any]):
 
 def rebuild_match_database():
     """
-    Rebuild mode: Regenerate database from experiments structure.
+    Rebuild mode: Regenerate database from langfuse structure.
 
-    Scans all experiments for evaluation_results.jsonl files and corresponding traces.
-    Extracts entity profiles, aliases, and web sources to build the match database.
-
-    INTENDED BEHAVIOR - Reads ONLY from experiments structure:
-    - activity.jsonl is LEGACY (for dual-logging transition period)
-    - rebuild ONLY reads from experiments/ (the single source of truth)
-    - If you need activity.jsonl data, run migration script first:
-      python backend-api/archive/convert_activity_to_experiments.py
+    Scans all traces and observations in logs/langfuse/ to build the match database.
+    Extracts entity profiles, aliases, and web sources.
     """
     global match_database
     match_database = {}
 
-    experiments_path = Path(__file__).parent.parent / "logs" / "experiments"
+    langfuse_path = Path(__file__).parent.parent / "logs" / "langfuse"
+    traces_path = langfuse_path / "traces"
+    observations_path = langfuse_path / "observations"
 
-    if not experiments_path.exists():
-        logger.warning("[MATCH_DB] No experiments directory found")
+    if not traces_path.exists():
+        logger.warning("[MATCH_DB] No langfuse traces directory found")
         save_match_database()
         return 0
 
-    logger.info("[MATCH_DB] Rebuilding from experiments structure...")
-    cache_metadata.mark_rebuild_start("experiments")
+    logger.info("[MATCH_DB] Rebuilding from langfuse structure...")
+    cache_metadata.mark_rebuild_start("langfuse")
 
-    data_sources = []
     total_records = 0
 
-    for exp_dir in experiments_path.iterdir():
-        if not exp_dir.is_dir():
-            continue
+    for trace_file in traces_path.glob("*.json"):
+        try:
+            with open(trace_file, 'r', encoding='utf-8') as f:
+                trace = json.load(f)
 
-        experiment_id = exp_dir.name
-        runs_loaded = []
+            trace_id = trace.get("id")
+            query = trace.get("input", {}).get("query")
+            output = trace.get("output", {})
+            target = output.get("target")
 
-        runs_dir = exp_dir / "runs"
-        if not runs_dir.exists():
-            continue
-
-        for run_dir in runs_dir.iterdir():
-            if not run_dir.is_dir():
+            if not query or not target:
                 continue
 
-            run_id = run_dir.name
-            results_file = run_dir / "artifacts" / "evaluation_results.jsonl"
+            normalized_record = {
+                "source": query,
+                "target": target,
+                "method": output.get("method"),
+                "confidence": output.get("confidence"),
+                "timestamp": trace.get("timestamp"),
+                "session_id": trace.get("session_id"),
+            }
 
-            if not results_file.exists():
-                continue
+            # Load observations for entity_profile and web_sources
+            obs_dir = observations_path / trace_id
+            if obs_dir.exists():
+                for obs_file in obs_dir.glob("*.json"):
+                    with open(obs_file, 'r', encoding='utf-8') as of:
+                        obs = json.load(of)
+                        if obs.get("name") == "entity_profiling":
+                            normalized_record["entity_profile"] = obs.get("output")
+                        elif obs.get("name") == "web_search":
+                            normalized_record["web_sources"] = obs.get("output", {}).get("sources", [])
 
-            # Load evaluation results
-            run_records = 0
-            with open(results_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        record = json.loads(line)
-                        # Convert from evaluation_results format to internal format
-                        normalized_record = {
-                            "source": record.get("query"),
-                            "target": record.get("predicted"),
-                            "method": record.get("method"),
-                            "confidence": record.get("confidence"),
-                            "timestamp": record.get("timestamp"),
-                            "session_id": record.get("session_id"),
-                        }
+            _update_db_entry(normalized_record)
+            total_records += 1
 
-                        # Load full trace if available
-                        trace_id = record.get("trace_id")
-                        if trace_id:
-                            trace_file = run_dir / "artifacts" / "traces" / f"{trace_id}.json"
-                            if trace_file.exists():
-                                with open(trace_file) as tf:
-                                    trace = json.load(tf)
-                                    # Extract entity_profile and web_sources from trace
-                                    for obs in trace.get("observations", []):
-                                        if obs.get("name") == "entity_profiling":
-                                            normalized_record["entity_profile"] = obs.get("output")
-                                        elif obs.get("name") == "web_search":
-                                            normalized_record["web_sources"] = obs.get("output", {}).get("sources", [])
-
-                        _update_db_entry(normalized_record)
-                        run_records += 1
-                        total_records += 1
-                    except json.JSONDecodeError:
-                        continue
-
-            if run_records > 0:
-                runs_loaded.append(run_id)
-
-        if runs_loaded:
-            data_sources.append({
-                "type": "experiment",
-                "experiment_id": experiment_id,
-                "runs_loaded": runs_loaded,
-                "num_runs": len(runs_loaded),
-            })
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"[MATCH_DB] Error reading {trace_file}: {e}")
+            continue
 
     # Count identifiers and aliases
     identifiers_count = len(match_database)
@@ -270,14 +220,14 @@ def rebuild_match_database():
 
     # Update cache metadata
     cache_metadata.mark_rebuild_complete(
-        source_type="experiments",
+        source_type="langfuse",
         records_processed=total_records,
         identifiers_count=identifiers_count,
         aliases_count=aliases_count,
-        data_sources=data_sources,
+        data_sources=[{"type": "langfuse", "traces_loaded": total_records}],
     )
 
-    logger.info(f"[MATCH_DB] Rebuilt from experiments: {identifiers_count} identifiers, {total_records} records")
+    logger.info(f"[MATCH_DB] Rebuilt from langfuse: {identifiers_count} identifiers, {total_records} records")
     return identifiers_count
 
 
@@ -475,12 +425,6 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     from datetime import datetime
     from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
-    # Get or create task and config for this query (Langfuse-compatible)
-    task_manager = get_task_manager()
-    config_manager = get_config_manager()
-    task_id = task_manager.get_or_create_task(query)
-    config_id = config_manager.get_current_config()
-
     # Get top ranked candidate and prepare flattened structure
     ranked_candidates = llm_response.get('ranked_candidates', [])
     target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches found"
@@ -490,20 +434,18 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
 
-    # Flattened training record - top-level fields for easy queries
+    # Training record for logging
     training_record = {
-        # Core identification
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "session_id": user_id,
         "source": query,
         "target": target,
         "method": "ProfileRank",
         "confidence": confidence,
-        # Langfuse-compatible task/config linking
-        "task_id": task_id,
-        "config_id": config_id,
-
-        # Flattened candidates (no nesting)
+        "session_id": user_id,
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "total_time": total_time,
+        "web_search_status": "failed" if web_search_failed else "success",
+        # Verbose data (goes to separate observation files)
+        "entity_profile": entity_profile,
         "candidates": [
             {
                 "rank": i,
@@ -514,16 +456,6 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             }
             for i, c in enumerate(ranked_candidates)
         ] if ranked_candidates else [],
-
-        # Entity profile (top-level)
-        "entity_profile": entity_profile,
-
-        # Metadata
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "total_time": total_time,
-        "web_search_status": "failed" if web_search_failed else "success",
-
-        # Debug info (flattened from nested stages)
         "token_matches": ranking_debug["inputs"]["token_matched_candidates"] if ranking_debug else [],
         "web_sources": scraped_sources.get("sources_fetched", []) if not web_search_failed else [],
     }
@@ -531,21 +463,12 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # Check for errors and move to first position if detected
     training_record = _prioritize_errors(training_record)
 
-    # DUAL LOGGING (transition period):
-    # 1. Write to activity.jsonl (legacy)
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(training_record) + "\n")
-
-    # 2. Write to experiments structure (NEW - main production experiment)
+    # Langfuse logging (traces, observations, scores, dataset items, events.jsonl)
     try:
-        trace_id = log_to_experiments(training_record)
-        logger.info(f"[EXPERIMENTS] Logged to production_realtime experiment, trace_id={trace_id}")
-        # Link trace to task for re-evaluation when ground truth arrives
-        task_manager.link_trace(task_id, trace_id)
+        trace_id = log_to_langfuse(training_record, session_id=user_id)
+        logger.info(f"[LANGFUSE] Logged trace: {trace_id}")
     except Exception as e:
-        logger.error(f"[EXPERIMENTS] Failed to log to experiments: {e}")
+        logger.error(f"[LANGFUSE] Failed to log: {e}")
 
     # Update match database (live mode)
     update_match_database(training_record)
@@ -641,8 +564,6 @@ async def batch_process_single(
     # Build training record for logging
     from core.llm_providers import LLM_PROVIDER, LLM_MODEL
     training_record = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "session_id": user_id,
         "source": query,
         "target": target,
         "method": "BatchProfileRank",
@@ -651,14 +572,13 @@ async def batch_process_single(
         "web_sources": profile_debug.get("inputs", {}).get("scraped_sources", {}).get("sources_fetched", []),
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "total_time": total_time,
-        "context": context if context else None
     }
 
-    # Log to activity.jsonl
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(training_record) + "\n")
+    # Langfuse logging
+    try:
+        log_to_langfuse(training_record, session_id=user_id)
+    except Exception as e:
+        logger.error(f"[LANGFUSE] Failed to log batch: {e}")
 
     # Update match database
     update_match_database(training_record)

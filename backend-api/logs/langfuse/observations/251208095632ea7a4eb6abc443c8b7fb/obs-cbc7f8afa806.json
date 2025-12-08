@@ -1,0 +1,41 @@
+{
+  "id": "obs-cbc7f8afa806",
+  "trace_id": "251208095632ea7a4eb6abc443c8b7fb",
+  "type": "span",
+  "name": "web_search",
+  "start_time": "2025-12-08T09:56:32.070156Z",
+  "end_time": "2025-12-08T09:56:32.070156Z",
+  "input": {
+    "query": "example-iron"
+  },
+  "output": {
+    "sources": [
+      {
+        "title": "What Are the Properties and Uses of Iron?",
+        "url": "https://www.morecambemetals.co.uk/what-are-the-properties-of-iron/"
+      },
+      {
+        "title": "Foods high in iron | healthdirect",
+        "url": "https://www.healthdirect.gov.au/foods-high-in-iron"
+      },
+      {
+        "title": "What is Iron? Definitions and Examples - Club Z! Tutoring",
+        "url": "https://clubztutoring.com/ed-resources/science/what-is-iron/"
+      },
+      {
+        "title": "IRON | English meaning - Cambridge Dictionary",
+        "url": "https://dictionary.cambridge.org/dictionary/english/iron"
+      },
+      {
+        "title": "Iron-Rich Food | List of Meats And Vegetables | Red Cross Blood",
+        "url": "https://www.redcrossblood.org/donate-blood/blood-donation-process/before-during-after/iron-blood-donation/iron-rich-foods.html"
+      },
+      {
+        "title": "Iron: MedlinePlus",
+        "url": "https://medlineplus.gov/iron.html"
+      }
+    ],
+    "count": 6
+  },
+  "metadata": {}
+}

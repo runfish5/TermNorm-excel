@@ -1,0 +1,100 @@
+{
+  "id": "obs-0824d893d841",
+  "trace_id": "251208095632ea7a4eb6abc443c8b7fb",
+  "type": "span",
+  "name": "token_matching",
+  "start_time": "2025-12-08T09:56:32.074323Z",
+  "end_time": "2025-12-08T09:56:32.074323Z",
+  "input": {
+    "profile": {
+      "entity_name": "Iron",
+      "core_concept": "Element"
+    }
+  },
+  "output": {
+    "candidates": [
+      [
+        "Hot rolling, steel {RoW}| hot rolling, steel | Cut-off, S",
+        0.2857142857142857
+      ],
+      [
+        "Sheet rolling, steel {RoW}| sheet rolling, steel | Cut-off, S",
+        0.2857142857142857
+      ],
+      [
+        "Metal working, average for steel product manufacturing {RoW}| metal working, average for steel product manufacturing | Cut-off, S",
+        0.2727272727272727
+      ],
+      [
+        "Steel, zinc coated /RER",
+        0.25
+      ],
+      [
+        "Metal working, average for chromium steel product manufacturing {RoW}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+        0.25
+      ],
+      [
+        "Tin plating, pieces {RoW}| tin plating, pieces, 10 micrometer | Cut-off, S",
+        0.2222222222222222
+      ],
+      [
+        "Steel, chromium steel 18/8 {GLO}| market for steel, chromium steel 18/8 | Cut-off, S",
+        0.2
+      ],
+      [
+        "Metal working, average for copper product manufacturing {RoW}| metal working, average for copper product manufacturing | Cut-off, S",
+        0.18181818181818182
+      ],
+      [
+        "Metal working, average for steel product manufacturing {RER}| metal working, average for steel product manufacturing | Cut-off, S",
+        0.18181818181818182
+      ],
+      [
+        "Injection moulding {RoW}| injection moulding | Cut-off, S",
+        0.16666666666666666
+      ],
+      [
+        "Metal working, average for chromium steel product manufacturing {RER}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+        0.16666666666666666
+      ],
+      [
+        "Wire drawing, steel {RER}| wire drawing, steel | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Extrusion, plastic film {RoW}| extrusion, plastic film | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "N-olefins {RER}| N-olefins production | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Sheet rolling, steel {RER}| sheet rolling, steel | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Wire drawing, copper {RoW}| wire drawing, copper | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Sheet rolling, copper {RoW}| sheet rolling, copper | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Brass {RoW}| market for brass | Cut-off, S",
+        0.14285714285714285
+      ],
+      [
+        "Steel, unalloyed {GLO}| market for steel, unalloyed | Cut-off, S",
+        0.125
+      ],
+      [
+        "Urea formaldehyde resin {RER}| urea formaldehyde resin production | Cut-off, S",
+        0.125
+      ]
+    ],
+    "count": 20
+  },
+  "metadata": {}
+}

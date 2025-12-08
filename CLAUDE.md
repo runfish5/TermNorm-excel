@@ -72,13 +72,13 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `call_llm_for_ranking.py` - LLM candidate ranking
   - `correct_candidate_strings.py` - Fuzzy correction of LLM outputs
 - **utils/**:
-  - `standards_logger.py` - MLflow-compatible experiment/run/trace logging
-  - `live_experiment_logger.py` - Production logging singleton
+  - `langfuse_logger.py` - Langfuse-compatible trace/observation/score/dataset logging
+  - `live_experiment_logger.py` - High-level logging functions (`log_to_langfuse`, `log_user_correction`)
   - `prompt_registry.py` - Versioned prompt management
 - **config/**: Settings, middleware, users.json (hot-reload)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
-  - `experiments/` - MLflow-compatible trace storage
+  - `langfuse/` - Langfuse-compatible logging (traces, observations, scores, datasets)
   - `prompts/` - Versioned LLM prompts
 
 ### Web Search
@@ -177,15 +177,27 @@ Optional: User Selection (Apply term → update target column)
 Logging
 ```
 
-## MLflow-Compatible Logging
+## Langfuse-Compatible Logging
 
-Backend logs to `logs/experiments/` in MLflow FileStore format:
-- `meta.yaml` - Run metadata with RunInfo
-- `params/`, `metrics/`, `tags/` - MLflow standard directories
-- `artifacts/traces/` - Detailed trace JSON files
-- `evaluation_results.jsonl` - Flattened results for analysis
+Backend logs to `logs/langfuse/` in Langfuse-compatible format:
+
+```
+logs/langfuse/
+├── traces/                    # Lean trace files (~10 lines)
+├── observations/{trace_id}/   # Verbose step details (separate files)
+├── scores/                    # Evaluation metrics
+└── datasets/                  # Ground truth items
+```
+
+Key concepts:
+- **Traces**: Lean workflow summaries (input/output only)
+- **Observations**: Verbose step data in separate files (web_search, entity_profiling, etc.)
+- **Dataset Items**: Ground truth with `source_trace_id` linking TO traces
+- **UserChoice/DirectEdit**: Updates dataset item's `expected_output`
 
 Trace IDs use datetime-prefixed format: `YYMMDDHHMMSSxxxxxxxx...`
+
+See `backend-api/docs/LANGFUSE_DATA_MODEL.md` for full specification.
 
 ## Known Limitations
 

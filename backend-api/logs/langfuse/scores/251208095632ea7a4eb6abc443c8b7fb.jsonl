@@ -1,0 +1,2 @@
+{"id": "score-97f89a7a", "trace_id": "251208095632ea7a4eb6abc443c8b7fb", "name": "confidence", "value": 0, "data_type": "NUMERIC", "timestamp": "2025-12-08T09:56:32.079304Z"}
+{"id": "score-0533e56d", "trace_id": "251208095632ea7a4eb6abc443c8b7fb", "name": "latency_ms", "value": 11950.0, "data_type": "NUMERIC", "timestamp": "2025-12-08T09:56:32.082709Z"}

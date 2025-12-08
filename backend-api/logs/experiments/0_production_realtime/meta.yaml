@@ -1,7 +1,0 @@
-experiment_id: "0_production_realtime"
-name: "production_realtime"
-description: "Real-time production logging (main experiment for all live matches)"
-artifact_location: "backend-api/logs/experiments/0_production_realtime/runs"
-lifecycle_stage: "active"
-creation_time: 1733328000000
-last_update_time: 1733328000000

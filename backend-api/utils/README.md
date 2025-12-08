@@ -1,29 +1,37 @@
 # Utils - Production Utilities
 
-Infrastructure for experiment tracking, prompt versioning, and standards-compliant logging.
+Infrastructure for Langfuse-compatible logging, prompt versioning, and caching.
 
 ## Core Modules
 
-**`prompt_registry.py`**
-- Versioned prompts (MLflow format) in `logs/prompts/` (v1, v2, ...)
-- Usage: `get_prompt_registry().render_prompt(family="entity_profiling", version=1, **vars)`
+**`langfuse_logger.py`** - Langfuse-compatible logging (~380 lines)
+```python
+# Low-level
+create_trace(name, input, user_id, session_id, metadata, tags) -> trace_id
+update_trace(trace_id, output, metadata)
+get_trace(trace_id) -> Dict
+create_observation(trace_id, type, name, input, output, model, metadata) -> obs_id
+create_score(trace_id, name, value, data_type)
+get_or_create_item(query, source_trace_id) -> item_id
+set_ground_truth(item_id, target) -> bool
+get_item_by_query(query) -> Dict
 
-**`live_experiment_logger.py`**
-- Real-time production logging to experiments structure
-- Singleton with automatic daily run management
-- Dual logging: `activity.jsonl` (legacy) + experiments (new)
+# High-level (use these)
+log_pipeline(record, session_id) -> trace_id    # Full pipeline result
+log_user_correction(source, target, method)      # UserChoice/DirectEdit
+```
 
-**`cache_metadata.py`**
-- Tracks loaded experiments/runs in `match_database.json`
-- Staleness detection for smart cache rebuilds
+**`prompt_registry.py`** - Versioned prompts in `logs/prompts/`
 
-**`standards_logger.py`**
-- MLflow-compatible experiment/run/trace writer (no MLflow dependency)
-- Generates: `meta.yaml`, `params/`, `tags/`, `metrics/` directories (MLflow FileStore format)
+**`cache_metadata.py`** - Tracks loaded data in `match_database.json`
 
-**`responses.py`**, **`utils.py`**
-- API helpers, terminal colors, utilities
+**`standards_logger.py`** - Legacy MLflow logger (unused, kept for reference)
 
-## Design
+**`responses.py`**, **`utils.py`** - API helpers, terminal colors
 
-Minimal dependencies (stdlib + pyyaml), standards-compliant (MLflow/Langfuse/DSPy/GitHub Models), git-friendly (structure versioned, data ignored)
+## Design Principles
+
+- Simple functions over classes
+- Langfuse-compatible file structure
+- Lazy index loading for fast startup
+- No external dependencies (stdlib only)

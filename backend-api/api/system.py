@@ -2,31 +2,18 @@
 System API - Health checks, connection testing, and activity logging
 """
 import logging
-import json
 import os
-from datetime import datetime
 from typing import Dict, Any, List
 from fastapi import APIRouter, Body
-from pathlib import Path
 
 from config.environment import get_connection_info
 from config.settings import settings
 from core import llm_providers
 from utils.responses import success_response
-from utils.live_experiment_logger import log_to_experiments
-from utils.standards_logger import TaskDatasetManager
+from utils.langfuse_logger import log_user_correction
 
 logger = logging.getLogger(__name__)
 
-# Task dataset manager for ground truth (singleton)
-_task_manager: TaskDatasetManager = None
-
-def get_task_manager() -> TaskDatasetManager:
-    """Get or create singleton task manager."""
-    global _task_manager
-    if _task_manager is None:
-        _task_manager = TaskDatasetManager()
-    return _task_manager
 router = APIRouter()
 
 
@@ -132,56 +119,32 @@ async def set_web_search(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]
 
 @router.post("/log-activity")
 async def log_activity(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Log activity (e.g., UserChoice) to activity.jsonl and update match database"""
+    """
+    Log activity to Langfuse-compatible structure.
+
+    For UserChoice/DirectEdit: Updates dataset item ground truth
+    For other methods: Creates new trace (shouldn't happen from frontend)
+    """
     source = payload.get("source")
     target = payload.get("target")
     method = payload.get("method", "UserChoice")
     confidence = payload.get("confidence", 1.0)
-    timestamp = payload.get("timestamp") or datetime.utcnow().isoformat() + "Z"
 
     if not source or not target:
         return {"status": "error", "message": "source and target are required"}
 
-    # Build record
-    record = {
-        "timestamp": timestamp,
-        "source": source,
-        "target": target,
-        "method": method,
-        "confidence": confidence
-    }
-
-    # DUAL LOGGING:
-    # 1. Log to activity.jsonl (legacy)
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
-    with open(logs_dir / "activity.jsonl", "a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
-
-    # 2. Log to experiments structure (NEW)
-    try:
-        trace_id = log_to_experiments(record)
-        logger.info(f"[EXPERIMENTS] Logged to production_realtime, trace_id={trace_id}")
-    except Exception as e:
-        logger.error(f"[EXPERIMENTS] Failed to log: {e}")
-
-    # 3. Update ground truth when UserChoice provides correction (Langfuse-compatible)
-    if method == "UserChoice":
+    # Langfuse logging
+    if method in ("UserChoice", "DirectEdit"):
         try:
-            task_manager = get_task_manager()
-            # Get or create task for this query
-            task_id = task_manager.get_or_create_task(source)
-            # Update expected_output (ground truth)
-            task_manager.update_ground_truth(task_id, target)
-            logger.info(f"[GROUND_TRUTH] Updated task {task_id}: {source} → {target}")
+            log_user_correction(source, target, method)
+            logger.info(f"[LANGFUSE] {method}: {source} → {target}")
         except Exception as e:
-            logger.error(f"[GROUND_TRUTH] Failed to update: {e}")
+            logger.error(f"[LANGFUSE] Failed to log correction: {e}")
 
-    # Update match database
+    # Update match database (cache for fast lookups)
     from api.research_pipeline import update_match_database
-    update_match_database(record)
+    update_match_database({"source": source, "target": target, "confidence": confidence})
 
-    logger.info(f"[LOG] Activity logged: {source} -> {target} ({method})")
     return success_response(
         message="Activity logged",
         data={"source": source, "target": target, "method": method}
@@ -214,7 +177,7 @@ async def get_match_details(identifier: str) -> Dict[str, Any]:
 
 @router.post("/rebuild-match-database")
 async def rebuild_database() -> Dict[str, Any]:
-    """Rebuild match database from activity.jsonl (admin use)"""
+    """Rebuild match database from langfuse logs (admin use)"""
     from api.research_pipeline import rebuild_match_database
 
     count = rebuild_match_database()
@@ -268,7 +231,7 @@ async def get_cache_status() -> Dict[str, Any]:
 @router.post("/cache/rebuild")
 async def rebuild_cache() -> Dict[str, Any]:
     """
-    Manually trigger cache rebuild from experiments or activity.jsonl.
+    Manually trigger cache rebuild from langfuse logs.
 
     Useful for forcing a refresh of the match_database.
     """

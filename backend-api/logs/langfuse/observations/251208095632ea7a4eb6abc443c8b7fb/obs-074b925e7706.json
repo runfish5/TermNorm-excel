@@ -1,0 +1,17 @@
+{
+  "id": "obs-074b925e7706",
+  "trace_id": "251208095632ea7a4eb6abc443c8b7fb",
+  "type": "event",
+  "name": "user_correction",
+  "start_time": "2025-12-08T09:57:08.134714Z",
+  "end_time": "2025-12-08T09:57:08.134714Z",
+  "input": {
+    "previous_target": "Steel, chromium steel 18/8 {GLO}| market for steel, chromium steel 18/8 | Cut-off, S"
+  },
+  "output": {
+    "selected_target": "just-an-example"
+  },
+  "metadata": {
+    "method": "DirectEdit"
+  }
+}

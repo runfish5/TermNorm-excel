@@ -1,0 +1,22 @@
+{
+  "id": "251208095632ea7a4eb6abc443c8b7fb",
+  "name": "termnorm_pipeline",
+  "timestamp": "2025-12-08T09:56:32.035145Z",
+  "input": {
+    "query": "example-iron"
+  },
+  "output": {
+    "target": "just-an-example",
+    "method": "DirectEdit",
+    "confidence": 1.0
+  },
+  "user_id": "admin",
+  "session_id": "admin",
+  "metadata": {
+    "method": "ProfileRank",
+    "llm_provider": "groq/meta-llama/llama-4-maverick-17b-128e-instruct"
+  },
+  "tags": [
+    "production"
+  ]
+}

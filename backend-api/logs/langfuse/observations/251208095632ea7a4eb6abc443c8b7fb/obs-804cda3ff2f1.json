@@ -1,0 +1,158 @@
+{
+  "id": "obs-804cda3ff2f1",
+  "trace_id": "251208095632ea7a4eb6abc443c8b7fb",
+  "type": "generation",
+  "name": "llm_ranking",
+  "start_time": "2025-12-08T09:56:32.076058Z",
+  "end_time": "2025-12-08T09:56:32.076058Z",
+  "input": {
+    "candidate_count": 20
+  },
+  "output": {
+    "ranked": [
+      {
+        "rank": 0,
+        "name": "Steel, chromium steel 18/8 {GLO}| market for steel, chromium steel 18/8 | Cut-off, S",
+        "score": null,
+        "core_score": 0.8,
+        "spec_score": 0.7
+      },
+      {
+        "rank": 1,
+        "name": "Steel, unalloyed {GLO}| market for steel, unalloyed | Cut-off, S",
+        "score": null,
+        "core_score": 0.8,
+        "spec_score": 0.7
+      },
+      {
+        "rank": 2,
+        "name": "Metal working, average for chromium steel product manufacturing {RER}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 3,
+        "name": "Metal working, average for chromium steel product manufacturing {RoW}| metal working, average for chromium steel product manufacturing | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 4,
+        "name": "Hot rolling, steel {RoW}| hot rolling, steel | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 5,
+        "name": "Sheet rolling, steel {RoW}| sheet rolling, steel | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 6,
+        "name": "Sheet rolling, steel {RER}| sheet rolling, steel | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 7,
+        "name": "Wire drawing, steel {RER}| wire drawing, steel | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 8,
+        "name": "Metal working, average for steel product manufacturing {RER}| metal working, average for steel product manufacturing | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 9,
+        "name": "Metal working, average for steel product manufacturing {RoW}| metal working, average for steel product manufacturing | Cut-off, S",
+        "score": null,
+        "core_score": 0.7,
+        "spec_score": 0.6
+      },
+      {
+        "rank": 10,
+        "name": "Brass {RoW}| market for brass | Cut-off, S",
+        "score": null,
+        "core_score": 0.4,
+        "spec_score": 0.3
+      },
+      {
+        "rank": 11,
+        "name": "Sheet rolling, copper {RoW}| sheet rolling, copper | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 12,
+        "name": "N-olefins {RER}| N-olefins production | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 13,
+        "name": "Urea formaldehyde resin {RER}| urea formaldehyde resin production | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 14,
+        "name": "Injection moulding {RoW}| injection moulding | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 15,
+        "name": "Extrusion, plastic film {RoW}| extrusion, plastic film | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 16,
+        "name": "Tin plating, pieces {RoW}| tin plating, pieces, 10 micrometer | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 17,
+        "name": "Wire drawing, copper {RoW}| wire drawing, copper | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 18,
+        "name": "Metal working, average for copper product manufacturing {RoW}| metal working, average for copper product manufacturing | Cut-off, S",
+        "score": null,
+        "core_score": 0.0,
+        "spec_score": 0.0
+      },
+      {
+        "rank": 19,
+        "name": "Steel, zinc coated /RER",
+        "score": null,
+        "core_score": 0.6,
+        "spec_score": 0.5
+      }
+    ],
+    "top": "Steel, chromium steel 18/8 {GLO}| market for steel, chromium steel 18/8 | Cut-off, S"
+  },
+  "metadata": {},
+  "model": "groq/meta-llama/llama-4-maverick-17b-128e-instruct"
+}

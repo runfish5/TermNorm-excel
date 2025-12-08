@@ -1,190 +1,218 @@
-# Langfuse-Compatible Data Model Specification
+# Langfuse-Compatible Data Model
 
-**Dual Format Support**: This spec extends the existing MLflow-compatible structure.
-- **MLflow**: `logs/experiments/` - Experiment tracking, runs, artifacts (already working)
-- **Langfuse**: `logs/datasets/`, `logs/configs/` - Task ground truth, config variants
-- **Both**: Traces output to both formats via `standards_logger.py`
+TermNorm implements the official Langfuse data model for observability and evaluation.
 
-**See also**: [FILE_ORGANIZATION_STRATEGY.md](./FILE_ORGANIZATION_STRATEGY.md) for file formats.
+**Implementation**: `utils/langfuse_logger.py`
 
 ---
 
-## Core Concepts
-
-### 1. TASK = Dataset Item
-The mapping you're trying to resolve.
+## Directory Structure
 
 ```
-Task: "bollow gold" → ?
-├── expected_output: null (unknown)
-│     ↓ [UserChoice]
-└── expected_output: "EUR-flat pallet"
-```
-
-### 2. TRACES = Attempts
-Each pipeline run is an attempt to solve a task.
-
-```
-Task: "bollow gold"
-├── trace_001 (config 1.0.0) → "Steel sheet"
-├── trace_002 (config 1.1.0) → "EUR-flat pallet" ✓
-└── trace_003 (config 1.2.0) → "Pallet wood"
-```
-
-### 3. CONFIG TREE = Experiment Variants
-Hierarchical tree of configuration variants. Each node differs from parent by one or more component changes.
-
-```
-1.0.0 (root)
-├── websearch: brave_v1
-├── profile_llm: prompt_v1, llama-70b
-├── ranking: token_match_v1
-└── rerank_llm: prompt_v1, llama-70b
-    │
-    ├──► 1.1.0 (changed: profile_llm.prompt → v2)
-    │    │
-    │    ├──► 1.1.1 (changed: profile_llm.model → llama-90b)
-    │    └──► 1.1.2 (changed: ranking → token_match_v2)
-    │
-    └──► 1.2.0 (changed: websearch → serper_v1)
-         │
-         └──► 1.2.1 (changed: profile_llm.prompt → v2)
-```
-
-### 4. MULTI-STAGE Pipeline
-Each trace contains multiple stages, each with its own input/output/config:
-
-```
-Trace for "bollow gold":
-├── Stage: fuzzy_threshold
-│   └── output: {match: null, score: 0.3}
-│
-├── Stage: web_search
-│   ├── config: {provider: "brave", version: "v1"}
-│   └── output: [{url, snippet}, ...]
-│
-├── Stage: profile_building
-│   ├── config: {prompt: "entity_profiling", version: 2, model: "llama-70b"}
-│   └── output: {core_concept: "pallet", features: [...]}
-│
-├── Stage: ranking_algorithm
-│   ├── config: {algorithm: "token_match", version: "v1"}
-│   └── output: [ranked_candidates...]
-│
-└── Stage: llm_reranking (optional)
-    ├── config: {prompt: "llm_ranking", version: 1, model: "llama-70b"}
-    └── output: [final_ranked_candidates...]
-```
-
-### 5. Ground Truth Propagation
-When UserChoice provides final answer, evaluate backward:
-
-```
-Ground Truth: "EUR-flat pallet"
-│
-├── Final output correct? → score trace
-├── Was "EUR-flat" in ranking output? → score ranking stage
-├── Did profile relate to "pallet"? → score profile stage
-└── Did web sources help? → score web_search stage
+logs/langfuse/
+├── events.jsonl                      # Flat log for easy reading (custom)
+├── traces/                           # Lean trace files (~10 lines)
+│   └── {trace_id}.json
+├── observations/{trace_id}/          # Verbose details (separate files)
+│   ├── obs-xxx.json                  # web_search span
+│   ├── obs-yyy.json                  # entity_profiling generation
+│   ├── obs-zzz.json                  # token_matching span
+│   └── obs-www.json                  # llm_ranking generation
+├── scores/
+│   └── {trace_id}.jsonl              # Scores linked to traces
+└── datasets/{dataset_name}/          # Ground truth items
+    └── item-{id}.json
 ```
 
 ---
 
-## Data Requirements
+## Core Entities
 
-### What Langfuse Needs (file format)
+### 1. Traces (Lean)
 
-1. **Traces** - Main execution records
-2. **Observations** - Spans within traces (stages)
-3. **Generations** - LLM calls (special observations)
-4. **Scores** - Evaluation metrics
-5. **Dataset Items** - Tasks with ground truth
+Top-level workflow records. Deliberately minimal for readability.
 
-### What We Already Have
+```json
+{
+  "id": "251208143052a7b8c9d0...",
+  "name": "termnorm_pipeline",
+  "timestamp": "2025-12-08T14:30:52Z",
+  "input": {"query": "mexican alu"},
+  "output": {
+    "target": "Aluminium, wrought alloy {GLO}...",
+    "method": "ProfileRank",
+    "confidence": 0.95
+  },
+  "user_id": "admin",
+  "session_id": "admin",
+  "metadata": {"llm_provider": "groq/llama-3.3-70b"},
+  "tags": ["production"]
+}
+```
 
-- `logs/experiments/` - Trace storage (MLflow format)
-- `logs/prompts/` - Versioned prompts
-- Traces with `observations` array (stages)
+### 2. Observations (Verbose, Separate Files)
 
-### What's Missing
+Each pipeline step stored in its own file, linked via `trace_id`.
 
-- `logs/datasets/` - Task storage with ground truth
-- `logs/configs/` - Config tree storage
-- `task_id` on traces
-- `config_id` on traces
-- `config` object on each observation/stage
+**Types:**
+- `span` - Generic operations (web_search, token_matching)
+- `generation` - LLM calls with model/usage fields
+- `event` - Point-in-time occurrences (user_correction)
+
+```json
+// observations/{trace_id}/obs-abc123.json
+{
+  "id": "obs-abc123",
+  "trace_id": "251208143052a7b8c9d0...",
+  "type": "generation",
+  "name": "entity_profiling",
+  "start_time": "2025-12-08T14:30:52Z",
+  "end_time": "2025-12-08T14:30:58Z",
+  "model": "groq/llama-3.3-70b",
+  "input": {
+    "query": "mexican alu",
+    "web_sources": [{"title": "...", "url": "..."}]
+  },
+  "output": {
+    "entity_name": "Mexican Aluminium",
+    "core_concept": "Import",
+    "distinguishing_features": ["Aluminium", "Mexican origin", ...],
+    "alternative_names": ["Mexican Aluminum", ...],
+    ...
+  },
+  "level": "DEFAULT",
+  "metadata": {}
+}
+```
+
+### 3. Scores
+
+Evaluation metrics linked to traces.
+
+```json
+// scores/{trace_id}.jsonl
+{"id": "score-001", "trace_id": "...", "name": "confidence", "value": 0.95, "data_type": "NUMERIC"}
+{"id": "score-002", "trace_id": "...", "name": "latency_ms", "value": 8140, "data_type": "NUMERIC"}
+```
+
+### 4. Dataset Items (Ground Truth)
+
+Items link TO traces via `source_trace_id` (Langfuse convention).
+
+```json
+// datasets/termnorm_ground_truth/item-xxx.json
+{
+  "id": "item-251208143052...",
+  "dataset_name": "termnorm_ground_truth",
+  "input": {"query": "mexican alu"},
+  "expected_output": {"target": "riggid term"},
+  "source_trace_id": "251208143052a7b8c9d0...",
+  "metadata": {
+    "created_at": "2025-12-08T14:30:52Z",
+    "ground_truth_at": "2025-12-08T14:35:00Z"
+  },
+  "status": "ACTIVE"
+}
+```
 
 ---
 
-## File Structure
+## Data Flow
 
+### Pipeline Execution
 ```
-logs/
-├── datasets/
-│   └── tasks/
-│       └── {task_id}.json
-│
-├── configs/
-│   ├── tree.json           # Parent-child relationships
-│   └── nodes/
-│       └── {config_id}.json
-│
-├── experiments/            # Already exists
-│   └── {exp}/{run}/
-│       └── traces/
-│           └── trace-{id}.json
-│
-└── prompts/                # Already exists
-    └── {prompt_family}/
-        └── {version}/prompt.txt
+User Query: "mexican alu"
+         ↓
+    log_to_langfuse()
+         ↓
+    ┌────────────────────────────────────┐
+    │ 1. Create TRACE (lean)             │
+    │ 2. Create DATASET ITEM (linked)    │
+    │ 3. Add OBSERVATIONS (verbose):     │
+    │    - web_search (span)             │
+    │    - entity_profiling (generation) │
+    │    - token_matching (span)         │
+    │    - llm_ranking (generation)      │
+    │ 4. Add SCORES (confidence, latency)│
+    │ 5. Complete trace                  │
+    └────────────────────────────────────┘
 ```
 
----
-
-## Use Cases
-
-### 1. Score traces when ground truth arrives
+### User Correction (Ground Truth)
 ```
-UserChoice("bollow gold" → "EUR-flat pallet")
-  → Find all traces for task
-  → Score each: output == expected ? 1 : 0
-  → Aggregate by config_id to find winning branch
-```
-
-### 2. Compare config branches
-```
-SELECT config_id, AVG(score) as accuracy
-FROM traces
-WHERE task.has_ground_truth = true
-GROUP BY config_id
-ORDER BY accuracy DESC
-```
-
-### 3. Identify which component change helped
-```
-Config 1.0.0: 45% accuracy
-Config 1.1.0: 82% accuracy (+37%)
-  └── diff: profile_llm.prompt v1 → v2
-
-Conclusion: prompt_v2 was the key improvement
-```
-
-### 4. Re-run historical tasks with new config
-```
-For all tasks with ground_truth:
-  - Re-run input with config 1.3.0
-  - Compare to historical scores
-  - Measure improvement
+UserChoice/DirectEdit: "riggid term"
+         ↓
+    log_user_correction()
+         ↓
+    ┌────────────────────────────────────┐
+    │ 1. Find dataset item by query      │
+    │ 2. Set expected_output             │
+    │ 3. Add user_correction EVENT       │
+    │ 4. Update trace output             │
+    └────────────────────────────────────┘
 ```
 
 ---
 
-## Future: Export to Langfuse Cloud
+## Langfuse Compatibility
 
-A separate FastAPI service can:
-1. Read `logs/datasets/tasks/*.json`
-2. Read `logs/experiments/**/traces/*.json`
-3. Transform to Langfuse API format
-4. Push to Langfuse Cloud
+| Langfuse Concept | TermNorm Implementation |
+|------------------|------------------------|
+| Trace | `traces/{trace_id}.json` |
+| Observation | `observations/{trace_id}/*.json` |
+| Generation | Observation with `type: "generation"`, has `model` field |
+| Span | Observation with `type: "span"` |
+| Event | Observation with `type: "event"` |
+| Score | `scores/{trace_id}.jsonl` |
+| Dataset Item | `datasets/{name}/{item_id}.json` |
+| `source_trace_id` | Links items TO originating traces |
 
-Minimal transformation needed because file format matches Langfuse concepts.
+---
+
+## API Usage
+
+```python
+from utils.langfuse_logger import log_pipeline, log_user_correction
+
+# Log full pipeline result (creates trace, observations, scores, dataset item)
+trace_id = log_pipeline(record, session_id="admin")
+
+# Log user correction (updates ground truth + trace)
+log_user_correction(source="mexican alu", target="selected term", method="UserChoice")
+```
+
+### Low-level functions (if needed)
+```python
+from utils.langfuse_logger import (
+    create_trace, update_trace, get_trace,
+    create_observation, create_score,
+    get_or_create_item, set_ground_truth, get_item_by_query
+)
+```
+
+---
+
+## events.jsonl (Custom Extension)
+
+A flat log for human readability and debugging. **Not part of Langfuse spec** but includes IDs for navigation.
+
+```jsonl
+{"event": "pipeline", "trace_id": "251208...", "item_id": "item-251208...", "query": "mexican alu", "target": "Aluminium...", "method": "ProfileRank", "confidence": 0.85, "session_id": "admin", "timestamp": "2025-12-08T09:15:16Z"}
+{"event": "UserChoice", "trace_id": "251208...", "item_id": "item-251208...", "query": "mexican alu", "target": "Gold {GLO}...", "timestamp": "2025-12-08T09:17:45Z"}
+{"event": "DirectEdit", "trace_id": null, "item_id": "item-251208...", "query": "new term", "target": "User typed", "timestamp": "2025-12-08T09:20:00Z"}
+```
+
+Navigate from any event:
+- `trace_id` → `traces/{trace_id}.json`, `observations/{trace_id}/`, `scores/{trace_id}.jsonl`
+- `item_id` → `datasets/termnorm_ground_truth/{item_id}.json`
+
+---
+
+## Benefits of This Structure
+
+1. **Readable traces** - No 800-line JSON files
+2. **Langfuse-compatible** - Can export to Langfuse Cloud
+3. **Proper linking** - Items link TO traces (not reverse)
+4. **Evaluation-ready** - Ground truth stored with items
+5. **Separate concerns** - Lean traces, verbose observations
+6. **Flat event log** - Quick overview via events.jsonl

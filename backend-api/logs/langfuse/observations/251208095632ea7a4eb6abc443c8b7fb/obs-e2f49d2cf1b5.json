@@ -1,0 +1,155 @@
+{
+  "id": "obs-e2f49d2cf1b5",
+  "trace_id": "251208095632ea7a4eb6abc443c8b7fb",
+  "type": "generation",
+  "name": "entity_profiling",
+  "start_time": "2025-12-08T09:56:32.071606Z",
+  "end_time": "2025-12-08T09:56:32.071606Z",
+  "input": {
+    "query": "example-iron"
+  },
+  "output": {
+    "entity_name": "Iron",
+    "core_concept": "Element",
+    "distinguishing_features": [
+      "Metallic",
+      "Metalloid",
+      "Ferrum",
+      "Ferrous",
+      "Ferric",
+      "Ferrous iron",
+      "Ferric iron"
+    ],
+    "key_properties": [
+      "Ductile",
+      "Ductility",
+      "Malleable",
+      "Malleability",
+      "Strong",
+      "Strength",
+      "Corrosion resistant",
+      "Corrosion resistance",
+      "Magnetic",
+      "Magnetism",
+      "High melting point",
+      "Melting point",
+      "High density",
+      "Density"
+    ],
+    "technical_specifications": [
+      "Atomic number 26",
+      "Atomic mass 55.847",
+      "Electron configuration [Ar] 3d6 4s2",
+      "Crystal structure BCC",
+      "Body-centered cubic",
+      "Lattice constant 2.87 \u00c5",
+      "Thermal conductivity 79.5 W/mK",
+      "Electrical resistivity 9.98 \u00d7 10^-8 \u03a9m"
+    ],
+    "alternative_names": [
+      "Ferrum",
+      "Fe",
+      "Iron (element)",
+      "Iron (metal)",
+      "Pure iron",
+      "Iron metal",
+      "Elemental iron",
+      "Iron (ferrous metal)"
+    ],
+    "classification_aliases": [
+      "Transition metal",
+      "Transition metals",
+      "Ferrous metal",
+      "Ferrous metals",
+      "Iron group",
+      "Iron group element",
+      "Iron group metals",
+      "D-block element",
+      "First-row transition metal",
+      "Early transition metal"
+    ],
+    "constituent_materials": [
+      "Iron",
+      "Fe",
+      "Ferrite",
+      "Cementite",
+      "Pearlite",
+      "Austenite",
+      "Martensite"
+    ],
+    "manufacturing_processes": [
+      "Smelting",
+      "Smelt",
+      "Refining",
+      "Refine",
+      "Casting",
+      "Cast",
+      "Forging",
+      "Forge",
+      "Machining",
+      "Machine",
+      "Grinding",
+      "Grind"
+    ],
+    "applications": [
+      "Steel production",
+      "Steel manufacture",
+      "Construction",
+      "Building",
+      "Automotive",
+      "Automobile",
+      "Aerospace",
+      "Aircraft",
+      "Medical",
+      "Medicine",
+      "Dietary supplement",
+      "Nutritional supplement"
+    ],
+    "notes": [
+      "Essential nutrient",
+      "Dietary iron",
+      "Iron deficiency",
+      "Iron deficiency anaemia",
+      "Anaemia",
+      "Anemia",
+      "Iron-rich foods",
+      "Heme iron",
+      "Non-heme iron",
+      "Iron absorption",
+      "Iron intake"
+    ],
+    "_metadata": {
+      "query": "example-iron",
+      "sources_count": 6,
+      "processing_time_seconds": 8.1,
+      "sources": [
+        {
+          "title": "What Are the Properties and Uses of Iron?",
+          "url": "https://www.morecambemetals.co.uk/what-are-the-properties-of-iron/"
+        },
+        {
+          "title": "Foods high in iron | healthdirect",
+          "url": "https://www.healthdirect.gov.au/foods-high-in-iron"
+        },
+        {
+          "title": "What is Iron? Definitions and Examples - Club Z! Tutoring",
+          "url": "https://clubztutoring.com/ed-resources/science/what-is-iron/"
+        },
+        {
+          "title": "IRON | English meaning - Cambridge Dictionary",
+          "url": "https://dictionary.cambridge.org/dictionary/english/iron"
+        },
+        {
+          "title": "Iron-Rich Food | List of Meats And Vegetables | Red Cross Blood",
+          "url": "https://www.redcrossblood.org/donate-blood/blood-donation-process/before-during-after/iron-blood-donation/iron-rich-foods.html"
+        },
+        {
+          "title": "Iron: MedlinePlus",
+          "url": "https://medlineplus.gov/iron.html"
+        }
+      ]
+    }
+  },
+  "metadata": {},
+  "model": "groq/meta-llama/llama-4-maverick-17b-128e-instruct"
+}

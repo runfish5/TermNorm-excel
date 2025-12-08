@@ -698,7 +698,7 @@ class TraceLogger:
         langfuse_trace.pop("start_time_ns", None)
         langfuse_trace.pop("end_time_ns", None)
 
-        trace_file = self.traces_path / f"trace-{trace_id[:12]}.json"
+        trace_file = self.traces_path / f"trace-{trace_id}.json"
 
         with open(trace_file, "w") as f:
             json.dump(langfuse_trace, f, indent=2)
@@ -976,6 +976,82 @@ class TaskDatasetManager:
             except (json.JSONDecodeError, KeyError):
                 continue
         return tasks
+
+
+def append_user_choice_to_trace(trace_path: Path, target: str, method: str = "UserChoice", timestamp: str = None):
+    """
+    Append user correction as observation to an existing trace file.
+
+    This keeps the full story (pipeline + user decision) in one trace.
+    Multiple corrections are tracked with choice_number and previous_target.
+
+    Args:
+        trace_path: Path to trace JSON file
+        target: The user's selected/typed target value
+        method: "UserChoice" (clicked Apply) or "DirectEdit" (typed in result column)
+        timestamp: Optional timestamp string
+    """
+    if not trace_path.exists():
+        return False
+
+    with open(trace_path) as f:
+        trace = json.load(f)
+
+    # Count existing user_choice observations
+    existing_choices = [o for o in trace.get("observations", []) if o.get("name") == "user_choice"]
+    choice_number = len(existing_choices) + 1
+
+    # Get previous target (from last user_choice or original output)
+    previous_target = None
+    if existing_choices:
+        previous_target = existing_choices[-1].get("output", {}).get("selected_target")
+    elif trace.get("output", {}).get("target"):
+        previous_target = trace["output"]["target"]
+
+    # Add user correction observation
+    obs_id = f"obs-{uuid.uuid4().hex[:8]}"
+    ts = timestamp or (datetime.utcnow().isoformat() + "Z")
+    now = time.time()
+    observation = {
+        "id": obs_id,
+        "type": "event",
+        "name": "user_choice",
+        "input": {"previous_target": previous_target},
+        "output": {"selected_target": target},
+        "start_time": now,
+        "end_time": now,
+        "latency_ms": 0,
+        "metadata": {
+            "choice_number": choice_number,
+            "timestamp": ts,
+            "method": method,  # UserChoice or DirectEdit
+        },
+        "config": None,
+    }
+    trace["observations"].append(observation)
+
+    # Preserve original pipeline result, add user correction
+    original_output = trace.get("output", {})
+
+    # Only save pipeline_result on first correction (don't nest further)
+    pipeline_result = original_output.get("pipeline_result") or (
+        {k: v for k, v in original_output.items() if k != "pipeline_result"}
+        if original_output.get("method") not in ("UserChoice", "DirectEdit") else None
+    )
+
+    trace["output"] = {
+        "target": target,
+        "method": method,  # UserChoice or DirectEdit
+        "confidence": 1.0,
+        "choice_number": choice_number,
+        "pipeline_result": pipeline_result,  # Original AI suggestion preserved
+    }
+    trace["updated_at"] = ts
+
+    with open(trace_path, "w") as f:
+        json.dump(trace, f, indent=2)
+
+    return True
 
 
 class ConfigTreeManager:

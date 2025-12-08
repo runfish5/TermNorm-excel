@@ -81,6 +81,33 @@ const handleWorksheetChange = async (e, tracker) => {
       return row > 0 && targetCol !== undefined ? { row, col, targetCol, value: values[r][c] } : null;
     })).flat().filter(Boolean);
 
+    // Check for output column edits (DirectEdit - user typed directly in result column)
+    const outputEdits = Array.from({ length: rowCount }, (_, r) => Array.from({ length: columnCount }, (_, c) => {
+      const row = rowIndex + r, col = columnIndex + c, newValue = values[r][c];
+      if (row === 0 || !newValue) return null;
+      for (const [inputCol, outputCol] of tracker.columnMap) {
+        if (outputCol === col) return { row, inputCol, newValue };
+      }
+      return null;
+    })).flat().filter(Boolean);
+
+    // Log DirectEdits (fire-and-forget, don't block normal processing)
+    for (const { row, inputCol, newValue } of outputEdits) {
+      const inputRange = ws.getRangeByIndexes(row, inputCol, 1, 1);
+      inputRange.load("values");
+      await ctx.sync();
+      const sourceValue = inputRange.values[0][0];
+      if (sourceValue) {
+        apiPost(`${getHost()}/log-activity`, {
+          source: String(sourceValue).trim(),
+          target: String(newValue).trim(),
+          method: "DirectEdit",
+          confidence: 1.0,
+          timestamp: new Date().toISOString()
+        }, getHeaders()).catch(() => {});
+      }
+    }
+
     const withValue = cells.filter(c => c.value);
     if (withValue.length >= 2) {
       withValue.forEach(c => ws.getRangeByIndexes(c.row, c.col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING);

@@ -1,10 +1,8 @@
 # Prompt Optimization Strategy
 
-**Goal**: Systematic prompt optimization using task/trace/config architecture.
+**Goal**: Systematic prompt optimization using Langfuse-compatible task/trace/observation architecture.
 
-**See also**:
-- [LANGFUSE_DATA_MODEL.md](./LANGFUSE_DATA_MODEL.md) - Core data model
-- [FILE_ORGANIZATION_STRATEGY.md](./FILE_ORGANIZATION_STRATEGY.md) - File formats
+**See also**: [LANGFUSE_DATA_MODEL.md](./LANGFUSE_DATA_MODEL.md) - Data model details
 
 ---
 
@@ -15,27 +13,28 @@
 │                    TERMNORM BACKEND (Production)                │
 │  Web Research → Entity Profiling → Token Matching → LLM Ranking │
 │                                                                 │
-│  Logs: activity.jsonl, traces/, match_database.json             │
+│  Logging: utils/langfuse_logger.py                              │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
-                   [Trace Data Flow]
+                   [Langfuse Data Model]
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│              OPTIMIZATION SERVICE (Separate FastAPI)            │
+│              logs/langfuse/                                     │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────┐      │
-│  │  Tasks + Ground Truth (datasets/tasks/)              │      │
-│  │  → Updated by UserChoice corrections                 │      │
+│  │  traces/                                             │      │
+│  │  → Lean workflow summaries (input/output)            │      │
 │  └──────────────────────────────────────────────────────┘      │
 │                            ↕                                    │
 │  ┌──────────────────────────────────────────────────────┐      │
-│  │  Config Tree (configs/nodes/)                        │      │
-│  │  → Experiment variants with parent-child relationships│      │
+│  │  observations/{trace_id}/                            │      │
+│  │  → Detailed step data (web_search, llm_ranking, etc) │      │
 │  └──────────────────────────────────────────────────────┘      │
 │                            ↕                                    │
 │  ┌──────────────────────────────────────────────────────┐      │
-│  │  Traces (experiments/{exp}/{run}/traces/)            │      │
-│  │  → Each attempt linked to task_id + config_id        │      │
+│  │  datasets/termnorm_ground_truth/                     │      │
+│  │  → Items with expected_output (ground truth)         │      │
+│  │  → source_trace_id links TO originating trace        │      │
 │  └──────────────────────────────────────────────────────┘      │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -44,50 +43,55 @@
 
 ## Core Concepts
 
-### 1. Tasks = Ground Truth
+### 1. Dataset Items = Ground Truth
+
 ```json
 {
-  "id": "task_abc123",
+  "id": "item-251208143052...",
+  "dataset_name": "termnorm_ground_truth",
   "input": {"query": "bollow gold"},
   "expected_output": {"target": "EUR-flat pallet"},
-  "linked_traces": ["trace_001", "trace_002", "trace_003"]
+  "source_trace_id": "251208143052a7b8c9d0...",
+  "status": "ACTIVE"
 }
 ```
-- Created when query first seen
+
+- Created when query first seen (via pipeline)
 - `expected_output` starts null
-- Updated when UserChoice provides correction
-- Linked to all traces that attempted this task
+- Updated when UserChoice/DirectEdit provides correction
+- `source_trace_id` links TO the originating trace (Langfuse convention)
 
-### 2. Config Tree = Experiment Variants
-```
-1.0.0 (root)
-├── websearch: brave_v1
-├── profile_llm: prompt_v1, llama-70b
-├── ranking: token_match_v1
-│
-├─► 1.1.0 (changed profile prompt)
-│   └── profile_llm: prompt_v2
-│
-└─► 1.2.0 (changed websearch)
-    └── websearch: serper_v1
-```
-- Each node differs from parent by one or more changes
-- `diff_from_parent` tracks what changed
-- Enables "which change helped?" analysis
+### 2. Traces = Workflow Attempts (Lean)
 
-### 3. Traces = Attempts
 ```json
 {
-  "id": "trace_001",
-  "task_id": "task_abc123",
-  "config_id": "1.0.0",
+  "id": "251208143052a7b8c9d0...",
+  "name": "termnorm_pipeline",
   "input": {"query": "bollow gold"},
   "output": {"target": "Steel sheet", "confidence": 0.72},
-  "observations": [...]
+  "user_id": "admin",
+  "metadata": {"llm_provider": "groq/llama-3.3-70b"},
+  "tags": ["production"]
 }
 ```
-- Links task (what) + config (how)
+
+- Lean summary (no verbose data)
+- Links to observations for detailed step data
 - Scored when ground truth arrives
+
+### 3. Observations = Pipeline Steps (Verbose)
+
+```
+observations/{trace_id}/
+├── obs-xxx.json  (web_search - span)
+├── obs-yyy.json  (entity_profiling - generation)
+├── obs-zzz.json  (token_matching - span)
+└── obs-www.json  (llm_ranking - generation)
+```
+
+- Separate files per step (readable!)
+- Verbose data here (entity profiles, candidate lists)
+- `generation` type has `model` field for LLM calls
 
 ---
 
@@ -95,39 +99,47 @@
 
 ```
 1. User enters query
-   → get_or_create_task(query)
+   → log_to_langfuse() creates:
+     - Trace (lean)
+     - Dataset item (linked via source_trace_id)
+     - Observations (verbose steps)
+     - Scores (confidence, latency)
 
-2. Pipeline runs
-   → create trace linked to task + current config
+2. Pipeline runs, results displayed
 
-3. User clicks Apply (UserChoice)
-   → update_ground_truth(task_id, target)
-   → re-score all linked traces
+3. User clicks Apply (UserChoice) or types directly (DirectEdit)
+   → log_user_correction() updates:
+     - Dataset item expected_output (ground truth)
+     - Trace output
+     - Adds user_correction event observation
 
-4. Analysis
-   → Which config branch performs best?
-   → Which component change had biggest impact?
+4. Analysis (future)
+   → Compare traces for same query
+   → Which model/prompt performed best?
 ```
 
 ---
 
 ## Multi-Stage Pipeline
 
-Each trace contains stages (observations), each with its own config:
+Each trace has observations for each stage:
 
 ```
-Trace for "bollow gold":
-├── fuzzy_threshold (config: threshold=0.7)
-├── web_search (config: provider=brave, version=v1)
-├── profile_building (config: prompt=v2, model=llama-70b)
-├── ranking (config: algorithm=token_match_v1)
-└── llm_reranking (config: prompt=v1, model=llama-70b)
+Trace: "bollow gold"
+├── web_search (span)
+│   └── output: {sources: [...], count: 5}
+├── entity_profiling (generation)
+│   └── output: {entity_name: "...", core_concept: "...", ...}
+├── token_matching (span)
+│   └── output: {candidates: [...], count: 20}
+└── llm_ranking (generation)
+    └── output: {ranked_candidates: [...], top_candidate: "..."}
 ```
 
 When ground truth arrives, can analyze:
-- Which stage failed?
-- Which prompt version performs better?
-- What parameters need tuning?
+- Did the correct answer appear in candidates?
+- Was the entity profile accurate?
+- Which ranking model performed better?
 
 ---
 
@@ -137,51 +149,39 @@ When ground truth arrives, can analyze:
 |--------|-------------|
 | MRR | Mean Reciprocal Rank (1/rank of expected) |
 | Hit@K | Expected in top K results |
-| NDCG@K | Normalized Discounted Cumulative Gain |
 | Latency | Total pipeline time (ms) |
-
-```python
-def calculate_mrr(results):
-    return sum(1/r["rank"] if r["rank"] else 0 for r in results) / len(results)
-```
+| Confidence | Model's reported confidence |
 
 ---
 
 ## Implementation Status
 
-### Already Implemented
-- `standards_logger.py`: TraceLogger, ExperimentManager, RunManager
-- `logs/prompts/`: Versioned prompt registry
-- `logs/experiments/`: MLflow-compatible trace storage
+### Implemented
+- `langfuse_logger.py`: `log_pipeline()`, `log_user_correction()`, plus low-level functions
+- Ground truth capture via UserChoice/DirectEdit
+- Lean traces + separate observations
 
-### To Implement
-- `DatasetManager`: Task storage with ground truth
-- `ConfigTreeManager`: Config variant tree
-- `/log-activity` enhancement: Update ground truth on UserChoice
-- Re-evaluation: Score traces when ground truth changes
-
-See implementation plan in [../docs/LANGFUSE_DATA_MODEL.md](./LANGFUSE_DATA_MODEL.md).
+### Future
+- Re-evaluation: Score historical traces when ground truth changes
+- A/B testing: Compare different model/prompt configurations
+- Export to Langfuse Cloud
 
 ---
 
-## Future: Framework Adoption
+## Framework Compatibility
 
-Current architecture enables migration to:
+| Framework | Status | Notes |
+|-----------|--------|-------|
+| Langfuse | ✅ Compatible | File structure matches Langfuse data model |
+| MLflow | ⚠️ Legacy | Old `experiments/` structure still exists |
 
-| Framework | What We Use | Migration Effort |
-|-----------|-------------|------------------|
-| MLflow | Experiments, runs, artifacts | Zero - format compatible |
-| Langfuse | Traces, observations, scores | Zero - format compatible |
-| DSPy | Module wrappers, optimization | Wrap pipeline as DSPy Module |
-
-```bash
-# When ready
-pip install mlflow langfuse dspy-ai
-mlflow.set_tracking_uri("file:./logs/experiments")
-# Existing data immediately visible
+```python
+# Current usage
+from utils.langfuse_logger import get_logger
+logger = get_logger()
+trace_id = logger.trace(name="...", input={...})
 ```
 
 ---
 
-*Document Version: 3.0 (Condensed)*
-*Standards Compliance: MLflow ✅ | Langfuse ✅*
+*Document Version: 4.0 (Langfuse-compatible)*

@@ -28,25 +28,31 @@ backend-api/logs/match_database.json
 backend-api/logs/match_database_metadata.json
 backend-api/logs/app.log
 
-# Experiments - ignore actual data files, keep structure (meta.yaml, params, tags, metrics, READMEs)
-**/evaluation_results.jsonl
-**/artifacts/traces/*.json
-!**/artifacts/traces/.gitkeep
+# Langfuse runtime data - ignore all except committed example-iron
+# events.jsonl always ignored (runtime log)
+backend-api/logs/langfuse/events.jsonl
 
-# MLflow 0_production_realtime - only track example run and traces
-# Ignore all runs except 2fc6fe2a
-backend-api/logs/experiments/0_production_realtime/*/
-!backend-api/logs/experiments/0_production_realtime/2fc6fe2a/
-!backend-api/logs/experiments/0_production_realtime/traces/
-!backend-api/logs/experiments/0_production_realtime/tags/
+# Ignore all traces except example-iron
+backend-api/logs/langfuse/traces/*
+!backend-api/logs/langfuse/traces/251208095632ea7a4eb6abc443c8b7fb.json
 
-# Ignore all traces except two examples
-backend-api/logs/experiments/0_production_realtime/traces/*/
-!backend-api/logs/experiments/0_production_realtime/traces/0a14407cd267/
-!backend-api/logs/experiments/0_production_realtime/traces/379df3205c52/
+# Ignore all observations except example-iron
+backend-api/logs/langfuse/observations/*
+!backend-api/logs/langfuse/observations/251208095632ea7a4eb6abc443c8b7fb/
 
-# Ignore entire 1_production_historical (your local dev data)
-backend-api/logs/experiments/1_production_historical/
+# Ignore all scores except example-iron
+backend-api/logs/langfuse/scores/*
+!backend-api/logs/langfuse/scores/251208095632ea7a4eb6abc443c8b7fb.jsonl
+
+# Ignore all dataset items except example-iron
+backend-api/logs/langfuse/datasets/termnorm_ground_truth/*
+!backend-api/logs/langfuse/datasets/termnorm_ground_truth/item-2512080956328d1718ef097b.json
+
+# Dataset tasks (runtime test data)
+backend-api/logs/datasets/tasks/
+
+# Legacy MLflow experiments (ignore entirely)
+backend-api/logs/experiments/
 
 # Archive directory (old code, local only)
 .archive/
