@@ -102,10 +102,15 @@
     flex: 1 0 0;
 }
 
+/* Hide sideload message by default - shown by Office.js if needed */
+#sideload-msg {
+    display: none;
+}
+
 .content {
     width: 100%;
     padding: 0;
-    margin-top: 95px;  /* Fixed: nav-bar (40px) + status-bar (~55px) */
+    /* No margin needed - status-bar flows naturally above */
 }
 
 /* Override Fabric's large margins on ms-welcome__section */
@@ -199,10 +204,11 @@
 .nav-header img {
     margin-right: 10px;
 }
-/* Status Bar - Two-row layout */
+/* Status Bar - Sticky below nav-bar, expands naturally */
 .status-bar {
-    position: fixed;
-    top: var(--nav-bar-height);
+    position: sticky;
+    top: var(--nav-bar-height);  /* Stick below fixed nav-bar */
+    margin-top: var(--nav-bar-height);  /* Initial push below nav-bar */
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -210,7 +216,8 @@
     padding: 10px 20px;
     background: var(--gray-150);
     border-bottom: var(--border-gray);
-    z-index: 1000;
+    box-sizing: border-box;
+    z-index: 900;
 }
 
 /* Main status message */
