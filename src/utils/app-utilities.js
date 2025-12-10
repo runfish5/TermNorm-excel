@@ -6,11 +6,6 @@ export { PROCESSING_COLORS };
 const $ = id => document.getElementById(id);
 const setText = (id, text, title) => { const el = $(id); if (el) { el.textContent = text; if (title) el.title = title; } };
 
-export function updateContentMargin() {
-  const statusBar = document.querySelector(".status-bar");
-  if (statusBar) document.documentElement.style.setProperty("--status-bar-height", `${statusBar.offsetHeight}px`);
-}
-
 export async function getCurrentWorkbookName() {
   return Excel.run(async (ctx) => { ctx.workbook.load("name"); await ctx.sync(); return ctx.workbook.name; });
 }

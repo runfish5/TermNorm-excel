@@ -21,10 +21,10 @@ export function init() {
   section.id = "direct-prompt-section";
   section.className = "card card-lg card-muted";
   section.innerHTML = `
-    <details class="card direct-prompt-collapsible" id="direct-prompt-details">
-      <summary class="panel-header panel-header-collapsible direct-prompt-header">Direct Prompt</summary>
-      <div class="direct-prompt-content">
-        <p class="direct-prompt-description">LLM inference with your own prompt. Select cells in Excel and provide instructions.</p>
+    <details class="card" id="direct-prompt-details">
+      <summary class="panel-header panel-header-collapsible collapsible-header">Direct Prompt</summary>
+      <div class="collapsible-content">
+        <p class="collapsible-description">LLM inference with your own prompt. Select cells in Excel and provide instructions.</p>
         <div id="dp-range-display" class="range-display hidden">
           <span class="range-label">Selected:</span>
           <span id="dp-range-address" class="range-address">-</span>
@@ -33,11 +33,11 @@ export function init() {
         <button id="dp-refresh-btn" class="ms-Button ms-Button--default" style="margin-bottom: 12px;">
           <span class="ms-Button-label">Refresh Selection</span>
         </button>
-        <div class="context-input-section">
+        <div class="form-field">
           <label for="dp-user-prompt">Your Prompt:</label>
           <textarea id="dp-user-prompt" class="input input-md input-full input-textarea" placeholder="These are industrial pipe fittings. Match to standardized catalog codes..." rows="4"></textarea>
         </div>
-        <div class="direct-prompt-actions">
+        <div class="form-actions">
           <button id="dp-process-btn" class="ms-Button ms-Button--primary" disabled>
             <span class="ms-Button-label">Process</span>
           </button>
@@ -45,7 +45,7 @@ export function init() {
             <span class="ms-Button-label">Clear</span>
           </button>
         </div>
-        <div id="dp-progress" class="direct-prompt-progress hidden">
+        <div id="dp-progress" class="progress-container hidden">
           <div class="progress-bar">
             <div id="dp-progress-fill" class="progress-fill" style="width:0%"></div>
           </div>

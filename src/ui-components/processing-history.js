@@ -1,9 +1,27 @@
-import { buildActivityRow } from "./history-row.js";
 import { addEvent, clearEvents, getMaxEntries } from "../services/event-log.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
 let container = null, tableBody = null, expandedRowState = null;
+
+/** Build activity table row from normalized result data */
+function buildActivityRow({ source, sessionKey, timestamp }, { target, method, confidence, web_search_status }) {
+  const displayTime = new Date(timestamp || Date.now()).toLocaleTimeString();
+  const methodText = web_search_status === "failed" && method === "ProfileRank"
+    ? `⚠️ ${method.toUpperCase()} (web scrape ∅)`
+    : (method?.toUpperCase() || "-");
+  const row = document.createElement("tr");
+  row.className = `history-row ${method}`;
+  row.dataset.sessionKey = sessionKey || "";
+  row.dataset.identifier = target || "";
+  row.innerHTML = `
+    <td class="time">${displayTime}</td>
+    <td class="source">${source || "-"}</td>
+    <td class="target">${target || "-"}</td>
+    <td class="method">${methodText}</td>
+    <td class="confidence">${method !== "error" && confidence ? Math.round(confidence * 100) + "%" : "-"}</td>`;
+  return row;
+}
 
 eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => populateFromCache(entries));
 eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier }) => handleCellSelection(cellKey, state, identifier));

@@ -11,7 +11,7 @@ export async function serverFetch(url, options = {}) {
 
 async function apiFetch(url, options = {}) {
   const { silent, processingMessage, ...fetchOpts } = options;
-  if (!silent) showMessage(processingMessage || "Processing...", "processing");
+  if (!silent) showMessage(processingMessage || "Working", "processing");
   try {
     const response = await serverFetch(url, fetchOpts), data = await response.json();
     if (response.ok) { if (!silent) showMessage(data.message || "Operation successful"); return data.data ?? null; }

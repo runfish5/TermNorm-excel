@@ -1,5 +1,8 @@
 import { setView } from "../core/state-actions.js";
 
+/** Shorthand for document.getElementById */
+export const $ = id => document.getElementById(id);
+
 export function setupButton(id, onClick) {
   const el = document.getElementById(id);
   if (el) el.addEventListener("click", onClick);

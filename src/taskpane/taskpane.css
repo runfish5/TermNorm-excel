@@ -1,7 +1,6 @@
 /* Layout & Design System */
+/* Note: --nav-bar-height is defined in design-system/tokens.css */
 :root {
-    --nav-bar-height: 40px;
-
     /* Color System - Primary */
     --color-primary: #0078d7;
     --color-primary-hover: #005a9e;
@@ -106,7 +105,7 @@
 .content {
     width: 100%;
     padding: 0;
-    margin-top: calc(var(--nav-bar-height) + var(--status-bar-height, 47px));
+    margin-top: 95px;  /* Fixed: nav-bar (40px) + status-bar (~55px) */
 }
 
 /* Override Fabric's large margins on ms-welcome__section */
@@ -521,11 +520,6 @@
     transform: none;
 }
 
-/* Utilities */
-.hidden {
-    display: none;
-}
-
 /* Help Icon & Modal */
 .help-icon-btn {
     margin-left: 10px;
@@ -695,10 +689,7 @@
     line-height: 1.6;
 }
 
-/* Form field container */
-.form-field {
-    margin-bottom: 16px;
-}
+/* Form field container - .form-field is in design-system/components.css */
 
 .form-label {
     display: block;

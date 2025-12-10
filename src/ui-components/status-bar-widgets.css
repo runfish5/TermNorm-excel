@@ -1,6 +1,6 @@
 /* Status Bar Widget Components
  * Reusable utility widgets used within the status bar:
- * - Loading Indicator (animated sandclock)
+ * - Loading Indicator (hourglass animation, see bubble-loader.css for bubbles)
  * - Status LED (server connection indicator)
  * - Matcher Indicator (term matching capabilities)
  * - Offline Warning Badge
@@ -21,11 +21,31 @@
     opacity: 1;
 }
 
-.sandclock-container {
+.loading-container {
     display: flex;
     align-items: center;
     gap: 12px;
 }
+
+.loading-message {
+    font-size: 13px;
+    color: var(--gray-700);
+    font-weight: 500;
+    margin-right: -10px; /* Remove gap before dots */
+}
+
+.loading-dots {
+    display: inline-block;
+    min-width: 18px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+/* ===================================
+   Hourglass Animation (for waiting)
+   =================================== */
 
 .hourglass-emoji {
     font-size: 24px;
@@ -33,29 +53,12 @@
     animation: rotate-stepped 2s steps(5) infinite;
 }
 
-.loading-message {
-    font-size: 13px;
-    color: var(--gray-700);
-    font-weight: 500;
-}
-
-/* Stepped rotation animation for hourglass emoji */
 @keyframes rotate-stepped {
-    0% {
-        transform: rotate(0deg);
-    }
-    25% {
-        transform: rotate(45deg);
-    }
-    50% {
-        transform: rotate(90deg);
-    }
-    75% {
-        transform: rotate(135deg);
-    }
-    100% {
-        transform: rotate(180deg);
-    }
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(45deg); }
+    50% { transform: rotate(90deg); }
+    75% { transform: rotate(135deg); }
+    100% { transform: rotate(180deg); }
 }
 
 /* ===================================

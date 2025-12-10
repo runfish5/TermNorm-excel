@@ -9,13 +9,11 @@ import { initializeSettings, saveSetting } from "../services/state-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
-import { initializeVersionDisplay, initializeProjectPathDisplay, updateContentMargin } from "../utils/app-utilities.js";
-import { showView, setupButton } from "../utils/dom-helpers.js";
+import { initializeVersionDisplay, initializeProjectPathDisplay } from "../utils/app-utilities.js";
+import { $, showView, setupButton } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage } from "../utils/error-display.js";
 import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
-
-const $ = id => document.getElementById(id);
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 
 function setupUIReactivity() {
@@ -64,10 +62,6 @@ Office.onReady(async (info) => {
     if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") await initializeLlmSettings(); }
   });
 
-  updateContentMargin();
-  const status = $("main-status-message");
-  if (status) new MutationObserver(updateContentMargin).observe(status, { childList: true, subtree: true, characterData: true });
-  window.addEventListener("resize", updateContentMargin);
 
   try { await loadStaticConfig(); } catch (err) { console.error("Init failed:", err); showMessage(`Init failed: ${err.message}`, "error"); }
 });

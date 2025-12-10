@@ -3,19 +3,19 @@ import { apiPost } from "../utils/api-fetch.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
+import { $ } from "../utils/dom-helpers.js";
 
 let selectedRange = null, isProcessing = false;
-const $ = id => document.getElementById(id);
 
 export function init() {
   const view = $("results-view");
   if (!view) return false;
   const section = Object.assign(document.createElement("div"), { id: "batch-processing-section", className: "card card-lg card-muted" });
   section.innerHTML = `
-    <details class="card batch-collapsible">
-      <summary class="panel-header panel-header-collapsible batch-header">Batch Processing</summary>
-      <div class="batch-content">
-        <p class="batch-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p>
+    <details class="card">
+      <summary class="panel-header panel-header-collapsible collapsible-header">Batch Processing</summary>
+      <div class="collapsible-content">
+        <p class="collapsible-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p>
         <button id="select-range-btn" class="ms-Button ms-Button--primary">
           <span class="ms-Button-label">Select Range in Excel</span>
         </button>
@@ -24,11 +24,11 @@ export function init() {
           <span id="range-address" class="range-address">-</span>
           <span id="range-count" class="range-count">0 cells</span>
         </div>
-        <div class="context-input-section">
+        <div class="form-field">
           <label for="batch-context">Context Message (optional):</label>
           <textarea id="batch-context" class="input input-md input-full input-textarea" placeholder="Provide additional context..." rows="3"></textarea>
         </div>
-        <div class="batch-actions">
+        <div class="form-actions">
           <button id="batch-process-btn" class="ms-Button ms-Button--primary" disabled>
             <span class="ms-Button-label">Process Batch</span>
           </button>
@@ -36,7 +36,7 @@ export function init() {
             <span class="ms-Button-label">Clear</span>
           </button>
         </div>
-        <div id="batch-progress" class="batch-progress hidden">
+        <div id="batch-progress" class="progress-container hidden">
           <div class="progress-bar">
             <div class="progress-fill" style="width:0%"></div>
           </div>
