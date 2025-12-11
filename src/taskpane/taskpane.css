@@ -42,11 +42,14 @@
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 0 20px;
+    justify-content: space-between;
+    padding: 0 12px;
     height: var(--nav-bar-height);
-    background: white;
-    border-bottom: var(--border-light);
-    z-index: 1000;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    box-sizing: border-box;
+    z-index: var(--z-fixed);
 }
 
 /* Navigation Tabs */
@@ -103,14 +106,35 @@
 }
 
 
-.nav-header {
-    margin-left: auto;
+.nav-brand {
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
-.nav-header img {
-    margin-right: 10px;
+.brand-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.nav-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+    color: var(--gray-600);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.nav-icon-btn:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-400);
+    color: var(--text-primary);
 }
 /* Status Bar - Sticky below nav-bar, expands naturally */
 .status-bar {
@@ -361,18 +385,6 @@
 
 .btn-primary.disabled-with-reason:hover {
     background-color: inherit;
-}
-
-/* Help Icon & Modal */
-.help-icon-btn {
-    margin-left: 10px;
-    background: var(--primary);
-    border: none;
-    border-radius: var(--radius-circle);
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    font-size: 14px;
 }
 
 .help-modal {
