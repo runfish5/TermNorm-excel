@@ -1,9 +1,19 @@
-# TermNorm - AI-Powered Terminology Normalization for Excel
+# FastAPI-LLM-Entity-Mapper
 
 <p align="center">
   <img src="https://img.shields.io/badge/Office%20Add--in-Excel-217346?logo=microsoft-excel" alt="Office Add-in">
   <img src="https://img.shields.io/badge/Office.js-1.1-217346" alt="Office.js">
 </p>
+
+### An AI-Driven Unitary Mapping System for Data Normalization
+
+<p align="center">
+  <em>Rerank existing tables with LLMs, custom workflow chains, and
+  continuous optimization campaigns</em>
+  <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="560">
+</p>
+
+**Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
 
 This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
 
@@ -34,6 +44,7 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 
 ## ✨ Key Features
 
+- **Seamless Excel Integration:** - Allows for direct integration with legacy workflows and user-facing spreadsheets.
 - **Instant AI-Powered Matching** - Type in Excel, get standardized results automatically—web research and LLM reasoning happen in real-time
 - **Three-Tier Intelligence** - Exact cache for speed → Fuzzy matching for variants → AI research for unknowns
 - **Transparent Decision Making** - See ranked candidates with confidence scores, entity profiles, and web sources—understand why each match was suggested
