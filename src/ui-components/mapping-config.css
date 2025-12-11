@@ -1,6 +1,6 @@
 /* Mapping Config Module Styles */
 .mapping-config-module[open] {
-    border: 1px solid var(--color-custom-green);
+    border: 1px solid var(--custom-green);
     border-radius: var(--radius-xl);
     padding: 16px;
     background-color: var(--gray-50);
@@ -11,7 +11,7 @@
 }
 
 .mapping-config-module summary  {
-    color: var(--color-custom-green);
+    color: var(--custom-green);
     font-weight: bold;
 }
 .form-section.first-form-section {
@@ -72,11 +72,11 @@
 }
 
 .radio-group input[type="radio"] {
-    accent-color: var(--color-custom-green);
+    accent-color: var(--custom-green);
 }
 
-.radio-group label.ms-font-m {
-    color: var(--color-custom-green);
+.radio-group label {
+    color: var(--custom-green);
 }
 
 .btn-full {

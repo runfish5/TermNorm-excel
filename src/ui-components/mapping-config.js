@@ -6,7 +6,7 @@ import { showMessage } from "../utils/error-display.js";
 
 export function createMappingConfigHTML(config, i) {
   return `
-    <summary class="ms-font-m">
+    <summary class="mapping-summary">
       Map Config ${i + 1}
       <span class="filename-display" style="margin-left: 10px; font-style: italic; color: #666;"></span>
     </summary>
@@ -15,19 +15,19 @@ export function createMappingConfigHTML(config, i) {
         <label>Excel File:</label>
         <div>
           <input type="radio" class="current-file" name="file-source-${i}" value="current" checked />
-          <label class="ms-font-m">This Excel file</label>
+          <label>This Excel file</label>
         </div>
         <div>
           <input type="radio" class="external-file" name="file-source-${i}" value="external" />
-          <label class="ms-font-m">External Excel file</label>
+          <label>External Excel file</label>
         </div>
       </div>
       <div class="external-file-section hidden form-section">
         <div class="file-row">
-          <label class="ms-font-m">File Path:</label>
+          <label>File Path:</label>
           <input type="text" class="file-path-display" placeholder="No file selected" readonly />
           <input type="file" class="file-picker-input" accept=".xlsx,.xls" style="display: none" />
-          <button class="browse-button ms-Button">Browse...</button>
+          <button class="browse-button btn-secondary">Browse...</button>
         </div>
       </div>
     </div>

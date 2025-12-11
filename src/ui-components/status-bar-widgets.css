@@ -67,18 +67,18 @@
 
 /* Matcher color states (extends .badge from design system) */
 .matcher-indicator.ready {
-    border-color: var(--color-success);
-    color: var(--color-success-dark);
+    border-color: var(--success);
+    color: var(--success-dark);
 }
 
 .matcher-indicator.limited {
-    border-color: var(--color-warning);
-    color: var(--color-warning-dark);
+    border-color: var(--warning);
+    color: var(--warning-dark);
 }
 
 .matcher-indicator.not-ready {
-    border-color: var(--color-error);
-    color: var(--color-error-dark);
+    border-color: var(--error);
+    color: var(--error-dark);
 }
 
 .indicator-icon {

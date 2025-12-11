@@ -7,7 +7,6 @@
     <title>TermNorm</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
     <!-- Design System -->
     <link href="../design-system/tokens.css" rel="stylesheet" type="text/css" />
     <link href="../design-system/components.css" rel="stylesheet" type="text/css" />
@@ -20,27 +19,27 @@
     <link href="../ui-components/candidate-ranking.css" rel="stylesheet" type="text/css" />
     <link href="../ui-components/mapping-config.css" rel="stylesheet" type="text/css" />
 </head>
-<body class="ms-font-m ms-welcome ms-Fabric">
-    <section id="sideload-msg" class="ms-welcome__main">
-        <h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
+<body>
+    <section id="sideload-msg" class="sideload-message">
+        <h2>Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2>
     </section>
     
-    <main id="app-body" class="ms-welcome__main">
+    <main id="app-body" class="app-main">
         <div class="nav-bar">
             <!-- TASK-ORIENTED TABS (Contextual Navigation) -->
             <nav id="view-tabs" class="nav-tabs">
-                <button id="setup-tab" class="nav-tab ms-Button nav-btn" data-view="setup">
+                <button id="setup-tab" class="nav-tab" data-view="setup">
                     <span class="tab-icon">🫳</span>
                     <span class="tab-label">Setup</span>
                 </button>
-                <button id="results-tab" class="nav-tab ms-Button nav-btn" data-view="results">
+                <button id="results-tab" class="nav-tab" data-view="results">
                     <span class="tab-icon">📊</span>
                     <span class="tab-label">Results</span>
                 </button>
-                <button id="history-tab" class="nav-tab ms-Button nav-btn" data-view="history">
+                <button id="history-tab" class="nav-tab" data-view="history">
                     <span class="tab-icon">0📜</span>
                 </button>
-                <button id="settings-tab" class="nav-tab ms-Button nav-btn" data-view="settings">
+                <button id="settings-tab" class="nav-tab" data-view="settings">
                     <span class="tab-icon">⚙️</span>
                     <span class="tab-label">Settings</span>
                 </button>
@@ -48,7 +47,7 @@
             
             <div class="nav-header">
                 <img width="32" height="32" src="../../assets/Runfish_Logo1.5greenyCube.png" alt="TermNorm" title="TermNorm" />
-                <h1 class="ms-font-l">TermNorm</h1>
+                <h1>TermNorm</h1>
                 <button id="help-icon-btn" class="help-icon-btn" title="Show terminology legend">❓</button>
             </div>
         </div>
@@ -95,7 +94,7 @@
 
         <!-- SETUP VIEW (Progressive Configuration Flow) -->
         <section id="setup-view" class="content view-section">
-            <div class="ms-welcome__section">
+            <div class="content-section">
                 <h3>Configuration & Mapping Setup</h3>
 
                 <!-- Step 1: Backend Server Configuration -->
@@ -251,21 +250,21 @@
                     <summary class="settings-group-header">▶️ Step 4: Activate Tracking</summary>
                     <div class="settings-group-content">
                         <div class="flex gap-lg">
-                            <button id="show-metadata-btn" class="ms-Button--default">Show Processing Details</button>
-                            <button id="setup-map-tracking" class="ms-Button bidirectional-option">Activate Tracking</button>
+                            <button id="show-metadata-btn" class="btn-secondary">Show Processing Details</button>
+                            <button id="setup-map-tracking" class="btn-primary">Activate Tracking</button>
                         </div>
                     </div>
                 </details>
             </div>
-            <div id="metadata-content" class="ms-welcome__section hidden">
-                <h3 class="ms-font-l">Processing Details</h3>
-                <div id="metadata-display" class="ms-font-s"></div>
+            <div id="metadata-content" class="content-section hidden">
+                <h3>Processing Details</h3>
+                <div id="metadata-display"></div>
             </div>
         </section>
         
         <!-- RESULTS VIEW (Primary Working Area - 95% Usage) -->
         <section id="results-view" class="hidden content view-section">
-            <div class="ms-welcome__section">
+            <div class="content-section">
                 <h3>Processing Results</h3>
 
                 <div id="candidate-ranking-section" class="processing-history-feed">
@@ -276,12 +275,12 @@
 
         <!-- HISTORY VIEW (Compact Activity Log) -->
         <section id="history-view" class="hidden content view-section">
-            <div class="ms-welcome__section">
+            <div class="content-section">
                 <h3>Activity History & Processing Log</h3>
                 
                 <div class="history-controls">
-                    <button id="clear-history-btn" class="ms-Button--default">Clear History</button>
-                    <select id="history-filter" class="ms-font-s">
+                    <button id="clear-history-btn" class="btn-secondary">Clear History</button>
+                    <select id="history-filter">
                         <option value="all">All Activities</option>
                         <option value="success">Successful</option>
                         <option value="error">Errors Only</option>
@@ -297,7 +296,7 @@
 
         <!-- SETTINGS VIEW (Grouped Configuration) -->
         <section id="settings-view" class="hidden content view-section">
-            <div class="ms-welcome__section">
+            <div class="content-section">
                 <h3>Settings & Configuration</h3>
 
                 <!-- Connection Requirements Group -->
@@ -330,7 +329,7 @@
                                 <label for="llm-model-input">Model:</label>
                                 <input type="text" id="llm-model-input" placeholder="Enter model name">
                             </div>
-                            <button id="apply-llm-settings" class="ms-Button ms-Button--primary">Apply Settings</button>
+                            <button id="apply-llm-settings" class="btn-primary">Apply Settings</button>
                             <p class="hint-text m-0">Only providers with configured API keys are shown.</p>
                         </div>
                     </div>
@@ -358,7 +357,7 @@
                             <strong>When disabled:</strong> Tests fallback chain (SearXNG → DuckDuckGo → Bing) without Brave.
                         </p>
                         <div class="processing-options mt-md">
-                            <button id="renew-prompt" class="ms-Button--default">Renew Prompt 🤖</button>
+                            <button id="renew-prompt" class="btn-secondary">Renew Prompt 🤖</button>
                         </div>
                     </div>
                 </details>

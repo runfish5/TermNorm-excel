@@ -207,7 +207,7 @@
    =================================== */
 
 .border-none { border: none; }
-.border-left-primary { border-left: 3px solid var(--color-primary); }
+.border-left-primary { border-left: 3px solid var(--primary); }
 .rounded-sm { border-radius: var(--radius-sm); }
 .rounded-md { border-radius: var(--radius-md); }
 .rounded-lg { border-radius: var(--radius-lg); }

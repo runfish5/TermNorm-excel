@@ -10,12 +10,12 @@
 
 .table .source {
     font-weight: 500;
-    color: var(--color-primary-alt);
+    color: var(--info);
 }
 
 .table .target {
     font-weight: 500;
-    color: var(--color-success-alt);
+    color: var(--success-alt);
 }
 
 .table .method {
@@ -31,23 +31,23 @@
 }
 
 .history-row.exact .method {
-    --method-bg: var(--color-info-bg);
-    --method-text: var(--color-info-text);
+    --method-bg: var(--info-light);
+    --method-text: var(--info-text);
 }
 
 .history-row.fuzzy .method {
-    --method-bg: var(--color-warning-bg);
-    --method-text: var(--color-warning-text);
+    --method-bg: var(--warning-light);
+    --method-text: var(--warning-text);
 }
 
 .history-row.ai .method {
-    --method-bg: var(--color-ai-bg);
-    --method-text: var(--color-ai-text);
+    --method-bg: var(--ai-light);
+    --method-text: var(--ai-text);
 }
 
 .history-row.error .method {
-    --method-bg: var(--color-error-bg);
-    --method-text: var(--color-error-text);
+    --method-bg: var(--error-light);
+    --method-text: var(--error-text);
 }
 
 .table .confidence {
@@ -69,10 +69,10 @@
 }
 
 .history-row.highlighted {
-    background: var(--color-warning-bg) !important;
+    background: var(--warning-light) !important;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border-left: 4px solid var(--color-warning);
+    border-left: 4px solid var(--warning);
 }
 
 /* Match Details - Inline Expanded Row */
@@ -101,7 +101,7 @@
 
 .detail-section h5 {
     margin: 0 0 8px 0;
-    color: var(--color-primary-alt);
+    color: var(--info);
     font-size: 13px;
 }
 
@@ -121,7 +121,7 @@
 }
 
 .list-item-bordered .score {
-    color: var(--color-success-alt);
+    color: var(--success-alt);
     font-weight: bold;
     font-size: 12px;
 }
@@ -138,23 +138,23 @@
 /* Method badge variants (extends .badge from design system) */
 .badge.ProfileRank,
 .badge.BatchProfileRank {
-    --badge-bg: var(--color-ai-bg);
-    --badge-text: var(--color-ai-text);
+    --badge-bg: var(--ai-light);
+    --badge-text: var(--ai-text);
 }
 
 .badge.UserChoice {
-    --badge-bg: var(--color-success-bg);
-    --badge-text: var(--color-success-text);
+    --badge-bg: var(--success-light);
+    --badge-text: var(--success-text);
 }
 
 .badge.fuzzy {
-    --badge-bg: var(--color-warning-bg);
-    --badge-text: var(--color-warning-text);
+    --badge-bg: var(--warning-light);
+    --badge-text: var(--warning-text);
 }
 
 .badge.cached {
-    --badge-bg: var(--color-info-bg);
-    --badge-text: var(--color-info-text);
+    --badge-bg: var(--info-light);
+    --badge-text: var(--info-text);
 }
 
 /* Inline expanded details row */
@@ -170,7 +170,7 @@
 .inline-details-panel {
     padding: 16px;
     background: linear-gradient(to bottom, var(--gray-100), #fff);
-    border-left: 4px solid var(--color-primary-alt);
+    border-left: 4px solid var(--info);
 }
 
 .inline-details-panel .details-header {

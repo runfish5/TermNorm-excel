@@ -505,7 +505,7 @@ details[open] .collapsible-header::before {
 
 .range-label {
     font-weight: 600;
-    color: var(--color-primary-alt);
+    color: var(--info);
 }
 
 .range-address {
@@ -561,7 +561,7 @@ details[open] .collapsible-header::before {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--color-primary-alt), #0a58ca);
+    background: linear-gradient(90deg, var(--info), #0a58ca);
     transition: width 0.3s ease;
 }
 

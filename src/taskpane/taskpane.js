@@ -10,7 +10,7 @@ import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeVersionDisplay, initializeProjectPathDisplay } from "../utils/app-utilities.js";
-import { $, showView, setupButton } from "../utils/dom-helpers.js";
+import { $, showView, setupButton, openModal, closeModal } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage } from "../utils/error-display.js";
 import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
@@ -25,7 +25,6 @@ function setupUIReactivity() {
 Office.onReady(async (info) => {
   if (info.host !== Office.HostType.Excel) return $("sideload-msg").textContent = "This add-in requires Microsoft Excel";
 
-  document.body.className = "ms-font-m ms-welcome ms-Fabric";
   initHistory(); initDirectPrompt(); initCandidates(); updateHistoryTabCounter();
   $("sideload-msg")?.classList.add("hidden");
   const appBody = $("app-body");
@@ -44,10 +43,10 @@ Office.onReady(async (info) => {
     if (c) { c.classList.toggle("hidden"); $("show-metadata-btn").textContent = c.classList.contains("hidden") ? "Show Processing Details" : "Hide Processing Details"; }
   });
 
-  const modal = $("help-modal");
-  $("help-icon-btn")?.addEventListener("click", () => modal?.classList.remove("hidden"));
-  $("close-help-modal")?.addEventListener("click", () => modal?.classList.add("hidden"));
-  modal?.addEventListener("click", (e) => e.target === modal && modal.classList.add("hidden"));
+  // Modal delegation - handles all modals via data attributes
+  setupButton("help-icon-btn", () => openModal("help-modal"));
+  setupButton("close-help-modal", () => closeModal("help-modal"));
+  $("help-modal")?.addEventListener("click", (e) => e.target.classList.contains("help-modal") && closeModal("help-modal"));
 
   $("setup-map-tracking")?.addEventListener("click", async (e) => {
     e.target.disabled = true; e.target.textContent = "Activating...";
@@ -132,14 +131,40 @@ async function initializeLlmSettings() {
 }
 
 function setupSettingsCheckboxes() {
-  const setup = (id, key, fn) => { const cb = $(id); if (cb) { cb.checked = getStateValue(`settings.${key}`); cb.onchange = (e) => fn(e.target.checked, e.target); } };
-
-  setup("require-server-online", "requireServerOnline", (v) => { saveSetting("requireServerOnline", v); refresh(); showMessage(`Server ${v ? "required" : "optional"}`); });
-
-  const apiCb = (key, fn, on, off) => async (v, el) => {
-    saveSetting(key, v);
-    try { await (await import("../utils/settings-manager.js"))[fn](v); showMessage(v ? on : off); } catch (e) { showMessage(`Failed: ${e.message}`, "error"); el.checked = !v; }
+  const bindCheckbox = (id, key, handler) => {
+    const cb = $(id);
+    if (!cb) return;
+    cb.checked = getStateValue(`settings.${key}`);
+    cb.onchange = (e) => handler(e.target.checked, e.target);
   };
-  setup("use-web-search", "useWebSearch", apiCb("useWebSearch", "setWebSearch", "Web search on", "Web search off"));
-  setup("use-brave-api", "useBraveApi", apiCb("useBraveApi", "setBraveApi", "Brave API on", "Brave API off"));
+
+  bindCheckbox("require-server-online", "requireServerOnline", (checked) => {
+    saveSetting("requireServerOnline", checked);
+    refresh();
+    showMessage(`Server ${checked ? "required" : "optional"}`);
+  });
+
+  bindCheckbox("use-web-search", "useWebSearch", async (checked, el) => {
+    saveSetting("useWebSearch", checked);
+    try {
+      const { setWebSearch } = await import("../utils/settings-manager.js");
+      await setWebSearch(checked);
+      showMessage(checked ? "Web search on" : "Web search off");
+    } catch (e) {
+      showMessage(`Failed: ${e.message}`, "error");
+      el.checked = !checked;
+    }
+  });
+
+  bindCheckbox("use-brave-api", "useBraveApi", async (checked, el) => {
+    saveSetting("useBraveApi", checked);
+    try {
+      const { setBraveApi } = await import("../utils/settings-manager.js");
+      await setBraveApi(checked);
+      showMessage(checked ? "Brave API on" : "Brave API off");
+    } catch (e) {
+      showMessage(`Failed: ${e.message}`, "error");
+      el.checked = !checked;
+    }
+  });
 }

@@ -16,9 +16,7 @@ export function init() {
       <summary class="panel-header panel-header-collapsible collapsible-header">Batch Processing</summary>
       <div class="collapsible-content">
         <p class="collapsible-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p>
-        <button id="select-range-btn" class="ms-Button ms-Button--primary">
-          <span class="ms-Button-label">Select Range in Excel</span>
-        </button>
+        <button id="select-range-btn" class="btn-primary">Select Range in Excel</button>
         <div id="range-display" class="range-display hidden">
           <span class="range-label">Selected:</span>
           <span id="range-address" class="range-address">-</span>
@@ -29,12 +27,8 @@ export function init() {
           <textarea id="batch-context" class="input input-md input-full input-textarea" placeholder="Provide additional context..." rows="3"></textarea>
         </div>
         <div class="form-actions">
-          <button id="batch-process-btn" class="ms-Button ms-Button--primary" disabled>
-            <span class="ms-Button-label">Process Batch</span>
-          </button>
-          <button id="cancel-batch-btn" class="ms-Button ms-Button--default">
-            <span class="ms-Button-label">Clear</span>
-          </button>
+          <button id="batch-process-btn" class="btn-primary" disabled>Process Batch</button>
+          <button id="cancel-batch-btn" class="btn-secondary">Clear</button>
         </div>
         <div id="batch-progress" class="progress-container hidden">
           <div class="progress-bar">

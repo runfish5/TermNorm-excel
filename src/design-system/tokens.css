@@ -11,12 +11,14 @@
     --primary-light: #f8fdff;
     --primary-lighter: #deecf9;
     --primary-border: #106ebe;
+    --primary-bg-border: #c7e0f4;
 
     /* Success (Green) */
     --success: #4CAF50;
     --success-dark: #2e7d32;
     --success-light: #d4edda;
     --success-text: #155724;
+    --success-alt: #198754;
 
     /* Warning (Yellow/Orange) */
     --warning: #FFC107;
@@ -30,6 +32,7 @@
     --error-dark: #c62828;
     --error-light: #f8d7da;
     --error-text: #721c24;
+    --error-alt: #dc3545;
 
     /* Info (Blue) */
     --info: #0d6efd;
@@ -43,20 +46,33 @@
     /* Custom (Green for special elements) */
     --custom-green: #004b32;
 
+    /* Link color */
+    --link: #0d6efd;
+
     /* ===================================
        NEUTRALS - Gray Scale
        =================================== */
 
     --gray-50: #fafafa;    /* Lightest backgrounds */
     --gray-100: #f8f9fa;   /* Light backgrounds */
+    --gray-150: #f5f5f5;   /* Subtle backgrounds */
     --gray-200: #e9ecef;   /* Subtle borders */
+    --gray-250: #e8e8e8;   /* Hover backgrounds */
     --gray-300: #dee2e6;   /* Borders */
+    --gray-350: #e1e1e1;   /* Medium borders */
     --gray-400: #ced4da;   /* Input borders */
     --gray-500: #6c757d;   /* Muted text */
     --gray-600: #495057;   /* Secondary text */
+    --gray-650: #666;      /* Mid-dark text */
     --gray-700: #333;      /* Primary text */
+    --gray-750: #555;      /* Dark text */
     --gray-800: #ddd;      /* Light dividers */
+    --gray-850: #ccc;      /* Dividers */
     --gray-900: #999;      /* Very light text */
+    --gray-950: #b8b8b8;   /* Muted borders */
+    --gray-border: #d1d1d1;
+    --gray-bg: #f8f8f8;
+    --gray-border-medium: #f0f0f0;
 
     /* ===================================
        SEMANTIC TOKENS
@@ -78,6 +94,14 @@
     --border-color-light: #eee;
     --border-color-base: var(--gray-300);
     --border-color-dark: var(--gray-400);
+
+    /* Border Definitions */
+    --border-light: 1px solid var(--border-color-light);
+    --border-medium: 1px solid var(--gray-350);
+    --border-base: 1px solid var(--gray-850);
+    --border-gray: 1px solid var(--gray-800);
+    --border-heavy: 2px solid var(--gray-200);
+    --border-dashed: 2px dashed var(--primary);
 
     /* ===================================
        SPACING SCALE
@@ -124,6 +148,7 @@
     /* Font Families */
     --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+    --font-mono-alt: 'Courier New', monospace;
 
     /* Font Sizes */
     --font-size-xs: 10px;
@@ -163,4 +188,13 @@
        =================================== */
 
     --nav-bar-height: 40px;
+}
+
+/* Base body styles (replaces Fabric dependency) */
+body {
+    margin: 0;
+    font-family: var(--font-system);
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    line-height: 1.4;
 }

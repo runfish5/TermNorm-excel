@@ -30,20 +30,14 @@ export function init() {
           <span id="dp-range-address" class="range-address">-</span>
           <span id="dp-range-count" class="range-count">0 cells</span>
         </div>
-        <button id="dp-refresh-btn" class="ms-Button ms-Button--default" style="margin-bottom: 12px;">
-          <span class="ms-Button-label">Refresh Selection</span>
-        </button>
+        <button id="dp-refresh-btn" class="btn-secondary mb-md">Refresh Selection</button>
         <div class="form-field">
           <label for="dp-user-prompt">Your Prompt:</label>
           <textarea id="dp-user-prompt" class="input input-md input-full input-textarea" placeholder="These are industrial pipe fittings. Match to standardized catalog codes..." rows="4"></textarea>
         </div>
         <div class="form-actions">
-          <button id="dp-process-btn" class="ms-Button ms-Button--primary" disabled>
-            <span class="ms-Button-label">Process</span>
-          </button>
-          <button id="dp-clear-btn" class="ms-Button ms-Button--default">
-            <span class="ms-Button-label">Clear</span>
-          </button>
+          <button id="dp-process-btn" class="btn-primary" disabled>Process</button>
+          <button id="dp-clear-btn" class="btn-secondary">Clear</button>
         </div>
         <div id="dp-progress" class="progress-container hidden">
           <div class="progress-bar">

@@ -80,7 +80,7 @@ export async function reloadMappingModules() {
 
   container.innerHTML = "";
   mappingModules = mappings.map((config, i) => {
-    const el = Object.assign(document.createElement("details"), { id: `mapping-config-${i}`, className: "ms-welcome__section mapping-config-module", open: true });
+    const el = Object.assign(document.createElement("details"), { id: `mapping-config-${i}`, className: "content-section mapping-config-module", open: true });
     el.innerHTML = createMappingConfigHTML(config, i);
     container.appendChild(el);
     const api = setupMappingConfigEvents(el, config, i, updateGlobalStatus);

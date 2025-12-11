@@ -31,3 +31,35 @@
     padding: 10px;
     text-align: center;
 }
+
+/* Drag & Drop Styles */
+.candidate-table tr {
+    cursor: move;
+    transition: background var(--transition-base);
+}
+
+.candidate-table tr:hover {
+    background: var(--gray-100);
+}
+
+.candidate-table tr.dragging {
+    opacity: 0.5;
+}
+
+.candidate-table tr.drag-over {
+    border-top: 2px solid var(--primary);
+}
+
+.drag-handle {
+    cursor: grab;
+    padding: var(--spacing-sm);
+    color: var(--gray-600);
+}
+
+.drag-handle:hover {
+    color: var(--primary);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
