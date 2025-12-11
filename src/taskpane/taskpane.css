@@ -293,33 +293,35 @@
 
 /* Settings Groups */
 .settings-group {
-    border: var(--border-medium);
+    border: none;
     border-radius: var(--radius-xl);
-    background: var(--gray-50);
+    background: var(--bg-elevated);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 8px;
 }
 
 .settings-group-header {
-    padding: 6px 8px;
+    padding: 10px 12px;
     cursor: pointer;
-    background: var(--gray-border-medium);
-    border-bottom: var(--border-medium);
+    background: none;
+    border-bottom: none;
     font-weight: 600;
-    font-size: 14px;
-    color: var(--gray-700);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    border-radius: var(--radius-xl);
 }
 
 .settings-group[open] .settings-group-header {
-    border-bottom: var(--border-medium);
+    border-bottom: 1px solid var(--gray-200);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
 
 .settings-group-header:hover {
-    background: var(--gray-250);
+    background: var(--gray-50);
 }
 
 .settings-group-content {
-    padding: 8px;
+    padding: 12px;
 }
 
 .processing-options {
