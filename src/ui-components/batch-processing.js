@@ -10,10 +10,9 @@ let selectedRange = null, isProcessing = false;
 export function init() {
   const view = $("results-view");
   if (!view) return false;
-  const section = Object.assign(document.createElement("div"), { id: "batch-processing-section", className: "card card-lg card-muted" });
+  const section = Object.assign(document.createElement("details"), { id: "batch-processing-section", className: "card card-lg card-muted" });
   section.innerHTML = `
-    <details class="card">
-      <summary class="panel-header panel-header-collapsible collapsible-header">Batch Processing</summary>
+      <summary class="panel-header collapsible-header">Batch Processing</summary>
       <div class="collapsible-content">
         <p class="collapsible-description">Select a range of cells in Excel, provide optional context, and process them all at once.</p>
         <button id="select-range-btn" class="btn-primary">Select Range in Excel</button>
@@ -36,8 +35,7 @@ export function init() {
           </div>
           <div class="progress-text">Processing: 0 / 0</div>
         </div>
-      </div>
-    </details>`;
+      </div>`;
   view.appendChild(section);
   $("select-range-btn")?.addEventListener("click", selectRange);
   $("batch-process-btn")?.addEventListener("click", processBatch);

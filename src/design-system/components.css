@@ -469,6 +469,10 @@
    COLLAPSIBLE PANEL
    =================================== */
 
+.collapsible-header {
+    list-style: none;
+}
+
 .collapsible-header::-webkit-details-marker {
     display: none;
 }

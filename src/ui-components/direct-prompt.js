@@ -17,12 +17,11 @@ export function init() {
   const view = document.getElementById("results-view");
   if (!view) return false;
 
-  const section = document.createElement("div");
-  section.id = "direct-prompt-section";
+  const section = document.createElement("details");
+  section.id = "direct-prompt-details";
   section.className = "card card-lg card-muted";
   section.innerHTML = `
-    <details class="card" id="direct-prompt-details">
-      <summary class="panel-header panel-header-collapsible collapsible-header">Direct Prompt</summary>
+      <summary class="panel-header collapsible-header">Direct Prompt</summary>
       <div class="collapsible-content">
         <p class="collapsible-description">LLM inference with your own prompt. Select cells in Excel and provide instructions.</p>
         <div id="dp-range-display" class="range-display hidden">
@@ -45,12 +44,11 @@ export function init() {
           </div>
           <div id="dp-progress-text" class="progress-text">Processing: 0 / 0</div>
         </div>
-      </div>
-    </details>`;
+      </div>`;
   view.appendChild(section);
 
   elements = {
-    details: document.getElementById("direct-prompt-details"),
+    details: section,
     rangeDisplay: document.getElementById("dp-range-display"),
     rangeAddress: document.getElementById("dp-range-address"),
     rangeCount: document.getElementById("dp-range-count"),
