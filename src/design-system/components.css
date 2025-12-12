@@ -616,6 +616,47 @@ details[open] .collapsible-header::before {
     height: 6px;
 }
 
+/* Ribbon SVG variant - flex positioned with SVG stroke */
+.thermo--ribbon .thermo__track {
+    display: none;
+}
+
+.thermo--ribbon .thermo__step {
+    flex-shrink: 0;
+    z-index: 2;      /* Nodes in front of curves */
+    position: relative;
+}
+
+.thermo--ribbon .thermo__step--disabled {
+    z-index: 0;      /* Disabled nodes behind curves */
+}
+
+svg.thermo__ribbon {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 40px;
+    margin: 0 -6px;  /* Negative margin to overlap with nodes, no gaps */
+    margin-top: 4px;
+    z-index: 1;
+    position: relative;
+    overflow: visible;
+}
+
+svg.thermo__ribbon path {
+    fill: var(--gray-500);
+    opacity: 0.45;
+}
+
+svg.thermo__ribbon--fade path {
+    opacity: 0.25;
+}
+
+/* Chain logic: curve visible only if DESTINATION node is active */
+/* Fade curve if the node it leads TO is disabled */
+svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
+    opacity: 0.1;
+}
+
 /* Progress fill */
 .thermo__fill {
     height: 100%;

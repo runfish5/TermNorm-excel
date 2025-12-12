@@ -158,7 +158,7 @@ async function startLiveTracking() {
             saveSetting('useWebSearch', enabled);
             try {
               const { setWebSearch } = await import("../utils/settings-manager.js");
-              await setWebSearch(enabled);
+              await setWebSearch(enabled, { silent: true });
               showMessage(enabled ? 'Web search ON' : 'Web search OFF');
             } catch (e) { showMessage(`Failed: ${e.message}`, "error"); }
           } else if (key === 'llm2') {

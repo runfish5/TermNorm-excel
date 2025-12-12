@@ -19,4 +19,4 @@ export function saveSetting(key, value, currentSettings) {
 export function loadAvailableProviders() { return apiGet("/llm-providers", {}, true); }
 export function saveLlmProvider(provider, model) { return apiPost("/set-llm-provider", { provider, model }); }
 export function setBraveApi(enabled) { return apiPost("/set-brave-api", { enabled }); }
-export function setWebSearch(enabled) { return apiPost("/set-web-search", { enabled }); }
+export function setWebSearch(enabled, opts = {}) { return apiPost("/set-web-search", { enabled }, {}, opts); }
