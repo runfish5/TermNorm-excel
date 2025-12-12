@@ -15,7 +15,8 @@ from config.middleware import setup_middleware
 from core.logging import setup_logging
 from api import (
     system_router,
-    research_router
+    research_router,
+    experiments_router,
 )
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
@@ -50,6 +51,7 @@ setup_middleware(app)
 # Include routers - Streamlined API structure
 app.include_router(system_router)      # Health checks, connection test, activity logging
 app.include_router(research_router)    # /research-and-match pipeline (stateless)
+app.include_router(experiments_router)  # Experiments/traces data endpoints
 
 
 @app.on_event("startup")
