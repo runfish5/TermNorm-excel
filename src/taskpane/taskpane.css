@@ -271,6 +271,19 @@
     font-size: 12px;
 }
 
+/* Step Panels */
+.step-panel {
+    display: none;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-xl);
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.step-panel.active {
+    display: block;
+}
+
 /* View Sections */
 .view-section {
     transition: opacity 0.3s ease;

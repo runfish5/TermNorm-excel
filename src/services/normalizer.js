@@ -20,7 +20,8 @@ export async function findTokenMatch(value) {
   if (!normalized || !(await ensureSessionInitialized())) return null;
 
   setWebSearchStatus('idle');
-  const data = await executeWithSessionRecovery(() => apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query: normalized }, getHeaders()));
+  const skipLlmRanking = getStateValue('settings.useLlmRanking') === false;
+  const data = await executeWithSessionRecovery(() => apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query: normalized, skip_llm_ranking: skipLlmRanking }, getHeaders()));
   if (!data) return null;
   if (data.web_search_status) setWebSearchStatus(data.web_search_status, data.web_search_error || null);
 

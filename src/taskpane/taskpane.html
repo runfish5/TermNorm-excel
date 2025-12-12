@@ -95,14 +95,29 @@
         <!-- SETUP VIEW (Progressive Configuration Flow) -->
         <section id="setup-view" class="content view-section">
             <div class="content-section">
-                <h3>Configuration & Mapping Setup</h3>
+                <!-- Thermometer Group: Setup + Research (side by side when collapsed) -->
+                <div class="thermo-group">
+                    <!-- Setup Thermometer (progress mode: fill bar, collapsible) -->
+                    <nav class="thermo" id="setup-thermo" data-mode="progress">
+                        <div class="thermo__track"><div class="thermo__fill"></div></div>
+                        <button class="thermo__step thermo__step--active" data-step="1" data-key="server"><span class="thermo__bubble">1</span><span class="thermo__label">Server</span></button>
+                        <button class="thermo__step" data-step="2" data-key="config"><span class="thermo__bubble">2</span><span class="thermo__label">Config</span></button>
+                        <button class="thermo__step" data-step="3" data-key="mappings"><span class="thermo__bubble">3</span><span class="thermo__label">Mappings</span></button>
+                        <button class="thermo__step" data-step="4" data-key="activate"><span class="thermo__bubble">4</span><span class="thermo__label">Activate</span></button>
+                        <div class="thermo__collapsed"><span class="thermo__bubble">✓4</span></div>
+                    </nav>
+                    <!-- Research Thermometer (status mode: no fill, toggleable steps) -->
+                    <nav class="thermo thermo--compact hidden" id="research-thermo" data-mode="status">
+                        <div class="thermo__step" data-step="1" data-key="webS"><span class="thermo__bubble"><span class="thermo__led"></span></span><span class="thermo__label">webS</span></div>
+                        <div class="thermo__step" data-step="2" data-key="llm1"><span class="thermo__bubble"><span class="thermo__led"></span></span><span class="thermo__label">LLM</span></div>
+                        <div class="thermo__step" data-step="3" data-key="score"><span class="thermo__bubble"><span class="thermo__led"></span></span><span class="thermo__label">score</span></div>
+                        <div class="thermo__step" data-step="4" data-key="llm2"><span class="thermo__bubble"><span class="thermo__led"></span></span><span class="thermo__label">LLM</span></div>
+                    </nav>
+                </div>
 
                 <!-- Step 1: Backend Server Configuration -->
-                <details class="settings-group">
-                    <summary class="settings-group-header">🖥️ Step 1: Start Backend Server</summary>
-                    <div class="settings-group-content">
-
-                        <!-- Deployment Type Indicator -->
+                <div class="step-panel active" data-step="1">
+                    <!-- Deployment Type Indicator -->
                         <div class="info-banner">
                             <strong>Deployment:</strong> <span id="deployment-type-indicator" class="text-primary-brand">Loading...</span>
                         </div>
@@ -166,10 +181,6 @@
                             </div>
                         </details>
 
-                        </div>
-
-
-
                         <!-- Server URL Section -->
                         <div class="form-field">
                             <label class="form-label">Server URL</label>
@@ -204,14 +215,10 @@
                                 </div>
                             </div>
                         </details>
-
-                    </div>
-                </details>
+                </div>
 
                 <!-- Step 2: Load Configuration -->
-                <details class="settings-group" open>
-                    <summary class="settings-group-header">📄 Step 2: Load Configuration File</summary>
-                    <div class="settings-group-content">
+                <div class="step-panel" data-step="2">
                         <div id="drop-zone" class="drop-zone">
                             Drop app.config.json here or click to browse
                         </div>
@@ -232,29 +239,20 @@
                                 </p>
                             </div>
                         </details>
-                    </div>
-                </details>
+                </div>
 
                 <!-- Step 3: Load Mapping Files -->
-                <details class="settings-group">
-                    <summary class="settings-group-header">📊 Step 3: Load Mapping Files</summary>
-                    <div class="settings-group-content">
-                        <!-- Container for multiple mapping configurations -->
-                        <div id="mapping-configs-container">
-                        </div>
-                    </div>
-                </details>
+                <div class="step-panel" data-step="3">
+                    <div id="mapping-configs-container"></div>
+                </div>
 
                 <!-- Step 4: Activate Tracking -->
-                <details class="settings-group" open>
-                    <summary class="settings-group-header">▶️ Step 4: Activate Tracking</summary>
-                    <div class="settings-group-content">
-                        <div class="flex gap-lg">
-                            <button id="show-metadata-btn" class="btn-secondary">Show Processing Details</button>
-                            <button id="setup-map-tracking" class="btn-primary">Activate Tracking</button>
-                        </div>
+                <div class="step-panel" data-step="4">
+                    <div class="flex gap-lg">
+                        <button id="show-metadata-btn" class="btn-secondary">Show Processing Details</button>
+                        <button id="setup-map-tracking" class="btn-primary">Activate Tracking</button>
                     </div>
-                </details>
+                </div>
             </div>
             <div id="metadata-content" class="content-section hidden">
                 <h3>Processing Details</h3>

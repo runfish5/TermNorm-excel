@@ -3,6 +3,7 @@ import { renewPrompt } from "../services/prompt-renewer.js";
 import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
 import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
+import { Thermometer } from "../ui-components/thermometer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { initializeSettings, saveSetting } from "../services/state-manager.js";
@@ -15,6 +16,9 @@ import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handl
 import { showMessage } from "../utils/error-display.js";
 import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
+
+let setupThermo = null;
+let researchThermo = null;
 
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
@@ -30,6 +34,7 @@ Office.onReady(async (info) => {
   const appBody = $("app-body");
   if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
 
+  setupThermo = Thermometer.init('setup-thermo');
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
   setupUIReactivity();
@@ -59,8 +64,17 @@ Office.onReady(async (info) => {
   document.addEventListener("click", async (e) => {
     const tab = e.target.closest(".nav-tab");
     if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") await initializeLlmSettings(); }
+    const step = e.target.closest(".thermo__step");
+    // Only switch panels for setup thermometer, not research thermometer
+    if (step && step.closest("#setup-thermo") && setupThermo) {
+      e.preventDefault();
+      const num = parseInt(step.dataset.step);
+      if (num) {
+        setupThermo.setStep(num);
+        document.querySelectorAll(".step-panel").forEach(p => p.classList.toggle("active", p.dataset.step === String(num)));
+      }
+    }
   });
-
 
   try { await loadStaticConfig(); } catch (err) { console.error("Init failed:", err); showMessage(`Init failed: ${err.message}`, "error"); }
 });
@@ -101,6 +115,29 @@ async function startLiveTracking() {
       if (x.length) msg += `\n❌ Missing: ${x.join(", ")}`;
     }
     showMessage(msg);
+
+    // Collapse setup thermometer, show research thermometer
+    if (setupThermo) {
+      setupThermo.completeAll();
+      setupThermo.collapse();
+    }
+    $("research-thermo")?.classList.remove("hidden");
+
+    // Initialize research thermometer with toggleable LLM ranking
+    if (!researchThermo) {
+      researchThermo = Thermometer.init('research-thermo');
+      if (researchThermo) {
+        const llmRankingOn = getStateValue('settings.useLlmRanking') !== false;
+        researchThermo.setToggleable('llm2', llmRankingOn);
+        researchThermo.onToggle = (key, enabled) => {
+          if (key === 'llm2') {
+            saveSetting('useLlmRanking', enabled);
+            showMessage(enabled ? 'LLM ranking ON' : 'LLM ranking OFF (faster)');
+          }
+        };
+      }
+    }
+
     showView("results");
   } catch (err) { showMessage(`Error: ${err.message}`, "error"); }
 }

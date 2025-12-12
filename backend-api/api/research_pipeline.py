@@ -374,6 +374,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     """Research a query and rank candidates using LLM + token matching (session-based)"""
     user_id = request.state.user_id
     query = payload.get("query", "")
+    skip_llm_ranking = payload.get("skip_llm_ranking", False)
 
     # Retrieve terms from session
     if user_id not in user_sessions:
@@ -416,12 +417,22 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
     logger.info(f"Match completed in {time.time() - match_start:.2f}s")
 
-    # Step 3: LLM ranking (always returns tuple)
-    logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
-    profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
-    llm_response, ranking_debug = await call_llm_for_ranking(
-        profile_info, entity_profile, candidate_results, query
-    )
+    # Step 3: LLM ranking (conditional)
+    if skip_llm_ranking:
+        logger.info(CYAN + "\n[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
+        llm_response = {
+            "ranked_candidates": [
+                {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
+                for term, score in candidate_results[:20]
+            ]
+        }
+        ranking_debug = {"inputs": {"token_matched_candidates": candidate_results[:20]}}
+    else:
+        logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
+        profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
+        llm_response, ranking_debug = await call_llm_for_ranking(
+            profile_info, entity_profile, candidate_results, query
+        )
 
     total_time = round(time.time() - start_time, 2)
 

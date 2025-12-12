@@ -576,3 +576,216 @@ details[open] .collapsible-header::before {
     color: var(--gray-600);
     font-weight: 600;
 }
+
+/* ===================================
+   THERMOMETER (Progress Indicator)
+   =================================== */
+
+.thermo {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    max-width: 280px;
+    padding: 20px 0 8px;
+}
+
+.thermo--compact {
+    max-width: 200px;
+    padding: 16px 0 6px;
+}
+
+/* Track (background line) */
+.thermo__track {
+    position: absolute;
+    top: 30px;
+    left: 16px;
+    right: 16px;
+    height: 4px;
+    background: var(--gray-300);
+    border-radius: 2px;
+}
+
+.thermo--compact .thermo__track {
+    top: 24px;
+    height: 3px;
+}
+
+/* Progress fill */
+.thermo__fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0;
+}
+
+.thermo--complete .thermo__fill {
+    background: var(--success);
+}
+
+/* Individual step */
+.thermo__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 6px;
+    z-index: 1;
+}
+
+.thermo__step:hover .thermo__bubble {
+    transform: scale(1.1);
+}
+
+/* Bubble (circle) */
+.thermo__bubble {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-300);
+    border: 2px solid var(--bg-elevated);
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--gray-600);
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.thermo--compact .thermo__bubble {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+}
+
+/* Label */
+.thermo__label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--gray-500);
+    white-space: nowrap;
+}
+
+/* Step states */
+.thermo__step--completed .thermo__bubble {
+    background: var(--primary);
+    color: white;
+}
+
+.thermo__step--completed .thermo__label {
+    color: var(--primary);
+}
+
+.thermo__step--active .thermo__bubble {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 0 3px var(--primary-light), 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.thermo__step--active .thermo__label {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* When all complete, make completed steps green */
+.thermo--complete .thermo__step--completed .thermo__bubble {
+    background: var(--success);
+}
+
+.thermo--complete .thermo__step--completed .thermo__label {
+    color: var(--success-dark);
+}
+
+/* LED indicator (for on/off type) */
+.thermo__led {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    transition: all 0.2s ease;
+}
+
+.thermo__step--on .thermo__led {
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
+}
+
+.thermo__step--active .thermo__led {
+    background: var(--primary);
+    box-shadow: 0 0 6px var(--primary);
+    animation: led-pulse 1.2s ease-in-out infinite;
+}
+
+.thermo__step--error .thermo__led {
+    background: var(--error);
+    box-shadow: 0 0 6px var(--error);
+}
+
+@keyframes led-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Collapsed state (progress mode only) */
+.thermo--collapsed .thermo__track,
+.thermo--collapsed .thermo__step {
+    display: none;
+}
+
+.thermo--collapsed .thermo__collapsed {
+    display: flex;
+}
+
+.thermo__collapsed {
+    display: none;
+    justify-content: center;
+}
+
+.thermo__collapsed .thermo__bubble {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+    background: var(--success);
+    color: white;
+    cursor: pointer;
+}
+
+.thermo__collapsed .thermo__bubble:hover {
+    transform: scale(1.1);
+}
+
+/* Container for side-by-side thermos */
+.thermo-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* Disabled/toggled-off step */
+.thermo__step--disabled {
+    opacity: 0.4;
+    cursor: pointer;
+}
+
+.thermo__step--disabled .thermo__led {
+    background: var(--gray-400);
+    box-shadow: none;
+}
+
+.thermo__step--disabled .thermo__label {
+    text-decoration: line-through;
+    color: var(--gray-400);
+}
+
+/* Toggle status text (on/off inside bubble) */
+.thermo__status {
+    font-size: 8px;
+    font-style: italic;
+}
