@@ -262,6 +262,6 @@ This tells the system where to find your list of approved/standard terms.
 ## Related Documentation
 
 - **[Installation Guide](INSTALLATION.md)** - Setup instructions
-- **[Usage Guide](USAGE.md)** - How to use the add-in
+- **[Setup Guide](SETUP-GUIDE.md)** - How to use the add-in
 - **[Developer Guide](DEVELOPER.md)** - For modifying the code
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues

@@ -5,7 +5,7 @@
 If you have problems running the sample, take the following steps:
 
 - Read the sys-status message.
-- Check server status by clicking on the server-status-led and subsequently hover over it. if the server is online, it should turn green.
+- Check server status by clicking on the Py-Server indicator in the navbar - if online, it shows green.
 - **Close any open instances of Excel.**
 - **Stop the Python server** by pressing `Ctrl+C` in the terminal where it's running.
 - **Check your configuration file** - verify JSON syntax in `app.config.json`.
@@ -19,7 +19,7 @@ If you have problems running the sample, take the following steps:
 **Symptoms:**
 - Backend terminal shows no new logs
 - Endpoints don't respond (e.g., `/test-connection`, `/docs` hang forever)
-- Frontend LED indicator stays red (offline)
+- Py-Server indicator stays red (offline)
 - Browser requests never complete
 
 **Critical Diagnostic - Press Ctrl+C:**
@@ -65,7 +65,7 @@ INFO:     127.0.0.1:59464 - "OPTIONS /test-connection HTTP/1.1" 200 OK
 ### "Load Mapping Table" Button Does Nothing
 
 **Troubleshooting steps:**
-1. Check LED indicator - if red, backend is offline (see Backend Server Issues above)
+1. Check Py-Server indicator - if red, backend is offline (see Backend Server Issues above)
 2. Open browser console (`F12` in Excel task pane) - look for JavaScript errors or network failures
 3. Check Settings tab - verify "Require server connection" setting
 4. If offline mode is acceptable, uncheck "Require server connection" to work with exact/fuzzy matching only

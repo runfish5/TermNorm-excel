@@ -63,7 +63,7 @@ Start server:
 
 ### Step 3: Using the add-in
 
-1. Open TermNorm task pane, it will show you 4 stages for setup
+1. Open TermNorm task pane - the thermometer shows 4 setup stages (Server→Config→Mappings→Activate)
 2. Drag your `app.config.json` into the field, see here on how to prepare one: **[Configuration Guide](CONFIGURATION.md)**
 3. Load each of the reference files
   - For each Excel reference file, click **Browse**
@@ -94,14 +94,14 @@ Start server:
 
 **Monitor activity:**
 - Real-time processing shown in the Activity Feed
-- Server status indicator (green = online, red = offline)
+- Py-Server indicator in navbar (green = online, red = offline)
 - Processing logs for debugging
 
 ## Quick Verification Checklist
 
 Before diving deeper, verify everything is working:
 
-- [ ] Python server is running (green LED in task pane)
+- [ ] Py-Server indicator is green (in navbar)
 - [ ] Configuration loaded successfully
 - [ ] Entered a term and saw it processed
 - [ ] Target column populated with results
@@ -117,7 +117,7 @@ If any step fails, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**.
 For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**
 
 ### Check Server Status
-- Look for the LED indicator in the task pane
+- Look for the Py-Server indicator in the navbar
 - Hover over it to see connection details
 - Click to refresh connection
 

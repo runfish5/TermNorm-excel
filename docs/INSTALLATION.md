@@ -5,7 +5,7 @@
 > **Note:** Only for updating an existing IIS deployment of TermNorm.
 > For first-time installation, skip to [Section 1: Installation](#1--installation).
 
-1. Backup these two files: `config/app.config.json` &  `backend-api/logs/activity.jsonl`
+1. Backup these files: `config/app.config.json` & `backend-api/logs/langfuse/` (contains traces, scores, datasets)
 
 2. Delete the existing TermNorm root directory to ensure a clean installation.
 
@@ -42,7 +42,7 @@ and extract to your desired location (e.g., `C:\Users\Public\TermNorm-excel\`)
 
 5. Copy Manifest to Network Share `copy C:\inetpub\wwwroot\termnorm\manifest-iis.xml C:\OfficeAddIns\`
 
-6. Restore your backed-up `activity.jsonl` and `app.config.json` to the new backend location
+6. Restore your backed-up `langfuse/` folder and `app.config.json` to the new backend location
 7. Close all Excel windows completely and reopen Excel
 
 ## 1. 📦 Installation

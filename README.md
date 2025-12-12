@@ -27,7 +27,7 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 
 **For Users:**
 - **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- **[Usage Guide](docs/USAGE.md)** - How to use the add-in
+- **[Setup Guide](docs/SETUP-GUIDE.md)** - How to use the add-in
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Config file examples and multi-user setup
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
 
