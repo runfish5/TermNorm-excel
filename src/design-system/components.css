@@ -604,16 +604,16 @@ details[open] .collapsible-header::before {
 .thermo__track {
     position: absolute;
     top: 30px;
-    left: 16px;
+    left: 0;
     right: 16px;
-    height: 4px;
-    background: var(--gray-300);
-    border-radius: 2px;
+    height: 6px;
+    background: var(--gray-400);
+    border-radius: 3px;
 }
 
 .thermo--compact .thermo__track {
     top: 24px;
-    height: 3px;
+    height: 4px;
 }
 
 /* Progress fill */

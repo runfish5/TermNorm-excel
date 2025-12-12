@@ -142,16 +142,28 @@ async function startLiveTracking() {
     }
     $("research-thermo")?.classList.remove("hidden");
 
-    // Initialize research thermometer with toggleable LLM ranking
+    // Initialize research thermometer with toggleable steps
     if (!researchThermo) {
       researchThermo = Thermometer.init('research-thermo');
       if (researchThermo) {
+        // Web search toggle
+        const webSearchOn = getStateValue('settings.useWebSearch') !== false;
+        researchThermo.setToggleable('webS', webSearchOn);
+        // LLM ranking toggle
         const llmRankingOn = getStateValue('settings.useLlmRanking') !== false;
         researchThermo.setToggleable('llm2', llmRankingOn);
-        researchThermo.onToggle = (key, enabled) => {
-          if (key === 'llm2') {
+
+        researchThermo.onToggle = async (key, enabled) => {
+          if (key === 'webS') {
+            saveSetting('useWebSearch', enabled);
+            try {
+              const { setWebSearch } = await import("../utils/settings-manager.js");
+              await setWebSearch(enabled);
+              showMessage(enabled ? 'Web search ON' : 'Web search OFF');
+            } catch (e) { showMessage(`Failed: ${e.message}`, "error"); }
+          } else if (key === 'llm2') {
             saveSetting('useLlmRanking', enabled);
-            showMessage(enabled ? 'LLM ranking ON' : 'LLM ranking OFF (faster)');
+            showMessage(enabled ? 'LLM ranking ON' : 'LLM ranking OFF');
           }
         };
       }
@@ -200,17 +212,7 @@ function setupSettingsCheckboxes() {
     showMessage(`Server ${checked ? "required" : "optional"}`);
   });
 
-  bindCheckbox("use-web-search", "useWebSearch", async (checked, el) => {
-    saveSetting("useWebSearch", checked);
-    try {
-      const { setWebSearch } = await import("../utils/settings-manager.js");
-      await setWebSearch(checked);
-      showMessage(checked ? "Web search on" : "Web search off");
-    } catch (e) {
-      showMessage(`Failed: ${e.message}`, "error");
-      el.checked = !checked;
-    }
-  });
+  // Note: use-web-search moved to research thermometer toggle (webS step)
 
   bindCheckbox("use-brave-api", "useBraveApi", async (checked, el) => {
     saveSetting("useBraveApi", checked);

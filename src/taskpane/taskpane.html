@@ -325,26 +325,20 @@
                 <details class="settings-group">
                     <summary class="settings-group-header">⚡ Processing Options</summary>
                     <div class="settings-group-content">
-                        <label class="setting-row">
-                            <input type="checkbox" id="use-web-search" checked>
-                            <span>Use web search for research</span>
-                        </label>
-                        <p class="setting-description">
-                            <strong>When enabled (default):</strong> Uses web search engines to gather context for LLM matching.<br>
-                            <strong>When disabled:</strong> Skips all web search (faster, cheaper, but less accurate).
+                        <p class="setting-description mb-md">
+                            <strong>Tip:</strong> Toggle web search and LLM ranking directly from the research thermometer (click the step icons).
                         </p>
 
-                        <label class="setting-row mt-md">
+                        <label class="setting-row">
                             <input type="checkbox" id="use-brave-api" checked>
                             <span>Use Brave Search API (if configured)</span>
                         </label>
                         <p class="setting-description">
-                            <strong>When enabled (default):</strong> Uses Brave Search API as primary web scraper if API key configured.<br>
-                            <strong>When disabled:</strong> Tests fallback chain (SearXNG → DuckDuckGo → Bing) without Brave.
+                            <strong>When enabled:</strong> Uses Brave Search API as primary web scraper if API key configured.<br>
+                            <strong>When disabled:</strong> Uses fallback chain (SearXNG → DuckDuckGo → Bing).
                         </p>
-                        <div class="processing-options mt-md">
-                            <button id="renew-prompt" class="btn-secondary">Renew Prompt 🤖</button>
-                        </div>
+
+                        <button id="renew-prompt" class="btn-secondary mt-md">Renew Prompt 🤖</button>
                     </div>
                 </details>
 
