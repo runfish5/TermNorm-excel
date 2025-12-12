@@ -51,14 +51,36 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `state-manager.js` - Mappings, sessions, and settings management
   - `session-recovery.js` - Backend session initialization
   - `mapping-processor.js` - Excel mapping file processor
+  - `event-log.js` - Chronological processing event manager
+  - `prompt-renewer.js` - LLM prompt renewal with mapping analysis
 - **matchers/**: Matching algorithms
   - `cache-matcher.js` - Exact match lookup
   - `fuzzy-matcher.js` - Similarity matching (thresholds: forward 0.7, reverse 0.5)
 - **taskpane/**: Main entry point (`taskpane.js` - Office.onReady initialization)
-- **ui-components/**: Reusable UI modules (batch-processing, candidate-ranking, etc.)
-- **utils/**: Helpers (api-fetch, server-utilities, status-indicators, etc.)
+- **ui-components/**: Reusable UI modules
+  - `thermometer.js` - Progress/status indicator with two modes
+  - `candidate-ranking.js` - Drag-to-rank candidate selection
+  - `processing-history.js` - History tab with filtering
+  - `direct-prompt.js` - Custom LLM inference UI
+  - `file-handling.js` - Config file drag-and-drop
+  - `mapping-config.js` - Mapping configuration panel
+  - `batch-processing.js` - Batch normalization operations
+- **utils/**: DOM and API helpers
+  - `dom-helpers.js` - `$()`, `showView()`, modal helpers
+  - `api-fetch.js` - Backend API client with error handling
+  - `server-utilities.js` - Server status polling
+  - `status-indicators.js` - LED indicators and status updates
+  - `error-display.js` - User-facing error messages
+  - `settings-manager.js` - Persistent settings storage
+  - `app-utilities.js` - Version display, path utilities
+  - `column-utilities.js` - Column mapping builders
+  - `cell-writing.js` - Excel cell write operations
+  - `history-cache.js` - Processing history cache
 - **config/**: Configuration constants (normalization.config.js, session.config.js)
-- **design-system/**: CSS tokens and component styles
+- **design-system/**: CSS architecture
+  - `tokens.css` - Color, spacing, typography variables
+  - `utilities.css` - Utility classes (hidden, flex, etc.)
+  - `components.css` - Badges, cards, buttons, forms
 
 ### Backend (backend-api/)
 - **main.py**: FastAPI app entry point
@@ -67,14 +89,20 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `system.py` - Health checks, LLM config, cache management
 - **core/**: Infrastructure
   - `llm_providers.py` - Unified Groq/OpenAI interface with retry logic
+  - `logging.py` - Backend logging configuration
+  - `user_manager.py` - IP-based user authentication
 - **research_and_rank/**: AI pipeline modules
   - `web_generate_entity_profile.py` - Web scraping + entity extraction
   - `call_llm_for_ranking.py` - LLM candidate ranking
   - `correct_candidate_strings.py` - Fuzzy correction of LLM outputs
+  - `display_profile.py` - Entity profile formatting
 - **utils/**:
-  - `langfuse_logger.py` - Langfuse-compatible trace/observation/score/dataset logging
-  - `live_experiment_logger.py` - High-level logging functions (`log_to_langfuse`, `log_user_correction`)
+  - `langfuse_logger.py` - Langfuse-compatible logging (traces, observations, scores, datasets, high-level helpers)
   - `prompt_registry.py` - Versioned prompt management
+  - `standards_logger.py` - Experiment/run management
+  - `cache_metadata.py` - Cache metadata tracking
+  - `responses.py` - API response formatting
+  - `utils.py` - General utilities
 - **config/**: Settings, middleware, users.json (hot-reload)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
@@ -96,6 +124,9 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
 6. **IP-Based Auth**: Users configured in `backend-api/config/users.json`
 7. **Office.js Operations**: Batch inside `Excel.run(async (ctx) => {...})`, commit with `ctx.sync()`
 8. **$ Helper Pattern**: DOM queries via `const $ = id => document.getElementById(id)`
+9. **Thermometer Component**: Progress indicator with two modes:
+   - `progress`: Sequential steps, collapsible, fill bar (setup wizard: server→config→mappings→activate)
+   - `status`: Independent toggleable states (research pipeline: web→LLM→score→rank)
 
 ## Code Quality Standards
 

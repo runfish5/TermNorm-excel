@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2025-12-12
+
+### Highlights
+
+**Thermometer Component**
+- New progress/status indicator with two modes
+- Setup wizard: Sequential steps (server→config→mappings→activate) with auto-progression
+- Research pipeline: Toggleable steps (web search→LLM→scoring→LLM ranking)
+- LLM ranking toggle allows skipping second LLM call for faster processing
+
+**UI/UX Improvements**
+- Professional navbar redesign with cleaner layout
+- Settings groups with card-like appearance and subtle shadows
+- Status bar made sticky, "Backend" renamed to "Py-Server"
+- Bubble animation replacing hourglass loader
+- Badge system for status messages with bordered variants
+
+**Performance**
+- Removed Microsoft Fabric CSS dependency (100KB CDN eliminated)
+- Migrated 24+ hardcoded colors to CSS token variables
+- Consolidated 3 button systems to unified `btn-primary`/`btn-secondary`
+
+### Bug Fixes
+- Fixed double-nested details element causing duplicate collapse triangles
+- Fixed status message alignment (now left-bound with badge styling)
+- Fixed auto-progression jumping backward when events re-fire
+
+### Technical Details
+- 9 commits since v1.0.3
+- Design system expanded with components.css (badges, cards, buttons)
+- Thermometer component: 140 lines with MODES config pattern
+- No breaking changes from v1.0.3
+
 ## [1.0.3] - 2025-12-08
 
 ### Highlights
