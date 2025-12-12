@@ -152,10 +152,9 @@
     z-index: 900;
 }
 
-/* Main status message */
+/* Main status message - uses badge classes from design system */
 .status-message {
-    font-size: 13px;
-    color: var(--gray-700);
+    font-size: 12px;
     white-space: pre-wrap;
     line-height: 1.4;
 }
@@ -192,6 +191,15 @@
     font-weight: 500;
 }
 
+/* Py-Server in navbar */
+.status-component--nav {
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.status-component--nav .component-label {
+    font-size: 10px;
+}
 
 /* Buttons */
 .btn-primary {

@@ -236,6 +236,12 @@
     color: var(--error-dark);
 }
 
+.badge-bordered.badge-info {
+    border-color: var(--info);
+    color: var(--info-text);
+    background: var(--info-lighter, #F0F7FF);
+}
+
 .badge-bordered.badge-warning-heavy {
     border: 2px solid var(--warning-border);
 }
@@ -788,4 +794,19 @@ details[open] .collapsible-header::before {
 .thermo__status {
     font-size: 8px;
     font-style: italic;
+}
+
+/* Status bar thermos */
+.status-bar .thermo {
+    padding: 8px 0 4px;
+    max-width: 220px;
+}
+
+.status-bar .thermo__track {
+    top: 18px;
+}
+
+/* Research thermo row */
+.status-bar > .thermo {
+    margin-left: 8px;
 }

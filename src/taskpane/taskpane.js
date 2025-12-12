@@ -23,6 +23,25 @@ let researchThermo = null;
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
+
+  // Auto-progression: advance thermometer and show corresponding panel (only forward, never back)
+  let currentStep = 1;
+  const goToStep = (num) => {
+    if (!setupThermo || num <= currentStep) return; // Only advance forward
+    currentStep = num;
+    setupThermo.setStep(num);
+    document.querySelectorAll(".step-panel").forEach(p => p.classList.toggle("active", p.dataset.step === String(num)));
+  };
+
+  eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => { if (online) goToStep(2); });
+  eventBus.on(Events.CONFIG_LOADED, () => goToStep(3));
+  eventBus.on(Events.MAPPINGS_LOADED, () => {
+    const loaded = Object.keys(getStateValue('mappings.sources') || {}).length;
+    const total = getStateValue('config.data')?.standard_mappings?.length || 0;
+    console.log(`[Thermo] Mappings: ${loaded}/${total}`);
+    if (total > 0 && loaded >= total) goToStep(4);
+  });
+
   refresh();
 }
 
