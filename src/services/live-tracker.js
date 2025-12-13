@@ -109,8 +109,7 @@ const handleWorksheetChange = async (e, tracker) => {
 
     const withValue = cells.filter(c => c.value);
     if (withValue.length >= 2) {
-      withValue.forEach(c => ws.getRangeByIndexes(c.row, c.col, 1, 1).format.fill.color = PROCESSING_COLORS.PENDING);
-      await ctx.sync();
+      // Don't color cells - just warn and exit (avoids leaving cells yellow permanently)
       return showMessage(`Paste detected (${cells.length} cells). Edit individually.`, "warning");
     }
 
@@ -156,14 +155,17 @@ function logResult(workbookId, cellKey, value, result, status, row, col) {
 async function writeCellResult(row, inputCol, outputCol, targetValue, confidence, confidenceColumnMap) {
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
-    const ws = ctx.workbook.worksheets.getActiveWorksheet();
-    ws.getRangeByIndexes(row, outputCol, 1, 1).values = [[targetValue]];
-    ws.getRangeByIndexes(row, outputCol, 1, 1).format.fill.color = getRelevanceColor(confidence);
-    ws.getRangeByIndexes(row, inputCol, 1, 1).format.fill.clear();
-    const confCol = confidenceColumnMap.get(inputCol);
-    if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[Math.round(confidence * 100)]];
-    await ctx.sync();
-    ctx.runtime.enableEvents = true;
+    try {
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      ws.getRangeByIndexes(row, outputCol, 1, 1).values = [[targetValue]];
+      ws.getRangeByIndexes(row, outputCol, 1, 1).format.fill.color = getRelevanceColor(confidence);
+      ws.getRangeByIndexes(row, inputCol, 1, 1).format.fill.clear();
+      const confCol = confidenceColumnMap.get(inputCol);
+      if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[Math.round(confidence * 100)]];
+      await ctx.sync();
+    } finally {
+      ctx.runtime.enableEvents = true;
+    }
   });
 }
 
@@ -185,14 +187,17 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
   const msg = error?.message || String(error);
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
-    const ws = ctx.workbook.worksheets.getActiveWorksheet(), cell = (r, c) => ws.getRangeByIndexes(r, c, 1, 1);
-    cell(row, col).format.fill.color = PROCESSING_COLORS.ERROR;
-    cell(row, targetCol).values = [[msg]];
-    cell(row, targetCol).format.fill.color = PROCESSING_COLORS.ERROR;
-    const confCol = tracker.confidenceColumnMap.get(col);
-    if (confCol !== undefined) cell(row, confCol).values = [[0]];
-    await ctx.sync();
-    ctx.runtime.enableEvents = true;
+    try {
+      const ws = ctx.workbook.worksheets.getActiveWorksheet(), cell = (r, c) => ws.getRangeByIndexes(r, c, 1, 1);
+      cell(row, col).format.fill.color = PROCESSING_COLORS.ERROR;
+      cell(row, targetCol).values = [[msg]];
+      cell(row, targetCol).format.fill.color = PROCESSING_COLORS.ERROR;
+      const confCol = tracker.confidenceColumnMap.get(col);
+      if (confCol !== undefined) cell(row, confCol).values = [[0]];
+      await ctx.sync();
+    } finally {
+      ctx.runtime.enableEvents = true;
+    }
   });
   logResult(tracker.workbookId, outputCellKey, value, makeResult(msg, "error", 0, value), "error", row, targetCol);
 }

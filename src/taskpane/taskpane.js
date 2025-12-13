@@ -17,28 +17,73 @@ import { showMessage } from "../utils/error-display.js";
 import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 
-let setupThermo = null;
 let researchThermo = null;
+
+// Wizard state machine - centralizes all setup wizard progression logic
+const wizardState = {
+  step: 1,
+  thermo: null,
+
+  init(thermo) {
+    this.thermo = thermo;
+    this.step = 1;
+  },
+
+  // Auto-advance: only moves forward, ignores requests to go backward
+  advance(targetStep) {
+    if (!this.thermo || targetStep <= this.step) return;
+    this.step = targetStep;
+    this._updateUI();
+  },
+
+  // Manual navigation: allows going to any step (for user clicks)
+  goTo(targetStep) {
+    if (!this.thermo || !targetStep) return;
+    this.step = targetStep;
+    this._updateUI();
+  },
+
+  _updateUI() {
+    this.thermo.setStep(this.step);
+    document.querySelectorAll(".step-panel").forEach(p =>
+      p.classList.toggle("active", p.dataset.step === String(this.step))
+    );
+  },
+
+  reset() {
+    this.step = 1;
+    if (this.thermo) {
+      this.thermo.reset();
+      this.thermo.expand();
+    }
+  },
+
+  completeAndCollapse() {
+    if (this.thermo) {
+      this.thermo.completeAll();
+      this.thermo.collapse();
+    }
+  },
+
+  // Event handlers - centralized progression rules
+  onServerOnline() { this.advance(2); },
+  onConfigLoaded() { this.advance(3); },
+  onMappingsLoaded(loadedCount, totalCount) {
+    if (totalCount > 0 && loadedCount >= totalCount) this.advance(4);
+  }
+};
 
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
 
-  // Auto-progression: advance thermometer and show corresponding panel (only forward, never back)
-  let currentStep = 1;
-  const goToStep = (num) => {
-    if (!setupThermo || num <= currentStep) return; // Only advance forward
-    currentStep = num;
-    setupThermo.setStep(num);
-    document.querySelectorAll(".step-panel").forEach(p => p.classList.toggle("active", p.dataset.step === String(num)));
-  };
-
-  eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => { if (online) goToStep(2); });
-  eventBus.on(Events.CONFIG_LOADED, () => goToStep(3));
+  // Wizard progression via state machine
+  eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => online && wizardState.onServerOnline());
+  eventBus.on(Events.CONFIG_LOADED, () => wizardState.onConfigLoaded());
   eventBus.on(Events.MAPPINGS_LOADED, () => {
     const loaded = Object.keys(getStateValue('mappings.sources') || {}).length;
     const total = getStateValue('config.data')?.standard_mappings?.length || 0;
-    if (total > 0 && loaded >= total) goToStep(4);
+    wizardState.onMappingsLoaded(loaded, total);
   });
 
   refresh();
@@ -52,12 +97,12 @@ Office.onReady(async (info) => {
   const appBody = $("app-body");
   if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
 
-  setupThermo = Thermometer.init('setup-thermo');
+  wizardState.init(Thermometer.init('setup-thermo'));
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
   eventBus.on(Events.TRACKING_STOPPED, () => {
     $("research-thermo")?.classList.add("hidden");
-    if (setupThermo) { setupThermo.reset(); setupThermo.expand(); }
+    wizardState.reset();
     showView("setup");
   });
   setupUIReactivity();
@@ -87,13 +132,9 @@ Office.onReady(async (info) => {
     if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") eventBus.emit(Events.SETTINGS_PANEL_OPENED); }
     const step = e.target.closest(".thermo__step");
     // Only switch panels for setup thermometer, not research thermometer
-    if (step && step.closest("#setup-thermo") && setupThermo) {
+    if (step && step.closest("#setup-thermo") && wizardState.thermo) {
       e.preventDefault();
-      const num = parseInt(step.dataset.step);
-      if (num) {
-        setupThermo.setStep(num);
-        document.querySelectorAll(".step-panel").forEach(p => p.classList.toggle("active", p.dataset.step === String(num)));
-      }
+      wizardState.goTo(parseInt(step.dataset.step));
     }
   });
 
@@ -138,10 +179,7 @@ async function startLiveTracking() {
     showMessage(msg);
 
     // Collapse setup thermometer, show research thermometer
-    if (setupThermo) {
-      setupThermo.completeAll();
-      setupThermo.collapse();
-    }
+    wizardState.completeAndCollapse();
     $("research-thermo")?.classList.remove("hidden");
 
     // Initialize research thermometer with toggleable steps

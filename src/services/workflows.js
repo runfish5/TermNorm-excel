@@ -85,11 +85,13 @@ export async function ensureSessionInitialized() {
 }
 
 export async function executeWithSessionRecovery(apiCallFn) {
-  let result = await apiCallFn();
-  if (result) return result;
+  try {
+    const result = await apiCallFn();
+    if (result) return result;
+  } catch {} // Fall through to recovery on exception or null result
   showMessage("Recovering backend session...");
-  if (await reinitializeSession()) result = await apiCallFn();
-  return result;
+  if (await reinitializeSession()) return apiCallFn();
+  return null;
 }
 
 export async function initializeSettings() {
