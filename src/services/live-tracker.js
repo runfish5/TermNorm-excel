@@ -6,8 +6,7 @@ import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilit
 import { PROCESSING_COLORS, getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
 import { showMessage } from "../utils/error-display.js";
 import { findTargetBySource } from "../utils/history-cache.js";
-import { apiPost } from "../utils/api-fetch.js";
-import { getHost, getHeaders } from "../utils/api-fetch.js";
+import { apiPost, getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { ENDPOINTS } from "../config/config.js";
 
 const activeTrackers = new Map();
@@ -114,7 +113,7 @@ const handleWorksheetChange = async (e, tracker) => {
         eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
 
         // Also log to API (fire-and-forget)
-        apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, { source, target, method: "DirectEdit", confidence: 1.0, timestamp }, getHeaders()).catch(() => {});
+        apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: 1.0, timestamp }, getHeaders()).catch(() => {});
       }
     }
 
@@ -218,7 +217,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   const result = makeResult(choice.candidate, "UserChoice", choice.relevance_score, value, { entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-  try { await apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()); } catch {}
+  try { await apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()); } catch {}
 }
 
 export async function stopTracking(workbookId) {

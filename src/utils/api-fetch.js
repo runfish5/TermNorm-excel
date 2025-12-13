@@ -6,6 +6,7 @@ import { ERROR_GUIDANCE, ENDPOINTS } from "../config/config.js";
 // Server utilities
 export function getHost() { return getStateValue('server.host') || "http://127.0.0.1:8000"; }
 export function getHeaders() { return { "Content-Type": "application/json" }; }
+export const buildUrl = endpoint => `${getHost()}${endpoint}`;
 
 let serverCheckPromise = null;
 export async function checkServerStatus() {
@@ -73,5 +74,5 @@ export async function apiGet(url, headers = {}, silent = false) {
 }
 
 export function logMatch(data, headers = {}) {
-  serverFetch(`${getHost()}${ENDPOINTS.ACTIVITY_MATCHES}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
+  serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
 }

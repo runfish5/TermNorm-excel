@@ -1,7 +1,7 @@
 // services/normalizer.js - Three-tier term normalization: Exact → Fuzzy → LLM
 import { getCachedMatch, findFuzzyMatch as findFuzzyMatchDomain } from "../matchers/matchers.js";
 import { FUZZY_THRESHOLDS, SESSION_ENDPOINTS } from "../config/config.js";
-import { getHost, getHeaders } from "../utils/api-fetch.js";
+import { getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflows.js";
 import { showMessage } from "../utils/error-display.js";
@@ -19,7 +19,7 @@ export async function findTokenMatch(value) {
 
   setWebSearchStatus('idle');
   const skipLlmRanking = getStateValue('settings.useLlmRanking') === false;
-  const data = await executeWithSessionRecovery(() => apiPost(`${getHost()}${SESSION_ENDPOINTS.RESEARCH}`, { query: normalized, skip_llm_ranking: skipLlmRanking }, getHeaders()));
+  const data = await executeWithSessionRecovery(() => apiPost(buildUrl(SESSION_ENDPOINTS.RESEARCH), { query: normalized, skip_llm_ranking: skipLlmRanking }, getHeaders()));
   if (!data) return null;
   if (data.web_search_status) setWebSearchStatus(data.web_search_status, data.web_search_error || null);
 

@@ -11,7 +11,7 @@
  */
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
-import { checkServerStatus, getHost, getHeaders } from "../utils/api-fetch.js";
+import { checkServerStatus, getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
@@ -54,7 +54,7 @@ async function initSessionWithRetry(terms) {
 
 async function initSession(terms) {
   try {
-    if (await apiPost(`${getHost()}${SESSION_ENDPOINTS.INIT}`, { terms }, getHeaders(), { silent: true })) {
+    if (await apiPost(buildUrl(SESSION_ENDPOINTS.INIT), { terms }, getHeaders(), { silent: true })) {
       stateStore.merge('session', { initialized: true, termCount: terms.length, lastInitialized: new Date().toISOString(), error: null });
       return true;
     }

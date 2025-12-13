@@ -8,7 +8,7 @@ import { saveSetting } from "../services/workflows.js";
 import { showMessage } from "../utils/error-display.js";
 import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
-import { $ } from "../utils/dom-helpers.js";
+import { $, confirmModal } from "../utils/dom-helpers.js";
 
 const HTML = `
 <div class="settings-panel">
@@ -133,7 +133,7 @@ export function init(containerId = "settings-panel-container") {
 
   // Actions
   $("set-reset")?.addEventListener("click", async () => {
-    if (!confirm("Reset all settings to defaults?")) return;
+    if (!(await confirmModal("Reset all settings to defaults?", "Reset", "Cancel"))) return;
     localStorage.removeItem("termnorm_settings");
     Object.entries(DEFAULTS).forEach(([k, v]) => saveSetting(k, v));
     try { await Promise.all([setBraveApi(true), setWebSearch(true)]); } catch {}

@@ -28,7 +28,7 @@ const HTML = `<summary class="panel-header collapsible-header">Direct Prompt</su
     <button id="dp-clear-btn" class="btn-secondary">Clear</button>
   </div>
   <div id="dp-progress" class="progress-container hidden">
-    <div class="progress-bar"><div id="dp-progress-fill" class="progress-fill" style="width:0%"></div></div>
+    <div class="progress-bar"><div id="dp-progress-fill" class="progress-fill"></div></div>
     <div id="dp-progress-text" class="progress-text">Processing: 0 / 0</div>
   </div>
 </div>`;

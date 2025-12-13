@@ -36,7 +36,7 @@ export function initializeProjectPathDisplay() {
   const path = projectPath.replace(/\\\\/g, "\\"), configPath = path + "\\config", configFile = configPath + "\\app.config.json";
   const typeLabels = { development: "Development", iis: "IIS Server", m365: "Microsoft 365" };
 
-  ["development", "iis", "m365"].forEach(t => { const el = $(`path-display-${t}`); if (el) el.style.display = deploymentType === t ? "block" : "none"; });
+  ["development", "iis", "m365"].forEach(t => { const el = $(`path-display-${t}`); if (el) el.classList.toggle("hidden", deploymentType !== t); });
 
   setText("deployment-type-indicator", typeLabels[deploymentType] || deploymentType);
   ["config-path-display", "config-path-display-iis"].forEach(id => setText(id, path));

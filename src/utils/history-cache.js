@@ -1,8 +1,7 @@
 /** History Cache - Fetches and caches processed entries from backend */
 import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
 import { stateStore } from "../core/state-store.js";
-import { serverFetch, apiGet } from "./api-fetch.js";
-import { getHost, getHeaders } from "./api-fetch.js";
+import { serverFetch, apiGet, getHeaders, buildUrl } from "./api-fetch.js";
 import { ENDPOINTS } from "../config/config.js";
 
 export async function initializeHistoryCache() {

@@ -33,13 +33,13 @@ function showHistoryPopup(source, history, row) {
   if (!history || history.length <= 1) return;
   const popup = document.createElement("div");
   popup.className = "history-popup";
-  popup.innerHTML = `<div style="border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px"><b>${source}</b> <span style="color:#666">(${history.length})</span></div>` +
-    history.map((h, i) => `<div data-idx="${i}" style="display:flex;gap:8px;align-items:center">
-      <span style="color:#888;font-size:11px;min-width:120px">${new Date(h.timestamp).toLocaleString()}</span>
-      <span style="flex:1">${h.target}</span>
-      <span style="color:#666;font-size:10px">[${h.method}]</span>
+  popup.innerHTML = `<div class="history-popup-header"><b>${source}</b> <span class="history-popup-count">(${history.length})</span></div>` +
+    history.map((h, i) => `<div data-idx="${i}" class="history-popup-item">
+      <span class="history-popup-timestamp">${new Date(h.timestamp).toLocaleString()}</span>
+      <span class="history-popup-target">${h.target}</span>
+      <span class="history-popup-method">[${h.method}]</span>
       <span>${Math.round((h.confidence||0)*100)}%</span>
-      ${i===0?'<span style="color:gold">★</span>':'<span style="color:#aaa">→</span>'}
+      ${i===0?'<span class="history-popup-star">★</span>':'<span class="history-popup-arrow">→</span>'}
     </div>`).join("");
   document.body.appendChild(popup);
   popup.onclick = e => { const t = e.target.closest("[data-idx]"); if (t) { popup.remove(); fetchAndDisplayDetails(history[t.dataset.idx].target, row); } };

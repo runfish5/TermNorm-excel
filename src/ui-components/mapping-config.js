@@ -3,13 +3,12 @@ import { loadAndProcessMappings } from "../services/mapping-processor.js";
 import { getStateValue } from "../core/state-actions.js";
 import { loadMappingSource } from "../services/workflows.js";
 import { showMessage } from "../utils/error-display.js";
-import { UI_COLORS } from "../config/config.js";
 
 export function createMappingConfigHTML(config, i) {
   return `
     <summary class="mapping-summary">
       Map Config ${i + 1}
-      <span class="filename-display" style="margin-left: 10px; font-style: italic; color: ${UI_COLORS.TEXT_GRAY};"></span>
+      <span class="filename-display"></span>
     </summary>
     <div class="form-section first-form-section">
       <div class="radio-group">
@@ -27,7 +26,7 @@ export function createMappingConfigHTML(config, i) {
         <div class="file-row">
           <label>File Path:</label>
           <input type="text" class="file-path-display" placeholder="No file selected" readonly />
-          <input type="file" class="file-picker-input" accept=".xlsx,.xls" style="display: none" />
+          <input type="file" class="file-picker-input hidden" accept=".xlsx,.xls" />
           <button class="browse-button btn-secondary">Browse...</button>
         </div>
       </div>

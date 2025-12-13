@@ -1,5 +1,5 @@
 /** Error/Status Display - Unified in main-status-message */
-import { UI_TIMINGS, UI_COLORS } from "../config/config.js";
+import { UI_TIMINGS } from "../config/config.js";
 
 let statusEl = null, dotsInterval = null;
 
@@ -14,12 +14,12 @@ export function showMessage(text, type = "info") {
   if (type === "processing" || type === "waiting" || text.toLowerCase().includes("processing")) {
     const content = type === "waiting" ? '<span class="hourglass-emoji">⏳</span>' : `<div class="bubble-container">${bubbleSide('left')}${bubbleSide('right')}</div>`;
     el.innerHTML = `<div class="loading-container">${content}<span class="loading-message">${text}</span><span class="loading-dots"></span></div>`;
-    el.style.color = "";
+    el.classList.remove("status-message--error");
     const dotsEl = el.querySelector('.loading-dots'), states = ['', '.', '..', '...', '..', '.'];
     let i = 0;
     dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % 6]; }, UI_TIMINGS.LOADING_DOTS_MS);
   } else {
     el.textContent = text;
-    el.style.color = type === "error" ? UI_COLORS.ERROR_RED : "";
+    el.classList.toggle("status-message--error", type === "error");
   }
 }

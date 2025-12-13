@@ -95,7 +95,7 @@ Office.onReady(async (info) => {
   initHistory(); initDirectPrompt(); initCandidates(); updateHistoryTabCounter();
   $("sideload-msg")?.classList.add("hidden");
   const appBody = $("app-body");
-  if (appBody) { appBody.classList.remove("hidden"); appBody.style.display = "flex"; }
+  if (appBody) { appBody.classList.remove("hidden"); appBody.classList.add("app-body--active"); }
 
   wizardState.init(Thermometer.init('setup-thermo'));
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();

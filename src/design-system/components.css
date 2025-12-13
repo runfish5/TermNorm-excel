@@ -571,6 +571,7 @@ details[open] .collapsible-header::before {
 
 .progress-fill {
     height: 100%;
+    width: 0;
     background: linear-gradient(90deg, var(--info), #0a58ca);
     transition: width 0.3s ease;
 }
@@ -850,4 +851,87 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 /* Research thermo row */
 .status-bar > .thermo {
     margin-left: 8px;
+}
+
+/* ===================================
+   HISTORY POPUP
+   =================================== */
+
+.history-popup-header {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+}
+
+.history-popup-count {
+    color: #666;
+}
+
+.history-popup-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.history-popup-timestamp {
+    color: #888;
+    font-size: 11px;
+    min-width: 120px;
+}
+
+.history-popup-target {
+    flex: 1;
+}
+
+.history-popup-method {
+    color: #666;
+    font-size: 10px;
+}
+
+.history-popup-star {
+    color: gold;
+}
+
+.history-popup-arrow {
+    color: #aaa;
+}
+
+/* ===================================
+   METADATA & FILE DISPLAY
+   =================================== */
+
+.metadata-pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 11px;
+}
+
+.filename-display {
+    margin-left: 10px;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+/* ===================================
+   STATUS MESSAGE COLORS
+   =================================== */
+
+.status-message--error {
+    color: var(--error);
+}
+
+.status-message--default {
+    color: inherit;
+}
+
+/* ===================================
+   LAYOUT UTILITIES
+   =================================== */
+
+.app-body--active {
+    display: flex;
+}
+
+.deployment-indicator--hidden {
+    display: none;
 }

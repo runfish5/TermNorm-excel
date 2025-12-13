@@ -106,5 +106,5 @@ function updateJsonDump() {
     reverseMappings: Object.keys(s.data?.reverse || {}).length,
     metadata: s.data?.metadata
   }));
-  content.querySelector("#metadata-display").innerHTML = `<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px;">${JSON.stringify(data, null, 2)}</pre>`;
+  content.querySelector("#metadata-display").innerHTML = `<pre class="metadata-pre">${JSON.stringify(data, null, 2)}</pre>`;
 }
