@@ -2,7 +2,7 @@
 import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigData } from "./mapping-config.js";
 import { getStateValue, setConfig, setServerHost } from "../core/state-actions.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
-import { showView } from "../utils/dom-helpers.js";
+import { $, showView } from "../utils/dom-helpers.js";
 import { showMessage } from "../utils/error-display.js";
 
 let mappingModules = [];
@@ -19,7 +19,7 @@ function setStepStates(success) {
 }
 
 async function applyConfig(configData, source) {
-  if (configData.backend_url) { setServerHost(configData.backend_url); const input = document.getElementById("server-url-input"); if (input) input.value = configData.backend_url; }
+  if (configData.backend_url) { setServerHost(configData.backend_url); const input = $("server-url-input"); if (input) input.value = configData.backend_url; }
   const workbook = await getCurrentWorkbookName(), config = extractProjectConfig(configData, workbook);
   setConfig({ ...config, workbook }, configData);
   await ensureUISetup();
@@ -41,7 +41,7 @@ export async function loadStaticConfig() {
 }
 
 export function setupFileHandling() {
-  const dropZone = document.getElementById("drop-zone");
+  const dropZone = $("drop-zone");
   if (!dropZone) return;
 
   const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
@@ -70,12 +70,12 @@ async function processFile(file) {
 async function ensureUISetup() {
   showView("setup");
   await new Promise(r => setTimeout(r, 50));
-  if (!document.getElementById("mapping-configs-container")) throw new Error("Config container missing");
+  if (!$("mapping-configs-container")) throw new Error("Config container missing");
 }
 
 export async function reloadMappingModules() {
   const mappings = getStateValue('config.data')?.standard_mappings || [];
-  const container = document.getElementById("mapping-configs-container");
+  const container = $("mapping-configs-container");
   if (!mappings.length || !container) return;
 
   container.innerHTML = "";
@@ -97,7 +97,7 @@ function updateGlobalStatus() {
 }
 
 function updateJsonDump() {
-  const content = document.getElementById("metadata-content"), sources = getStateValue('mappings.sources') || {};
+  const content = $("metadata-content"), sources = getStateValue('mappings.sources') || {};
   if (!content || !Object.keys(sources).length) return;
   const data = Object.entries(sources).map(([i, s]) => ({
     sourceIndex: +i + 1,

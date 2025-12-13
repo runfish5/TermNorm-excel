@@ -1,6 +1,8 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { EVENT_LOG } from "../config/config.js";
+import { $, showView } from "../utils/dom-helpers.js";
+import { cacheEntity, getEntity } from "../utils/history-cache.js";
 
 const sessionEvents = [];
 const addEvent = (e) => { if (!e.source) return; e.timestamp = e.timestamp || new Date().toISOString(); sessionEvents.unshift(e); if (sessionEvents.length > EVENT_LOG.MAX_ENTRIES) sessionEvents.pop(); };
@@ -58,13 +60,13 @@ eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier, source })
 eventBus.on(Events.MATCH_LOGGED, ({ value, cellKey, timestamp, result }) => addEntry(value, cellKey, timestamp, result));
 
 export function init(containerId = "processing-history-feed") {
-  container = document.getElementById(containerId);
+  container = $(containerId);
   if (!container) return false;
   if (tableBody?.isConnected) return true;
   sourceIndex.clear();
   container.innerHTML = `<table class="table table-rounded table-elevated"><thead><tr><th>Time</th><th>Source</th><th>Target</th><th>Method</th><th>Confidence</th></tr></thead><tbody></tbody></table>`;
   tableBody = container.querySelector("tbody");
-  document.getElementById("clear-history")?.addEventListener("click", clear);
+  $("clear-history")?.addEventListener("click", clear);
   showPlaceholder();
   return true;
 }
@@ -77,7 +79,7 @@ export async function addEntry(source, cellKey, timestamp, result) {
   const key = norm(source);
   addEvent({ source, cellKey, timestamp: ts });
   const r = result || { target: "Unknown", method: "-", confidence: 0, web_search_status: "idle" };
-  try { (await import("../utils/history-cache.js")).cacheEntity(source, r); } catch {}
+  cacheEntity(source, r);
   const h = { timestamp: ts, target: r.target, method: r.method, confidence: r.confidence, web_search_status: r.web_search_status || "idle" };
   const existing = sourceIndex.get(key);
   if (existing) {
@@ -122,10 +124,10 @@ function collapseExpandedRow() {
   expandedRowState = null;
 }
 
-export const updateHistoryTabCounter = () => { const t = document.getElementById("history-tab")?.querySelector(".tab-icon"); if (t) t.textContent = `${sourceIndex.size}📜`; };
+export const updateHistoryTabCounter = () => { const t = $("history-tab")?.querySelector(".tab-icon"); if (t) t.textContent = `${sourceIndex.size}📜`; };
 
 export async function handleCellSelection(cellKey, state, identifier, source) {
-  (await import("../utils/dom-helpers.js")).showView("history");
+  showView("history");
   const id = identifier || state?.result?.target;
   let row = scrollToAndHighlight(cellKey, "sessionKey");
   if (!row && source) { const entry = sourceIndex.get(norm(source)); if (entry?.row) { collapseExpandedRow(); entry.row.scrollIntoView({ behavior: "smooth", block: "center" }); row = entry.row; } }
@@ -134,7 +136,7 @@ export async function handleCellSelection(cellKey, state, identifier, source) {
   if (currentId && row) fetchAndDisplayDetails(currentId, row);
 }
 
-async function fetchAndDisplayDetails(id, row) { const e = await (await import("../utils/history-cache.js")).getEntity(id); if (e) displayDetailsPanel({ identifier: id, ...e }, row); }
+async function fetchAndDisplayDetails(id, row) { const e = await getEntity(id); if (e) displayDetailsPanel({ identifier: id, ...e }, row); }
 
 function displayDetailsPanel(d, row) {
   if (!d || !row) return;

@@ -2,6 +2,7 @@
 import { showMessage } from "./error-display.js";
 import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
 import { ERROR_GUIDANCE, ENDPOINTS } from "../config/config.js";
+import { $ } from "./dom-helpers.js";
 
 // Server utilities
 export function getHost() { return getStateValue('server.host') || "http://127.0.0.1:8000"; }
@@ -25,7 +26,7 @@ export async function checkServerStatus() {
 
 export function setupServerEvents() {
   setServerHost(getHost());
-  document.getElementById("server-url-input")?.addEventListener("input", (e) => setServerHost(e.target.value.trim()));
+  $("server-url-input")?.addEventListener("input", (e) => setServerHost(e.target.value.trim()));
 }
 
 // Fetch wrappers

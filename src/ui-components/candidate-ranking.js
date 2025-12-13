@@ -2,13 +2,14 @@ import { init as initHistory } from "./processing-history.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { UI_TIMINGS } from "../config/config.js";
+import { $ } from "../utils/dom-helpers.js";
 
 let container = null, candidatesData = [], currentContext = null;
 
 eventBus.on(Events.CANDIDATES_AVAILABLE, ({ source, result, applyChoice }) => addCandidate(source, result, { applyChoice }));
 
 export function init() {
-  container = document.getElementById("results-view");
+  container = $("results-view");
   if (!container) return false;
   initHistory("processing-history-feed");
   return true;
