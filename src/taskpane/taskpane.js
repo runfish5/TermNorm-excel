@@ -1,8 +1,8 @@
 import { startTracking } from "../services/live-tracker.js";
-import { renewPrompt } from "../services/prompt-renewer.js";
 import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
 import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
+import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
@@ -10,7 +10,7 @@ import { initializeSettings, saveSetting } from "../services/state-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
-import { initializeVersionDisplay, initializeProjectPathDisplay } from "../utils/app-utilities.js";
+import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
 import { $, showView, setupButton, openModal, closeModal } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage } from "../utils/error-display.js";
@@ -57,8 +57,8 @@ Office.onReady(async (info) => {
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
   setupUIReactivity();
-  checkServerStatus(); initializeVersionDisplay(); initializeProjectPathDisplay();
-  setupSettingsCheckboxes();
+  checkServerStatus(); initializeProjectPathDisplay();
+  initSettingsPanel();
 
   setupButton("offline-mode-warning", () => { showView("settings"); showMessage("Offline mode active - re-enable in Settings"); });
 
@@ -78,11 +78,9 @@ Office.onReady(async (info) => {
     finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
   });
 
-  $("renew-prompt")?.addEventListener("click", renewPromptHandler);
-
   document.addEventListener("click", async (e) => {
     const tab = e.target.closest(".nav-tab");
-    if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") await initializeLlmSettings(); }
+    if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") eventBus.emit(Events.SETTINGS_PANEL_OPENED); }
     const step = e.target.closest(".thermo__step");
     // Only switch panels for setup thermometer, not research thermometer
     if (step && step.closest("#setup-thermo") && setupThermo) {
@@ -173,56 +171,3 @@ async function startLiveTracking() {
   } catch (err) { showMessage(`Error: ${err.message}`, "error"); }
 }
 
-async function renewPromptHandler() {
-  const config = getStateValue('config.data'), mappings = getStateValue('mappings.combined');
-  if (!config || !mappings) return showMessage("Load config and mappings first", "error");
-  await renewPrompt(mappings, config, (msg, err) => showMessage(msg, err ? "error" : "info"));
-}
-
-async function initializeLlmSettings() {
-  const [sel, inp, btn] = [$("llm-provider-select"), $("llm-model-input"), $("apply-llm-settings")];
-  try {
-    const { loadAvailableProviders, saveLlmProvider } = await import("../utils/settings-manager.js");
-    const data = await loadAvailableProviders();
-    if (!data?.available_providers) { sel.innerHTML = '<option value="">Server offline</option>'; inp.disabled = btn.disabled = true; return; }
-
-    sel.innerHTML = data.available_providers.map(p => `<option value="${p}" ${p === data.current_provider ? "selected" : ""}>${p}</option>`).join("");
-    inp.value = data.current_model || "";
-    inp.disabled = btn.disabled = false;
-
-    btn.onclick = async () => {
-      const provider = sel.value, model = inp.value.trim();
-      if (!provider || !model) return showMessage("Provider and model required", "error");
-      try { await saveLlmProvider(provider, model); showMessage(`LLM: ${provider}`); } catch (e) { showMessage(`Failed: ${e.message}`, "error"); }
-    };
-  } catch { sel.innerHTML = '<option value="">Error loading</option>'; }
-}
-
-function setupSettingsCheckboxes() {
-  const bindCheckbox = (id, key, handler) => {
-    const cb = $(id);
-    if (!cb) return;
-    cb.checked = getStateValue(`settings.${key}`);
-    cb.onchange = (e) => handler(e.target.checked, e.target);
-  };
-
-  bindCheckbox("require-server-online", "requireServerOnline", (checked) => {
-    saveSetting("requireServerOnline", checked);
-    refresh();
-    showMessage(`Server ${checked ? "required" : "optional"}`);
-  });
-
-  // Note: use-web-search moved to research thermometer toggle (webS step)
-
-  bindCheckbox("use-brave-api", "useBraveApi", async (checked, el) => {
-    saveSetting("useBraveApi", checked);
-    try {
-      const { setBraveApi } = await import("../utils/settings-manager.js");
-      await setBraveApi(checked);
-      showMessage(checked ? "Brave API on" : "Brave API off");
-    } catch (e) {
-      showMessage(`Failed: ${e.message}`, "error");
-      el.checked = !checked;
-    }
-  });
-}

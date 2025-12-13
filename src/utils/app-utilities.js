@@ -28,6 +28,11 @@ export function initializeVersionDisplay() {
   setText("version-bundle-size", "N/A");
 }
 
+export function getCompactVersionString() {
+  const fmtDate = d => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `v${version} · ${commit} · Commit ${fmtDate(commitDate)} · Built ${buildTime}`;
+}
+
 export function initializeProjectPathDisplay() {
   const path = projectPath.replace(/\\\\/g, "\\"), configPath = path + "\\config", configFile = configPath + "\\app.config.json";
   const typeLabels = { development: "Development", iis: "IIS Server", m365: "Microsoft 365" };

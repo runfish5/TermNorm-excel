@@ -10,4 +10,5 @@ export const Events = {
   SERVER_RECONNECTED: 'server:reconnected',
   TRACKING_STARTED: 'tracking:started',
   SETTING_CHANGED: 'setting:changed',
+  SETTINGS_PANEL_OPENED: 'settings:panel:opened',
 };

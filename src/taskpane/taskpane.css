@@ -312,76 +312,6 @@
     border-radius: var(--radius-lg);
 }
 
-/* Settings Groups */
-.settings-group {
-    border: none;
-    border-radius: var(--radius-xl);
-    background: var(--bg-elevated);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    margin-bottom: 8px;
-}
-
-.settings-group-header {
-    padding: 10px 12px;
-    cursor: pointer;
-    background: none;
-    border-bottom: none;
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--text-primary);
-    border-radius: var(--radius-xl);
-}
-
-.settings-group[open] .settings-group-header {
-    border-bottom: 1px solid var(--gray-200);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-}
-
-.settings-group-header:hover {
-    background: var(--gray-50);
-}
-
-.settings-group-content {
-    padding: 12px;
-}
-
-/* Version Info Styling */
-.version-info {
-    font-family: var(--font-system);
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.version-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--gray-border-medium);
-}
-
-.version-row:last-child {
-    border-bottom: none;
-}
-
-.version-label {
-    font-weight: 500;
-    color: var(--gray-650);
-    min-width: 80px;
-}
-
-.version-value {
-    font-family: var(--font-mono);
-    color: var(--gray-700);
-    text-align: right;
-    font-size: 12px;
-    cursor: default;
-}
-
-.version-value[title] {
-    cursor: help;
-    border-bottom: 1px dotted var(--gray-900);
-}
-
 /* Button disabled state with reason */
 .btn-primary.disabled-with-reason {
     opacity: 0.5;
@@ -564,52 +494,6 @@
     border: 1px solid var(--gray-border);
     border-radius: var(--radius-sm);
     font-size: 13px;
-    box-sizing: border-box;
-}
-
-/* Settings row */
-.setting-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding: 8px 0;
-}
-
-.setting-row input[type="checkbox"] {
-    cursor: pointer;
-}
-
-.setting-row span {
-    flex: 1;
-}
-
-.setting-description {
-    margin: 8px 0 0 24px;
-    font-size: 12px;
-    color: var(--gray-650);
-    line-height: 1.5;
-}
-
-/* LLM settings form */
-.llm-settings-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.llm-settings-form label {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: 600;
-}
-
-.llm-settings-form select,
-.llm-settings-form input[type="text"] {
-    width: 100%;
-    padding: 6px;
-    border: 1px solid var(--gray-border);
-    border-radius: var(--radius-md);
     box-sizing: border-box;
 }
 
