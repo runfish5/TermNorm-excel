@@ -15,6 +15,9 @@
  * @property {Object|null} [entity_profile] - Entity profile (ProfileRank only)
  */
 
+/** @param {Partial<MatchResult>} [r] @returns {MatchResult} */
+export const createMatchResult = (r = {}) => ({ target: r.target || "Unknown", method: r.method || "unknown", confidence: r.confidence ?? 0, timestamp: r.timestamp || new Date().toISOString(), source: r.source || "", candidates: r.candidates || null, entity_profile: r.entity_profile || null, web_sources: r.web_sources || null, total_time: r.total_time || null, llm_provider: r.llm_provider || null, web_search_status: r.web_search_status || "idle" });
+
 /**
  * @typedef {Object} CellState
  * @property {string} value - Input value

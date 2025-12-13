@@ -4,7 +4,7 @@ import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook 
 import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
-import { PROCESSING_COLORS, ENDPOINTS } from "../config/config.js";
+import { PROCESSING_COLORS, ENDPOINTS, createMatchResult } from "../config/config.js";
 import { showMessage } from "../utils/ui-feedback.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
@@ -190,8 +190,6 @@ async function processCell(row, col, targetCol, value, tracker) {
   }
 }
 
-const makeResult = (target, method, confidence, source, extras = {}) => ({ target, method, confidence, timestamp: new Date().toISOString(), source, candidates: null, entity_profile: null, web_sources: null, total_time: null, llm_provider: null, web_search_status: "idle", ...extras });
-
 async function handleCellError(row, col, targetCol, value, error, outputCellKey, tracker) {
   const msg = error?.message || String(error);
   await Excel.run(async (ctx) => {
@@ -208,11 +206,11 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
       ctx.runtime.enableEvents = true;
     }
   });
-  logResult(tracker.workbookId, outputCellKey, value, makeResult(msg, "error", 0, value), "error", row, targetCol);
+  logResult(tracker.workbookId, outputCellKey, value, createMatchResult({ target: msg, method: "error", confidence: 0, source: value }), "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
-  const result = makeResult(choice.candidate, "UserChoice", choice.relevance_score, value, { entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
+  const result = createMatchResult({ target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, source: value, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
   fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()));
