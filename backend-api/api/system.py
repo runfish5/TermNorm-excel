@@ -10,21 +10,10 @@ from config.environment import get_connection_info
 from config.settings import settings
 from core import llm_providers
 from utils.responses import success_response
-from utils.langfuse_logger import log_user_correction
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-@router.get("/")
-def read_root() -> Dict[str, Any]:
-    """API health check endpoint"""
-    return {
-        "status": "API running",
-        "llm": f"{llm_providers.LLM_PROVIDER}/{llm_providers.LLM_MODEL}",
-        "endpoints": ["/research-and-match", "/test-connection", "/log-activity"]
-    }
 
 
 @router.post("/test-connection")
@@ -43,11 +32,10 @@ async def test_connection() -> Dict[str, Any]:
     )
 
 
-@router.get("/llm-providers")
-async def get_llm_providers() -> Dict[str, Any]:
-    """Get available LLM providers and current configuration"""
+@router.get("/settings")
+async def get_settings() -> Dict[str, Any]:
+    """Get all runtime settings and available providers"""
     available_providers: List[str] = []
-
     if os.getenv("GROQ_API_KEY"):
         available_providers.append("groq")
     if os.getenv("OPENAI_API_KEY"):
@@ -56,99 +44,45 @@ async def get_llm_providers() -> Dict[str, Any]:
         available_providers.append("anthropic")
 
     return success_response(
-        message="LLM providers retrieved",
+        message="Settings retrieved",
         data={
             "available_providers": available_providers,
             "current_provider": llm_providers.LLM_PROVIDER,
-            "current_model": llm_providers.LLM_MODEL
+            "current_model": llm_providers.LLM_MODEL,
+            "web_search_enabled": settings.use_web_search,
+            "brave_api_enabled": settings.use_brave_api
         }
     )
 
 
-@router.post("/set-llm-provider")
-async def set_llm_provider(payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
-    """Set LLM provider and model (runtime configuration)"""
-    provider = payload.get("provider")
-    model = payload.get("model")
+@router.post("/settings")
+async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Update runtime settings (partial updates supported)"""
+    updated = {}
 
-    if not provider or not model:
-        return {"status": "error", "message": "Missing provider or model"}
+    if "provider" in payload and "model" in payload:
+        os.environ["LLM_PROVIDER"] = payload["provider"]
+        os.environ["LLM_MODEL"] = payload["model"]
+        llm_providers.LLM_PROVIDER = payload["provider"]
+        llm_providers.LLM_MODEL = payload["model"]
+        updated["provider"] = payload["provider"]
+        updated["model"] = payload["model"]
+        logger.info(f"LLM provider changed to {payload['provider']}/{payload['model']}")
 
-    # Update environment variables and reload module
-    os.environ["LLM_PROVIDER"] = provider
-    os.environ["LLM_MODEL"] = model
-    llm_providers.LLM_PROVIDER = provider
-    llm_providers.LLM_MODEL = model
+    if "web_search" in payload:
+        settings.use_web_search = payload["web_search"]
+        updated["web_search"] = payload["web_search"]
+        logger.info(f"Web search {'enabled' if payload['web_search'] else 'disabled'}")
 
-    logger.info(f"LLM provider changed to {provider}/{model}")
-    return success_response(
-        message=f"LLM provider set to {provider}",
-        data={"provider": provider, "model": model}
-    )
+    if "brave_api" in payload:
+        settings.use_brave_api = payload["brave_api"]
+        updated["brave_api"] = payload["brave_api"]
+        logger.info(f"Brave API {'enabled' if payload['brave_api'] else 'disabled'}")
 
+    if not updated:
+        return {"status": "error", "message": "No valid settings provided"}
 
-@router.post("/set-brave-api")
-async def set_brave_api(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]:
-    """Toggle Brave Search API usage (for testing fallbacks)"""
-    enabled = payload.get("enabled", True)
-
-    # Update runtime setting
-    settings.use_brave_api = enabled
-
-    logger.info(f"Brave API {'enabled' if enabled else 'disabled'}")
-    return success_response(
-        message=f"Brave API {'enabled' if enabled else 'disabled'}",
-        data={"use_brave_api": enabled}
-    )
-
-
-@router.post("/set-web-search")
-async def set_web_search(payload: Dict[str, bool] = Body(...)) -> Dict[str, Any]:
-    """Toggle all web search engines (faster/cheaper when disabled)"""
-    enabled = payload.get("enabled", True)
-
-    # Update runtime setting
-    settings.use_web_search = enabled
-
-    logger.info(f"Web search {'enabled' if enabled else 'disabled'}")
-    return success_response(
-        message=f"Web search {'enabled' if enabled else 'disabled'}",
-        data={"use_web_search": enabled}
-    )
-
-
-@router.post("/log-activity")
-async def log_activity(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """
-    Log activity to Langfuse-compatible structure.
-
-    For UserChoice/DirectEdit: Updates dataset item ground truth
-    For other methods: Creates new trace (shouldn't happen from frontend)
-    """
-    source = payload.get("source")
-    target = payload.get("target")
-    method = payload.get("method", "UserChoice")
-    confidence = payload.get("confidence", 1.0)
-
-    if not source or not target:
-        return {"status": "error", "message": "source and target are required"}
-
-    # Langfuse logging
-    if method in ("UserChoice", "DirectEdit"):
-        try:
-            log_user_correction(source, target, method)
-            logger.info(f"[LANGFUSE] {method}: {source} → {target}")
-        except Exception as e:
-            logger.error(f"[LANGFUSE] Failed to log correction: {e}")
-
-    # Update match database (cache for fast lookups)
-    from api.research_pipeline import update_match_database
-    update_match_database({"source": source, "target": target, "confidence": confidence})
-
-    return success_response(
-        message="Activity logged",
-        data={"source": source, "target": target, "method": method}
-    )
+    return success_response(message="Settings updated", data=updated)
 
 
 @router.get("/match-details/{identifier}")
@@ -172,18 +106,6 @@ async def get_match_details(identifier: str) -> Dict[str, Any]:
             "web_sources": entry.get("web_sources", []),
             "last_updated": entry.get("last_updated")
         }
-    )
-
-
-@router.post("/rebuild-match-database")
-async def rebuild_database() -> Dict[str, Any]:
-    """Rebuild match database from langfuse logs (admin use)"""
-    from api.research_pipeline import rebuild_match_database
-
-    count = rebuild_match_database()
-    return success_response(
-        message=f"Database rebuilt with {count} identifiers",
-        data={"identifier_count": count}
     )
 
 

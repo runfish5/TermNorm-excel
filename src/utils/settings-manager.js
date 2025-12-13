@@ -16,7 +16,12 @@ export function saveSetting(key, value, currentSettings) {
   return updated;
 }
 
-export function loadAvailableProviders() { return apiGet("/llm-providers", {}, true); }
-export function saveLlmProvider(provider, model) { return apiPost("/set-llm-provider", { provider, model }); }
-export function setBraveApi(enabled) { return apiPost("/set-brave-api", { enabled }); }
-export function setWebSearch(enabled, opts = {}) { return apiPost("/set-web-search", { enabled }, {}, opts); }
+// Backend settings API (merged endpoints)
+export function getBackendSettings() { return apiGet("/settings", {}, true); }
+export function updateBackendSettings(settings, opts = {}) { return apiPost("/settings", settings, {}, opts); }
+
+// Convenience wrappers for backward compatibility
+export function loadAvailableProviders() { return getBackendSettings(); }
+export function saveLlmProvider(provider, model) { return updateBackendSettings({ provider, model }); }
+export function setBraveApi(enabled, opts = {}) { return updateBackendSettings({ brave_api: enabled }, opts); }
+export function setWebSearch(enabled, opts = {}) { return updateBackendSettings({ web_search: enabled }, opts); }

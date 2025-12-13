@@ -52,7 +52,6 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `session-recovery.js` - Backend session initialization
   - `mapping-processor.js` - Excel mapping file processor
   - `event-log.js` - Chronological processing event manager
-  - `prompt-renewer.js` - LLM prompt renewal with mapping analysis
 - **matchers/**: Matching algorithms
   - `cache-matcher.js` - Exact match lookup
   - `fuzzy-matcher.js` - Similarity matching (thresholds: forward 0.7, reverse 0.5)

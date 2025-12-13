@@ -6,7 +6,6 @@ import { Events } from "../core/events.js";
 import { getStateValue } from "../core/state-actions.js";
 import { saveSetting } from "../services/workflows.js";
 import { showMessage } from "../utils/error-display.js";
-import { renewPrompt } from "../services/prompt-renewer.js";
 import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
 import { $ } from "../utils/dom-helpers.js";
@@ -133,11 +132,6 @@ export function init(containerId = "settings-panel-container") {
   $("set-llm-apply")?.addEventListener("click", applyLlm);
 
   // Actions
-  $("set-renew-prompt")?.addEventListener("click", async () => {
-    const mappings = getStateValue("mappings.combined"), config = getStateValue("config");
-    await renewPrompt(mappings, config, (msg, err) => showMessage(msg, err ? "error" : "info"));
-  });
-
   $("set-reset")?.addEventListener("click", async () => {
     if (!confirm("Reset all settings to defaults?")) return;
     localStorage.removeItem("termnorm_settings");
