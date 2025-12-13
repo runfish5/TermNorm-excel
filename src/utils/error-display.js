@@ -1,96 +1,36 @@
 /** Error/Status Display with Loading Indicator */
+let loadingIndicator = null, dotsInterval = null;
 
-let loadingIndicator = null;
-let dotsInterval = null;
+const clearDots = () => { if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; } };
 
-function getLoadingIndicator() {
-  if (!loadingIndicator) loadingIndicator = document.getElementById("loading-indicator");
-  return loadingIndicator;
-}
+const bubbleSide = (side) => `<div class="bubble-loader ${side}"><div class="bubble ${side}"></div><div class="pop-flash ${side}"></div>${'<div class="quarter ' + side + '"></div>'.repeat(4)}</div>`;
 
-function showLoadingIndicator(message = "Working", animationType = "processing") {
-  const indicator = getLoadingIndicator();
+function showLoadingIndicator(message = "Working", type = "processing") {
+  const indicator = loadingIndicator || (loadingIndicator = document.getElementById("loading-indicator"));
   if (!indicator) return;
-
-  // Clear any existing dots interval
-  if (dotsInterval) {
-    clearInterval(dotsInterval);
-    dotsInterval = null;
-  }
-
-  if (animationType === "waiting") {
-    // Hourglass for user-waiting scenarios
-    indicator.innerHTML = `
-      <div class="loading-container">
-        <span class="hourglass-emoji">⏳</span>
-        <span class="loading-message">${message}</span>
-        <span class="loading-dots"></span>
-      </div>`;
-  } else {
-    // Bubbles for system processing (default)
-    indicator.innerHTML = `
-      <div class="loading-container">
-        <div class="bubble-container">
-          <div class="bubble-loader left">
-            <div class="bubble left"></div>
-            <div class="pop-flash left"></div>
-            <div class="quarter left"></div>
-            <div class="quarter left"></div>
-            <div class="quarter left"></div>
-            <div class="quarter left"></div>
-          </div>
-          <div class="bubble-loader right">
-            <div class="bubble right"></div>
-            <div class="pop-flash right"></div>
-            <div class="quarter right"></div>
-            <div class="quarter right"></div>
-            <div class="quarter right"></div>
-            <div class="quarter right"></div>
-          </div>
-        </div>
-        <span class="loading-message">${message}</span>
-        <span class="loading-dots"></span>
-      </div>`;
-  }
-
-  // Start cycling dots animation
-  const dotsEl = indicator.querySelector('.loading-dots');
-  const dotStates = ['', '.', '..', '...', '..', '.'];
-  let dotIndex = 0;
-  dotsInterval = setInterval(() => {
-    dotIndex = (dotIndex + 1) % dotStates.length;
-    if (dotsEl) dotsEl.textContent = dotStates[dotIndex];
-  }, 400);
-
+  clearDots();
+  const content = type === "waiting" ? '<span class="hourglass-emoji">⏳</span>' : `<div class="bubble-container">${bubbleSide('left')}${bubbleSide('right')}</div>`;
+  indicator.innerHTML = `<div class="loading-container">${content}<span class="loading-message">${message}</span><span class="loading-dots"></span></div>`;
+  const dotsEl = indicator.querySelector('.loading-dots'), states = ['', '.', '..', '...', '..', '.'];
+  let i = 0;
+  dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % 6]; }, 400);
   indicator.classList.add("visible");
 }
 
 function hideLoadingIndicator() {
-  if (dotsInterval) {
-    clearInterval(dotsInterval);
-    dotsInterval = null;
-  }
-  const indicator = getLoadingIndicator();
+  clearDots();
+  const indicator = loadingIndicator || (loadingIndicator = document.getElementById("loading-indicator"));
   if (!indicator) return;
   indicator.classList.remove("visible");
   setTimeout(() => { if (!indicator.classList.contains("visible")) indicator.innerHTML = ""; }, 300);
 }
 
 export function showMessage(text, type = "info") {
-  if (type === "processing" || text.toLowerCase().includes("processing")) {
-    showLoadingIndicator(text, "processing");
+  if (type === "processing" || type === "waiting" || text.toLowerCase().includes("processing")) {
+    showLoadingIndicator(text, type === "waiting" ? "waiting" : "processing");
     return;
   }
-
-  if (type === "waiting") {
-    showLoadingIndicator(text, "waiting");
-    return;
-  }
-
   hideLoadingIndicator();
-
   const el = document.getElementById("main-status-message");
-  if (!el) return;
-  el.textContent = text;
-  el.style.color = type === "error" ? "#F44336" : "";
+  if (el) { el.textContent = text; el.style.color = type === "error" ? "#F44336" : ""; }
 }
