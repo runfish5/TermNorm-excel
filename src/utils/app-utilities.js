@@ -1,5 +1,5 @@
 // utils/app-utilities.js - Consolidated application utilities
-import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../config/normalization.config.js";
+import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../config/config.js";
 import { $ } from "./dom-helpers.js";
 
 export { PROCESSING_COLORS };

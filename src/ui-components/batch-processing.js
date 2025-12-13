@@ -1,6 +1,6 @@
 import { showMessage } from "../utils/error-display.js";
 import { apiPost } from "../utils/api-fetch.js";
-import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { getHost, getHeaders } from "../utils/api-fetch.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
 import { $ } from "../utils/dom-helpers.js";

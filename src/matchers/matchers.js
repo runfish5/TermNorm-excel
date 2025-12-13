@@ -1,5 +1,23 @@
-/** Fuzzy Matcher - Second tier of three-tier pipeline: Exact → Fuzzy → LLM */
-import { FUZZY_THRESHOLDS } from "../config/normalization.config.js";
+/** Matchers - Three-tier pipeline: Cache (exact) → Fuzzy → LLM */
+import { FUZZY_THRESHOLDS } from "../config/config.js";
+
+// Cache Matcher (merged from cache-matcher.js)
+const norm = v => v ? String(v).trim() : '';
+const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
+
+export function getCachedMatch(value, forward, reverse) {
+  const n = norm(value);
+  if (!n) return null;
+  if (n in forward) return cacheResult(n, typeof forward[n] === 'string' ? forward[n] : forward[n].target);
+  if (n in reverse) return cacheResult(n, n);
+  return null;
+}
+
+export function hasExactMatch(value, forward, reverse) { const n = norm(value); return n ? (n in forward || n in reverse) : false; }
+export function getCachedMatches(values, forward, reverse) { const m = new Map(); for (const v of values) { const r = getCachedMatch(v, forward, reverse); if (r) m.set(v, r); } return m; }
+export function validateMappings(forward, reverse) { return forward != null && reverse != null && typeof forward === 'object' && typeof reverse === 'object'; }
+
+// Fuzzy Matcher
 
 function normalizeText(text) {
   return text.toLowerCase().replace(/[^\w\s%]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 0);

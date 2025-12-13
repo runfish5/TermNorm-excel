@@ -1,8 +1,33 @@
+/** API Client - HTTP operations and server connectivity */
 import { showMessage } from "./error-display.js";
-import { setServerStatus } from "../core/state-actions.js";
-import { getHost } from "./server-utilities.js";
-import { ERROR_GUIDANCE } from "../config/session.config.js";
+import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
+import { ERROR_GUIDANCE } from "../config/config.js";
 
+// Server utilities
+export function getHost() { return getStateValue('server.host') || "http://127.0.0.1:8000"; }
+export function getHeaders() { return { "Content-Type": "application/json" }; }
+
+let serverCheckPromise = null;
+export async function checkServerStatus() {
+  if (serverCheckPromise) return serverCheckPromise;
+  serverCheckPromise = (async () => {
+    const host = getHost();
+    if (!host) return setServerStatus(false);
+    try {
+      const response = await fetch(`${host}/test-connection`, { method: "POST", headers: getHeaders(), body: "{}" });
+      const data = await response.json();
+      setServerStatus(response.ok, host, response.ok ? data.data || {} : {});
+    } catch { setServerStatus(false, host); }
+  })();
+  try { await serverCheckPromise; } finally { serverCheckPromise = null; }
+}
+
+export function setupServerEvents() {
+  setServerHost(getHost());
+  document.getElementById("server-url-input")?.addEventListener("input", (e) => setServerHost(e.target.value.trim()));
+}
+
+// Fetch wrappers
 export async function serverFetch(url, options = {}) {
   const fullUrl = url.startsWith("http") ? url : `${getHost()}${url}`;
   try { const r = await fetch(fullUrl, options); setServerStatus(true); return r; }
@@ -32,14 +57,6 @@ export async function apiGet(url, headers = {}, silent = false) {
   return apiFetch(url, { method: "GET", headers: { "Content-Type": "application/json", ...headers }, silent });
 }
 
-/**
- * Fire-and-forget logging for cache/fuzzy matches.
- * Non-blocking - does not wait for response or handle errors.
- */
 export function logMatch(data, headers = {}) {
-  serverFetch(`${getHost()}/log-match`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(data)
-  }).catch(() => {});  // Fire-and-forget
+  serverFetch(`${getHost()}/log-match`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
 }

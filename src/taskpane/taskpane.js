@@ -4,7 +4,7 @@ import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
 import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
-import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
+import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { initializeSettings, saveSetting } from "../services/workflows.js";
 import { getStateValue } from "../core/state-actions.js";

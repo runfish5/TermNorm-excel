@@ -1,4 +1,4 @@
-import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { getHost, getHeaders } from "../utils/api-fetch.js";
 import { serverFetch } from "../utils/api-fetch.js";
 
 let isGenerating = false, abortController = null;

@@ -3,13 +3,12 @@ import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
-import { PROCESSING_COLORS, getCurrentWorkbookName } from "../utils/app-utilities.js";
-import { writeCellResult } from "../utils/cell-writing.js";
+import { PROCESSING_COLORS, getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
 import { addEntry as addHistoryEntry } from "../ui-components/processing-history.js";
 import { showMessage } from "../utils/error-display.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost } from "../utils/api-fetch.js";
-import { getHost, getHeaders } from "../utils/server-utilities.js";
+import { getHost, getHeaders } from "../utils/api-fetch.js";
 
 const activeTrackers = new Map();
 const activationInProgress = new Set();
@@ -151,6 +150,21 @@ const handleSelectionChange = async (e, tracker) => {
 function logResult(workbookId, cellKey, value, result, status, row, col) {
   setCellState(workbookId, cellKey, { value, result, status, row, col, timestamp: result.timestamp });
   addHistoryEntry(value, cellKey, result.timestamp, result);
+}
+
+// Cell writing (inlined from cell-writing.js)
+async function writeCellResult(row, inputCol, outputCol, targetValue, confidence, confidenceColumnMap) {
+  await Excel.run(async (ctx) => {
+    ctx.runtime.enableEvents = false;
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    ws.getRangeByIndexes(row, outputCol, 1, 1).values = [[targetValue]];
+    ws.getRangeByIndexes(row, outputCol, 1, 1).format.fill.color = getRelevanceColor(confidence);
+    ws.getRangeByIndexes(row, inputCol, 1, 1).format.fill.clear();
+    const confCol = confidenceColumnMap.get(inputCol);
+    if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[Math.round(confidence * 100)]];
+    await ctx.sync();
+    ctx.runtime.enableEvents = true;
+  });
 }
 
 async function processCell(row, col, targetCol, value, tracker) {

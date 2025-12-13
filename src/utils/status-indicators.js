@@ -45,7 +45,7 @@ export function updateAllIndicators() { updateLED(); updateMatcherIndicator(); u
 
 export function setupIndicators() {
   document.addEventListener("click", (e) => {
-    if (e.target.closest("#server-status-led")) { e.preventDefault(); import("./server-utilities.js").then(m => m.checkServerStatus()); }
+    if (e.target.closest("#server-status-led")) { e.preventDefault(); import("./api-fetch.js").then(m => m.checkServerStatus()); }
     if (e.target.closest("#matcher-status-indicator")) { e.preventDefault(); showMatcherDetails(); }
   });
   eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);

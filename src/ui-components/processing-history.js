@@ -1,6 +1,11 @@
-import { addEvent, clearEvents, getMaxEntries } from "../services/event-log.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
+import { EVENT_LOG } from "../config/config.js";
+
+// Event log (inlined from event-log.js)
+const sessionEvents = [];
+const addEvent = (e) => { if (!e.source || !e.timestamp) throw new Error("Event requires source and timestamp"); sessionEvents.unshift(e); if (sessionEvents.length > EVENT_LOG.MAX_ENTRIES) sessionEvents.pop(); return e; };
+const clearEvents = () => { sessionEvents.length = 0; };
 
 let container = null, tableBody = null, expandedRowState = null;
 
@@ -60,7 +65,7 @@ export async function addEntry(source, cellKey, timestamp, result) {
   const row = buildActivityRow({ source, sessionKey: cellKey, timestamp }, r);
   tableBody.insertBefore(row, tableBody.firstChild);
   addClickHandler(row, r.target);
-  while (tableBody.children.length > getMaxEntries()) tableBody.lastChild.remove();
+  while (tableBody.children.length > EVENT_LOG.MAX_ENTRIES) tableBody.lastChild.remove();
   updateHistoryTabCounter();
 }
 
@@ -158,7 +163,7 @@ export function populateFromCache(entries) {
   Object.entries(entries)
     .flatMap(([id, e]) => Object.entries(e.aliases || {}).map(([src, i]) => ({ source: src, target: id, method: i.method || "unknown", confidence: i.confidence || 0, timestamp: i.timestamp })))
     .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-    .slice(0, getMaxEntries())
+    .slice(0, EVENT_LOG.MAX_ENTRIES)
     .forEach(({ source, target, method, confidence, timestamp }) => {
       const row = buildActivityRow({ source, sessionKey: null, timestamp }, { target, method, confidence, web_search_status: "idle" });
       row.classList.add("cached-entry");

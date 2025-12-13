@@ -2,7 +2,7 @@
 import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
 import { stateStore } from "../core/state-store.js";
 import { serverFetch, apiGet } from "./api-fetch.js";
-import { getHost, getHeaders } from "./server-utilities.js";
+import { getHost, getHeaders } from "./api-fetch.js";
 
 export async function initializeHistoryCache() {
   if (getStateValue('history.cacheInitialized') || !getStateValue('server.online')) return getStateValue('history.cacheInitialized') || false;

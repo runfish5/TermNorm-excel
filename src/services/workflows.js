@@ -11,9 +11,9 @@
  */
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
-import { checkServerStatus, getHost, getHeaders } from "../utils/server-utilities.js";
+import { checkServerStatus, getHost, getHeaders } from "../utils/api-fetch.js";
 import { apiPost } from "../utils/api-fetch.js";
-import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/session.config.js";
+import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -73,6 +73,23 @@ async function combineMappingSources() {
 export async function reinitializeSession() {
   const terms = Object.keys(stateStore.get('mappings.combined')?.reverse || {});
   return terms.length ? initSessionWithRetry(terms) : false;
+}
+
+// Session recovery helpers (merged from session-recovery.js)
+export async function ensureSessionInitialized() {
+  if (stateStore.get('session.initialized')) return true;
+  showMessage("Initializing backend session...");
+  const success = await reinitializeSession();
+  if (!success) showMessage("Session initialization failed - check server connection", "error");
+  return success;
+}
+
+export async function executeWithSessionRecovery(apiCallFn) {
+  let result = await apiCallFn();
+  if (result) return result;
+  showMessage("Recovering backend session...");
+  if (await reinitializeSession()) result = await apiCallFn();
+  return result;
 }
 
 export async function initializeSettings() {
