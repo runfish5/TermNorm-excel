@@ -81,9 +81,9 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
 
 ### Backend (backend-api/)
 - **main.py**: FastAPI app entry point
-- **api/**: Route handlers
-  - `research_pipeline.py` - `/research-and-match`, `/direct-prompt`, `/batch/*` endpoints
-  - `system.py` - `/test-connection`, `/settings`, `/log-match`, `/log-activity`
+- **api/**: Route handlers (RESTful endpoints)
+  - `research_pipeline.py` - `/sessions`, `/matches`, `/batches`, `/prompts`, `/activities`
+  - `system.py` - `/health`, `/settings`, `/history`, `/cache`
   - `experiments_api.py` - `/experiments/*` for eval/optimization integration
 - **core/**: Infrastructure
   - `llm_providers.py` - Unified Groq/OpenAI interface with retry logic

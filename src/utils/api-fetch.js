@@ -1,7 +1,7 @@
 /** API Client - HTTP operations and server connectivity */
 import { showMessage } from "./error-display.js";
 import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
-import { ERROR_GUIDANCE } from "../config/config.js";
+import { ERROR_GUIDANCE, ENDPOINTS } from "../config/config.js";
 
 // Server utilities
 export function getHost() { return getStateValue('server.host') || "http://127.0.0.1:8000"; }
@@ -14,7 +14,7 @@ export async function checkServerStatus() {
     const host = getHost();
     if (!host) return setServerStatus(false);
     try {
-      const response = await fetch(`${host}/test-connection`, { method: "POST", headers: getHeaders(), body: "{}" });
+      const response = await fetch(`${host}${ENDPOINTS.HEALTH}`, { method: "GET", headers: getHeaders() });
       const data = await response.json();
       setServerStatus(response.ok, host, response.ok ? data.data || {} : {});
     } catch { setServerStatus(false, host); }
@@ -73,5 +73,5 @@ export async function apiGet(url, headers = {}, silent = false) {
 }
 
 export function logMatch(data, headers = {}) {
-  serverFetch(`${getHost()}/log-match`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
+  serverFetch(`${getHost()}${ENDPOINTS.ACTIVITY_MATCHES}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
 }

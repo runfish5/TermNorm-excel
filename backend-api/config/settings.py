@@ -39,19 +39,16 @@ class Settings(BaseSettings):
     ]
 
     # Protected Endpoints (require user authentication)
-    # Note: "/" (root health check) is intentionally public
+    # Note: /health is intentionally public
     protected_paths: List[str] = [
-        "/session/init-terms",
-        "/research-and-match",
-        "/test-connection",
-        "/log-activity",
-        "/log-match",
-        "/analyze-patterns",
-        "/match-term",
-        "/batch/start",
-        "/batch/complete",
-        "/direct-prompt",
-        "/batch-process-single",
+        "/sessions",
+        "/matches",
+        "/activities",
+        "/batches",
+        "/prompts",
+        "/settings",
+        "/history",
+        "/cache",
     ]
 
     # Cloud Environment Detection

@@ -49,7 +49,23 @@ export const SERVER_DEFAULTS = {
 
 // Session (merged from session.config.js)
 export const SESSION_RETRY = { MAX_ATTEMPTS: 3, DELAYS_MS: [1000, 2000, 4000] };
-export const SESSION_ENDPOINTS = { INIT: "/session/init-terms", RESEARCH: "/research-and-match" };
+
+// RESTful API endpoints
+export const ENDPOINTS = {
+  HEALTH: "/health",
+  SETTINGS: "/settings",
+  SESSIONS: "/sessions",
+  MATCHES: "/matches",
+  BATCHES: "/batches",
+  PROMPTS: "/prompts",
+  ACTIVITIES: "/activities",
+  ACTIVITY_MATCHES: "/activities/matches",
+  HISTORY: "/history",
+  CACHE: "/cache",
+};
+
+// Legacy aliases for backward compatibility during migration
+export const SESSION_ENDPOINTS = { INIT: ENDPOINTS.SESSIONS, RESEARCH: ENDPOINTS.MATCHES };
 export const ERROR_GUIDANCE = {
   403: "💡 Check your IP is in backend-api/config/users.json",
   500: "💡 Server error - check backend-api/logs/app.log",

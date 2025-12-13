@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/test-connection")
-async def test_connection() -> Dict[str, Any]:
-    """Test API connection and return environment info"""
+@router.get("/health")
+async def health() -> Dict[str, Any]:
+    """Health check endpoint - returns server status and environment info"""
     connection_type, connection_url, environment = get_connection_info()
 
     return success_response(
@@ -55,9 +55,9 @@ async def get_settings() -> Dict[str, Any]:
     )
 
 
-@router.post("/settings")
+@router.put("/settings")
 async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Update runtime settings (partial updates supported)"""
+    """Update runtime settings (idempotent, partial updates supported)"""
     updated = {}
 
     if "provider" in payload and "model" in payload:
@@ -85,7 +85,7 @@ async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]
     return success_response(message="Settings updated", data=updated)
 
 
-@router.get("/match-details/{identifier}")
+@router.get("/matches/{identifier}")
 async def get_match_details(identifier: str) -> Dict[str, Any]:
     """Fetch match details from match_database by identifier (target)"""
     from api.research_pipeline import match_database
@@ -109,7 +109,7 @@ async def get_match_details(identifier: str) -> Dict[str, Any]:
     )
 
 
-@router.get("/history/processed-entries")
+@router.get("/history")
 async def get_processed_entries() -> Dict[str, Any]:
     """Return aggregated match history for frontend cache.
 
@@ -123,7 +123,7 @@ async def get_processed_entries() -> Dict[str, Any]:
         data={"entries": match_database}
     )
 
-@router.get("/cache/status")
+@router.get("/cache")
 async def get_cache_status() -> Dict[str, Any]:
     """
     Get sophisticated cache metadata status.

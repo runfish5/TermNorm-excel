@@ -3,11 +3,12 @@ import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "..
 import { stateStore } from "../core/state-store.js";
 import { serverFetch, apiGet } from "./api-fetch.js";
 import { getHost, getHeaders } from "./api-fetch.js";
+import { ENDPOINTS } from "../config/config.js";
 
 export async function initializeHistoryCache() {
   if (getStateValue('history.cacheInitialized') || !getStateValue('server.online')) return getStateValue('history.cacheInitialized') || false;
   try {
-    const response = await serverFetch("/history/processed-entries", { method: "GET", headers: getHeaders() });
+    const response = await serverFetch(ENDPOINTS.HISTORY, { method: "GET", headers: getHeaders() });
     if (!response.ok) return false;
     const result = await response.json();
     if (result.status === "success" && result.data?.entries) {
@@ -30,7 +31,7 @@ export async function getEntity(identifier) {
   if (!identifier) return null;
   const cached = (getStateValue('history.entries') || {})[identifier];
   if (cached) return cached;
-  try { const r = await apiGet(`${getHost()}/match-details/${encodeURIComponent(identifier)}`); return r?.status !== "error" ? r?.data : null; }
+  try { const r = await apiGet(`${getHost()}${ENDPOINTS.MATCHES}/${encodeURIComponent(identifier)}`); return r?.status !== "error" ? r?.data : null; }
   catch { return null; }
 }
 

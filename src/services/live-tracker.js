@@ -8,6 +8,7 @@ import { showMessage } from "../utils/error-display.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { getHost, getHeaders } from "../utils/api-fetch.js";
+import { ENDPOINTS } from "../config/config.js";
 
 const activeTrackers = new Map();
 const activationInProgress = new Set();
@@ -96,7 +97,7 @@ const handleWorksheetChange = async (e, tracker) => {
       await ctx.sync();
       const sourceValue = inputRange.values[0][0];
       if (sourceValue) {
-        apiPost(`${getHost()}/log-activity`, {
+        apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, {
           source: String(sourceValue).trim(),
           target: String(newValue).trim(),
           method: "DirectEdit",
@@ -205,7 +206,7 @@ async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellK
   const result = makeResult(choice.candidate, "UserChoice", choice.relevance_score, value, { entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-  try { await apiPost(`${getHost()}/log-activity`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()); } catch {}
+  try { await apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()); } catch {}
 }
 
 export async function stopTracking(workbookId) {

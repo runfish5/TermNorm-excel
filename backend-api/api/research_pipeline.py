@@ -128,11 +128,18 @@ def update_match_database(record: Dict[str, Any]):
 
     entry = match_database[target]
 
-    # Update alias (always update - latest call wins)
+    # Determine if alias is verified (user-confirmed or high-confidence)
+    method = record.get("method")
+    confidence = record.get("confidence", 0)
+    HIGH_CONFIDENCE_THRESHOLD = 0.8
+    verified = method in ("UserChoice", "DirectEdit", "cached", "fuzzy") or confidence >= HIGH_CONFIDENCE_THRESHOLD
+
+    # Update alias with verification status
     entry["aliases"][source] = {
         "timestamp": now,
-        "method": record.get("method"),
-        "confidence": record.get("confidence")
+        "method": method,
+        "confidence": confidence,
+        "verified": verified
     }
 
     # Update entity_profile if this record has one
@@ -253,10 +260,17 @@ def _update_db_entry(record: Dict[str, Any]):
     entry = match_database[target]
     existing = entry["aliases"].get(source)
     if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
+        # Determine if alias is verified (user-confirmed or high-confidence)
+        method = record.get("method")
+        confidence = record.get("confidence", 0)
+        HIGH_CONFIDENCE_THRESHOLD = 0.8
+        verified = method in ("UserChoice", "DirectEdit", "cached", "fuzzy") or (confidence or 0) >= HIGH_CONFIDENCE_THRESHOLD
+
         entry["aliases"][source] = {
             "timestamp": record.get("timestamp"),
-            "method": record.get("method"),
-            "confidence": record.get("confidence")
+            "method": method,
+            "confidence": confidence,
+            "verified": verified
         }
 
     if record.get("entity_profile") and record.get("timestamp", "") > entry.get("last_updated", ""):
@@ -341,9 +355,9 @@ class TokenLookupMatcher:
 user_sessions = {}
 
 
-@router.post("/session/init-terms")
+@router.post("/sessions")
 async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Initialize user session with terms array and tracking"""
+    """Create session with terms array and tracking"""
     user_id = request.state.user_id
     terms = payload.get("terms", [])
 
@@ -369,9 +383,9 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
     )
 
 
-@router.post("/research-and-match")
+@router.post("/matches")
 async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Research a query and rank candidates using LLM + token matching (session-based)"""
+    """Normalize a term - research and rank candidates using LLM + token matching"""
     user_id = request.state.user_id
     query = payload.get("query", "")
     skip_llm_ranking = payload.get("skip_llm_ranking", False)
@@ -380,7 +394,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     if user_id not in user_sessions:
         raise HTTPException(
             status_code=400,
-            detail="No session found - initialize session first with POST /session/init-terms"
+            detail="No session found - initialize session first with POST /sessions"
         )
 
     terms = user_sessions[user_id]["terms"]
@@ -515,14 +529,15 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     return result
 
 
-@router.post("/batch-process-single")
+@router.post("/batches/{batch_id}/items")
 async def batch_process_single(
     request: Request,
+    batch_id: str,
     payload: Dict[str, Any] = Body(...)
 ) -> Dict[str, Any]:
     """
-    Process a single query with optional user context.
-    Lightweight version of /research-and-match for batch operations.
+    Process a single query within a batch.
+    Lightweight version of /matches for batch operations.
     """
     user_id = request.state.user_id
     query = payload.get("query", "")
@@ -621,13 +636,13 @@ async def batch_process_single(
 # DIRECT PROMPT - Single LLM call without web search
 # =============================================================================
 
-@router.post("/batch/start")
+@router.post("/batches")
 async def batch_start(
     request: Request,
     payload: Dict[str, Any] = Body(...)
 ) -> Dict[str, Any]:
     """
-    Start a batch operation. Returns batch_id for linking items.
+    Create a batch operation. Returns batch_id for linking items.
 
     Payload:
         method: "DirectPrompt" (required)
@@ -659,27 +674,25 @@ async def batch_start(
     )
 
 
-@router.post("/batch/complete")
+@router.patch("/batches/{batch_id}")
 async def batch_complete(
     request: Request,
+    batch_id: str,
     payload: Dict[str, Any] = Body(...)
 ) -> Dict[str, Any]:
     """
     Complete a batch operation.
 
+    Path params:
+        batch_id: Batch ID from POST /batches
     Payload:
-        batch_id: Batch ID from /batch/start (required)
         success_count: Number of successful items (required)
         error_count: Number of failed items (default: 0)
         total_time_ms: Total batch time in milliseconds (default: 0)
     """
-    batch_id = payload.get("batch_id")
     success_count = payload.get("success_count", 0)
     error_count = payload.get("error_count", 0)
     total_time_ms = payload.get("total_time_ms", 0)
-
-    if not batch_id:
-        raise HTTPException(400, "batch_id is required")
 
     log_batch_complete(
         batch_id=batch_id,
@@ -696,13 +709,13 @@ async def batch_complete(
     )
 
 
-@router.post("/direct-prompt")
+@router.post("/prompts")
 async def direct_prompt(
     request: Request,
     payload: Dict[str, Any] = Body(...)
 ) -> Dict[str, Any]:
     """
-    General-purpose LLM inference with validation against session terms.
+    Execute a direct LLM prompt with validation against session terms.
 
     Payload:
         query: Input text to process (required)
@@ -738,7 +751,7 @@ async def direct_prompt(
         logger.warning(f"[DIRECT_PROMPT] Rejected: no session for user_id={user_id}")
         raise HTTPException(
             400,
-            "No session found - initialize session first with POST /session/init-terms"
+            "No session found - initialize session first with POST /sessions"
         )
 
     terms = user_sessions[user_id]["terms"]
@@ -885,7 +898,7 @@ class LogActivityRequest(BaseModel):
     timestamp: Optional[str] = None
 
 
-@router.post("/log-match")
+@router.post("/activities/matches")
 async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any]:
     """
     Log cache/fuzzy match events from frontend to Langfuse.
@@ -930,7 +943,7 @@ async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any
         return {"status": "error", "message": str(e)}
 
 
-@router.post("/log-activity")
+@router.post("/activities")
 async def log_activity(request: Request, payload: LogActivityRequest) -> Dict[str, Any]:
     """
     Log user corrections (UserChoice, DirectEdit) from frontend to Langfuse.
