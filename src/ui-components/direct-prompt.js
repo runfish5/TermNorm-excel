@@ -1,4 +1,4 @@
-import { showMessage } from "../utils/error-display.js";
+import { showMessage } from "../utils/ui-feedback.js";
 import { apiPost, serverFetch, getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";

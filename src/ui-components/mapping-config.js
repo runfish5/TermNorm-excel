@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../services/mapping-processor.js";
 import { getStateValue } from "../core/state-actions.js";
 import { loadMappingSource } from "../services/workflows.js";
-import { showMessage } from "../utils/error-display.js";
+import { showMessage } from "../utils/ui-feedback.js";
 
 export function createMappingConfigHTML(config, i) {
   return `

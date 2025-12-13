@@ -1,5 +1,8 @@
 import { apiGet, apiPut, buildUrl } from "./api-fetch.js";
 import { ENDPOINTS } from "../config/config.js";
+import { stateStore } from "../core/state-store.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 const STORAGE_KEY = "termnorm_settings";
 export const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true };
@@ -11,10 +14,12 @@ export function loadSettings() {
   } catch { return { ...DEFAULTS }; }
 }
 
-export function saveSetting(key, value, currentSettings) {
-  const updated = { ...currentSettings, [key]: value };
+export function saveSetting(key, value) {
+  const current = stateStore.get('settings') || {};
+  const updated = { ...current, [key]: value };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  return updated;
+  stateStore.merge('settings', { ...updated, loaded: true });
+  eventBus.emit(Events.SETTING_CHANGED, { key, value });
 }
 
 // Backend settings API (RESTful endpoints)

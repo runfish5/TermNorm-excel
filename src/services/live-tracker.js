@@ -3,11 +3,11 @@ import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
-import { PROCESSING_COLORS, getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
-import { showMessage } from "../utils/error-display.js";
+import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
+import { PROCESSING_COLORS, ENDPOINTS } from "../config/config.js";
+import { showMessage } from "../utils/ui-feedback.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
-import { ENDPOINTS } from "../config/config.js";
 
 const activeTrackers = new Map();
 const activationInProgress = new Set();
@@ -60,9 +60,7 @@ export async function startTracking(config, mappings) {
     });
 
     activeTrackers.set(workbookId, tracker);
-    const trackingInfo = { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.keys(config.confidence_column_map || {}).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
-    eventBus.emit(Events.TRACKING_STARTED, trackingInfo);
-    return trackingInfo;
+    return { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.keys(config.confidence_column_map || {}).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
   } finally { activationInProgress.delete(workbookId); }
 }
 
@@ -227,7 +225,6 @@ export async function stopTracking(workbookId) {
   await removeHandlers(tracker);
   activeTrackers.delete(workbookId);
   deleteWorkbook(workbookId);
-  eventBus.emit(Events.TRACKING_STOPPED, { workbookId });
 }
 
 export function getActiveTrackers() { return Array.from(activeTrackers.keys()); }

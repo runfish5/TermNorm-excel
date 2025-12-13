@@ -4,9 +4,8 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { getStateValue } from "../core/state-actions.js";
-import { saveSetting } from "../services/workflows.js";
-import { showMessage } from "../utils/error-display.js";
-import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
+import { saveSetting, loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
+import { showMessage } from "../utils/ui-feedback.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
 import { $, confirmModal } from "../utils/dom-helpers.js";
 

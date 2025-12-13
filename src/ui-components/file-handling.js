@@ -3,7 +3,7 @@ import { createMappingConfigHTML, setupMappingConfigEvents, loadMappingConfigDat
 import { getStateValue, setConfig, setServerHost } from "../core/state-actions.js";
 import { getCurrentWorkbookName } from "../utils/app-utilities.js";
 import { $, showView } from "../utils/dom-helpers.js";
-import { showMessage } from "../utils/error-display.js";
+import { showMessage } from "../utils/ui-feedback.js";
 
 let mappingModules = [];
 

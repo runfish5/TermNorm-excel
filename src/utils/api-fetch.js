@@ -1,5 +1,5 @@
 /** API Client - HTTP operations and server connectivity */
-import { showMessage } from "./error-display.js";
+import { showMessage } from "./ui-feedback.js";
 import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
 import { ERROR_GUIDANCE, ENDPOINTS } from "../config/config.js";
 import { $ } from "./dom-helpers.js";

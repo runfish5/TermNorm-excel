@@ -1,6 +1,6 @@
 // Workflows - Async operations, multi-step workflows, and event coordination
-import { showMessage } from "../utils/error-display.js";
-import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
+import { showMessage } from "../utils/ui-feedback.js";
+import { loadSettings } from "../utils/settings-manager.js";
 import { checkServerStatus, getHeaders, buildUrl, fireAndForget, apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
@@ -89,10 +89,4 @@ export async function initializeSettings() {
   if (settings.useBraveApi === false) fireAndForget(setBraveApi(false));
 
   return settings;
-}
-
-export function saveSetting(key, value) {
-  const updated = persistSetting(key, value, stateStore.get('settings') || {});
-  stateStore.merge('settings', { ...updated, loaded: true });
-  eventBus.emit(Events.SETTING_CHANGED, { key, value });
 }

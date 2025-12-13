@@ -4,7 +4,7 @@ import { FUZZY_THRESHOLDS, SESSION_ENDPOINTS } from "../config/config.js";
 import { getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflows.js";
-import { showMessage } from "../utils/error-display.js";
+import { showMessage } from "../utils/ui-feedback.js";
 import { apiPost, logMatch } from "../utils/api-fetch.js";
 
 export { getCachedMatch };

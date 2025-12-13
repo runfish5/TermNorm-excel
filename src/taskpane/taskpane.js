@@ -6,15 +6,15 @@ import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { initializeSettings, saveSetting } from "../services/workflows.js";
+import { initializeSettings } from "../services/workflows.js";
+import { saveSetting } from "../utils/settings-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
 import { $, showView, setupButton, openModal, closeModal } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
-import { showMessage } from "../utils/error-display.js";
-import { updateAllIndicators, setupIndicators } from "../utils/status-indicators.js";
+import { showMessage, updateAllIndicators, setupIndicators } from "../utils/ui-feedback.js";
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 
 let researchThermo = null;
@@ -100,11 +100,6 @@ Office.onReady(async (info) => {
   wizardState.init(Thermometer.init('setup-thermo'));
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
-  eventBus.on(Events.TRACKING_STOPPED, () => {
-    $("research-thermo")?.classList.add("hidden");
-    wizardState.reset();
-    showView("setup");
-  });
   setupUIReactivity();
   checkServerStatus(); initializeProjectPathDisplay();
   initSettingsPanel();
