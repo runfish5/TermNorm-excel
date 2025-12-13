@@ -1,4 +1,3 @@
-/** History Cache - Fetches and caches processed entries from backend */
 import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
 import { stateStore } from "../core/state-store.js";
 import { serverFetch, apiGet, getHeaders, buildUrl } from "./api-fetch.js";
@@ -7,31 +6,25 @@ import { ENDPOINTS } from "../config/config.js";
 export async function initializeHistoryCache() {
   if (getStateValue('history.cacheInitialized') || !getStateValue('server.online')) return getStateValue('history.cacheInitialized') || false;
   try {
-    const response = await serverFetch(ENDPOINTS.HISTORY, { method: "GET", headers: getHeaders() });
-    if (!response.ok) return false;
-    const result = await response.json();
-    if (result.status === "success" && result.data?.entries) {
-      setHistoryEntries(result.data.entries);
-      setHistoryCacheInitialized(true, Object.keys(result.data.entries).length);
-      return true;
-    }
+    const r = await serverFetch(ENDPOINTS.HISTORY, { method: "GET", headers: getHeaders() });
+    if (!r.ok) return false;
+    const { status, data } = await r.json();
+    if (status === "success" && data?.entries) { setHistoryEntries(data.entries); setHistoryCacheInitialized(true, Object.keys(data.entries).length); return true; }
   } catch {}
   return false;
 }
 
-export function findTargetBySource(sourceValue) {
-  if (!sourceValue) return null;
-  const entries = getStateValue('history.entries') || {};
-  for (const [id, e] of Object.entries(entries)) if (e.aliases?.[sourceValue]) return id;
+export function findTargetBySource(src) {
+  if (!src) return null;
+  for (const [id, e] of Object.entries(getStateValue('history.entries') || {})) if (e.aliases?.[src]) return id;
   return null;
 }
 
-export async function getEntity(identifier) {
-  if (!identifier) return null;
-  const cached = (getStateValue('history.entries') || {})[identifier];
+export async function getEntity(id) {
+  if (!id) return null;
+  const cached = (getStateValue('history.entries') || {})[id];
   if (cached) return cached;
-  try { const r = await apiGet(`${buildUrl(ENDPOINTS.MATCHES)}/${encodeURIComponent(identifier)}`); return r?.status !== "error" ? r?.data : null; }
-  catch { return null; }
+  try { const r = await apiGet(`${buildUrl(ENDPOINTS.MATCHES)}/${encodeURIComponent(id)}`); return r?.status !== "error" ? r?.data : null; } catch { return null; }
 }
 
 export function cacheEntity(source, { target, method, confidence, timestamp, web_sources, web_search_status }) {

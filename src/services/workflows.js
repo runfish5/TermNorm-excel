@@ -1,30 +1,12 @@
-/**
- * Workflows - Business logic orchestration for mappings, sessions, and settings.
- *
- * Unlike state-actions.js (pure state mutations), this module handles:
- * - Async operations and API calls
- * - Multi-step workflows with error handling
- * - Event coordination between state changes
- *
- * Use this module for complex operations like loading mappings or initializing sessions.
- * Use state-actions.js for simple state reads/writes.
- */
+// Workflows - Async operations, multi-step workflows, and event coordination
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
-import { checkServerStatus, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
-import { apiPost } from "../utils/api-fetch.js";
+import { checkServerStatus, getHeaders, buildUrl, fireAndForget, apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
-/**
- * Load a mapping source and combine with existing mappings
- * @param {number} index - Source index (0-based)
- * @param {function(Object): Promise<import('../config/config.js').MappingData>} loadFn - Loader function
- * @param {Object} params - Parameters passed to loadFn
- * @returns {Promise<import('../config/config.js').MappingData>}
- */
 export async function loadMappingSource(index, loadFn, params) {
   await checkServerStatus();
   if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) throw (showMessage("Server required", "error"), new Error("Server required"));
@@ -91,20 +73,10 @@ export async function ensureSessionInitialized() {
   return success;
 }
 
-/**
- * Execute API call with automatic session recovery on failure
- * @template T
- * @param {function(): Promise<T>} apiCallFn - API call function to execute
- * @returns {Promise<T|null>} Result or null if recovery failed
- */
 export async function executeWithSessionRecovery(apiCallFn) {
-  try {
-    const result = await apiCallFn();
-    if (result) return result;
-  } catch {} // Fall through to recovery on exception or null result
+  try { const result = await apiCallFn(); if (result) return result; } catch {}
   showMessage("Recovering backend session...");
-  if (await reinitializeSession()) return apiCallFn();
-  return null;
+  return (await reinitializeSession()) ? apiCallFn() : null;
 }
 
 export async function initializeSettings() {

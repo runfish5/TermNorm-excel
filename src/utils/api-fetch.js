@@ -51,43 +51,9 @@ async function apiFetch(url, options = {}) {
   } catch { if (!silent) showMessage(`Server offline - Check backend is running on port 8000\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
 }
 
-/**
- * POST request to API endpoint
- * @param {string} url - API endpoint URL
- * @param {Object} body - Request body (will be JSON stringified)
- * @param {Object} [headers={}] - Additional headers
- * @param {{silent?: boolean, processingMessage?: string}} [opts={}] - Options
- * @returns {Promise<Object|null>} Response data or null on error
- */
-export async function apiPost(url, body, headers = {}, opts = {}) {
-  return apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body), ...opts });
-}
-
-/**
- * GET request to API endpoint
- * @param {string} url - API endpoint URL
- * @param {Object} [headers={}] - Additional headers
- * @param {boolean} [silent=false] - Suppress UI messages
- * @returns {Promise<Object|null>} Response data or null on error
- */
-export async function apiGet(url, headers = {}, silent = false) {
-  return apiFetch(url, { method: "GET", headers: { "Content-Type": "application/json", ...headers }, silent });
-}
-
-/**
- * PUT request to API endpoint
- * @param {string} url - API endpoint URL
- * @param {Object} body - Request body (will be JSON stringified)
- * @param {{silent?: boolean, processingMessage?: string}} [opts={}] - Options
- * @returns {Promise<Object|null>} Response data or null on error
- */
-export async function apiPut(url, body, opts = {}) {
-  return apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), ...opts });
-}
-
-/** Fire-and-forget wrapper - suppresses errors for non-critical operations */
-export const fireAndForget = promise => promise.catch(() => {});
-
-export function logMatch(data, headers = {}) {
-  fireAndForget(serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }));
-}
+// HTTP method wrappers
+export const apiPost = (url, body, headers = {}, opts = {}) => apiFetch(url, { method: "POST", headers: { ...getHeaders(), ...headers }, body: JSON.stringify(body), ...opts });
+export const apiGet = (url, headers = {}, silent = false) => apiFetch(url, { method: "GET", headers: { ...getHeaders(), ...headers }, silent });
+export const apiPut = (url, body, opts = {}) => apiFetch(url, { method: "PUT", headers: getHeaders(), body: JSON.stringify(body), ...opts });
+export const fireAndForget = p => p.catch(() => {});
+export const logMatch = (data, h = {}) => fireAndForget(serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { ...getHeaders(), ...h }, body: JSON.stringify(data) }));
