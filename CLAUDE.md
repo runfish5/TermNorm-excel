@@ -58,7 +58,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
 - **ui-components/**: Reusable UI modules
   - `thermometer.js` - Progress/status indicator with two modes
   - `candidate-ranking.js` - Drag-to-rank candidate selection
-  - `processing-history.js` - History tab, listens for MATCH_LOGGED events
+  - `processing-history.js` - Matching Journal view, listens for MATCH_LOGGED events
   - `direct-prompt.js` - Custom LLM inference UI
   - `file-handling.js` - Config file drag-and-drop
   - `mapping-config.js` - Mapping configuration panel

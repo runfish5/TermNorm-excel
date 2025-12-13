@@ -114,13 +114,24 @@ def update_match_database(record: Dict[str, Any]):
     from datetime import datetime
     now = datetime.utcnow().isoformat() + "Z"
 
+    # Step 1: Update all existing aliases for this source to point to new target
+    # This preserves history while tracking the "ground truth" current assignment
+    for entity_id, entity in match_database.items():
+        if entity_id == target:
+            continue  # Skip the new target
+        if source in entity.get("aliases", {}):
+            entity["aliases"][source]["current_target"] = target
+
     # Track if new entry (before creating)
     is_new = target not in match_database
 
     # Create or update identifier entry
+    # Note: entity_profile is NOT stored here because it describes the SOURCE (user query),
+    # not the TARGET (matched identifier). The profile explains what the user searched for,
+    # not what the standardized term means.
     if is_new:
         match_database[target] = {
-            "entity_profile": record.get("entity_profile"),
+            "entity_profile": None,
             "aliases": {},
             "web_sources": record.get("web_sources", []),
             "last_updated": now
@@ -134,7 +145,7 @@ def update_match_database(record: Dict[str, Any]):
     HIGH_CONFIDENCE_THRESHOLD = 0.8
     verified = method in ("UserChoice", "DirectEdit", "cached", "fuzzy") or confidence >= HIGH_CONFIDENCE_THRESHOLD
 
-    # Update alias with verification status
+    # Update alias WITHOUT current_target (this IS the current target)
     entry["aliases"][source] = {
         "timestamp": now,
         "method": method,
@@ -142,9 +153,8 @@ def update_match_database(record: Dict[str, Any]):
         "verified": verified
     }
 
-    # Update entity_profile if this record has one
-    if record.get("entity_profile"):
-        entry["entity_profile"] = record.get("entity_profile")
+    # Update web_sources and timestamp if provided
+    if record.get("web_sources"):
         entry["web_sources"] = record.get("web_sources", [])
         entry["last_updated"] = now
 
@@ -249,9 +259,10 @@ def _update_db_entry(record: Dict[str, Any]):
     if not target or not source or target == "No matches found":
         return
 
+    # Note: entity_profile is NOT stored - it describes the source query, not the target
     if target not in match_database:
         match_database[target] = {
-            "entity_profile": record.get("entity_profile"),
+            "entity_profile": None,
             "aliases": {},
             "web_sources": record.get("web_sources", []),
             "last_updated": record.get("timestamp")
@@ -273,8 +284,7 @@ def _update_db_entry(record: Dict[str, Any]):
             "verified": verified
         }
 
-    if record.get("entity_profile") and record.get("timestamp", "") > entry.get("last_updated", ""):
-        entry["entity_profile"] = record.get("entity_profile")
+    if record.get("web_sources") and record.get("timestamp", "") > entry.get("last_updated", ""):
         entry["web_sources"] = record.get("web_sources", [])
         entry["last_updated"] = record.get("timestamp")
 

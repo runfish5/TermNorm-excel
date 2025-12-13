@@ -92,18 +92,29 @@ const handleWorksheetChange = async (e, tracker) => {
 
     // Log DirectEdits (fire-and-forget, don't block normal processing)
     for (const { row, inputCol, newValue } of outputEdits) {
-      const inputRange = ws.getRangeByIndexes(row, inputCol, 1, 1);
-      inputRange.load("values");
-      await ctx.sync();
-      const sourceValue = inputRange.values[0][0];
+      const cellKey = `${row}:${inputCol}`;
+      const cellState = getWorkbookCellState(tracker.workbookId, cellKey);
+
+      // Prefer stored value (guaranteed to match), fallback to Excel read
+      let sourceValue = cellState?.value;
+      if (!sourceValue) {
+        const inputRange = ws.getRangeByIndexes(row, inputCol, 1, 1);
+        inputRange.load("values");
+        await ctx.sync();
+        sourceValue = inputRange.values[0][0];
+      }
+
       if (sourceValue) {
-        apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, {
-          source: String(sourceValue).trim(),
-          target: String(newValue).trim(),
-          method: "DirectEdit",
-          confidence: 1.0,
-          timestamp: new Date().toISOString()
-        }, getHeaders()).catch(() => {});
+        const timestamp = new Date().toISOString();
+        const source = String(sourceValue).trim();
+        const target = String(newValue).trim();
+        const result = { target, method: "DirectEdit", confidence: 1.0, timestamp, source };
+
+        // Emit event for history table
+        eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
+
+        // Also log to API (fire-and-forget)
+        apiPost(`${getHost()}${ENDPOINTS.ACTIVITIES}`, { source, target, method: "DirectEdit", confidence: 1.0, timestamp }, getHeaders()).catch(() => {});
       }
     }
 
@@ -138,7 +149,8 @@ const handleSelectionChange = async (e, tracker) => {
 
     if (tracker.columnMap.has(col)) {
       const id = tracker.mappings.forward[value] || findTargetBySource(value);
-      if (id) eventBus.emit(Events.CELL_SELECTED, { cellKey: null, state: null, identifier: id });
+      // Pass source value for reliable row lookup (table is keyed by source, not identifier)
+      eventBus.emit(Events.CELL_SELECTED, { cellKey: null, state: null, identifier: id, source: value });
     } else {
       const state = getWorkbookCellState(tracker.workbookId, cellKey);
       eventBus.emit(Events.CELL_SELECTED, state?.status === "complete" ? { cellKey, state, identifier: null } : { cellKey: null, state: null, identifier: value });

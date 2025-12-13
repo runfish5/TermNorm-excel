@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-12-13
+
+### Highlights
+
+**Matching Journal (formerly "Activity History")**
+- Renamed view to "Matching Journal" for clarity
+- Complete overhaul of history tracking and deduplication logic
+- Fixed timestamp-sorted insertion: delayed API responses no longer appear as "newest" assignment
+- Fixed trimming logic: now evicts oldest entries by timestamp (was incorrectly removing most recent)
+- Added `web_search_status` to history entries: warning icon persists across page refreshes
+- New history indicator (🕐N) with clickable popup showing all assignments for a source
+- Popup highlights current assignment (★) and allows viewing details of any historical entry
+
+**DirectEdit Reliability**
+- Fixed duplicate row bug: DirectEdit now uses stored source value from cell state
+- Fallback to Excel read when cell state doesn't exist (previous sessions)
+- Guaranteed source key matching prevents spurious duplicates from whitespace/casing differences
+
+**Cell Selection Navigation**
+- Fixed scrolling to outdated entries: now looks up by normalized source key
+- Uses `sourceIndex` Map for O(1) case-insensitive lookup
+- Correctly displays details for current target (from row's data-identifier)
+
+### Technical Details
+- Source normalization: trim + lowercase + collapse whitespace + Unicode NFC
+- History entries now include: `{ timestamp, target, method, confidence, web_search_status }`
+- `handleCellSelection` prioritizes source lookup over identifier lookup
+- Files modified: `processing-history.js`, `processing-history.css`, `live-tracker.js`, `history-cache.js`
+
 ## [1.0.4] - 2025-12-12
 
 ### Highlights

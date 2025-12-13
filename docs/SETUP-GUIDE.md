@@ -93,9 +93,9 @@ Start server:
 - Switch to **History** view to see all past normalizations
 
 **Monitor activity:**
-- Real-time processing shown in the Activity Feed
+- Real-time processing shown in the Matching Journal
 - Py-Server indicator in navbar (green = online, red = offline)
-- Processing logs for debugging
+- Match history for debugging
 
 ## Quick Verification Checklist
 
@@ -105,7 +105,7 @@ Before diving deeper, verify everything is working:
 - [ ] Configuration loaded successfully
 - [ ] Entered a term and saw it processed
 - [ ] Target column populated with results
-- [ ] Activity Feed shows processing logs
+- [ ] Matching Journal shows match history
 
 If any step fails, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**.
 
@@ -122,7 +122,7 @@ For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTI
 - Click to refresh connection
 
 ### Read System Messages
-- Check the Activity Feed for processing logs
+- Check the Matching Journal for match history
 - Look for error messages in sys-status
 - Review terminal output for server errors
 

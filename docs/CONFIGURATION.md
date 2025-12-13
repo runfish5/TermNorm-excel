@@ -198,7 +198,7 @@ This tells the system where to find your list of approved/standard terms.
 1. Verify input column name matches exactly (case-sensitive)
 2. Check output column exists or can be created
 3. Activate tracking after loading configuration
-4. Check Activity Feed for processing status
+4. Check Matching Journal for processing status
 
 ### Multi-User Auth Issues
 

@@ -35,15 +35,16 @@ export async function getEntity(identifier) {
   catch { return null; }
 }
 
-export function cacheEntity(source, { target, method, confidence, timestamp, entity_profile, web_sources }) {
+export function cacheEntity(source, { target, method, confidence, timestamp, web_sources, web_search_status }) {
+  // Note: entity_profile is intentionally NOT cached here because it describes the SOURCE (user query),
+  // not the TARGET (matched identifier). Storing it with the target would show wrong profile in details view.
   if (!target) return;
   const entries = { ...(getStateValue('history.entries') || {}) };
   entries[target] = entries[target] ? { ...entries[target], aliases: { ...entries[target].aliases } }
-    : { entity_profile: entity_profile || null, aliases: {}, web_sources: web_sources || [], last_updated: timestamp };
-  entries[target].aliases[source] = { method, confidence, timestamp };
+    : { entity_profile: null, aliases: {}, web_sources: web_sources || [], last_updated: timestamp };
+  entries[target].aliases[source] = { method, confidence, timestamp, web_search_status: web_search_status || "idle" };
   if (!entries[target].last_updated || timestamp > entries[target].last_updated) {
     entries[target].last_updated = timestamp;
-    if (entity_profile) entries[target].entity_profile = entity_profile;
     if (web_sources?.length) entries[target].web_sources = web_sources;
   }
   stateStore.set('history.entries', entries);
