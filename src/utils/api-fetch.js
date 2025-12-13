@@ -49,10 +49,25 @@ async function apiFetch(url, options = {}) {
   } catch { if (!silent) showMessage(`Server offline - Check backend is running on port 8000\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
 }
 
+/**
+ * POST request to API endpoint
+ * @param {string} url - API endpoint URL
+ * @param {Object} body - Request body (will be JSON stringified)
+ * @param {Object} [headers={}] - Additional headers
+ * @param {{silent?: boolean, processingMessage?: string}} [opts={}] - Options
+ * @returns {Promise<Object|null>} Response data or null on error
+ */
 export async function apiPost(url, body, headers = {}, opts = {}) {
   return apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body), ...opts });
 }
 
+/**
+ * GET request to API endpoint
+ * @param {string} url - API endpoint URL
+ * @param {Object} [headers={}] - Additional headers
+ * @param {boolean} [silent=false] - Suppress UI messages
+ * @returns {Promise<Object|null>} Response data or null on error
+ */
 export async function apiGet(url, headers = {}, silent = false) {
   return apiFetch(url, { method: "GET", headers: { "Content-Type": "application/json", ...headers }, silent });
 }

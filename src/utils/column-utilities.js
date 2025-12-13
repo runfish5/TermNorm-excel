@@ -3,6 +3,14 @@ export function findColumnIndex(headers, columnName) {
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
 }
 
+/**
+ * Build column index mapping from header names to column indices
+ * @param {string[]} headers - Header row values
+ * @param {Object<string, string>} columnMap - Config mapping {sourceColumn: targetColumn}
+ * @param {string} [worksheetName=null] - Worksheet name for error messages
+ * @returns {Map<number, number>} Map of sourceColumnIndex → targetColumnIndex
+ * @throws {Error} If any column headers not found
+ */
 export function buildColumnMap(headers, columnMap, worksheetName = null) {
   const result = new Map(), missing = [];
 
@@ -20,6 +28,12 @@ export function buildColumnMap(headers, columnMap, worksheetName = null) {
   return result;
 }
 
+/**
+ * Build confidence column index mapping (optional columns, no errors on missing)
+ * @param {string[]} headers - Header row values
+ * @param {Object<string, string>} confidenceColumnMap - Config mapping {sourceColumn: confidenceColumn}
+ * @returns {{confidenceColumnMap: Map<number, number>, confidenceFound: string[], confidenceMissing: string[]}}
+ */
 export function buildConfidenceColumnMap(headers, confidenceColumnMap) {
   if (!confidenceColumnMap) return { confidenceColumnMap: new Map(), confidenceFound: [], confidenceMissing: [] };
 

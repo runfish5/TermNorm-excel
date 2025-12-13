@@ -5,6 +5,13 @@ import { FUZZY_THRESHOLDS } from "../config/config.js";
 const norm = v => v ? String(v).trim() : '';
 const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
 
+/**
+ * Get exact cache match from forward or reverse mappings
+ * @param {string} value - Input term to match
+ * @param {Object<string, string|{target: string}>} forward - Source→target mappings
+ * @param {Object<string, string>} reverse - Target→source mappings
+ * @returns {import('../config/config.js').MatchResult|null}
+ */
 export function getCachedMatch(value, forward, reverse) {
   const n = norm(value);
   if (!n) return null;
@@ -76,6 +83,15 @@ function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT)
     : null;
 }
 
+/**
+ * Find fuzzy match using Levenshtein similarity
+ * @param {string} value - Input term to match
+ * @param {Object<string, string|{target: string}>} forward - Source→target mappings
+ * @param {Object<string, string>} reverse - Target→source mappings
+ * @param {number} [forwardThreshold=0.7] - Minimum similarity for forward match
+ * @param {number} [reverseThreshold=0.5] - Minimum similarity for reverse match
+ * @returns {import('../config/config.js').MatchResult|null}
+ */
 export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY_THRESHOLDS.FORWARD, reverseThreshold = FUZZY_THRESHOLDS.REVERSE) {
   const normalized = value ? String(value).trim() : '';
   if (!normalized) return null;

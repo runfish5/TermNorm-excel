@@ -1,5 +1,52 @@
 /** Configuration - Session, matching, and UI constants */
 
+// ============================================================================
+// TYPE DEFINITIONS (for JSDoc autocomplete)
+// ============================================================================
+
+/**
+ * @typedef {Object} MatchResult
+ * @property {string} target - Matched output value
+ * @property {string} method - 'cached'|'fuzzy'|'ProfileRank'|'error'
+ * @property {number} confidence - Score 0-1
+ * @property {string} timestamp - ISO timestamp
+ * @property {string} source - Original input
+ * @property {Array|null} [candidates] - LLM candidates (ProfileRank only)
+ * @property {Object|null} [entity_profile] - Entity profile (ProfileRank only)
+ */
+
+/**
+ * @typedef {Object} CellState
+ * @property {string} value - Input value
+ * @property {string} status - 'processing'|'complete'|'error'
+ * @property {number} row - Row index
+ * @property {number} col - Column index
+ * @property {number} [targetCol] - Target column index
+ * @property {MatchResult} [result] - Match result when complete
+ * @property {string} [timestamp] - ISO timestamp
+ */
+
+/**
+ * @typedef {Object} MappingData
+ * @property {Object<string, string|{target: string}>} forward - Source→target mappings
+ * @property {Object<string, string>} reverse - Target→source mappings (for verification)
+ * @property {Object} [metadata] - Optional metadata about the mappings
+ */
+
+// ============================================================================
+// SERVER DEFAULTS
+// ============================================================================
+
+export const SERVER_DEFAULTS = {
+  HOST: "http://127.0.0.1",
+  PORT: 8000,
+  get URL() { return `${this.HOST}:${this.PORT}`; }
+};
+
+// ============================================================================
+// SESSION CONFIG
+// ============================================================================
+
 // Session (merged from session.config.js)
 export const SESSION_RETRY = { MAX_ATTEMPTS: 3, DELAYS_MS: [1000, 2000, 4000] };
 export const SESSION_ENDPOINTS = { INIT: "/session/init-terms", RESEARCH: "/research-and-match" };
@@ -44,4 +91,27 @@ export const PROCESSING_COLORS = {
 // Event log settings
 export const EVENT_LOG = {
   MAX_ENTRIES: 50,
+};
+
+// ============================================================================
+// UI CONSTANTS
+// ============================================================================
+
+// Timing constants for UI feedback
+export const UI_TIMINGS = {
+  FEEDBACK_REMOVE_MS: 3000,   // How long feedback messages stay visible
+  COPY_RESET_MS: 1500,        // How long "Copied!" stays before resetting
+  LOADING_DOTS_MS: 400,       // Animation speed for loading dots
+};
+
+// Limits for user inputs
+export const LIMITS = {
+  MAX_DIRECT_PROMPT_ITEMS: 100,  // Max items in direct prompt batch
+  MAX_HEADER_COLUMNS: 100,       // Max columns to scan for headers
+};
+
+// Additional UI colors not in RELEVANCE_COLORS
+export const UI_COLORS = {
+  ERROR_RED: "#F44336",    // Error text/icons
+  TEXT_GRAY: "#666",       // Secondary text
 };

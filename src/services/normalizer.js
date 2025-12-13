@@ -30,6 +30,13 @@ export async function findTokenMatch(value) {
 
 const normalize = (r) => ({ target: r.target || "Unknown", method: r.method || "unknown", confidence: r.confidence ?? 0, timestamp: r.timestamp || new Date().toISOString(), source: r.source || "", candidates: r.candidates || null, entity_profile: r.entity_profile || null, web_sources: r.web_sources || null, total_time: r.total_time || null, llm_provider: r.llm_provider || null, web_search_status: r.web_search_status || "idle" });
 
+/**
+ * Three-tier term normalization: Cache → Fuzzy → LLM research
+ * @param {string} value - Input term to normalize
+ * @param {Object<string, string|{target: string}>} forward - Source→target mappings
+ * @param {Object<string, string>} reverse - Target→source mappings
+ * @returns {Promise<import('../config/config.js').MatchResult>}
+ */
 export async function processTermNormalization(value, forward, reverse) {
   const startTime = performance.now();
   const normalized = value ? String(value).trim() : "";

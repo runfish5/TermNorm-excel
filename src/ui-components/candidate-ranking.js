@@ -1,6 +1,7 @@
 import { init as initHistory } from "./processing-history.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
+import { UI_TIMINGS } from "../config/config.js";
 
 let container = null, candidatesData = [], currentContext = null;
 
@@ -56,7 +57,7 @@ export function addCandidate(value, result, context) {
     const fb = showFeedback(section, "Processing...", "bg-muted");
     try { await currentContext.applyChoice(first); fb.innerHTML = `✅ ${first.candidate}`; fb.classList.replace("bg-muted", "bg-success"); }
     catch { fb.innerHTML = "❌ Failed"; fb.classList.replace("bg-muted", "bg-error"); }
-    setTimeout(() => fb.remove(), 3000);
+    setTimeout(() => fb.remove(), UI_TIMINGS.FEEDBACK_REMOVE_MS);
   };
 }
 

@@ -30,6 +30,7 @@ function buildActivityRow({ source, sessionKey, timestamp }, { target, method, c
 
 eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => populateFromCache(entries));
 eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier }) => handleCellSelection(cellKey, state, identifier));
+eventBus.on(Events.MATCH_LOGGED, ({ value, cellKey, timestamp, result }) => addEntry(value, cellKey, timestamp, result));
 
 export function init(containerId = "processing-history-feed") {
   container = document.getElementById(containerId);

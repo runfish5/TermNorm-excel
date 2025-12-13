@@ -16,6 +16,12 @@ export function setWebSearchStatus(status, error = null) {
 }
 export function setHistoryEntries(entries) { stateStore.merge('history', { entries }); }
 export function getStateValue(path) { return stateStore.get(path); }
+/**
+ * Get cell state for a specific workbook and cell
+ * @param {string} workbookId - Workbook identifier
+ * @param {string} cellKey - Cell key in "row:col" format
+ * @returns {import('../config/config.js').CellState|undefined}
+ */
 export function getWorkbookCellState(workbookId, cellKey) { return stateStore.get(`session.workbooks.${workbookId}`)?.cells?.[cellKey]; }
 
 export function setServerStatus(online, host = null, info = {}) {
@@ -35,6 +41,12 @@ export function setHistoryCacheInitialized(initialized, entryCount = 0) {
   if (initialized) eventBus.emit(Events.HISTORY_CACHE_INITIALIZED, { entries: stateStore.get('history.entries') || {}, count: entryCount });
 }
 
+/**
+ * Set cell state for a specific workbook and cell
+ * @param {string} workbookId - Workbook identifier
+ * @param {string} cellKey - Cell key in "row:col" format
+ * @param {import('../config/config.js').CellState} cellState - Cell state object
+ */
 export function setCellState(workbookId, cellKey, cellState) {
   stateStore.setState(state => {
     if (!state.session.workbooks[workbookId]) state.session.workbooks[workbookId] = { cells: {} };

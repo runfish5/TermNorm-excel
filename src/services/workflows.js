@@ -18,6 +18,13 @@ import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
+/**
+ * Load a mapping source and combine with existing mappings
+ * @param {number} index - Source index (0-based)
+ * @param {function(Object): Promise<import('../config/config.js').MappingData>} loadFn - Loader function
+ * @param {Object} params - Parameters passed to loadFn
+ * @returns {Promise<import('../config/config.js').MappingData>}
+ */
 export async function loadMappingSource(index, loadFn, params) {
   await checkServerStatus();
   if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) throw (showMessage("Server required", "error"), new Error("Server required"));
@@ -84,6 +91,12 @@ export async function ensureSessionInitialized() {
   return success;
 }
 
+/**
+ * Execute API call with automatic session recovery on failure
+ * @template T
+ * @param {function(): Promise<T>} apiCallFn - API call function to execute
+ * @returns {Promise<T|null>} Result or null if recovery failed
+ */
 export async function executeWithSessionRecovery(apiCallFn) {
   try {
     const result = await apiCallFn();

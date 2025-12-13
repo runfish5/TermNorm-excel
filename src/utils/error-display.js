@@ -1,4 +1,6 @@
 /** Error/Status Display - Unified in main-status-message */
+import { UI_TIMINGS, UI_COLORS } from "../config/config.js";
+
 let statusEl = null, dotsInterval = null;
 
 const clearDots = () => { if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; } };
@@ -15,9 +17,9 @@ export function showMessage(text, type = "info") {
     el.style.color = "";
     const dotsEl = el.querySelector('.loading-dots'), states = ['', '.', '..', '...', '..', '.'];
     let i = 0;
-    dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % 6]; }, 400);
+    dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % 6]; }, UI_TIMINGS.LOADING_DOTS_MS);
   } else {
     el.textContent = text;
-    el.style.color = type === "error" ? "#F44336" : "";
+    el.style.color = type === "error" ? UI_COLORS.ERROR_RED : "";
   }
 }

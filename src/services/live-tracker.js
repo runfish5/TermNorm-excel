@@ -4,7 +4,6 @@ import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook 
 import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { PROCESSING_COLORS, getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
-import { addEntry as addHistoryEntry } from "../ui-components/processing-history.js";
 import { showMessage } from "../utils/error-display.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost } from "../utils/api-fetch.js";
@@ -148,7 +147,7 @@ const handleSelectionChange = async (e, tracker) => {
 
 function logResult(workbookId, cellKey, value, result, status, row, col) {
   setCellState(workbookId, cellKey, { value, result, status, row, col, timestamp: result.timestamp });
-  addHistoryEntry(value, cellKey, result.timestamp, result);
+  eventBus.emit(Events.MATCH_LOGGED, { value, cellKey, timestamp: result.timestamp, result });
 }
 
 // Cell writing (inlined from cell-writing.js)

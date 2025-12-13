@@ -6,6 +6,7 @@ import { getRelevanceColor } from "../utils/app-utilities.js";
 import { reinitializeSession } from "../services/workflows.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { $ } from "../utils/dom-helpers.js";
+import { LIMITS } from "../config/config.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
 
@@ -95,7 +96,7 @@ async function processDirectPrompt() {
   const error = !selectedRange ? "No range selected - click Refresh Selection" :
     !getStateValue('mappings.loaded') ? "Mappings not loaded" :
     isProcessing ? null : !userPrompt ? "Prompt is required" :
-    !values.length ? "No values in selection" : values.length > 100 ? "Max 100 items allowed" : null;
+    !values.length ? "No values in selection" : values.length > LIMITS.MAX_DIRECT_PROMPT_ITEMS ? `Max ${LIMITS.MAX_DIRECT_PROMPT_ITEMS} items allowed` : null;
   if (error) { showMessage(error, "error"); return; }
   if (isProcessing) return;
   if (!(await reinitializeSession())) { showMessage("Failed to initialize session", "error"); return; }
@@ -151,7 +152,7 @@ async function writeResultsToExcel(results) {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       const usedRange = ws.getUsedRange(true);
       usedRange.load("columnIndex, columnCount");
-      const headers = ws.getRangeByIndexes(0, 0, 1, 100);
+      const headers = ws.getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
       headers.load("values");
       await ctx.sync();
 

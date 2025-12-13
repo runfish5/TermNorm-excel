@@ -3,12 +3,13 @@ import { loadAndProcessMappings } from "../services/mapping-processor.js";
 import { getStateValue } from "../core/state-actions.js";
 import { loadMappingSource } from "../services/workflows.js";
 import { showMessage } from "../utils/error-display.js";
+import { UI_COLORS } from "../config/config.js";
 
 export function createMappingConfigHTML(config, i) {
   return `
     <summary class="mapping-summary">
       Map Config ${i + 1}
-      <span class="filename-display" style="margin-left: 10px; font-style: italic; color: #666;"></span>
+      <span class="filename-display" style="margin-left: 10px; font-style: italic; color: ${UI_COLORS.TEXT_GRAY};"></span>
     </summary>
     <div class="form-section first-form-section">
       <div class="radio-group">

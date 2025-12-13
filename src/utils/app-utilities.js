@@ -1,5 +1,5 @@
 // utils/app-utilities.js - Consolidated application utilities
-import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../config/config.js";
+import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS, UI_TIMINGS } from "../config/config.js";
 import { $ } from "./dom-helpers.js";
 
 export { PROCESSING_COLORS };
@@ -43,7 +43,7 @@ export function initializeProjectPathDisplay() {
   setText("config-folder-path", configPath);
   setText("config-file-path", configFile);
 
-  const setupCopy = (id, text) => { const btn = $(id); if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = "✓"; setTimeout(() => btn.textContent = orig, 1500); }; };
+  const setupCopy = (id, text) => { const btn = $(id); if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = "✓"; setTimeout(() => btn.textContent = orig, UI_TIMINGS.COPY_RESET_MS); }; };
   ["copy-path-btn", "copy-path-btn-iis"].forEach(id => setupCopy(id, path));
   setupCopy("copy-path-btn-2", configPath);
   setupCopy("copy-config-file-path-btn", configFile);
