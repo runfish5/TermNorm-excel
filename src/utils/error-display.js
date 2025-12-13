@@ -3,7 +3,7 @@ let loadingIndicator = null, dotsInterval = null;
 
 const clearDots = () => { if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; } };
 
-const bubbleSide = (side) => `<div class="bubble-loader ${side}"><div class="bubble ${side}"></div><div class="pop-flash ${side}"></div>${'<div class="quarter ' + side + '"></div>'.repeat(4)}</div>`;
+const bubbleSide = (side) => `<div class="bubble-loader ${side}"><div class="bubble ${side}"></div><div class="pop-flash ${side}"></div>${[1,2,3,4].map(n => `<div class="quarter quarter-${n} ${side}"></div>`).join('')}</div>`;
 
 function showLoadingIndicator(message = "Working", type = "processing") {
   const indicator = loadingIndicator || (loadingIndicator = document.getElementById("loading-indicator"));
