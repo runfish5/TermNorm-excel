@@ -30,7 +30,7 @@ export async function getEntity(identifier) {
   if (!identifier) return null;
   const cached = (getStateValue('history.entries') || {})[identifier];
   if (cached) return cached;
-  try { const r = await apiGet(`${getHost()}${ENDPOINTS.MATCHES}/${encodeURIComponent(identifier)}`); return r?.status !== "error" ? r?.data : null; }
+  try { const r = await apiGet(`${buildUrl(ENDPOINTS.MATCHES)}/${encodeURIComponent(identifier)}`); return r?.status !== "error" ? r?.data : null; }
   catch { return null; }
 }
 

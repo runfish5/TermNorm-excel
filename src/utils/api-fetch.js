@@ -73,6 +73,20 @@ export async function apiGet(url, headers = {}, silent = false) {
   return apiFetch(url, { method: "GET", headers: { "Content-Type": "application/json", ...headers }, silent });
 }
 
+/**
+ * PUT request to API endpoint
+ * @param {string} url - API endpoint URL
+ * @param {Object} body - Request body (will be JSON stringified)
+ * @param {{silent?: boolean, processingMessage?: string}} [opts={}] - Options
+ * @returns {Promise<Object|null>} Response data or null on error
+ */
+export async function apiPut(url, body, opts = {}) {
+  return apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), ...opts });
+}
+
+/** Fire-and-forget wrapper - suppresses errors for non-critical operations */
+export const fireAndForget = promise => promise.catch(() => {});
+
 export function logMatch(data, headers = {}) {
-  serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }).catch(() => {});
+  fireAndForget(serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(data) }));
 }

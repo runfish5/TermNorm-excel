@@ -10,6 +10,18 @@ from fastapi import HTTPException
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
 LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
 
+
+def get_available_providers() -> List[str]:
+    """Return list of providers with configured API keys"""
+    providers = []
+    if os.getenv("GROQ_API_KEY"):
+        providers.append("groq")
+    if os.getenv("OPENAI_API_KEY"):
+        providers.append("openai")
+    if os.getenv("ANTHROPIC_API_KEY"):
+        providers.append("anthropic")
+    return providers
+
 async def llm_call(
     messages: List[Dict[str, str]],
     max_tokens: int = 1000,

@@ -35,18 +35,10 @@ async def health() -> Dict[str, Any]:
 @router.get("/settings")
 async def get_settings() -> Dict[str, Any]:
     """Get all runtime settings and available providers"""
-    available_providers: List[str] = []
-    if os.getenv("GROQ_API_KEY"):
-        available_providers.append("groq")
-    if os.getenv("OPENAI_API_KEY"):
-        available_providers.append("openai")
-    if os.getenv("ANTHROPIC_API_KEY"):
-        available_providers.append("anthropic")
-
     return success_response(
         message="Settings retrieved",
         data={
-            "available_providers": available_providers,
+            "available_providers": llm_providers.get_available_providers(),
             "current_provider": llm_providers.LLM_PROVIDER,
             "current_model": llm_providers.LLM_MODEL,
             "web_search_enabled": settings.use_web_search,

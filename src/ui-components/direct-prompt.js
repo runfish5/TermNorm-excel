@@ -1,6 +1,5 @@
 import { showMessage } from "../utils/error-display.js";
-import { apiPost, serverFetch } from "../utils/api-fetch.js";
-import { getHost, getHeaders } from "../utils/api-fetch.js";
+import { apiPost, serverFetch, getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
 import { reinitializeSession } from "../services/workflows.js";
@@ -114,11 +113,11 @@ async function processDirectPrompt() {
 }
 
 async function processItems(values, userPrompt) {
-  const results = [], host = getHost(), headers = getHeaders(), startTime = Date.now();
+  const results = [], headers = getHeaders(), startTime = Date.now();
   let batchId = null, successCount = 0, errorCount = 0;
 
   if (values.length > 1) {
-    try { batchId = (await apiPost(`${host}${ENDPOINTS.BATCHES}`, { method: "DirectPrompt", user_prompt: userPrompt, item_count: values.length, items: values }, headers))?.batch_id; } catch {}
+    try { batchId = (await apiPost(buildUrl(ENDPOINTS.BATCHES), { method: "DirectPrompt", user_prompt: userPrompt, item_count: values.length, items: values }, headers))?.batch_id; } catch {}
   }
 
   for (let i = 0; i < values.length; i++) {
@@ -129,7 +128,7 @@ async function processItems(values, userPrompt) {
     try {
       const payload = { query: value, user_prompt: userPrompt };
       if (batchId) payload.batch_id = batchId;
-      const data = await apiPost(`${host}${ENDPOINTS.PROMPTS}`, payload, headers);
+      const data = await apiPost(buildUrl(ENDPOINTS.PROMPTS), payload, headers);
       if (data) { results.push({ source: value, target: data.target || "No match", confidence: data.confidence ?? 0, confidence_corrected: data.confidence_corrected || false }); successCount++; }
       else { results.push({ source: value, target: "No response", confidence: 0 }); errorCount++; }
     } catch (e) { results.push({ source: value, target: `Error: ${e.message}`, confidence: 0 }); errorCount++; }
@@ -137,7 +136,7 @@ async function processItems(values, userPrompt) {
 
   if (batchId) {
     try {
-      await serverFetch(`${host}${ENDPOINTS.BATCHES}/${batchId}`, {
+      await serverFetch(`${buildUrl(ENDPOINTS.BATCHES)}/${batchId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({ success_count: successCount, error_count: errorCount, total_time_ms: Date.now() - startTime, results_summary: results.map(r => ({ source: r.source, target: r.target, confidence: r.confidence })) })

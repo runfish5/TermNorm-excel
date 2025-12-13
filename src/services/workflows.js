@@ -11,7 +11,7 @@
  */
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
-import { checkServerStatus, getHeaders, buildUrl } from "../utils/api-fetch.js";
+import { checkServerStatus, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
 import { apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
@@ -113,8 +113,8 @@ export async function initializeSettings() {
 
   // Sync backend-relevant settings (fire-and-forget, don't block startup)
   const { setWebSearch, setBraveApi } = await import("../utils/settings-manager.js");
-  if (settings.useWebSearch === false) setWebSearch(false).catch(() => {});
-  if (settings.useBraveApi === false) setBraveApi(false).catch(() => {});
+  if (settings.useWebSearch === false) fireAndForget(setWebSearch(false));
+  if (settings.useBraveApi === false) fireAndForget(setBraveApi(false));
 
   return settings;
 }
