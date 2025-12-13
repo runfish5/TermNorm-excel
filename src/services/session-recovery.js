@@ -1,7 +1,7 @@
 /** Session Recovery - Ensure backend session is ready before API calls */
 
 import { getStateValue } from "../core/state-actions.js";
-import { reinitializeSession } from "./state-manager.js";
+import { reinitializeSession } from "./workflows.js";
 import { showMessage } from "../utils/error-display.js";
 
 export async function ensureSessionInitialized() {

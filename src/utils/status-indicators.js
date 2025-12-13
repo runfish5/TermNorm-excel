@@ -1,6 +1,8 @@
 /** Status Indicators - LED, matcher status, and warning displays */
 import { getStateValue } from "../core/state-actions.js";
 import { showMessage } from "./error-display.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 const $ = id => document.getElementById(id);
 const getMappingCounts = () => { const m = getStateValue('mappings.combined'); return { fwd: Object.keys(m?.forward || {}).length, rev: Object.keys(m?.reverse || {}).length }; };
@@ -47,6 +49,7 @@ export function setupIndicators() {
     if (e.target.closest("#server-status-led")) { e.preventDefault(); import("./server-utilities.js").then(m => m.checkServerStatus()); }
     if (e.target.closest("#matcher-status-indicator")) { e.preventDefault(); showMatcherDetails(); }
   });
+  eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);
 }
 
 function showMatcherDetails() {

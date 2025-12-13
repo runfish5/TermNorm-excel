@@ -1,4 +1,9 @@
-/** State Store - Immutable state container with change notifications */
+/**
+ * State Store - Immutable state container. Single source of truth for app state.
+ *
+ * Direct reads via get(), mutations via state-actions.js.
+ * Only state-actions.js and workflows.js should import this module.
+ */
 
 import { eventBus } from './event-bus.js';
 import { Events } from './events.js';

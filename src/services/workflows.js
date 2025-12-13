@@ -1,4 +1,14 @@
-/** State Manager - Business logic for mappings, sessions, and settings */
+/**
+ * Workflows - Business logic orchestration for mappings, sessions, and settings.
+ *
+ * Unlike state-actions.js (pure state mutations), this module handles:
+ * - Async operations and API calls
+ * - Multi-step workflows with error handling
+ * - Event coordination between state changes
+ *
+ * Use this module for complex operations like loading mappings or initializing sessions.
+ * Use state-actions.js for simple state reads/writes.
+ */
 import { showMessage } from "../utils/error-display.js";
 import { loadSettings, saveSetting as persistSetting } from "../utils/settings-manager.js";
 import { checkServerStatus, getHost, getHeaders } from "../utils/server-utilities.js";
@@ -10,7 +20,7 @@ import { Events } from "../core/events.js";
 
 export async function loadMappingSource(index, loadFn, params) {
   await checkServerStatus();
-  if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) throw (showMessage("❌ Server required", "error"), new Error("Server required"));
+  if (stateStore.get('settings.requireServerOnline') && !stateStore.get('server.online')) throw (showMessage("Server required", "error"), new Error("Server required"));
 
   const update = (u) => { const s = { ...stateStore.get('mappings.sources') }; s[index] = { ...s[index], ...u }; stateStore.set('mappings.sources', s); };
   update({ status: "loading", error: null });
@@ -20,9 +30,9 @@ export async function loadMappingSource(index, loadFn, params) {
     const result = await loadFn(params);
     update({ status: "synced", data: result });
     await combineMappingSources();
-    showMessage(`✅ ${Object.keys(result.reverse || {}).length} terms loaded`);
+    showMessage(`${Object.keys(result.reverse || {}).length} terms loaded`);
     return result;
-  } catch (e) { update({ status: "error", error: e.message, data: null }); showMessage(`❌ ${e.message}`, "error"); throw e; }
+  } catch (e) { update({ status: "error", error: e.message, data: null }); showMessage(`${e.message}`, "error"); throw e; }
 }
 
 async function initSessionWithRetry(terms) {
@@ -57,7 +67,7 @@ async function combineMappingSources() {
   eventBus.emit(Events.MAPPINGS_LOADED, { mappings: combined });
 
   const terms = Object.keys(combined.reverse);
-  if (terms.length && !(await initSessionWithRetry(terms))) showMessage("⚠️ Session failed - LLM unavailable", "error");
+  if (terms.length && !(await initSessionWithRetry(terms))) showMessage("Session failed - LLM unavailable", "error");
 }
 
 export async function reinitializeSession() {

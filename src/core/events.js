@@ -9,6 +9,8 @@ export const Events = {
   SERVER_STATUS_CHANGED: 'server:status:changed',
   SERVER_RECONNECTED: 'server:reconnected',
   TRACKING_STARTED: 'tracking:started',
+  TRACKING_STOPPED: 'tracking:stopped',
+  WEB_SEARCH_STATUS_CHANGED: 'webSearch:status:changed',
   SETTING_CHANGED: 'setting:changed',
   SETTINGS_PANEL_OPENED: 'settings:panel:opened',
 };

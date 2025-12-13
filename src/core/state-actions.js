@@ -1,4 +1,9 @@
-/** State Actions - Centralized mutation functions */
+/**
+ * State Actions - Pure state mutations. No side effects, no async, no API calls.
+ *
+ * Use for simple set/get operations on state.
+ * For complex async workflows, use workflows.js instead.
+ */
 import { stateStore } from './state-store.js';
 import { eventBus } from './event-bus.js';
 import { Events } from './events.js';
@@ -7,7 +12,7 @@ export function setView(view) { stateStore.set('ui.currentView', view); }
 export function setServerHost(host) { stateStore.set('server.host', host); }
 export function setWebSearchStatus(status, error = null) {
   stateStore.merge('webSearch', { status, error });
-  import('../utils/status-indicators.js').then(m => m.updateWarnings());
+  eventBus.emit(Events.WEB_SEARCH_STATUS_CHANGED, { status, error });
 }
 export function setHistoryEntries(entries) { stateStore.merge('history', { entries }); }
 export function getStateValue(path) { return stateStore.get(path); }
@@ -44,9 +49,4 @@ export function clearWorkbookCells(workbookId) {
 
 export function deleteWorkbook(workbookId) {
   stateStore.setState(state => { delete state.session.workbooks[workbookId]; return state; });
-}
-
-export function findCellState(cellKey) {
-  const workbooks = stateStore.get('session.workbooks') || {};
-  for (const id of Object.keys(workbooks)) { const s = workbooks[id]?.cells?.[cellKey]; if (s) return s; }
 }

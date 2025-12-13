@@ -6,7 +6,7 @@ import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/server-utilities.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { initializeSettings, saveSetting } from "../services/state-manager.js";
+import { initializeSettings, saveSetting } from "../services/workflows.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -56,6 +56,11 @@ Office.onReady(async (info) => {
   setupThermo = Thermometer.init('setup-thermo');
   initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
   eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
+  eventBus.on(Events.TRACKING_STOPPED, () => {
+    $("research-thermo")?.classList.add("hidden");
+    if (setupThermo) { setupThermo.reset(); setupThermo.expand(); }
+    showView("setup");
+  });
   setupUIReactivity();
   checkServerStatus(); initializeProjectPathDisplay();
   initSettingsPanel();

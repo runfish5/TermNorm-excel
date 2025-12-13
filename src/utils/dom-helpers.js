@@ -3,10 +3,6 @@ import { setView } from "../core/state-actions.js";
 /** Shorthand for document.getElementById */
 export const $ = id => document.getElementById(id);
 
-/** Toggle visibility via hidden class */
-export const show = (el, visible = true) => el?.classList.toggle("hidden", !visible);
-export const toggle = el => el?.classList.toggle("hidden");
-
 /** Modal helpers - remove/add hidden class */
 export const openModal = id => $(id)?.classList.remove("hidden");
 export const closeModal = id => $(id)?.classList.add("hidden");

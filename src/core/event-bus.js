@@ -1,4 +1,9 @@
-/** Event Bus - Central event dispatcher for decoupled communication */
+/**
+ * Event Bus - Pub/sub for decoupled communication.
+ *
+ * Use for UI reacting to state changes and cross-component coordination.
+ * Events are emitted from state-actions.js and workflows.js, subscribed in UI components.
+ */
 
 class EventBus {
   constructor() { this.listeners = new Map(); }

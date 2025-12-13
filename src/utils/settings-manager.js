@@ -1,7 +1,7 @@
 import { apiGet, apiPost } from "./api-fetch.js";
 
 const STORAGE_KEY = "termnorm_settings";
-const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true };
+export const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true };
 
 export function loadSettings() {
   try {

@@ -4,14 +4,13 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { getStateValue } from "../core/state-actions.js";
-import { saveSetting } from "../services/state-manager.js";
+import { saveSetting } from "../services/workflows.js";
 import { showMessage } from "../utils/error-display.js";
 import { renewPrompt } from "../services/prompt-renewer.js";
-import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch } from "../utils/settings-manager.js";
+import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
 
 const $ = id => document.getElementById(id);
-const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true };
 
 const HTML = `
 <div class="settings-panel">

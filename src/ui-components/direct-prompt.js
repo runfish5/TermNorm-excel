@@ -3,7 +3,7 @@ import { apiPost } from "../utils/api-fetch.js";
 import { getHost, getHeaders } from "../utils/server-utilities.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
-import { reinitializeSession } from "../services/state-manager.js";
+import { reinitializeSession } from "../services/workflows.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 
 let selectedRange = null;
