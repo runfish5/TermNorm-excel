@@ -38,7 +38,6 @@ function setupUIReactivity() {
   eventBus.on(Events.MAPPINGS_LOADED, () => {
     const loaded = Object.keys(getStateValue('mappings.sources') || {}).length;
     const total = getStateValue('config.data')?.standard_mappings?.length || 0;
-    console.log(`[Thermo] Mappings: ${loaded}/${total}`);
     if (total > 0 && loaded >= total) goToStep(4);
   });
 

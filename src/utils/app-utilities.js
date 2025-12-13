@@ -1,9 +1,8 @@
 // utils/app-utilities.js - Consolidated application utilities
 import { RELEVANCE_THRESHOLDS, RELEVANCE_COLORS, PROCESSING_COLORS } from "../config/normalization.config.js";
+import { $ } from "./dom-helpers.js";
 
 export { PROCESSING_COLORS };
-
-const $ = id => document.getElementById(id);
 const setText = (id, text, title) => { const el = $(id); if (el) { el.textContent = text; if (title) el.title = title; } };
 
 export async function getCurrentWorkbookName() {

@@ -9,8 +9,7 @@ import { showMessage } from "../utils/error-display.js";
 import { renewPrompt } from "../services/prompt-renewer.js";
 import { loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
-
-const $ = id => document.getElementById(id);
+import { $ } from "../utils/dom-helpers.js";
 
 const HTML = `
 <div class="settings-panel">

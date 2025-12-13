@@ -2,7 +2,7 @@
  * Thermometer Component - Progress/status indicator
  * Modes: progress (sequential, collapsible) | status (toggleable steps)
  */
-const $ = id => document.getElementById(id);
+import { $ } from "../utils/dom-helpers.js";
 const instances = new Map();
 
 const MODES = {

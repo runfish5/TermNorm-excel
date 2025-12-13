@@ -3,8 +3,7 @@ import { getStateValue } from "../core/state-actions.js";
 import { showMessage } from "./error-display.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
-
-const $ = id => document.getElementById(id);
+import { $ } from "./dom-helpers.js";
 const getMappingCounts = () => { const m = getStateValue('mappings.combined'); return { fwd: Object.keys(m?.forward || {}).length, rev: Object.keys(m?.reverse || {}).length }; };
 
 export function updateLED() {
