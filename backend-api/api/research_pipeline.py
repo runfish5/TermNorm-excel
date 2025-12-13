@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from pprint import pprint
 from datetime import datetime
-from collections import Counter, defaultdict
+from collections import defaultdict
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request, Body
 

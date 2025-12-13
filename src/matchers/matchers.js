@@ -13,10 +13,6 @@ export function getCachedMatch(value, forward, reverse) {
   return null;
 }
 
-export function hasExactMatch(value, forward, reverse) { const n = norm(value); return n ? (n in forward || n in reverse) : false; }
-export function getCachedMatches(values, forward, reverse) { const m = new Map(); for (const v of values) { const r = getCachedMatch(v, forward, reverse); if (r) m.set(v, r); } return m; }
-export function validateMappings(forward, reverse) { return forward != null && reverse != null && typeof forward === 'object' && typeof reverse === 'object'; }
-
 // Fuzzy Matcher
 
 function normalizeText(text) {
@@ -58,14 +54,14 @@ function calculateSimilarity(words1, words2) {
   return totalScore / Math.max(words1.length, words2.length);
 }
 
-export function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLDS.DEFAULT) {
+function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   const queryWords = normalizeText(query);
   return candidates
     .map(c => { const similarity = calculateSimilarity(queryWords, normalizeText(c)); return { text: c, similarity, isMatch: similarity >= threshold }; })
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-export function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
+function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
   if (!query || !mappingData) return null;
 
   const isMap = mappingData instanceof Map;
@@ -94,17 +90,4 @@ export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY
   if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized, matched_key: rev.key, direction: 'reverse' };
 
   return null;
-}
-
-export function getAllMatches(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
-  if (!query || !mappingData) return [];
-
-  const isMap = mappingData instanceof Map;
-  const candidates = isMap ? Array.from(mappingData.keys()) : Object.keys(mappingData);
-  if (!candidates.length) return [];
-
-  const getValue = isMap ? k => mappingData.get(k) : k => mappingData[k];
-  return fuzzyMatch(query, candidates, threshold)
-    .filter(r => r.isMatch)
-    .map(r => ({ key: r.text, value: getValue(r.text), score: r.similarity }));
 }

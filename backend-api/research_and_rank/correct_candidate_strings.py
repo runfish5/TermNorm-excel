@@ -1,5 +1,3 @@
-#@title def research_and_rank_candidates():
-
 from difflib import SequenceMatcher
 
 def correct_candidate_strings(ranking_result, match_results):
@@ -47,7 +45,6 @@ def correct_candidate_strings(ranking_result, match_results):
             corrected_info['_original_llm_string'] = llm_candidate
             corrected_info['candidate'] = best_match
             corrected_info['_correction_confidence'] = similarity
-            # print(f"Corrected: '{llm_candidate}' -> '{best_match}' (confidence: {similarity:.3f})")
         else:
             corrected_info['_correction_confidence'] = 1.0
         

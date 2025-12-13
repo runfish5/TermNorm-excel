@@ -33,8 +33,6 @@ RANKING_SCHEMA = {
 
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
     """Rank candidates using LLM and return (result, debug_info) tuple"""
-
-    # matches = "\n".join(f"- {term}" for i, (term, score) in enumerate(match_results[:20]))
     available_results = list(match_results[:20])
     sample_size = min(len(available_results), 20)  
     random_20 = random.sample(available_results, sample_size) if available_results else []

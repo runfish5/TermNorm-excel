@@ -7,12 +7,6 @@ export const $ = id => document.getElementById(id);
 export const openModal = id => $(id)?.classList.remove("hidden");
 export const closeModal = id => $(id)?.classList.add("hidden");
 
-/** Set data-* state attribute */
-export const setState = (el, state, value = true) => {
-  if (typeof value === "boolean") el?.toggleAttribute(`data-${state}`, value);
-  else el?.setAttribute(`data-${state}`, value);
-};
-
 export function setupButton(id, onClick) {
   const el = document.getElementById(id);
   if (el) el.addEventListener("click", onClick);

@@ -63,7 +63,6 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `direct-prompt.js` - Custom LLM inference UI
   - `file-handling.js` - Config file drag-and-drop
   - `mapping-config.js` - Mapping configuration panel
-  - `batch-processing.js` - Batch normalization operations
 - **utils/**: DOM and API helpers
   - `dom-helpers.js` - `$()`, `showView()`, modal helpers
   - `api-fetch.js` - Backend API client with error handling
