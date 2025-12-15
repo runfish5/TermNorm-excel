@@ -63,8 +63,6 @@ export const wizardState = {
       this.thermo.completeAll();
       this.thermo.collapse();
     }
-    // Hide setup view when collapsed
-    $("setup-view")?.classList.add("hidden");
   },
 
   // Event handlers - centralized progression rules
@@ -121,6 +119,7 @@ Office.onReady(async (info) => {
   $("settings-overlay")?.addEventListener("click", closeSettings);
 
   setupButton("offline-mode-warning", () => { openSettings(); showMessage("Offline mode active - re-enable in Settings"); });
+  setupButton("close-hero-btn", () => $("home-hero")?.classList.add("hidden"));
 
   $("show-metadata-btn")?.addEventListener("click", () => {
     const c = $("metadata-content");
@@ -145,9 +144,8 @@ Office.onReady(async (info) => {
     // Collapsed thermometer bubble click - re-expand setup
     const collapsed = e.target.closest(".thermo__collapsed");
     if (collapsed && collapsed.closest("#setup-thermo")) {
-      $("setup-view")?.classList.remove("hidden");
       wizardState.thermo?.expand();
-      showView("setup");
+      showView("home");
       return;
     }
 
@@ -155,10 +153,8 @@ Office.onReady(async (info) => {
     // Only switch panels for setup thermometer, not research thermometer
     if (step && step.closest("#setup-thermo") && wizardState.thermo) {
       e.preventDefault();
-      // Show setup view and expand thermometer if collapsed
-      $("setup-view")?.classList.remove("hidden");
       wizardState.thermo.expand();
-      showView("setup");
+      showView("home");
       wizardState.goTo(parseInt(step.dataset.step));
     }
   });

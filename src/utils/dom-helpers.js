@@ -8,7 +8,7 @@ export const closeModal = id => $(id)?.classList.add("hidden");
 export const setupButton = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); return el; };
 
 export function showView(viewName) {
-  const views = ["setup-view", "results-view", "history-view"];
+  const views = ["home-view", "results-view", "history-view"];
   if (!views.includes(`${viewName}-view`)) return;
   views.forEach(id => $(id)?.classList.toggle("hidden", !id.startsWith(viewName)));
   document.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.view === viewName));

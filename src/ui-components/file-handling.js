@@ -15,7 +15,7 @@ function extractProjectConfig(configData, workbook) {
 }
 
 function setStepStates(success) {
-  document.querySelectorAll("#setup-view .settings-group").forEach((el, i) => el.open = success ? [false, false, true, true][i] : [false, true, false, true][i]);
+  document.querySelectorAll("#home-setup .settings-group").forEach((el, i) => el.open = success ? [false, false, true, true][i] : [false, true, false, true][i]);
 }
 
 async function applyConfig(configData, source) {

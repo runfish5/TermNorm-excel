@@ -29,6 +29,9 @@
         <div class="nav-bar">
             <!-- TASK-ORIENTED TABS (Contextual Navigation) -->
             <nav id="view-tabs" class="nav-tabs">
+                <button id="home-tab" class="nav-tab active" data-view="home">
+                    <span class="tab-icon">🏠</span>
+                </button>
                 <button id="results-tab" class="nav-tab" data-view="results">
                     <span class="tab-icon">📊</span>
                     <span class="tab-label">Results</span>
@@ -95,9 +98,9 @@
             </nav>
         </div>
 
-        <!-- SETUP VIEW (Progressive Configuration Flow) -->
-        <section id="setup-view" class="content view-section">
-            <div class="content-section">
+        <!-- HOME VIEW (Setup + Landing) -->
+        <section id="home-view" class="content view-section">
+            <div id="home-setup" class="content-section">
                 <!-- Step 1: Backend Server Configuration -->
                 <div class="step-panel active" data-step="1">
                     <!-- Development Mode: Full Setup Instructions -->
@@ -244,12 +247,22 @@
                     </div>
                 </div>
             </div>
+            <div id="home-hero" class="home-hero">
+                <button id="close-hero-btn" class="btn-modal-close" title="Close">&times;</button>
+                <img src="../../assets/Runfish_Logo1.5greenyCube.png" alt="TermNorm" class="home-logo" />
+                <h1 class="home-title">TermNorm</h1>
+                <p class="home-subtitle">AI-Powered Terminology Normalization</p>
+                <p class="home-description">
+                    Match free-form text to standardized database identifiers using
+                    intelligent three-tier matching: exact lookup, fuzzy matching, and LLM research.
+                </p>
+            </div>
             <div id="metadata-content" class="content-section hidden">
                 <h3>Processing Details</h3>
                 <div id="metadata-display"></div>
             </div>
         </section>
-        
+
         <!-- RESULTS VIEW (Primary Working Area) -->
         <section id="results-view" class="hidden content view-section">
             <div class="content-section">
