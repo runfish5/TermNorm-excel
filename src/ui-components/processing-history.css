@@ -75,64 +75,11 @@
     border-left: 4px solid var(--warning);
 }
 
-/* Match Details - Inline Expanded Row */
-.details-header,
-.inline-details-panel .details-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.details-header {
-    padding-bottom: 12px;
-    border-bottom: var(--border-heavy);
-}
-
-.details-header h4 {
-    margin: 0;
-    color: var(--gray-600);
-    font-size: 14px;
-}
-
-.detail-section {
-    margin-bottom: 16px;
-}
-
-.detail-section h5 {
-    margin: 0 0 8px 0;
-    color: var(--info);
-    font-size: 13px;
-}
-
-.profile-field {
-    margin-bottom: 4px;
-}
-
 /* Candidate item flex layout (extends .list-item-bordered from design system) */
-.card-sm .list-item-bordered {
+.list-item-bordered {
     display: flex;
     gap: 8px;
-}
-
-.list-item-bordered .name {
-    flex: 1;
-    font-size: 12px;
-}
-
-.list-item-bordered .score {
-    color: var(--success-alt);
-    font-weight: bold;
-    font-size: 12px;
-}
-
-.detail-meta {
-    display: flex;
-    gap: 16px;
-    padding-top: 12px;
-    border-top: 1px solid var(--gray-200);
-    font-size: 11px;
-    color: var(--gray-500);
+    align-items: center;
 }
 
 /* Method badge variants (extends .badge from design system) */
@@ -161,43 +108,6 @@
 .history-row.expanded-details,
 .history-row.expanded-details:hover {
     background: var(--gray-100);
-}
-
-.details-cell {
-    padding: 0 !important;
-}
-
-.inline-details-panel {
-    padding: 16px;
-    background: linear-gradient(to bottom, var(--gray-100), #fff);
-    border-left: 4px solid var(--info);
-}
-
-.inline-details-panel .details-header {
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--gray-200);
-}
-
-.inline-details-panel .details-title {
-    font-size: 12px;
-    color: var(--gray-600);
-    word-break: break-word;
-}
-
-.inline-details-panel .details-content {
-    display: grid;
-    gap: 12px;
-}
-
-.inline-details-panel .detail-section {
-    margin-bottom: 0;
-}
-
-.inline-details-panel .detail-section h5 {
-    margin: 0 0 6px 0;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
 /* Cached entry indicator */

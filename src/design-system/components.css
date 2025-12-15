@@ -1087,3 +1087,117 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .batch-result-content strong {
     color: var(--text-primary);
 }
+
+/* ===================================
+   COMPACT DETAILS PANEL (Matching Journal)
+   =================================== */
+
+.details-cell-compact {
+    padding: 6px 10px !important;
+}
+
+.details-panel-compact {
+    font-size: var(--font-size-base);
+    line-height: 1.4;
+}
+
+.details-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.details-label {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+}
+
+.btn-collapse-sm {
+    margin-left: auto;
+    padding: 2px 6px;
+    font-size: 10px;
+    background: var(--gray-200);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.btn-collapse-sm:hover {
+    background: var(--gray-300);
+}
+
+.target-highlight {
+    padding: 4px 8px;
+    margin: 4px 0;
+    border-radius: var(--radius-sm);
+}
+
+.profile-section {
+    margin: 4px 0;
+    color: var(--text-secondary);
+}
+
+.profile-section div {
+    margin-bottom: 2px;
+}
+
+/* Alias chips (inline mode) with method colors */
+.alias-chip {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-sm);
+    margin: 2px;
+}
+
+.alias-chip small {
+    opacity: 0.7;
+    margin-left: 3px;
+}
+
+.aliases-inline {
+    margin-bottom: 4px;
+}
+
+/* Method-based chip colors */
+.alias-chip.cached { background: var(--success-light); color: var(--success-text); }
+.alias-chip.fuzzy { background: var(--info-light); color: var(--info-text); }
+.alias-chip.ProfileRank { background: var(--ai-light); color: var(--ai-text); }
+.alias-chip.DirectPrompt { background: var(--warning-light); color: var(--warning-text); }
+.alias-chip.UserChoice { background: #e8f5e9; color: #2e7d32; }
+.alias-chip.DirectEdit { background: var(--gray-200); color: var(--text-primary); }
+
+.alias-toggle {
+    font-size: var(--font-size-sm);
+    padding: 2px 6px;
+    line-height: 1;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    background: none;
+    cursor: pointer;
+}
+
+.alias-toggle:hover {
+    background: var(--gray-200);
+}
+
+/* Collapsible sources */
+.details-collapsible {
+    margin-top: 4px;
+}
+
+.details-collapsible summary {
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    padding: 2px 0;
+}
+
+.details-collapsible summary:hover {
+    color: var(--text-primary);
+}
+
+.details-collapsible[open] summary {
+    margin-bottom: 4px;
+}
