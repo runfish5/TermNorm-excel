@@ -112,6 +112,10 @@ const handleWorksheetChange = async (e, tracker) => {
 
         // Also log to API (fire-and-forget)
         fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: 1.0, timestamp }, getHeaders()));
+
+        // Update confidence column
+        const confCol = tracker.confidenceColumnMap.get(inputCol);
+        if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[100]];
       }
     }
 
@@ -211,7 +215,7 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const result = createMatchResult({ target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, source: value, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
-  await writeCellResult(row, col, targetCol, choice.candidate, choice.relevance_score, tracker.confidenceColumnMap);
+  await writeCellResult(row, col, targetCol, choice.candidate, 1.0, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
   fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()));
 }
