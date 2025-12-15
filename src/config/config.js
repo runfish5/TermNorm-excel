@@ -109,7 +109,7 @@ export const PROCESSING_COLORS = {
 
 // Event log settings
 export const EVENT_LOG = {
-  MAX_ENTRIES: 50,
+  MAX_ENTRIES: 999,
 };
 
 // ============================================================================
