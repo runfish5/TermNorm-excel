@@ -1,4 +1,6 @@
 import { setView } from "../core/state-actions.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 export const $ = id => document.getElementById(id);
 export const openModal = id => $(id)?.classList.remove("hidden");
@@ -6,11 +8,12 @@ export const closeModal = id => $(id)?.classList.add("hidden");
 export const setupButton = (id, fn) => { const el = $(id); if (el) el.addEventListener("click", fn); return el; };
 
 export function showView(viewName) {
-  const views = ["setup-view", "results-view", "history-view", "settings-view"];
+  const views = ["setup-view", "results-view", "history-view"];
   if (!views.includes(`${viewName}-view`)) return;
   views.forEach(id => $(id)?.classList.toggle("hidden", !id.startsWith(viewName)));
   document.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.view === viewName));
   setView(viewName);
+  eventBus.emit(Events.VIEW_CHANGED, viewName);
 }
 
 export const confirmModal = (msg, ok = "Confirm", cancel = "Cancel") => new Promise(resolve => {

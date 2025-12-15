@@ -9,9 +9,9 @@ import { LIMITS, ENDPOINTS } from "../config/config.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
 
-const HTML = `<summary class="panel-header collapsible-header">Direct Prompt</summary>
-<div class="collapsible-content">
-  <p class="collapsible-description">LLM inference with your own prompt. Select cells in Excel and provide instructions.</p>
+const HTML = `<summary class="direct-prompt-header">Direct Prompt</summary>
+<div class="direct-prompt-content">
+  <p class="hint-text">Select cells in Excel and provide custom LLM instructions.</p>
   <div id="dp-range-display" class="range-display hidden">
     <span class="range-label">Selected:</span>
     <span id="dp-range-address" class="range-address">-</span>
@@ -33,18 +33,23 @@ const HTML = `<summary class="panel-header collapsible-header">Direct Prompt</su
 </div>`;
 
 export function init() {
-  const view = $("results-view");
-  if (!view) return false;
+  const resultsView = $("results-view");
+  if (!resultsView) return false;
+
   const section = document.createElement("details");
   section.id = "direct-prompt-details";
-  section.className = "card card-lg card-muted";
+  section.className = "direct-prompt-panel";
   section.innerHTML = HTML;
-  view.appendChild(section);
 
+  // Insert at TOP of results view (before first child)
+  resultsView.insertBefore(section, resultsView.firstChild);
+
+  // Track panel open/close
   section.addEventListener("toggle", e => {
     isPanelOpen = e.target.open;
     if (isPanelOpen) { refreshSelection(); startTracking(); } else stopTracking();
   });
+
   $("dp-refresh-btn")?.addEventListener("click", refreshSelection);
   $("dp-process-btn")?.addEventListener("click", processDirectPrompt);
   $("dp-clear-btn")?.addEventListener("click", clearSelection);

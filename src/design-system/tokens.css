@@ -191,8 +191,12 @@
 }
 
 /* Base body styles (replaces Fabric dependency) */
-body {
+html, body {
+    height: 100%;
     margin: 0;
+    overflow: hidden;
+}
+body {
     font-family: var(--font-system);
     font-size: var(--font-size-base);
     color: var(--text-primary);

@@ -115,7 +115,7 @@ function bindToggle(id, key, apiCall) {
   };
 }
 
-export function init(containerId = "settings-panel-container") {
+export function init(containerId = "settings-panel-content") {
   const el = $(containerId);
   if (!el) return false;
   el.innerHTML = HTML;

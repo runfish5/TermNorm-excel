@@ -29,20 +29,12 @@
         <div class="nav-bar">
             <!-- TASK-ORIENTED TABS (Contextual Navigation) -->
             <nav id="view-tabs" class="nav-tabs">
-                <button id="setup-tab" class="nav-tab" data-view="setup">
-                    <span class="tab-icon">🫳</span>
-                    <span class="tab-label">Setup</span>
-                </button>
                 <button id="results-tab" class="nav-tab" data-view="results">
                     <span class="tab-icon">📊</span>
                     <span class="tab-label">Results</span>
                 </button>
                 <button id="history-tab" class="nav-tab" data-view="history">
-                    <span class="tab-icon">0📜</span>
-                </button>
-                <button id="settings-tab" class="nav-tab" data-view="settings">
-                    <span class="tab-icon">⚙️</span>
-                    <span class="tab-label">Settings</span>
+                    <span class="tab-icon">📜</span>
                 </button>
             </nav>
             
@@ -55,6 +47,7 @@
                 <div id="server-status-led" class="status-led" title="Click to refresh"></div>
             </div>
             <button id="help-icon-btn" class="nav-icon-btn" title="Help">?</button>
+            <button id="settings-icon-btn" class="nav-icon-btn" title="Settings">⚙️</button>
         </div>
         
         <div class="status-bar">
@@ -257,7 +250,7 @@
             </div>
         </section>
         
-        <!-- RESULTS VIEW (Primary Working Area - 95% Usage) -->
+        <!-- RESULTS VIEW (Primary Working Area) -->
         <section id="results-view" class="hidden content view-section">
             <div class="content-section">
                 <h3>Processing Results</h3>
@@ -289,10 +282,15 @@
             </div>
         </section>
 
-        <!-- SETTINGS VIEW (Component-based) -->
-        <section id="settings-view" class="hidden content view-section">
-            <div id="settings-panel-container"></div>
-        </section>
+        <!-- SETTINGS SLIDE PANEL -->
+        <aside id="settings-slide-panel" class="settings-slide-panel">
+            <div class="settings-slide-header">
+                <h3>Settings</h3>
+                <button id="close-settings-btn" class="btn-modal-close">&times;</button>
+            </div>
+            <div id="settings-panel-content"></div>
+        </aside>
+        <div id="settings-overlay" class="settings-overlay hidden"></div>
 
         <!-- Help Modal -->
         <div id="help-modal" class="help-modal hidden">

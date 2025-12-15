@@ -4,8 +4,8 @@
 .app-main {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    flex: 1 0 0;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* Hide sideload message by default - shown by Office.js if needed */
@@ -39,7 +39,8 @@
 .nav-bar {
     position: fixed;
     top: 0;
-    width: 100%;
+    left: 0;
+    right: 0;
     display: flex;
     align-items: center;
     padding: 0 12px;
@@ -140,11 +141,10 @@
     border-color: var(--gray-400);
     color: var(--text-primary);
 }
-/* Status Bar - Sticky below nav-bar, expands naturally */
+/* Status Bar - Fixed height below nav-bar */
 .status-bar {
-    position: sticky;
-    top: var(--nav-bar-height);  /* Stick below fixed nav-bar */
-    margin-top: var(--nav-bar-height);  /* Initial push below nav-bar */
+    flex-shrink: 0;
+    margin-top: var(--nav-bar-height);
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -297,14 +297,13 @@
     display: block;
 }
 
-/* View Sections */
+/* View Sections - Scrollable content area */
 .view-section {
-    transition: opacity 0.3s ease;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
 }
-
-.view-section.hidden {
-    display: none;
-}
+.view-section.hidden { display: none; }
 
 /* History Controls */
 .history-controls {
@@ -559,3 +558,56 @@
         display: none;
     }
 }
+
+/* Direct Prompt collapsible panel */
+.direct-prompt-panel {
+    margin: 0 16px 16px 16px;
+    padding: 12px;
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+}
+.direct-prompt-header {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--gray-600);
+    list-style: none;
+}
+.direct-prompt-header::-webkit-details-marker { display: none; }
+.direct-prompt-header::before { content: "▶ "; font-size: 10px; }
+.direct-prompt-panel[open] .direct-prompt-header::before { content: "▼ "; }
+.direct-prompt-content { padding-top: 12px; }
+
+/* Settings Slide Panel */
+.settings-slide-panel {
+    position: fixed;
+    top: 0;
+    right: -320px;
+    width: 320px;
+    height: 100%;
+    background: var(--bg-elevated);
+    box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+    z-index: 1100;
+    transition: right 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.settings-slide-panel.active { right: 0; }
+.settings-slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-200);
+    flex-shrink: 0;
+}
+.settings-slide-header h3 { margin: 0; font-size: 16px; }
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 1050;
+}
+.settings-overlay.hidden { display: none; }

@@ -63,6 +63,8 @@ export const wizardState = {
       this.thermo.completeAll();
       this.thermo.collapse();
     }
+    // Hide setup view when collapsed
+    $("setup-view")?.classList.add("hidden");
   },
 
   // Event handlers - centralized progression rules
@@ -104,7 +106,21 @@ Office.onReady(async (info) => {
   checkServerStatus(); initializeProjectPathDisplay();
   initSettingsPanel();
 
-  setupButton("offline-mode-warning", () => { showView("settings"); showMessage("Offline mode active - re-enable in Settings"); });
+  // Settings slide panel handlers
+  const openSettings = () => {
+    $("settings-slide-panel")?.classList.add("active");
+    $("settings-overlay")?.classList.remove("hidden");
+    eventBus.emit(Events.SETTINGS_PANEL_OPENED);
+  };
+  const closeSettings = () => {
+    $("settings-slide-panel")?.classList.remove("active");
+    $("settings-overlay")?.classList.add("hidden");
+  };
+  setupButton("settings-icon-btn", openSettings);
+  setupButton("close-settings-btn", closeSettings);
+  $("settings-overlay")?.addEventListener("click", closeSettings);
+
+  setupButton("offline-mode-warning", () => { openSettings(); showMessage("Offline mode active - re-enable in Settings"); });
 
   $("show-metadata-btn")?.addEventListener("click", () => {
     const c = $("metadata-content");
@@ -124,11 +140,25 @@ Office.onReady(async (info) => {
 
   document.addEventListener("click", async (e) => {
     const tab = e.target.closest(".nav-tab");
-    if (tab) { e.preventDefault(); showView(tab.dataset.view); if (tab.dataset.view === "settings") eventBus.emit(Events.SETTINGS_PANEL_OPENED); }
+    if (tab) { e.preventDefault(); showView(tab.dataset.view); }
+
+    // Collapsed thermometer bubble click - re-expand setup
+    const collapsed = e.target.closest(".thermo__collapsed");
+    if (collapsed && collapsed.closest("#setup-thermo")) {
+      $("setup-view")?.classList.remove("hidden");
+      wizardState.thermo?.expand();
+      showView("setup");
+      return;
+    }
+
     const step = e.target.closest(".thermo__step");
     // Only switch panels for setup thermometer, not research thermometer
     if (step && step.closest("#setup-thermo") && wizardState.thermo) {
       e.preventDefault();
+      // Show setup view and expand thermometer if collapsed
+      $("setup-view")?.classList.remove("hidden");
+      wizardState.thermo.expand();
+      showView("setup");
       wizardState.goTo(parseInt(step.dataset.step));
     }
   });
