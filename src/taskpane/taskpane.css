@@ -42,7 +42,6 @@
     width: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 0 12px;
     height: var(--nav-bar-height);
     background: var(--bg-elevated);
@@ -50,6 +49,7 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     box-sizing: border-box;
     z-index: var(--z-fixed);
+    overflow: hidden;
 }
 
 /* Navigation Tabs */
@@ -109,7 +109,10 @@
 .nav-brand {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    flex: 1;
+    white-space: nowrap;
 }
 
 .brand-name {
@@ -129,6 +132,7 @@
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .nav-icon-btn:hover {
@@ -193,8 +197,9 @@
 
 /* Py-Server in navbar */
 .status-component--nav {
-    margin-left: auto;
     margin-right: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .status-component--nav .component-label {
@@ -540,3 +545,17 @@
 .setup-steps { display: flex; flex-direction: column; gap: 10px; }
 .setup-step { display: flex; gap: 10px; padding: 10px; background: var(--bg-elevated); border: 1px solid var(--gray-border); border-radius: var(--radius-md); }
 .step-num { flex-shrink: 0; width: 24px; height: 24px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+
+/* Responsive: hide text labels in narrow taskpane */
+/* TermNorm text hides first */
+@media (max-width: 550px) {
+    .brand-name {
+        display: none;
+    }
+}
+/* Py-Server label hides second */
+@media (max-width: 480px) {
+    .status-component--nav .component-label {
+        display: none;
+    }
+}
