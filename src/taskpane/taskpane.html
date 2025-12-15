@@ -107,104 +107,111 @@
             <div class="content-section">
                 <!-- Step 1: Backend Server Configuration -->
                 <div class="step-panel active" data-step="1">
-                    <!-- Deployment Type Indicator -->
-                        <div class="info-banner">
-                            <strong>Deployment:</strong> <span id="deployment-type-indicator" class="text-primary-brand">Loading...</span>
+                    <!-- Development Mode: Full Setup Instructions -->
+                    <div id="path-display-development">
+                        <div class="info-banner" style="text-align:center; border-width:2px;">
+                            <strong style="font-size:15px;">Start the Python Server</strong><br>
+                            <span class="hint-text">The AI backend needs to be running before you can use TermNorm</span>
                         </div>
 
-                        <!-- Development Deployment Instructions -->
-                        <div id="path-display-development" class="path-section">
-                            <p class="path-section-label">
-                                <strong>Development Mode:</strong> Double-click <code>start-server-py-LLMs.bat</code> in your TermNorm folder:
-                            </p>
-                            <div class="code-path-box">
-                                <code id="config-path-display">Loading...</code>
-                                <button id="copy-path-btn" class="btn-copy" title="Copy path to clipboard">Copy</button>
+                        <div class="path-section" style="margin-bottom:12px;">
+                            <p class="hint-text" style="margin:0;"><strong>Prerequisite:</strong> Python 3.9+ — <a href="https://www.python.org/downloads/" target="_blank">Download</a></p>
+                        </div>
+
+                        <div class="setup-steps">
+                            <div class="setup-step">
+                                <span class="step-num">1</span>
+                                <div>
+                                    <strong>Open the TermNorm folder</strong>
+                                    <p class="hint-text">Press <kbd>Win</kbd>+<kbd>E</kbd> → paste path into address bar</p>
+                                    <div class="code-path-box" style="margin-top:6px;">
+                                        <code id="config-path-display">Loading...</code>
+                                        <button id="copy-folder-path-btn" class="btn-copy">Copy path to clipboard</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setup-step">
+                                <span class="step-num">2</span>
+                                <div>
+                                    <strong>Double-click <code>start-server-py-LLMs.bat</code></strong>
+                                    <p class="hint-text">A terminal opens and installs dependencies automatically. No action needed.</p>
+                                </div>
+                            </div>
+                            <div class="setup-step">
+                                <span class="step-num">3</span>
+                                <div>
+                                    <strong>Wait for "Application startup complete"</strong>
+                                    <details style="margin-top:4px;">
+                                        <summary class="collapsible-header">First time? What to expect...</summary>
+                                        <p class="hint-text">Dependencies install automatically (1-2 min). You'll see:</p>
+                                        <div class="code-block" style="background:#1e1e1e; color:#d4d4d4; padding:8px; font-size:10px;">
+                                            Installing dependencies...<br>
+                                            Starting server on 0.0.0.0:8000<br>
+                                            <span style="color:#4ec9b0;">Application startup complete.</span>
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                            <div class="setup-step">
+                                <span class="step-num">4</span>
+                                <div>
+                                    <strong>Click the LED above to verify</strong>
+                                    <span class="hint-text"><span class="led led-error" style="display:inline-block"></span> → <span class="led led-success" style="display:inline-block"></span></span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- IIS Server Deployment Instructions -->
-                        <div id="path-display-iis" class="path-section hidden">
-                            <p class="path-section-label">
-                                <strong>IIS Server:</strong> Server files are located at:
-                            </p>
+                        <p class="hint-text" style="margin-top:12px; text-align:center;">
+                            <a href="https://github.com/runfish5/TermNorm-excel/blob/master/docs/TROUBLESHOOTING.md" target="_blank">Having trouble? See Troubleshooting Guide</a>
+                        </p>
+                    </div>
+
+                    <!-- IIS Server Deployment Instructions -->
+                    <div id="path-display-iis" class="path-section hidden">
+                        <p class="path-section-label">
+                            <strong>IIS Server:</strong> Server files are located at:
+                        </p>
+                        <div class="code-path-box mb-md">
+                            <code id="config-path-display-iis">Loading...</code>
+                            <button id="copy-path-btn-iis" class="btn-copy" title="Copy path to clipboard">Copy</button>
+                        </div>
+                        <p class="hint-text">
+                            <strong>Note:</strong> Only administrators with server access can edit files. Regular users should use drag-and-drop to load configs.
+                        </p>
+                    </div>
+
+                    <!-- M365 Deployment Instructions -->
+                    <div id="path-display-m365" class="path-section hidden">
+                        <p class="path-section-label">
+                            <strong>Microsoft 365:</strong> This add-in is hosted centrally. Configuration changes are managed via drag-and-drop only.
+                        </p>
+                        <p class="hint-text">
+                            <strong>Note:</strong> No direct filesystem access. Contact your administrator for server configuration changes.
+                        </p>
+                    </div>
+
+                    <!-- Server URL Section (Always visible for all deployment types) -->
+                    <details style="margin-top: 16px;">
+                        <summary class="collapsible-header">
+                            <strong>Advanced:</strong> Server URL Settings
+                        </summary>
+                        <div class="collapsible-content">
+                            <div class="form-field">
+                                <label class="form-label">Server URL</label>
+                                <input type="text" id="server-url-input" class="form-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
+                                <p class="hint-text">Change takes effect immediately (session only)</p>
+                            </div>
+
+                            <p class="path-section-label" style="margin-top: 12px;">For permanent changes, edit the config file:</p>
                             <div class="code-path-box mb-md">
-                                <code id="config-path-display-iis">Loading...</code>
-                                <button id="copy-path-btn-iis" class="btn-copy" title="Copy path to clipboard">Copy</button>
+                                <code id="config-folder-path">Loading...</code>
+                                <button id="copy-path-btn-2" class="btn-copy" title="Copy path to clipboard">Copy</button>
                             </div>
                             <p class="hint-text">
-                                <strong>Note:</strong> Only administrators with server access can edit files. Regular users should use drag-and-drop to load configs.
+                                Add <code>"backend_url": "http://your-server:8000",</code> to <code>app.config.json</code>
                             </p>
                         </div>
-
-                        <!-- M365 Deployment Instructions -->
-                        <div id="path-display-m365" class="path-section hidden">
-                            <p class="path-section-label">
-                                <strong>Microsoft 365:</strong> This add-in is hosted centrally. Configuration changes are managed via drag-and-drop only.
-                            </p>
-                            <p class="hint-text">
-                                <strong>Note:</strong> No direct filesystem access. Contact your administrator for server configuration changes.
-                            </p>
-                        </div>
-                        <!-- Manual Start Section -->
-                        <details>
-                            <summary class="collapsible-header">
-                                <strong>Alternative:</strong> Manual Start
-                            </summary>
-                            <div class="collapsible-content-indented">
-                                <ol class="instruction-list">
-                                    <li>Open terminal (Windows: <kbd>Win</kbd> key → type "cmd")</li>
-                                    <li>Navigate to backend folder:<br>
-                                        <code class="code-block">cd [your-path]\TermNorm-excel\backend-api</code>
-                                    </li>
-                                    <li>Activate virtual environment:<br>
-                                        <code class="code-block">.\venv\Scripts\activate</code>
-                                    </li>
-                                    <li>Start server:<br>
-                                        <code class="code-block">python -m uvicorn main:app --reload</code>
-                                    </li>
-                                </ol>
-                                <p class="hint-text mt-md">
-                                    For network access, use: <code>--host 0.0.0.0 --port 8000</code><br>
-                                    <a href="https://github.com/runfish5/TermNorm-excel#4-set-up-the-python-server" target="_blank" class="text-primary-brand">📖 Full instructions on GitHub</a>
-                                </p>
-                            </div>
-                        </details>
-
-                        <!-- Server URL Section -->
-                        <div class="form-field">
-                            <label class="form-label">Server URL</label>
-                            <input type="text" id="server-url-input" class="form-input" placeholder="http://127.0.0.1:8000" value="http://127.0.0.1:8000">
-                            <p class="hint-text">Change takes effect immediately (session only)</p>
-                        </div>
-
-                        <!-- Permanent URL Change Section -->
-                        <details>
-                            <summary class="collapsible-header">
-                                <strong>Advanced:</strong> Permanent URL Change
-                            </summary>
-                            <div class="collapsible-content">
-                                <p class="path-section-label">Navigate to the config folder:</p>
-                                <div class="code-path-box mb-md">
-                                    <code id="config-folder-path">Loading...</code>
-                                    <button id="copy-path-btn-2" class="btn-copy" title="Copy path to clipboard">Copy</button>
-                                </div>
-                                <ol class="instruction-list">
-                                    <li>Open <code>app.config.json</code> as text</li>
-                                    <li>At the very top, add: <code>"backend_url": "http://your-server:8000",</code></li>
-                                    <li>Save the file</li>
-                                    <li>Drag it into TermNorm again</li>
-                                </ol>
-
-                                <div class="example-box">
-                                    <p class="example-box-title">Examples:</p>
-                                    <p class="example-box-content">
-                                        This computer only: <code>"backend_url": "http://127.0.0.1:8000",</code><br>
-                                        Network computer: <code>"backend_url": "http://100.0.0.100:8000",</code>
-                                    </p>
-                                </div>
-                            </div>
-                        </details>
+                    </details>
                 </div>
 
                 <!-- Step 2: Load Configuration -->

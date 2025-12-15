@@ -20,7 +20,7 @@ const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 let researchThermo = null;
 
 // Wizard state machine - centralizes all setup wizard progression logic
-const wizardState = {
+export const wizardState = {
   step: 1,
   thermo: null,
 

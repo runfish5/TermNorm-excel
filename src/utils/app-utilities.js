@@ -42,8 +42,8 @@ export function initializeProjectPathDisplay() {
   setText("config-folder-path", configPath);
   setText("config-file-path", configFile);
 
-  const setupCopy = (id, text) => { const btn = $(id); if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = "✓"; setTimeout(() => btn.textContent = orig, UI_TIMINGS.COPY_RESET_MS); }; };
-  ["copy-path-btn", "copy-path-btn-iis"].forEach(id => setupCopy(id, path));
+  const setupCopy = (id, text, msg = "✓ Copied!") => { const btn = $(id); if (btn) btn.onclick = () => { navigator.clipboard.writeText(text); const orig = btn.textContent; btn.textContent = msg; setTimeout(() => btn.textContent = orig, UI_TIMINGS.COPY_RESET_MS); }; };
+  ["copy-path-btn", "copy-path-btn-iis", "copy-folder-path-btn"].forEach(id => setupCopy(id, path, "Copied! Paste in Explorer"));
   setupCopy("copy-path-btn-2", configPath);
   setupCopy("copy-config-file-path-btn", configFile);
 }

@@ -73,7 +73,7 @@ export const ERROR_GUIDANCE = {
   403: "💡 Check your IP is in backend-api/config/users.json",
   500: "💡 Server error - check backend-api/logs/app.log",
   SESSION_LOST: "💡 Session lost - reload mappings or wait for auto-recovery",
-  OFFLINE: "💡 Run: start-server-py-LLMs.bat",
+  OFFLINE: "💡 Open your TermNorm folder and double-click start-server-py-LLMs.bat",
 };
 
 // Fuzzy matching thresholds

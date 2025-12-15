@@ -35,7 +35,7 @@ export function updateLED() {
   const led = $("server-status-led"), text = $("server-status-text"), online = getStateValue('server.online');
   if (!led) return;
   led.className = online ? "led led-success" : "led led-error";
-  led.title = "Click to refresh";
+  led.title = online ? "Click to refresh" : "Server offline - click for setup instructions";
   if (text) text.textContent = online ? "Online" : "Offline";
 }
 
@@ -70,7 +70,14 @@ export function updateAllIndicators() { updateLED(); updateMatcherIndicator(); u
 
 export function setupIndicators() {
   document.addEventListener("click", (e) => {
-    if (e.target.closest("#server-status-led")) { e.preventDefault(); import("./api-fetch.js").then(m => m.checkServerStatus()); }
+    if (e.target.closest("#server-status-led")) {
+      e.preventDefault();
+      if (getStateValue('server.online')) return import("./api-fetch.js").then(m => m.checkServerStatus());
+      // Offline: navigate to Setup Step 1 and reset wizard
+      import("./dom-helpers.js").then(({ showView }) => showView("setup"));
+      import("../taskpane/taskpane.js").then(({ wizardState }) => { wizardState.reset(); wizardState.goTo(1); });
+      showMessage("Start the Python server using the instructions below");
+    }
     if (e.target.closest("#matcher-status-indicator")) { e.preventDefault(); showMatcherDetails(); }
   });
   eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);
