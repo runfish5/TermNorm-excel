@@ -196,9 +196,10 @@
     font-weight: 500;
 }
 
-/* Py-Server in navbar */
+/* Server status in navbar */
 .status-component--nav {
     margin-right: 8px;
+    cursor: help;
 }
 
 .status-component--nav .component-label {
@@ -515,7 +516,7 @@
         display: none;
     }
 }
-/* Py-Server label hides second */
+/* Server label hides on narrow screens */
 @media (max-width: 480px) {
     .status-component--nav .component-label {
         display: none;

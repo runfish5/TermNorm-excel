@@ -1,88 +1,49 @@
-/* Mapping Config Module Styles */
-.mapping-config-module[open] {
-    border: 1px solid var(--custom-green);
-    border-radius: var(--radius-xl);
-    padding: 16px;
-    background-color: var(--gray-50);
+/* Mapping Config Module */
+.mapping-config-module {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 14px;
+    background: white;
 }
 
-.mapping-config-module + .mapping-config-module {
-    margin-top: 6px;
-}
+.mapping-config-module[open] { background: #f5f5f5; }
+.mapping-config-module + .mapping-config-module { margin-top: 6px; }
+.mapping-config-module summary { color: #004b32; font-weight: bold; outline: none; }
 
-.mapping-config-module summary  {
-    color: var(--custom-green);
-    font-weight: bold;
-}
-.form-section.first-form-section {
-    margin-top: 20px;
-}
+/* Form layout */
+.form-section { margin-top: 5px; }
+.form-section.first-form-section { margin-top: 20px; }
 
-.form-section {
-    margin-top: 5px;
-}
-
-.file-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 5px;
-}
-
-.file-row input[type="text"] {
-    flex: 1;
-    min-width: 80px;
-    box-sizing: border-box;
-}
-
-.file-row button {
-    padding: 5px 10px;
-}
-
-.columns {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 10px;
-}
-
-.columns > div {
-    flex: 1;
-    min-width: 100px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.columns > div label {
-    flex-shrink: 0;
-}
-
-.columns > div input {
-    flex: 1;
-    min-width: 80px;
-    box-sizing: border-box;
-}
-
+.file-row,
+.columns,
+.columns > div,
 .radio-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0 15px;
 }
 
-.radio-group input[type="radio"] {
-    accent-color: var(--custom-green);
+.file-row { gap: 5px; }
+.columns { gap: 10px; }
+.columns > div { flex: 1; min-width: 100px; gap: 8px; }
+.radio-group { gap: 15px; }
+
+/* Inputs */
+.mapping-config-module input[type="text"],
+.mapping-config-module select {
+    flex: 1;
+    min-width: 80px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 4px 8px;
 }
 
-.radio-group label {
-    color: var(--custom-green);
+.mapping-config-module input:focus,
+.mapping-config-module select:focus {
+    border-color: #0078d7;
+    outline: none;
 }
 
-.btn-full {
-    width: 100%;
-    padding: 8px;
-}
-
-.btn-full + * {
-    margin-top: 10px;
-}
+/* Radio styling */
+.radio-group input[type="radio"] { accent-color: #004b32; }
+.radio-group label { color: #004b32; }

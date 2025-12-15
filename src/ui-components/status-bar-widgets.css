@@ -1,41 +1,11 @@
-/* Status Bar Widget Components
- * Reusable utility widgets used within the status bar:
- * - Loading Indicator (hourglass animation, see bubble-loader.css for bubbles)
- * - Status LED (server connection indicator)
- * - Matcher Indicator (term matching capabilities)
- * - Offline Warning Badge
- */
+/* Status Bar Widgets */
 
-/* ===================================
-   Loading Container (inside status message)
-   =================================== */
+/* Loading */
+.loading-container { display: flex; align-items: center; gap: 12px; }
+.loading-message { font-size: 13px; color: #333; font-weight: 500; margin-right: -10px; }
+.loading-dots { display: inline-block; min-width: 18px; font-size: 13px; color: #333; font-weight: 500; }
 
-.loading-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.loading-message {
-    font-size: 13px;
-    color: var(--gray-700);
-    font-weight: 500;
-    margin-right: -10px; /* Remove gap before dots */
-}
-
-.loading-dots {
-    display: inline-block;
-    min-width: 18px;
-    text-align: left;
-    font-size: 13px;
-    color: var(--gray-700);
-    font-weight: 500;
-}
-
-/* ===================================
-   Hourglass Animation (for waiting)
-   =================================== */
-
+/* Hourglass */
 .hourglass-emoji {
     font-size: 24px;
     display: inline-block;
@@ -50,50 +20,15 @@
     100% { transform: rotate(180deg); }
 }
 
-/* ===================================
-   Matcher Indicator Color States
-   =================================== */
+/* Matcher Indicator */
+.matcher-indicator.ready { border-color: #4CAF50; color: #2e7d32; }
+.matcher-indicator.limited { border-color: #FFC107; color: #f57c00; }
+.matcher-indicator.not-ready { border-color: #F44336; color: #c62828; }
 
-/* Matcher color states (extends .badge from design system) */
-.matcher-indicator.ready {
-    border-color: var(--success);
-    color: var(--success-dark);
-}
+.indicator-icon { font-size: 11px; }
+.indicator-counts { font-family: monospace; font-weight: 600; font-size: 11px; }
+.indicator-label { font-size: 11px; font-weight: 500; }
 
-.matcher-indicator.limited {
-    border-color: var(--warning);
-    color: var(--warning-dark);
-}
-
-.matcher-indicator.not-ready {
-    border-color: var(--error);
-    color: var(--error-dark);
-}
-
-.indicator-icon {
-    font-size: 11px;
-}
-
-.indicator-counts {
-    font-family: var(--font-mono);
-    font-weight: 600;
-    font-size: 11px;
-}
-
-.indicator-label {
-    font-size: 11px;
-    font-weight: 500;
-}
-
-/* ===================================
-   Warning Badge Sub-elements
-   =================================== */
-
-.warning-icon {
-    font-size: 12px;
-}
-
-.warning-text {
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
+/* Warning Badge */
+.warning-icon { font-size: 12px; }
+.warning-text { text-transform: uppercase; letter-spacing: 0.5px; }

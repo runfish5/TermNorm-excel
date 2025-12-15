@@ -1,138 +1,71 @@
-/* ===================================
-   SETTINGS PANEL - Minimal Design
-   =================================== */
+/* Settings Panel */
+.settings-panel { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.settings-title { margin: 0; font-size: 14px; font-weight: 600; color: #333; }
 
-.settings-panel {
-    padding: var(--spacing-2xl);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xl);
-}
-
-.settings-title {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-}
-
-/* Section Headers */
-.settings-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xl);
-}
-
+/* Sections */
+.settings-section { display: flex; flex-direction: column; gap: 12px; }
 .settings-section-title {
     margin: 0;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: var(--gray-500);
+    font-size: 11px;
+    font-weight: 600;
+    color: #6c757d;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e9ecef;
 }
 
 /* Toggle Rows */
 .settings-toggle {
     display: flex;
     align-items: flex-start;
-    gap: var(--spacing-md);
+    gap: 8px;
     cursor: pointer;
-    padding: var(--spacing-sm) 0;
+    padding: 4px 0;
 }
 
-.settings-toggle input[type="checkbox"] {
-    margin-top: 2px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.settings-toggle-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.settings-toggle-label {
-    font-size: var(--font-size-md);
-    color: var(--text-primary);
-}
-
-.settings-toggle-hint {
-    font-size: var(--font-size-sm);
-    color: var(--gray-500);
-}
+.settings-toggle input[type="checkbox"] { margin-top: 2px; cursor: pointer; flex-shrink: 0; }
+.settings-toggle-content { display: flex; flex-direction: column; gap: 2px; }
+.settings-toggle-label { font-size: 13px; color: #333; }
+.settings-toggle-hint { font-size: 11px; color: #6c757d; }
 
 /* Form Rows */
-.settings-form-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xl);
-}
-
-.settings-form-row label {
-    flex-shrink: 0;
-    font-size: var(--font-size-md);
-    color: var(--text-secondary);
-}
+.settings-form-row { display: flex; align-items: center; gap: 12px; }
+.settings-form-row label { flex-shrink: 0; font-size: 13px; color: #495057; }
 
 .settings-form-row select,
 .settings-form-row input[type="text"] {
     flex: 1;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--gray-border);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-md);
-    box-sizing: border-box;
+    padding: 4px 8px;
+    border: 1px solid #d1d1d1;
+    border-radius: 3px;
+    font-size: 13px;
 }
 
 .settings-form-row select:focus,
 .settings-form-row input[type="text"]:focus {
     outline: none;
-    border-color: var(--primary);
-    box-shadow: var(--focus-ring);
+    border-color: #0078d7;
 }
 
-.settings-form-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xl);
-}
+.settings-form-actions { display: flex; align-items: center; gap: 12px; }
 
 /* LLM Status */
-.llm-status {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    color: var(--gray-500);
-}
-
-.llm-status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: var(--radius-circle);
-    background: var(--gray-400);
-}
-
-.llm-status-dot.connected { background: var(--success); }
-.llm-status-dot.offline { background: var(--warning); }
-.llm-status-dot.error { background: var(--error); }
+.llm-status { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #6c757d; }
+.llm-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #ced4da; }
+.llm-status-dot.connected { background: #4CAF50; }
+.llm-status-dot.offline { background: #FFC107; }
+.llm-status-dot.error { background: #F44336; }
 
 /* Button Row */
-.settings-button-row {
-    display: flex;
-    gap: var(--spacing-md);
-}
+.settings-button-row { display: flex; gap: 8px; }
 
-/* Compact Footer */
+/* Footer */
 .settings-footer {
     margin-top: auto;
-    padding-top: var(--spacing-xl);
-    border-top: 1px solid var(--gray-200);
-    font-size: var(--font-size-sm);
-    color: var(--gray-500);
-    font-family: var(--font-mono);
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+    font-size: 11px;
+    color: #6c757d;
+    font-family: monospace;
 }

@@ -1,128 +1,48 @@
-/* ProcessingHistoryUI.css */
+/* Processing History */
 
-/* History table column-specific styling */
-.table .time {
-    font-family: var(--font-mono);
-    color: var(--gray-500);
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.table .source {
-    font-weight: 500;
-    color: var(--info);
-    word-break: break-word;
-}
-
-.table .target {
-    font-weight: 500;
-    color: var(--success-alt);
-    word-break: break-word;
-}
+/* Table columns */
+.table .time { font-family: monospace; color: #6c757d; font-size: 12px; white-space: nowrap; }
+.table .source { font-weight: 500; color: #0d6efd; word-break: break-word; }
+.table .target { font-weight: 500; color: #198754; word-break: break-word; }
+.table .confidence { font-weight: 600; text-align: center; white-space: nowrap; }
 
 .table .method {
-    font-family: var(--font-mono);
+    font-family: monospace;
     font-size: 11px;
     font-weight: 600;
     padding: 3px 8px;
-    border-radius: var(--radius-pill);
-    text-align: center;
-    white-space: nowrap;
-    background: var(--method-bg);
-    color: var(--method-text);
-}
-
-.history-row.exact .method {
-    --method-bg: var(--info-light);
-    --method-text: var(--info-text);
-}
-
-.history-row.fuzzy .method {
-    --method-bg: var(--warning-light);
-    --method-text: var(--warning-text);
-}
-
-.history-row.ai .method {
-    --method-bg: var(--ai-light);
-    --method-text: var(--ai-text);
-}
-
-.history-row.error .method {
-    --method-bg: var(--error-light);
-    --method-text: var(--error-text);
-}
-
-.table .confidence {
-    font-weight: 600;
+    border-radius: 12px;
     text-align: center;
     white-space: nowrap;
 }
 
-.placeholder-row td {
-    text-align: center;
-    color: var(--gray-500);
-    font-style: italic;
-    padding: 40px 16px;
-}
+/* Method colors */
+.history-row.exact .method { background: #d1ecf1; color: #0c5460; }
+.history-row.fuzzy .method { background: #fff3cd; color: #856404; }
+.history-row.ai .method { background: #e2e3ff; color: #383d41; }
+.history-row.error .method { background: #f8d7da; color: #721c24; }
 
-/* Highlight effect for cell selection feature */
-.history-row {
-    transition: all 0.3s ease;
-}
+/* Row states */
+.history-row { transition: all 0.3s; }
+.history-row.highlighted { background: #fff3cd !important; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-left: 4px solid #FFC107; }
+.history-row.expanded-details, .history-row.expanded-details:hover { background: #f8f9fa; }
+.history-row.cached-entry { background: #fafafa; }
+.history-row.cached-entry .time { color: #ced4da; }
 
-.history-row.highlighted {
-    background: var(--warning-light) !important;
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border-left: 4px solid var(--warning);
-}
+/* Placeholder */
+.placeholder-row td { text-align: center; color: #6c757d; font-style: italic; padding: 40px 16px; }
 
-/* Candidate item flex layout (extends .list-item-bordered from design system) */
-.list-item-bordered {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
+/* List item layout */
+.list-item-bordered { display: flex; gap: 8px; align-items: center; }
 
-/* Method badge variants (extends .badge from design system) */
-.badge.ProfileRank,
-.badge.BatchProfileRank {
-    --badge-bg: var(--ai-light);
-    --badge-text: var(--ai-text);
-}
+/* Badge method variants */
+.badge.ProfileRank, .badge.BatchProfileRank { background: #e2e3ff; color: #383d41; }
+.badge.UserChoice { background: #d4edda; color: #155724; }
+.badge.fuzzy { background: #fff3cd; color: #856404; }
+.badge.cached { background: #d1ecf1; color: #0c5460; }
 
-.badge.UserChoice {
-    --badge-bg: var(--success-light);
-    --badge-text: var(--success-text);
-}
-
-.badge.fuzzy {
-    --badge-bg: var(--warning-light);
-    --badge-text: var(--warning-text);
-}
-
-.badge.cached {
-    --badge-bg: var(--info-light);
-    --badge-text: var(--info-text);
-}
-
-/* Inline expanded details row */
-.history-row.expanded-details,
-.history-row.expanded-details:hover {
-    background: var(--gray-100);
-}
-
-/* Cached entry indicator */
-.history-row.cached-entry {
-    background: var(--gray-50);
-}
-
-.history-row.cached-entry .time {
-    color: var(--gray-400);
-}
-
-/* History count indicator + popup (vanilla) */
-.history-count { cursor: pointer; color: var(--info); }
+/* History popup */
+.history-count { cursor: pointer; color: #0d6efd; }
 .history-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: #fff; border: 1px solid #999; padding: 8px 12px; max-height: 300px; overflow-y: auto; font-size: 12px; }
 .history-popup div { padding: 2px 0; cursor: pointer; }
 .history-popup div:hover { background: #eee; }

@@ -1,16 +1,12 @@
-/* CandidateRankingUI.css */
-
+/* Candidate Ranking */
 .candidate-entry {
-    border: var(--border-gray);
+    border: 1px solid #ddd;
     margin: 8px 0;
     padding: 12px;
-    background: var(--gray-50);
+    background: #fafafa;
 }
 
-.candidate-header {
-    font-weight: bold;
-    margin-bottom: 8px;
-}
+.candidate-header { font-weight: bold; margin-bottom: 8px; }
 
 .candidate-table {
     border-collapse: collapse;
@@ -20,46 +16,23 @@
 
 .candidate-table th,
 .candidate-table td {
-    border: var(--border-gray);
+    border: 1px solid #ddd;
     padding: 4px 8px;
     text-align: left;
 }
 
+.candidate-table tr { cursor: move; transition: background 0.2s; }
+.candidate-table tr:hover { background: #f8f9fa; }
+.candidate-table tr.dragging { opacity: 0.5; }
+.candidate-table tr.drag-over { border-top: 2px solid #0078d7; }
+
+.drag-handle { cursor: grab; padding: 4px; color: #495057; }
+.drag-handle:hover { color: #0078d7; }
+.drag-handle:active { cursor: grabbing; }
+
 .placeholder-text {
-    color: var(--gray-650);
+    color: #666;
     font-style: italic;
     padding: 10px;
     text-align: center;
-}
-
-/* Drag & Drop Styles */
-.candidate-table tr {
-    cursor: move;
-    transition: background var(--transition-base);
-}
-
-.candidate-table tr:hover {
-    background: var(--gray-100);
-}
-
-.candidate-table tr.dragging {
-    opacity: 0.5;
-}
-
-.candidate-table tr.drag-over {
-    border-top: 2px solid var(--primary);
-}
-
-.drag-handle {
-    cursor: grab;
-    padding: var(--spacing-sm);
-    color: var(--gray-600);
-}
-
-.drag-handle:hover {
-    color: var(--primary);
-}
-
-.drag-handle:active {
-    cursor: grabbing;
 }

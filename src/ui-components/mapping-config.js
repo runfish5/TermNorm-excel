@@ -27,7 +27,7 @@ export function createMappingConfigHTML(config, i) {
           <label>File Path:</label>
           <input type="text" class="file-path-display" placeholder="No file selected" readonly />
           <input type="file" class="file-picker-input hidden" accept=".xlsx,.xls" />
-          <button class="browse-button btn-secondary">Browse...</button>
+          <button class="browse-button btn btn-primary">Browse...</button>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@ export function createMappingConfigHTML(config, i) {
         <div><label>Alias Column:</label><input type="text" class="source-column" placeholder="optional" /></div>
       </div>
     </div>
-    <button class="load-mapping btn-full form-section">Load Mapping Table ${i + 1}</button>`;
+    <button class="load-mapping btn btn-primary btn-full form-section">Load Mapping Table ${i + 1}</button>`;
 }
 
 export function setupMappingConfigEvents(el, config, index, onLoaded) {
