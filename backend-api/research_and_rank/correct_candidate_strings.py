@@ -47,7 +47,12 @@ def correct_candidate_strings(ranking_result, match_results):
             corrected_info['_correction_confidence'] = similarity
         else:
             corrected_info['_correction_confidence'] = 1.0
-        
+
+        # Calculate relevance_score from existing scores (70% core concept + 30% spec)
+        core_score = corrected_info.get('core_concept_score', 0.0)
+        spec_score = corrected_info.get('spec_score', 0.0)
+        corrected_info['relevance_score'] = (core_score * 0.7 + spec_score * 0.3)
+
         corrected_candidates.append(corrected_info)
     
     # Update the ranking result
