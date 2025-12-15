@@ -4,7 +4,7 @@ import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook 
 import { processTermNormalization } from "./normalizer.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
-import { PROCESSING_COLORS, ENDPOINTS, createMatchResult } from "../config/config.js";
+import { PROCESSING_COLORS, ENDPOINTS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
 import { showMessage } from "../utils/ui-feedback.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
@@ -105,13 +105,13 @@ const handleWorksheetChange = async (e, tracker) => {
         const timestamp = new Date().toISOString();
         const source = String(sourceValue).trim();
         const target = String(newValue).trim();
-        const result = { target, method: "DirectEdit", confidence: 1.0, timestamp, source };
+        const result = { target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp, source };
 
         // Emit event for history table
         eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
 
         // Also log to API (fire-and-forget)
-        fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: 1.0, timestamp }, getHeaders()));
+        fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp }, getHeaders()));
 
         // Update confidence column
         const confCol = tracker.confidenceColumnMap.get(inputCol);
@@ -214,10 +214,10 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
-  const result = createMatchResult({ target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, source: value, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
-  await writeCellResult(row, col, targetCol, choice.candidate, 1.0, tracker.confidenceColumnMap);
+  const result = createMatchResult({ target: choice.candidate, method: "UserChoice", confidence: USER_ACTION_CONFIDENCE, source: value, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
+  await writeCellResult(row, col, targetCol, choice.candidate, USER_ACTION_CONFIDENCE, tracker.confidenceColumnMap);
   logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-  fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: choice.relevance_score, timestamp: result.timestamp }, getHeaders()));
+  fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: USER_ACTION_CONFIDENCE, timestamp: result.timestamp }, getHeaders()));
 }
 
 export async function stopTracking(workbookId) {

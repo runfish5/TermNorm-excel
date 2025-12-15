@@ -112,6 +112,9 @@ export const EVENT_LOG = {
   MAX_ENTRIES: 999,
 };
 
+// User action confidence (UserChoice, DirectEdit = explicit user selection)
+export const USER_ACTION_CONFIDENCE = 1.0;
+
 // ============================================================================
 // UI CONSTANTS
 // ============================================================================
