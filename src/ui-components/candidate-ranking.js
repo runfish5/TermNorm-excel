@@ -21,8 +21,13 @@ export function addCandidate(value, result, context) {
   candidatesData = [...result.candidates];
   currentContext = context;
 
-  const names = { core_concept_score: "Core", spec_score: "Spec", key_match_factors: "Factors", spec_gaps: "Gaps" };
-  const cols = [...new Set(candidatesData.flatMap(c => Object.keys(c).filter(k => !k.startsWith("_") && k !== "abc")))];
+  const names = { key_match_factors: "Factors", spec_gaps: "Gaps", _scores: "Scores" };
+  const hidden = ["abc", "relevance_score", "core_concept_score", "spec_score"];
+  const cols = ["_scores", ...new Set(candidatesData.flatMap(c => Object.keys(c).filter(k => !k.startsWith("_") && !hidden.includes(k))))];
+  const fmt = (v) => v != null ? v.toFixed(2) : "-";
+  const cell = (c, col) => col === "_scores"
+    ? `a:${fmt(c.relevance_score)} b:${fmt(c.core_concept_score)} c:${fmt(c.spec_score)}`
+    : Array.isArray(c[col]) ? c[col].join(", ") : c[col] || "";
   const section = container.querySelector("#candidate-ranking-section");
   if (!section) return;
 
@@ -44,7 +49,7 @@ export function addCandidate(value, result, context) {
           ${candidatesData.map((c, i) => `
             <tr draggable="true" data-index="${i}">
               <td class="drag-handle">⋮⋮</td>
-              ${cols.map(col => `<td>${Array.isArray(c[col]) ? c[col].join(", ") : c[col] || ""}</td>`).join("")}
+              ${cols.map(col => `<td>${cell(c, col)}</td>`).join("")}
             </tr>
           `).join("")}
         </tbody>
