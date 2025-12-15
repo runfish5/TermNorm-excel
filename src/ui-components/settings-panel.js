@@ -25,7 +25,7 @@ const HTML = `
     <label class="settings-toggle">
       <input type="checkbox" id="set-brave-api">
       <div class="settings-toggle-content">
-        <span class="settings-toggle-label">Use Brave Search API</span>
+        <span class="settings-toggle-label">Use Brave Search API <a href="https://github.com/runfish5/TermNorm-excel/blob/master/docs/CONFIGURATION.md#3-configure-web-search-optional" target="_blank" class="text-primary-brand" onclick="event.stopPropagation()">docs</a></span>
         <span class="settings-toggle-hint">Primary web scraper when configured</span>
       </div>
     </label>
