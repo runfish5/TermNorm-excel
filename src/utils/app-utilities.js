@@ -14,7 +14,7 @@ export function getRelevanceColor(score) {
   return s >= EXCELLENT ? RELEVANCE_COLORS.EXCELLENT : s >= GOOD ? RELEVANCE_COLORS.GOOD : s >= MODERATE ? RELEVANCE_COLORS.MODERATE : s >= LOW ? RELEVANCE_COLORS.LOW : RELEVANCE_COLORS.NONE;
 }
 
-const version = "1.0.3", commit = "66cd6d2", commitDate = "2025-12-08", branch = "master", repository = "runfish5/TermNorm-excel";
+const version = "1.0.4", commit = "577b2f3", commitDate = "2025-12-15", branch = "master", repository = "runfish5/TermNorm-excel";
 const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
 const deploymentType = typeof __DEPLOYMENT_TYPE__ !== "undefined" ? __DEPLOYMENT_TYPE__ : "development";

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.5] - 2025-12-13
+## [1.0.4] - 2025-12-15
 
 ### Highlights
 
@@ -17,26 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `web_search_status` to history entries: warning icon persists across page refreshes
 - New history indicator (🕐N) with clickable popup showing all assignments for a source
 - Popup highlights current assignment (★) and allows viewing details of any historical entry
-
-**DirectEdit Reliability**
-- Fixed duplicate row bug: DirectEdit now uses stored source value from cell state
-- Fallback to Excel read when cell state doesn't exist (previous sessions)
-- Guaranteed source key matching prevents spurious duplicates from whitespace/casing differences
+- Consolidated score columns into single Scores column with relevance calculation
 
 **Cell Selection Navigation**
 - Fixed scrolling to outdated entries: now looks up by normalized source key
 - Uses `sourceIndex` Map for O(1) case-insensitive lookup
 - Correctly displays details for current target (from row's data-identifier)
-
-### Technical Details
-- Source normalization: trim + lowercase + collapse whitespace + Unicode NFC
-- History entries now include: `{ timestamp, target, method, confidence, web_search_status }`
-- `handleCellSelection` prioritizes source lookup over identifier lookup
-- Files modified: `processing-history.js`, `processing-history.css`, `live-tracker.js`, `history-cache.js`
-
-## [1.0.4] - 2025-12-12
-
-### Highlights
 
 **Thermometer Component**
 - New progress/status indicator with two modes
@@ -45,26 +31,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LLM ranking toggle allows skipping second LLM call for faster processing
 
 **UI/UX Improvements**
+- New Home tab with setup wizard and hero cover
 - Professional navbar redesign with cleaner layout
 - Settings groups with card-like appearance and subtle shadows
 - Status bar made sticky, "Backend" renamed to "Py-Server"
 - Bubble animation replacing hourglass loader
-- Badge system for status messages with bordered variants
+- Direct Prompt integrated into event pipeline with batch semantics
+
+**DirectEdit Reliability**
+- Fixed duplicate row bug: DirectEdit now uses stored source value from cell state
+- Fallback to Excel read when cell state doesn't exist (previous sessions)
+- USER_ACTION_CONFIDENCE constant ensures consistent 100% confidence for UserChoice/DirectEdit
+- Guaranteed source key matching prevents spurious duplicates from whitespace/casing differences
+- History entries stay synced with latest state values (confidence, method) when viewing older traces
 
 **Performance**
 - Removed Microsoft Fabric CSS dependency (100KB CDN eliminated)
 - Migrated 24+ hardcoded colors to CSS token variables
 - Consolidated 3 button systems to unified `btn-primary`/`btn-secondary`
+- Frontend cache history limit increased from 50 to 999
 
 ### Bug Fixes
 - Fixed double-nested details element causing duplicate collapse triangles
 - Fixed status message alignment (now left-bound with badge styling)
 - Fixed auto-progression jumping backward when events re-fire
+- Fixed responsive navbar layout for narrow taskpanes
+- Fixed relevance_score calculation from core_concept + spec scores
 
 ### Technical Details
-- 9 commits since v1.0.3
-- Design system expanded with components.css (badges, cards, buttons)
-- Thermometer component: 140 lines with MODES config pattern
+- 48 commits since v1.0.3: 6 features, 15 refactors, 7 fixes, 4 docs
+- Source normalization: trim + lowercase + collapse whitespace + Unicode NFC
+- History entries now include: `{ timestamp, target, method, confidence, web_search_status }`
+- `handleCellSelection` prioritizes source lookup over identifier lookup
+- New experiments API endpoint for external eval/optimization servers
+- Improved Python server setup UX for first-time users
 - No breaking changes from v1.0.3
 
 ## [1.0.3] - 2025-12-08
