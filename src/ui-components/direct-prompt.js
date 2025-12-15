@@ -6,6 +6,8 @@ import { reinitializeSession } from "../services/workflows.js";
 import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
 import { $ } from "../utils/dom-helpers.js";
 import { LIMITS, ENDPOINTS } from "../config/config.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
 
@@ -111,6 +113,7 @@ async function processDirectPrompt() {
 
   try {
     const results = await processItems(values, userPrompt);
+    eventBus.emit(Events.BATCH_RESULTS, { items: results, userPrompt });
     await writeResultsToExcel(results);
     showMessage(`Direct prompt complete: ${results.length} items processed`);
   } catch (e) { showMessage(`Processing failed: ${e.message}`, "error"); }
@@ -134,7 +137,18 @@ async function processItems(values, userPrompt) {
       const payload = { query: value, user_prompt: userPrompt };
       if (batchId) payload.batch_id = batchId;
       const data = await apiPost(buildUrl(ENDPOINTS.PROMPTS), payload, headers);
-      if (data) { results.push({ source: value, target: data.target || "No match", confidence: data.confidence ?? 0, confidence_corrected: data.confidence_corrected || false }); successCount++; }
+      if (data) {
+        const target = data.target || "No match";
+        const confidence = data.confidence ?? 0;
+        results.push({ source: value, target, confidence, confidence_corrected: data.confidence_corrected || false });
+        successCount++;
+        eventBus.emit(Events.MATCH_LOGGED, {
+          value,
+          cellKey: `dp-${batchId || 'single'}-${i}`,
+          timestamp: new Date().toISOString(),
+          result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" }
+        });
+      }
       else { results.push({ source: value, target: "No response", confidence: 0 }); errorCount++; }
     } catch (e) { results.push({ source: value, target: `Error: ${e.message}`, confidence: 0 }); errorCount++; }
   }

@@ -7,6 +7,7 @@ import { $ } from "../utils/dom-helpers.js";
 let container = null, candidatesData = [], currentContext = null;
 
 eventBus.on(Events.CANDIDATES_AVAILABLE, ({ source, result, applyChoice }) => addCandidate(source, result, { applyChoice }));
+eventBus.on(Events.BATCH_RESULTS, ({ items, userPrompt }) => renderBatchResults(items, userPrompt));
 
 export function init() {
   container = $("results-view");
@@ -89,4 +90,50 @@ function setupDragDrop(el) {
     }
     dragIdx = null;
   };
+}
+
+function renderBatchResults(items, userPrompt) {
+  if (!items?.length || (!container && !init())) return;
+  const section = container.querySelector("#candidate-ranking-section");
+  if (!section) return;
+
+  const truncatedPrompt = userPrompt?.length > 50 ? userPrompt.slice(0, 50) + "..." : userPrompt || "";
+  const cardsHTML = items.map((item, i) => {
+    const conf = Math.round((item.confidence || 0) * 100);
+    const confClass = conf >= 90 ? "confidence-high" : conf >= 70 ? "confidence-medium" : "confidence-low";
+    return `
+      <details class="batch-result-card" ${i === 0 ? "open" : ""}>
+        <summary class="batch-result-summary">
+          <span class="batch-result-source">${item.source || "-"}</span>
+          <span class="batch-result-arrow">→</span>
+          <span class="batch-result-target">${item.target || "-"}</span>
+          <span class="batch-result-confidence ${confClass}">${conf}%</span>
+        </summary>
+        <div class="batch-result-content">
+          <div><strong>Source:</strong> ${item.source || "-"}</div>
+          <div><strong>Target:</strong> ${item.target || "-"}</div>
+          <div><strong>Confidence:</strong> ${conf}%</div>
+        </div>
+      </details>`;
+  }).join("");
+
+  section.innerHTML = `
+    <div class="batch-results-container">
+      <div class="batch-results-header">
+        <span class="batch-results-title">Direct Prompt Results (${items.length})</span>
+        <div class="batch-results-actions">
+          <button class="btn-sm btn-secondary" id="batch-expand-all">Expand All</button>
+          <button class="btn-sm btn-secondary" id="batch-collapse-all">Collapse All</button>
+        </div>
+      </div>
+      <div class="batch-results-prompt" title="${userPrompt || ''}">${truncatedPrompt}</div>
+      <div class="batch-results-cards">${cardsHTML}</div>
+    </div>`;
+
+  section.querySelector("#batch-expand-all")?.addEventListener("click", () => {
+    section.querySelectorAll(".batch-result-card").forEach(d => d.open = true);
+  });
+  section.querySelector("#batch-collapse-all")?.addEventListener("click", () => {
+    section.querySelectorAll(".batch-result-card").forEach(d => d.open = false);
+  });
 }

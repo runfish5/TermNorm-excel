@@ -5,6 +5,7 @@ export const Events = {
   MAPPINGS_LOADED: 'mappings:loaded',
   CELL_SELECTED: 'cell:selected',
   CANDIDATES_AVAILABLE: 'candidates:available',
+  BATCH_RESULTS: 'batch:results',
   HISTORY_CACHE_INITIALIZED: 'history:cache:initialized',
   SERVER_STATUS_CHANGED: 'server:status:changed',
   SERVER_RECONNECTED: 'server:reconnected',
