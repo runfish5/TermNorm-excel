@@ -5,17 +5,19 @@
     font-family: var(--font-mono);
     color: var(--gray-500);
     font-size: 12px;
-    width: 90px;
+    white-space: nowrap;
 }
 
 .table .source {
     font-weight: 500;
     color: var(--info);
+    word-break: break-word;
 }
 
 .table .target {
     font-weight: 500;
     color: var(--success-alt);
+    word-break: break-word;
 }
 
 .table .method {
@@ -25,7 +27,7 @@
     padding: 3px 8px;
     border-radius: var(--radius-pill);
     text-align: center;
-    width: 80px;
+    white-space: nowrap;
     background: var(--method-bg);
     color: var(--method-text);
 }
@@ -53,7 +55,7 @@
 .table .confidence {
     font-weight: 600;
     text-align: center;
-    width: 80px;
+    white-space: nowrap;
 }
 
 .placeholder-row td {

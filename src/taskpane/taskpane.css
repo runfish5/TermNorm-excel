@@ -170,8 +170,9 @@
 .system-status-row {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     font-size: 12px;
+    flex-wrap: wrap;
 }
 
 /* Individual status component (Backend, Data Cache) */
@@ -198,48 +199,10 @@
 /* Py-Server in navbar */
 .status-component--nav {
     margin-right: 8px;
-    flex-shrink: 0;
-    white-space: nowrap;
 }
 
 .status-component--nav .component-label {
     font-size: 10px;
-}
-
-/* Buttons */
-.btn-primary {
-    background-color: var(--primary);
-    border: none;
-    border-radius: var(--radius-sm);
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 8px 16px;
-    cursor: pointer;
-}
-
-.btn-primary:hover,
-.btn-primary:focus {
-    background-color: var(--primary-hover);
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.btn-secondary {
-    background-color: var(--gray-100);
-    border: 1px solid var(--gray-border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-size: 13px;
-    padding: 6px 12px;
-    cursor: pointer;
-}
-
-.btn-secondary:hover {
-    background-color: var(--gray-250);
 }
 
 /* Ultra-simple drop zone */
@@ -556,6 +519,15 @@
 @media (max-width: 480px) {
     .status-component--nav .component-label {
         display: none;
+    }
+}
+/* Narrow taskpane: reduce gaps and thermo size */
+@media (max-width: 400px) {
+    .system-status-row {
+        gap: 8px;
+    }
+    .status-bar .thermo {
+        max-width: 180px;
     }
 }
 

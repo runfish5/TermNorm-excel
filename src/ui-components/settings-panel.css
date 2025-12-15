@@ -73,7 +73,7 @@
 }
 
 .settings-form-row label {
-    min-width: 60px;
+    flex-shrink: 0;
     font-size: var(--font-size-md);
     color: var(--text-secondary);
 }
