@@ -6,8 +6,6 @@ import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflows.js";
 import { showMessage } from "../utils/ui-feedback.js";
 
-export { getCachedMatch };
-
 export function findFuzzyMatch(value, forward, reverse) {
   return findFuzzyMatchDomain(value, forward, reverse, FUZZY_THRESHOLDS.FORWARD, FUZZY_THRESHOLDS.REVERSE);
 }

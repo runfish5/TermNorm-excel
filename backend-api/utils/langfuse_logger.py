@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
+from .standards_logger import generate_dated_id
+
 BASE_PATH = Path("logs/langfuse")
 DEFAULT_DATASET = "termnorm_ground_truth"
 EVENTS_FILE = BASE_PATH / "events.jsonl"
@@ -32,15 +34,9 @@ def _log_event(event: Dict):
         f.write(json.dumps(event) + "\n")
 
 
-def _generate_id(length: int = 32) -> str:
-    """Generate datetime-prefixed ID for chronological sorting."""
-    dt = datetime.utcnow().strftime("%y%m%d%H%M%S")
-    return dt + uuid.uuid4().hex[:length - 12]
-
-
 def _generate_batch_id() -> str:
     """Generate batch ID with datetime prefix."""
-    return f"batch-{_generate_id(24)}"
+    return f"batch-{generate_dated_id(24)}"
 
 
 def _ensure_dirs():
@@ -65,7 +61,7 @@ def create_trace(
 ) -> str:
     """Create a new trace. Returns trace_id."""
     _ensure_dirs()
-    trace_id = _generate_id()
+    trace_id = generate_dated_id()
 
     trace = {
         "id": trace_id,
@@ -203,7 +199,7 @@ def get_or_create_item(query: str, source_trace_id: str = None) -> str:
         return item_id
 
     # Create new
-    item_id = f"item-{_generate_id(24)}"
+    item_id = f"item-{generate_dated_id(24)}"
     item = {
         "id": item_id,
         "dataset_name": DEFAULT_DATASET,

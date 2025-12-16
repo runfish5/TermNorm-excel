@@ -19,13 +19,6 @@ const buildTime = new Date().toISOString().slice(0, 16).replace("T", " ");
 const projectPath = typeof __PROJECT_PATH__ !== "undefined" ? __PROJECT_PATH__ : "C:\\...\\TermNorm-excel";
 const deploymentType = typeof __DEPLOYMENT_TYPE__ !== "undefined" ? __DEPLOYMENT_TYPE__ : "development";
 
-export function initializeVersionDisplay() {
-  setText("version-number", `v${version}`);
-  setText("version-build", `${commit} (${commitDate})`, `Branch: ${branch}\nRepository: ${repository}`);
-  setText("version-runtime", buildTime);
-  setText("version-bundle-size", "N/A");
-}
-
 export function getCompactVersionString() {
   const fmtDate = d => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return `v${version} · ${commit} · Commit ${fmtDate(commitDate)} · Built ${buildTime}`;

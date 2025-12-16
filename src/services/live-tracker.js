@@ -164,7 +164,6 @@ function logResult(workbookId, cellKey, value, result, status, row, col) {
   eventBus.emit(Events.MATCH_LOGGED, { value, cellKey, timestamp: result.timestamp, result });
 }
 
-// Cell writing (inlined from cell-writing.js)
 async function writeCellResult(row, inputCol, outputCol, targetValue, confidence, confidenceColumnMap) {
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;

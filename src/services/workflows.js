@@ -64,7 +64,6 @@ export async function reinitializeSession() {
   return terms.length ? initSessionWithRetry(terms) : false;
 }
 
-// Session recovery helpers (merged from session-recovery.js)
 export async function ensureSessionInitialized() {
   if (stateStore.get('session.initialized')) return true;
   showMessage("Initializing backend session...");

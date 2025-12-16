@@ -135,5 +135,3 @@ export const Thermometer = {
         return inst;
     }
 };
-
-export default Thermometer;

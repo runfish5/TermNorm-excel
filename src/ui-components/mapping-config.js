@@ -46,10 +46,10 @@ export function createMappingConfigHTML(config, i) {
 
 export function setupMappingConfigEvents(el, config, index, onLoaded) {
   let externalFile = null, mappings = { forward: {}, reverse: {}, metadata: null };
-  const $ = s => el.querySelector(s);
+  const $el = s => el.querySelector(s);
 
   const setDropdown = (sheets, disabled = false) => {
-    const dd = $(".worksheet-dropdown");
+    const dd = $el(".worksheet-dropdown");
     if (!dd) return;
     dd.innerHTML = disabled ? `<option value="">${sheets[0]}</option>` : '<option value="">Select...</option>' + sheets.map(n => `<option value="${n}">${n}</option>`).join("");
     dd.disabled = disabled;
@@ -62,25 +62,25 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
       setDropdown(sheets);
       showMessage(`${sheets.length} worksheets${isExt ? ` in ${externalFile.name}` : ""}`);
       if (config.worksheet) {
-        const dd = $(".worksheet-dropdown");
+        const dd = $el(".worksheet-dropdown");
         if (dd && [...dd.options].some(o => o.value === config.worksheet)) { dd.value = config.worksheet; showMessage(`Selected: ${config.worksheet}`); }
       }
     } catch (e) { setDropdown(["Error loading"], true); showMessage(`Error: ${e.message}`, "error"); }
   };
 
   el.addEventListener("click", e => {
-    if (e.target.matches(".browse-button")) { e.preventDefault(); $(".file-picker-input").click(); }
+    if (e.target.matches(".browse-button")) { e.preventDefault(); $el(".file-picker-input").click(); }
     if (e.target.matches(".load-mapping")) { e.preventDefault(); loadMappings(); }
   });
 
   el.addEventListener("change", e => {
-    if (e.target.matches(".current-file")) { $(".external-file-section").classList.add("hidden"); loadSheets(false); }
-    if (e.target.matches(".external-file")) { $(".external-file-section").classList.remove("hidden"); externalFile ? loadSheets(true) : setDropdown(["Select external file first..."], true); }
+    if (e.target.matches(".current-file")) { $el(".external-file-section").classList.add("hidden"); loadSheets(false); }
+    if (e.target.matches(".external-file")) { $el(".external-file-section").classList.remove("hidden"); externalFile ? loadSheets(true) : setDropdown(["Select external file first..."], true); }
     if (e.target.matches(".file-picker-input") && e.target.files?.[0]) {
       externalFile = e.target.files[0];
-      $(".file-path-display").value = externalFile.name;
-      $(".external-file").checked = true;
-      $(".external-file-section").classList.remove("hidden");
+      $el(".file-path-display").value = externalFile.name;
+      $el(".external-file").checked = true;
+      $el(".external-file-section").classList.remove("hidden");
       showMessage(`Reading ${externalFile.name}...`);
       loadSheets(true);
     }
@@ -88,12 +88,12 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
 
   async function loadMappings() {
     try {
-      const params = { useCurrentFile: $(".current-file").checked, sheetName: $(".worksheet-dropdown").value, sourceColumn: $(".source-column").value || null, targetColumn: $(".target-column").value, externalFile };
+      const params = { useCurrentFile: $el(".current-file").checked, sheetName: $el(".worksheet-dropdown").value, sourceColumn: $el(".source-column").value || null, targetColumn: $el(".target-column").value, externalFile };
       await loadMappingSource(index, loadAndProcessMappings, params);
       mappings = (getStateValue('mappings.sources') || {})[index]?.data || { forward: {}, reverse: {}, metadata: null };
       const { validMappings, issues, serverWarning } = mappings.metadata || {};
       showMessage(`✓ ${validMappings} mappings${issues?.length ? ` (${issues.length} issues)` : ""}${serverWarning ? " - Server unavailable" : ""}`);
-      $(".filename-display").textContent = ` - ${externalFile?.name || "Current file"}`;
+      $el(".filename-display").textContent = ` - ${externalFile?.name || "Current file"}`;
       onLoaded?.(index, mappings, mappings);
       el.open = false;
     } catch (e) { mappings = { forward: {}, reverse: {}, metadata: null }; showMessage(e.message, "error"); }
@@ -108,15 +108,15 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
 }
 
 export function loadMappingConfigData(el, config) {
-  const $ = s => el.querySelector(s);
-  if (config.source_column) $(".source-column").value = config.source_column;
-  if (config.target_column) $(".target-column").value = config.target_column;
+  const $el = s => el.querySelector(s);
+  if (config.source_column) $el(".source-column").value = config.source_column;
+  if (config.target_column) $el(".target-column").value = config.target_column;
   const isExt = config.mapping_reference?.includes("/") || config.mapping_reference?.includes("\\");
   if (isExt) {
-    $(".external-file").checked = true;
-    $(".external-file-section").classList.remove("hidden");
+    $el(".external-file").checked = true;
+    $el(".external-file-section").classList.remove("hidden");
     const name = config.mapping_reference?.split(/[\\/]/).pop();
-    $(".file-path-display").value = name;
+    $el(".file-path-display").value = name;
     showMessage(`Config expects: ${name}`);
   }
 }

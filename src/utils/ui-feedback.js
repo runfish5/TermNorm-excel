@@ -11,7 +11,7 @@ const clearDots = () => { if (dotsInterval) { clearInterval(dotsInterval); dotsI
 const bubbleSide = (side) => `<div class="bubble-loader ${side}"><div class="bubble ${side}"></div><div class="pop-flash ${side}"></div>${[1,2,3,4].map(n => `<div class="quarter quarter-${n} ${side}"></div>`).join('')}</div>`;
 
 export function showMessage(text, type = "info") {
-  const el = statusEl || (statusEl = document.getElementById("main-status-message"));
+  const el = statusEl || (statusEl = $("main-status-message"));
   if (!el) return;
   clearDots();
 

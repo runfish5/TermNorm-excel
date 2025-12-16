@@ -1,7 +1,6 @@
 /** Matchers - Three-tier pipeline: Cache (exact) → Fuzzy → LLM */
 import { FUZZY_THRESHOLDS } from "../config/config.js";
 
-// Cache Matcher (merged from cache-matcher.js)
 const norm = v => v ? String(v).trim() : '';
 const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
 

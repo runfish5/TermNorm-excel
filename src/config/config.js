@@ -7,12 +7,16 @@
 /**
  * @typedef {Object} MatchResult
  * @property {string} target - Matched output value
- * @property {string} method - 'cached'|'fuzzy'|'ProfileRank'|'error'
+ * @property {'cached'|'fuzzy'|'ProfileRank'|'no_match'|'DirectEdit'|'UserChoice'|'DirectPrompt'|'error'} method - Match method
  * @property {number} confidence - Score 0-1
  * @property {string} timestamp - ISO timestamp
  * @property {string} source - Original input
  * @property {Array|null} [candidates] - LLM candidates (ProfileRank only)
  * @property {Object|null} [entity_profile] - Entity profile (ProfileRank only)
+ * @property {Array|null} [web_sources] - Web search sources used
+ * @property {number|null} [total_time] - Total processing time in ms
+ * @property {string|null} [llm_provider] - LLM provider used
+ * @property {string} [web_search_status] - Web search status ('idle'|'searching'|'complete'|'error')
  */
 
 /** @param {Partial<MatchResult>} [r] @returns {MatchResult} */
@@ -50,7 +54,6 @@ export const SERVER_DEFAULTS = {
 // SESSION CONFIG
 // ============================================================================
 
-// Session (merged from session.config.js)
 export const SESSION_RETRY = { MAX_ATTEMPTS: 3, DELAYS_MS: [1000, 2000, 4000] };
 
 // RESTful API endpoints

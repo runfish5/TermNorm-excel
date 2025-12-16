@@ -13,5 +13,4 @@ export const Events = {
   WEB_SEARCH_STATUS_CHANGED: 'webSearch:status:changed',
   SETTING_CHANGED: 'setting:changed',
   SETTINGS_PANEL_OPENED: 'settings:panel:opened',
-  VIEW_CHANGED: 'view:changed',
 };

@@ -8,7 +8,7 @@ TermNorm is an AI-powered terminology normalization Excel add-in. It matches fre
 
 **Architecture**: Vanilla JavaScript frontend (Office.js) + Python FastAPI backend
 
-**Version**: 1.0.3
+**Version**: See package.json (this field may be outdated)
 
 ## Common Commands
 
