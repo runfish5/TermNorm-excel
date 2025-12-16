@@ -10,7 +10,10 @@
 <p align="center">
   <em>Rerank existing tables with LLMs, custom workflow chains, and
   continuous optimization campaigns</em>
-  <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="560">
+</p>
+
+<p align="center">
+  <img src="assets/termnorm-demo.gif" alt="TermNorm Demo - AI matching Bourbon Pointu FC medium to coffee_bourbon_washed" width="510">
 </p>
 
 **Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
@@ -22,6 +25,10 @@ This project demonstrates a reusable architecture for building Excel add-ins wit
 </p>
 
 The workflow diagram above shows the Python/FastAPI backend pipeline that powers real-time terminology normalization directly within Excel.
+
+<p align="center">
+  <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="560">
+</p>
 
 ## 📚 Documentation
 
