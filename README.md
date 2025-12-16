@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/termnorm-demo.gif" alt="TermNorm Demo - AI matching Bourbon Pointu FC medium to coffee_bourbon_washed" width="510">
+  <img src="assets/termnorm-demo.gif" alt="Animated demo: 11-step walkthrough showing TermNorm Excel add-in workflow - entering a term in Excel, taskpane displaying web research progress, LLM ranking candidates with confidence scores, and applying the matched database identifier" width="550">
 </p>
 
 **Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
