@@ -40,7 +40,7 @@ async function initSession(terms) {
       stateStore.merge('session', { initialized: true, termCount: terms.length, lastInitialized: new Date().toISOString(), error: null });
       return true;
     }
-  } catch {}
+  } catch { /* API errors handled by apiPost, fall through to retry/fail */ }
   stateStore.merge('session', { initialized: false, termCount: 0, lastInitialized: null, error: "Failed" });
   return false;
 }

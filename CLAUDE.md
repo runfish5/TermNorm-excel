@@ -236,3 +236,8 @@ See `backend-api/docs/LANGFUSE_DATA_MODEL.md` for full specification.
 ## Known Limitations
 
 1. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
+
+## Development Notes
+
+- **Backend print() statements are intentional**: Colored console output in `research_and_rank/` files provides developer-friendly pipeline visibility. Do not convert to logging module.
+- **Archive folder**: `backend-api/.archive/` contains migration scripts needed until v1.3.0. Do not remove.
