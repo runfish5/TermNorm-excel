@@ -120,9 +120,10 @@ All formats implemented in `utils/standards_logger.py`:
 
 ```bash
 # When ready to adopt MLflow
+python -m venv C:\temp\mlflow-test\venv
+C:\temp\mlflow-test\venv\Scripts\activate
 pip install mlflow
-mlflow.set_tracking_uri("file:./logs/experiments")
-mlflow ui  # Experiments visible immediately
+mlflow ui --backend-store-uri file:./logs/experiments  # http://localhost:5000
 ```
 
 ---
