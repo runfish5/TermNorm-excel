@@ -3,12 +3,8 @@
   "excel-projects": {
     "Book1.xlsx": {
       "column_map": {
-        "InputColumn": "OutputColumn"
+        "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" }
       },
-      "confidence_column_map": {
-        "InputColumn": "ConfidenceColumn"
-      },
-      "default_std_suffix": "standardized",
       "standard_mappings": [
         {
           "mapping_reference": "C:\\Users\\Public\\Documents\\TermNorm\\reference-file.xlsx",
@@ -20,14 +16,22 @@
     },
     "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
       "column_map": {
-        "ana": "ana_std",
-        "bob": "bob_std"
+        "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" }
       },
-      "confidence_column_map": {
-        "ana": "ana_confidence",
-        "bob": "bob_confidence"
+      "standard_mappings": [
+        {
+          "mapping_reference": "C:\\Users\\Public\\Documents\\TermNorm\\reference-file.xlsx",
+          "worksheet": "Sheet1",
+          "source_column": "SourceColumn",
+          "target_column": "TargetColumn"
+        }
+      ]
+    },
+    "Excel_template.xlsx": {
+      "column_map": {
+        "ana": { "output": "ana_std", "confidence": "ana_confidence" },
+        "bob": { "output": "bob_std", "confidence": "bob_confidence" }
       },
-      "default_std_suffix": "standardized",
       "standard_mappings": [
         {
           "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",

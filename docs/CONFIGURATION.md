@@ -59,26 +59,24 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
 ## Workbook Configuration (`app.config.json`)
 ```jsonc
 {
-  "my_excel_files": {
+  "excel-projects": {
     "MyWorkbook.xlsx": {
-      "columns": {                                                // This is inside your working file
-        "OldColumnName": "NewColumnName",                               // example
-        "ProductName": "StandardProductName",                           // example
-        "child_class": "parent_class"                                   // example
+      "column_map": {                                             // Maps input columns to output + confidence
+        "ProductName": {                                                // Input column name
+          "output": "StandardProductName",                              // Where normalized result goes
+          "confidence": "ProductName_confidence"                        // Optional: confidence score column
+        },
+        "Material": { "output": "Material_std" }                        // confidence is optional
       },
-      "confidence_column_map": {                                  // Optional: Where your confidence column is
-        "child_class": "child_class_confidence"                         // example
-      },
-      "output_column_suffix": "standardized",                     // Optional (leave empty)
-      "reference_lists": [                                        // Other Excel files with reference data
-        {                                                               // example
-          "reference_file_location": "C:\\MyDocuments\\ReferenceData.xlsx",  // Where your reference file is saved
-          "tab_name": "StandardNames",                                       // Which tab in that file
-          "alias_column": "",                                                // Optional: Column with alternative names
-          "lookup_column": "ApprovedNames"                                   // Column containing approved names
+      "standard_mappings": [                                      // Reference files with approved terms
+        {
+          "mapping_reference": "C:\\MyDocuments\\ReferenceData.xlsx",   // Reference file path
+          "worksheet": "StandardNames",                                 // Tab in that file
+          "source_column": "",                                          // Leave empty
+          "target_column": "ApprovedNames"                              // Column with approved terms
         }
       ]
-    }                                                             // <-- Add your files here
+    }
   }
 }
 ```
@@ -87,44 +85,37 @@ If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bi
 
 ## What Each Part Means
 
-### `columns`
+### `column_map`
 
-This tells the system which columns to work on and where to put the results.
+This tells the system which columns to work on, where to put results, and optionally where to write confidence scores.
 
 **How to write it:**
 ```json
-"columns": {
-  "YourOriginalColumn": "WhereResultsGoColumn"
+"column_map": {
+  "YourInputColumn": {
+    "output": "WhereResultsGoColumn",
+    "confidence": "WhereConfidenceGoesColumn"
+  }
 }
 ```
 
 **Important:**
-- `YourOriginalColumn` must already exist in your Excel file
-- `WhereResultsGoColumn` will be created automatically if it doesn't exist
+- `YourInputColumn` must already exist in your Excel file
+- `output` column will be created automatically if it doesn't exist
+- `confidence` is optional - omit it if you don't want confidence scores
 - Names must match EXACTLY as they appear in Excel (including capitals and spaces)
 
-### `output_column_suffix`
-
-This is a word that gets added to the end of new column names.
-
-**Example:**
-```json
-"output_column_suffix": "approved"
-```
-
-If you have a column called `Product` and you don't specify where results go, the system will create a new column called `Product_approved`.
-
-### `reference_lists`
+### `standard_mappings`
 
 This tells the system where to find your list of approved/standard terms.
 
 ```jsonc
-"reference_lists": [
+"standard_mappings": [
   {
-    "reference_file_location": "C:\\MyFolder\\ApprovedTerms.xlsx",  // Full location of your reference file
-    "tab_name": "Products",                                         // Which tab has the approved names
-    "input_column": "",                                             // Always leave this empty
-    "lookup_column": "OfficialProductNames"                         // Column with the approved names
+    "mapping_reference": "C:\\MyFolder\\ApprovedTerms.xlsx",  // Full path to reference file
+    "worksheet": "Products",                                   // Tab with approved names
+    "source_column": "",                                       // Leave empty
+    "target_column": "OfficialProductNames"                    // Column with approved names
   }
 ]
 ```
@@ -221,10 +212,9 @@ This tells the system where to find your list of approved/standard terms.
   "excel-projects": {
     "Materials_Database.xlsx": {
       "column_map": {
-        "Material_FreeText": "Material_ISO",
-        "Process": "Process_Standard"
+        "Material_FreeText": { "output": "Material_ISO", "confidence": "Material_confidence" },
+        "Process": { "output": "Process_Standard" }
       },
-      "default_std_suffix": "std",
       "standard_mappings": [
         { "mapping_reference": "C:\\Reference\\ISO_Materials.xlsx", "worksheet": "Materials", "source_column": "", "target_column": "ISO_Code" },
         { "mapping_reference": "C:\\Reference\\Manufacturing_Processes.xlsx", "worksheet": "Processes", "source_column": "", "target_column": "Standard_Process_Name" }
@@ -240,15 +230,17 @@ This tells the system where to find your list of approved/standard terms.
 {
   "excel-projects": {
     "Project_Alpha.xlsx": {
-      "column_map": { "Input": "Output" },
-      "default_std_suffix": "std",
+      "column_map": {
+        "Input": { "output": "Output", "confidence": "Input_confidence" }
+      },
       "standard_mappings": [
         { "mapping_reference": "C:\\Ref\\Alpha_Terms.xlsx", "worksheet": "Terms", "source_column": "", "target_column": "Standard" }
       ]
     },
     "Project_Beta.xlsx": {
-      "column_map": { "Raw_Data": "Normalized_Data" },
-      "default_std_suffix": "normalized",
+      "column_map": {
+        "Raw_Data": { "output": "Normalized_Data" }
+      },
       "standard_mappings": [
         { "mapping_reference": "C:\\Ref\\Beta_Standards.xlsx", "worksheet": "Standards", "source_column": "", "target_column": "Norm_Value" }
       ]

@@ -44,7 +44,7 @@ export async function startTracking(config, mappings) {
       await ctx.sync();
 
       const headerNames = headers.values[0].map(h => String(h || "").trim());
-      const confResult = buildConfidenceColumnMap(headerNames, config.confidence_column_map, ws.name);
+      const confResult = buildConfidenceColumnMap(headerNames, config.column_map, ws.name);
       return { columnMap: buildColumnMap(headerNames, config.column_map, ws.name), ...confResult };
     });
 
@@ -60,7 +60,7 @@ export async function startTracking(config, mappings) {
     });
 
     activeTrackers.set(workbookId, tracker);
-    return { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.keys(config.confidence_column_map || {}).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
+    return { workbookId, columnCount: tracker.columnMap.size, confidenceTotal: Object.values(config.column_map || {}).filter(m => m.confidence).length, confidenceMapped: tracker.confidenceColumnMap.size, confidenceFound, confidenceMissing };
   } finally { activationInProgress.delete(workbookId); }
 }
 

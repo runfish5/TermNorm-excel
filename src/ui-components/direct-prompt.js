@@ -184,7 +184,7 @@ async function writeResultsToExcel(results) {
       let columnMap, confidenceColumnMap;
       try {
         columnMap = buildColumnMap(headerNames, config.column_map);
-        confidenceColumnMap = buildConfidenceColumnMap(headerNames, config.confidence_column_map).confidenceColumnMap;
+        confidenceColumnMap = buildConfidenceColumnMap(headerNames, config.column_map).confidenceColumnMap;
       } catch (e) { showMessage(`Column mapping error: ${e.message}`, "error"); return; }
 
       const sourceCol = selectedRange.columnIndex, targetCol = columnMap.get(sourceCol), confidenceCol = confidenceColumnMap?.get(sourceCol);

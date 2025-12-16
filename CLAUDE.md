@@ -156,8 +156,9 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
   "backend_url": "http://127.0.0.1:8000",
   "excel-projects": {
     "Workbook.xlsx": {
-      "column_map": { "InputColumn": "OutputColumn" },
-      "confidence_column_map": { "InputColumn": "ConfidenceColumn" },
+      "column_map": {
+        "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" }
+      },
       "standard_mappings": [{
         "mapping_reference": "C:\\path\\to\\reference.xlsx",
         "worksheet": "Sheet1",
@@ -168,6 +169,8 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
   }
 }
 ```
+
+Column mapping structure: `{ "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" } }`. The `confidence` field is optional.
 
 ## Testing
 
