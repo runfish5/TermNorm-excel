@@ -1,5 +1,5 @@
 // Workflows - Async operations, multi-step workflows, and event coordination
-import { showMessage } from "../utils/ui-feedback.js";
+import { showMessage, formatError } from "../utils/ui-feedback.js";
 import { loadSettings } from "../utils/settings-manager.js";
 import { checkServerStatus, getHeaders, buildUrl, fireAndForget, apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
@@ -21,7 +21,7 @@ export async function loadMappingSource(index, loadFn, params) {
     await combineMappingSources();
     showMessage(`${Object.keys(result.reverse || {}).length} terms loaded`);
     return result;
-  } catch (e) { update({ status: "error", error: e.message, data: null }); showMessage(`${e.message}`, "error"); throw e; }
+  } catch (e) { const msg = formatError(e.message); update({ status: "error", error: msg, data: null }); showMessage(msg, "error"); throw e; }
 }
 
 async function initSessionWithRetry(terms) {

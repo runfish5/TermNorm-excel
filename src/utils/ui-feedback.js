@@ -5,6 +5,14 @@ import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { $ } from "./dom-helpers.js";
 
+// Shorten known Office.js errors with actionable guidance
+export function formatError(message) {
+  if (message?.includes("requested file could not be read") || message?.includes("permission problems")) {
+    return "File was modified and saved elsewhere. Close it in the other Excel window to load the latest version here.";
+  }
+  return message;
+}
+
 // Status message display
 let statusEl = null, dotsInterval = null;
 const clearDots = () => { if (dotsInterval) { clearInterval(dotsInterval); dotsInterval = null; } };

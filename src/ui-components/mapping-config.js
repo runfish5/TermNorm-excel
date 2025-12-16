@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { loadAndProcessMappings } from "../services/mapping-processor.js";
 import { getStateValue } from "../core/state-actions.js";
 import { loadMappingSource } from "../services/workflows.js";
-import { showMessage } from "../utils/ui-feedback.js";
+import { showMessage, formatError } from "../utils/ui-feedback.js";
 
 export function createMappingConfigHTML(config, i) {
   return `
@@ -65,7 +65,7 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
         const dd = $el(".worksheet-dropdown");
         if (dd && [...dd.options].some(o => o.value === config.worksheet)) { dd.value = config.worksheet; showMessage(`Selected: ${config.worksheet}`); }
       }
-    } catch (e) { setDropdown(["Error loading"], true); showMessage(`Error: ${e.message}`, "error"); }
+    } catch (e) { setDropdown(["Error loading"], true); showMessage(`Error: ${formatError(e.message)}`, "error"); }
   };
 
   el.addEventListener("click", e => {
@@ -96,7 +96,7 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
       $el(".filename-display").textContent = ` - ${externalFile?.name || "Current file"}`;
       onLoaded?.(index, mappings, mappings);
       el.open = false;
-    } catch (e) { mappings = { forward: {}, reverse: {}, metadata: null }; showMessage(e.message, "error"); }
+    } catch (e) { mappings = { forward: {}, reverse: {}, metadata: null }; showMessage(formatError(e.message), "error"); }
   }
 
   async function getWorksheetNames(file) {
