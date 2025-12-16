@@ -4,7 +4,7 @@
   <Version>1.0.4.0</Version>
   <ProviderName>Runfish Data</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="TermNorm Add-in"/>
+  <DisplayName DefaultValue="TermNorm"/>
   <Description DefaultValue="A template to get started."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/Runfish_Logo1.5-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/Runfish_Logo1.5-64.png"/>
@@ -48,6 +48,7 @@
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url"/>
+                    <RequestedWidth>350</RequestedWidth>
                   </Action>
                 </Control>
               </Group>
