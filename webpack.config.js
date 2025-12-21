@@ -90,6 +90,10 @@ module.exports = async (env, options) => {
             to: "config/[name][ext][query]",
           },
           {
+            from: "src/legal/*",
+            to: "legal/[name][ext]",
+          },
+          {
             from: "manifest*.xml",
             to: "[name]" + "[ext]",
             transform(content) {
