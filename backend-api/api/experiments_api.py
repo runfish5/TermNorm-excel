@@ -243,3 +243,162 @@ def _read_yaml(file_path: Path) -> Dict:
     except Exception:
         pass
     return data
+
+
+# =============================================================================
+# Datasets API (Langfuse-compatible ground truth datasets)
+# =============================================================================
+
+DATASETS_PATH = Path("logs/langfuse/datasets")
+TRACES_PATH = Path("logs/langfuse/traces")
+OBSERVATIONS_PATH = Path("logs/langfuse/observations")
+SCORES_PATH = Path("logs/langfuse/scores")
+
+
+@router.get("/datasets")
+async def list_datasets():
+    """
+    List all datasets.
+
+    Returns dataset names with item counts from logs/langfuse/datasets/.
+    """
+    datasets = []
+    if DATASETS_PATH.exists():
+        for dataset_dir in DATASETS_PATH.iterdir():
+            if dataset_dir.is_dir():
+                items = list(dataset_dir.glob("item-*.json"))
+                datasets.append({
+                    "name": dataset_dir.name,
+                    "item_count": len(items)
+                })
+    return {"datasets": datasets, "total": len(datasets)}
+
+
+@router.get("/datasets/{dataset_name}")
+async def get_dataset(
+    dataset_name: str,
+    limit: int = Query(100, le=500, ge=1),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Get all items in a dataset with pagination.
+
+    Returns dataset items from logs/langfuse/datasets/{dataset_name}/.
+    """
+    dataset_path = DATASETS_PATH / dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset_name}' not found")
+
+    items = []
+    for item_file in sorted(dataset_path.glob("item-*.json"), reverse=True):
+        try:
+            item_data = json.loads(item_file.read_text())
+            items.append(item_data)
+        except json.JSONDecodeError:
+            continue
+
+    # Apply pagination
+    total = len(items)
+    paginated = items[offset:offset + limit]
+
+    return {
+        "dataset_name": dataset_name,
+        "items": paginated,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@router.get("/datasets/{dataset_name}/items/{item_id}")
+async def get_dataset_item(dataset_name: str, item_id: str):
+    """
+    Get a single dataset item.
+
+    Returns the item data from logs/langfuse/datasets/{dataset_name}/{item_id}.json
+    """
+    dataset_path = DATASETS_PATH / dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset_name}' not found")
+
+    # Handle both "item-xxx" and "xxx" formats
+    if not item_id.startswith("item-"):
+        item_id = f"item-{item_id}"
+
+    item_file = dataset_path / f"{item_id}.json"
+    if not item_file.exists():
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found in dataset '{dataset_name}'")
+
+    try:
+        item_data = json.loads(item_file.read_text())
+        return {"item": item_data}
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse item file")
+
+
+@router.get("/datasets/{dataset_name}/items/{item_id}/full")
+async def get_dataset_item_full(dataset_name: str, item_id: str):
+    """
+    Get a dataset item with all linked data.
+
+    Returns:
+    - item: The dataset item
+    - trace: The linked trace (from source_trace_id)
+    - observations: All observations for that trace
+    - scores: All scores for that trace
+    """
+    dataset_path = DATASETS_PATH / dataset_name
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset_name}' not found")
+
+    # Handle both "item-xxx" and "xxx" formats
+    if not item_id.startswith("item-"):
+        item_id = f"item-{item_id}"
+
+    item_file = dataset_path / f"{item_id}.json"
+    if not item_file.exists():
+        raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found")
+
+    try:
+        item_data = json.loads(item_file.read_text())
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse item file")
+
+    result = {
+        "item": item_data,
+        "trace": None,
+        "observations": [],
+        "scores": []
+    }
+
+    # Load linked trace
+    source_trace_id = item_data.get("source_trace_id")
+    if source_trace_id:
+        trace_file = TRACES_PATH / f"{source_trace_id}.json"
+        if trace_file.exists():
+            try:
+                result["trace"] = json.loads(trace_file.read_text())
+            except json.JSONDecodeError:
+                pass
+
+        # Load observations for this trace
+        obs_dir = OBSERVATIONS_PATH / source_trace_id
+        if obs_dir.exists():
+            for obs_file in obs_dir.glob("*.json"):
+                try:
+                    obs_data = json.loads(obs_file.read_text())
+                    result["observations"].append(obs_data)
+                except json.JSONDecodeError:
+                    continue
+
+        # Load scores for this trace
+        scores_file = SCORES_PATH / f"{source_trace_id}.jsonl"
+        if scores_file.exists():
+            try:
+                for line in scores_file.read_text().strip().split("\n"):
+                    if line:
+                        result["scores"].append(json.loads(line))
+            except (json.JSONDecodeError, Exception):
+                pass
+
+    return result
