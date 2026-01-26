@@ -37,7 +37,12 @@ export function showMessage(text, type = "info") {
 }
 
 // LED and indicator displays
-const getMappingCounts = () => { const m = getStateValue('mappings.combined'); return { fwd: Object.keys(m?.forward || {}).length, rev: Object.keys(m?.reverse || {}).length }; };
+const getCacheCounts = () => {
+  const entries = getStateValue('history.entries') || {};
+  const entities = Object.keys(entries).length;
+  const aliases = Object.values(entries).reduce((sum, e) => sum + Object.keys(e.aliases || {}).length, 0);
+  return { entities, aliases };
+};
 
 export function updateLED() {
   const led = $("server-status-led"), text = $("server-status-text"), online = getStateValue('server.online');
@@ -51,15 +56,15 @@ export function updateMatcherIndicator() {
   const el = $("matcher-status-indicator");
   if (!el) return;
 
-  const { fwd, rev } = getMappingCounts(), online = getStateValue('server.online'), loaded = getStateValue('mappings.loaded');
+  const { entities, aliases } = getCacheCounts(), online = getStateValue('server.online'), loaded = getStateValue('mappings.loaded');
   const counts = el.querySelector(".indicator-counts"), label = el.querySelector(".indicator-label");
-  if (counts) counts.textContent = `${fwd}/${rev}`;
+  if (counts) counts.textContent = `${entities}/${aliases}`;
 
-  const [status, text, title] = !loaded || !rev
+  const [status, text, title] = !loaded
     ? ["not-ready", "Not loaded", "Mappings: Not loaded\nClick to see details"]
     : online
-      ? ["ready", "Ready", `Mappings: Ready\n${fwd} forward, ${rev} reverse\nFull functionality (exact/fuzzy/LLM)`]
-      : ["limited", "Limited", `Mappings: Limited Mode\n${fwd} forward, ${rev} reverse\nExact/fuzzy only (LLM unavailable)`];
+      ? ["ready", "Ready", `Cache: ${entities} entities, ${aliases} aliases\nFull functionality (exact/fuzzy/LLM)`]
+      : ["limited", "Limited", `Cache: ${entities} entities, ${aliases} aliases\nExact/fuzzy only (LLM unavailable)`];
 
   if (label) label.textContent = text;
   el.className = `badge badge-bordered badge-interactive matcher-indicator ${status}`;
@@ -89,9 +94,10 @@ export function setupIndicators() {
     if (e.target.closest("#matcher-status-indicator")) { e.preventDefault(); showMatcherDetails(); }
   });
   eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);
+  eventBus.on(Events.MATCH_LOGGED, updateMatcherIndicator);
 }
 
 function showMatcherDetails() {
-  const { fwd, rev } = getMappingCounts(), online = getStateValue('server.online'), loaded = getStateValue('mappings.loaded'), provider = getStateValue('server.info')?.provider;
-  showMessage(`📊 MAPPINGS STATUS\n\nForward: ${fwd} | Reverse: ${rev}\nStatus: ${loaded ? "Loaded" : "Not loaded"}\n\nBackend: ${online ? "Online" : "Offline"}\nHost: ${getStateValue('server.host') || "Not configured"}${online && provider ? `\nLLM: ${provider}` : ""}\n\nCapabilities:\n${!loaded ? "❌ Load mappings first" : online ? "✅ Exact/Fuzzy/LLM" : "✅ Exact/Fuzzy\n⚠️ LLM unavailable"}`);
+  const { entities, aliases } = getCacheCounts(), online = getStateValue('server.online'), loaded = getStateValue('mappings.loaded'), provider = getStateValue('server.info')?.provider;
+  showMessage(`📊 CACHE STATUS\n\nEntities: ${entities} | Aliases: ${aliases}\nMappings: ${loaded ? "Loaded" : "Not loaded"}\n\nBackend: ${online ? "Online" : "Offline"}\nHost: ${getStateValue('server.host') || "Not configured"}${online && provider ? `\nLLM: ${provider}` : ""}\n\nCapabilities:\n${!loaded ? "❌ Load mappings first" : online ? "✅ Exact/Fuzzy/LLM" : "✅ Exact/Fuzzy\n⚠️ LLM unavailable"}`);
 }

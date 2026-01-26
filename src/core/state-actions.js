@@ -8,7 +8,6 @@ import { stateStore } from './state-store.js';
 import { eventBus } from './event-bus.js';
 import { Events } from './events.js';
 
-export function setView(view) { stateStore.set('ui.currentView', view); }
 export function setServerHost(host) { stateStore.set('server.host', host); }
 export function setWebSearchStatus(status, error = null) {
   stateStore.merge('webSearch', { status, error });

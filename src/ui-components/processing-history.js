@@ -1,7 +1,7 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { EVENT_LOG } from "../config/config.js";
-import { $, showView } from "../utils/dom-helpers.js";
+import { $ } from "../utils/dom-helpers.js";
 import { cacheEntity, getEntity } from "../utils/history-cache.js";
 
 const sessionEvents = [];
@@ -127,7 +127,7 @@ function collapseExpandedRow() {
 export const updateHistoryTabCounter = () => { const t = $("history-tab")?.querySelector(".tab-icon"); if (t) t.textContent = `${sourceIndex.size}📜`; };
 
 export async function handleCellSelection(cellKey, state, identifier, source) {
-  showView("history");
+  if ($("history-view")?.classList.contains("hidden")) return;
   const id = identifier || state?.result?.target;
   let row = scrollToAndHighlight(cellKey, "sessionKey");
   if (!row && source) { const entry = sourceIndex.get(norm(source)); if (entry?.row) { collapseExpandedRow(); entry.row.scrollIntoView({ behavior: "smooth", block: "center" }); row = entry.row; } }
