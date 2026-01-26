@@ -148,12 +148,46 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 20px;
+    gap: 4px;
+    padding: 6px 12px;
     background: var(--gray-150);
     border-bottom: var(--border-gray);
     box-sizing: border-box;
     z-index: 900;
+}
+
+.status-bar__primary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.status-bar__messages {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.status-bar__messages .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+.status-bar__messages .status-message {
+    flex: 1 1 100%;
+    max-width: 100%;
+}
+
+.status-bar__indicators {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* Main status message - uses badge classes from design system */
@@ -165,15 +199,6 @@
 
 .status-error { color: var(--error); }
 .status-success { color: var(--success); }
-
-/* System status components */
-.system-status-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 12px;
-    flex-wrap: wrap;
-}
 
 /* Individual status component (Backend, Data Cache) */
 .status-component {
@@ -524,11 +549,19 @@
 }
 /* Narrow taskpane: reduce gaps and thermo size */
 @media (max-width: 400px) {
-    .system-status-row {
-        gap: 8px;
-    }
     .status-bar .thermo {
-        max-width: 180px;
+        max-width: 140px;
+    }
+}
+
+/* Very narrow: stack messages and indicators */
+@media (max-width: 300px) {
+    .status-bar__primary {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .status-bar__indicators {
+        justify-content: flex-end;
     }
 }
 
