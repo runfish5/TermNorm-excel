@@ -24,15 +24,15 @@ from utils.langfuse_logger import (
     log_to_langfuse, log_batch_start, log_batch_complete, log_pipeline,
     log_cache_match, log_fuzzy_match, log_user_correction
 )
+from utils.schema_registry import get_schema_registry
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Load entity schema once at module level
-_schema_path = Path(__file__).parent.parent / "research_and_rank" / "entity_profile_schema.json"
-with open(_schema_path, 'r') as f:
-    ENTITY_SCHEMA = json.load(f)
+# Load entity schema from registry (versioned)
+_schema_registry = get_schema_registry()
+ENTITY_SCHEMA = _schema_registry.get_schema("entity_profile")  # latest version by default
 
 # Match database - persistent index of identifiers
 MATCH_DB_PATH = Path(__file__).parent.parent / "logs" / "match_database.json"

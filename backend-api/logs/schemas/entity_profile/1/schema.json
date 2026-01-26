@@ -14,7 +14,7 @@
         "notes": {"type": "array", "items": {"type": "string"}}
     },
     "required": [
-        "entity_name", "core_concept", 
+        "entity_name", "core_concept",
         "distinguishing_features", "key_properties", "technical_specifications",
         "alternative_names", "classification_aliases",
         "constituent_materials", "manufacturing_processes",

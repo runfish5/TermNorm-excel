@@ -1076,7 +1076,7 @@ class ConfigTreeManager:
 
     DEFAULT_CONFIG = {
         "websearch": {"provider": "brave", "version": "v1"},
-        "profile_llm": {"prompt": "entity_profiling", "version": 1, "model": "llama-3.3-70b"},
+        "profile_llm": {"prompt": "entity_profiling", "version": 1, "schema": "entity_profile", "schema_version": 1, "model": "llama-3.3-70b"},
         "ranking": {"algorithm": "token_match", "version": "v1"},
         "rerank_llm": {"prompt": "llm_ranking", "version": 1, "model": "llama-3.3-70b"},
     }
