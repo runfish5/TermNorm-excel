@@ -61,3 +61,8 @@ export function clearWorkbookCells(workbookId) {
 export function deleteWorkbook(workbookId) {
   stateStore.setState(state => { delete state.session.workbooks[workbookId]; return state; });
 }
+
+export function setTrackingActive(active) {
+  stateStore.merge('tracking', { active });
+  eventBus.emit(Events.TRACKING_CHANGED, { active });
+}

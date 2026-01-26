@@ -85,9 +85,26 @@ export async function reloadMappingModules() {
     container.appendChild(el);
     const api = setupMappingConfigEvents(el, config, i, updateGlobalStatus);
     loadMappingConfigData(el, config);
-    return { element: el, getMappings: api.getMappings, index: i };
+    return { element: el, getMappings: api.getMappings, loadMappings: api.loadMappings, index: i };
   });
   updateGlobalStatus();
+
+  // Smart auto-load: load current-file mappings automatically
+  // External file mappings require user to pick file (browser security)
+  for (const mod of mappingModules) {
+    const config = mappings[mod.index];
+    const isExternal = config.mapping_reference?.includes("/") || config.mapping_reference?.includes("\\");
+
+    if (!isExternal) {
+      // Current workbook - can auto-load
+      try {
+        await mod.loadMappings?.();
+      } catch (e) {
+        console.warn(`Auto-load mapping ${mod.index} failed:`, e.message);
+      }
+    }
+    // External file mappings: user must click Browse (panel stays open)
+  }
 }
 
 function updateGlobalStatus() {

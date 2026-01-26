@@ -1,4 +1,4 @@
-import { startTracking } from "../services/live-tracker.js";
+import { startTracking, stopTracking } from "../services/live-tracker.js";
 import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
 import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
@@ -8,7 +8,7 @@ import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { initializeSettings } from "../services/workflows.js";
 import { saveSetting } from "../utils/settings-manager.js";
-import { getStateValue } from "../core/state-actions.js";
+import { getStateValue, setTrackingActive } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
@@ -70,14 +70,26 @@ export const wizardState = {
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
+  eventBus.on(Events.TRACKING_CHANGED, ({ active }) => updateToggleUI(active));
 
   // Wizard progression via state machine
   eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => online && wizardState.onServerOnline());
   eventBus.on(Events.CONFIG_LOADED, () => wizardState.onConfigLoaded());
-  eventBus.on(Events.MAPPINGS_LOADED, () => {
+  eventBus.on(Events.MAPPINGS_LOADED, async () => {
     const loaded = Object.keys(getStateValue('mappings.sources') || {}).length;
     const total = getStateValue('config.data')?.standard_mappings?.length || 0;
     wizardState.onMappingsLoaded(loaded, total);
+
+    // Auto-activate tracking when all mappings loaded
+    if (total > 0 && loaded >= total && !getStateValue('tracking.active')) {
+      const v = canActivateTracking();
+      if (v.ok) {
+        try {
+          await startLiveTracking();
+          setTrackingActive(true);
+        } catch (e) { console.warn('Auto-activate failed:', e.message); }
+      }
+    }
   });
 
   refresh();
@@ -125,10 +137,26 @@ Office.onReady(async (info) => {
   setupButton("close-help-modal", () => closeModal("help-modal"));
   $("help-modal")?.addEventListener("click", (e) => e.target.classList.contains("help-modal") && closeModal("help-modal"));
 
-  $("setup-map-tracking")?.addEventListener("click", async (e) => {
-    e.target.disabled = true; e.target.textContent = "Activating...";
-    try { await startLiveTracking(); } catch (err) { showMessage(`Activation failed: ${err.message}`, "error"); }
-    finally { e.target.disabled = false; e.target.textContent = "Activate Tracking"; }
+  // Tracking toggle handler
+  const toggle = $("tracking-toggle");
+  toggle?.addEventListener("click", async () => {
+    if (toggle.classList.contains("toggle--disabled")) return;
+
+    const isActive = getStateValue('tracking.active');
+    if (isActive) {
+      // Deactivate
+      try {
+        await stopTracking();
+        setTrackingActive(false);
+        showMessage("Tracking stopped");
+      } catch (e) { showMessage(`Stop failed: ${e.message}`, "error"); }
+    } else {
+      // Activate
+      try {
+        await startLiveTracking();
+        setTrackingActive(true);
+      } catch (e) { showMessage(`Activation failed: ${e.message}`, "error"); }
+    }
   });
 
   document.addEventListener("click", async (e) => {
@@ -157,12 +185,21 @@ function canActivateTracking() {
 }
 
 function updateButtonStates() {
-  const btn = $("setup-map-tracking");
-  if (!btn) return;
+  const toggle = $("tracking-toggle");
+  if (!toggle) return;
   const v = canActivateTracking();
-  btn.disabled = !v.ok;
-  btn.title = v.ok ? "Start live cell tracking" : v.reason;
-  btn.classList.toggle("disabled-with-reason", !v.ok);
+  const isActive = getStateValue('tracking.active');
+  toggle.classList.toggle("toggle--disabled", !v.ok && !isActive);
+  toggle.title = v.ok || isActive
+    ? (isActive ? "Click to stop tracking" : "Click to start tracking")
+    : v.reason;
+}
+
+function updateToggleUI(active) {
+  const toggle = $("tracking-toggle");
+  const label = toggle?.querySelector(".toggle__label");
+  toggle?.classList.toggle("toggle--active", active);
+  if (label) label.textContent = active ? "ON" : "OFF";
 }
 
 async function startLiveTracking() {

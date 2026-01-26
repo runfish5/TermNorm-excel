@@ -102,7 +102,10 @@
                         <button class="thermo__step" data-step="4" data-key="activate"><span class="thermo__bubble">4</span><span class="thermo__label">Activate</span></button>
                     </nav>
                     <button id="show-metadata-btn" class="btn btn-secondary">Show Processing Details</button>
-                    <button id="setup-map-tracking" class="btn btn-primary">Activate Tracking</button>
+                    <div id="tracking-toggle" class="toggle toggle--primary toggle--disabled" title="Load config first">
+                        <span class="toggle__track"><span class="toggle__slider"></span></span>
+                        <span class="toggle__label">OFF</span>
+                    </div>
                 </div>
 
                 <!-- Step 1: Backend Server Configuration -->

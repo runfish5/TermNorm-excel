@@ -18,6 +18,7 @@ const initialState = {
   settings: { requireServerOnline: true, useWebSearch: true, useBraveApi: true, loaded: false },
   webSearch: { status: 'idle', error: null },
   history: { cacheInitialized: false, entries: {} },
+  tracking: { active: false },
 };
 
 class StateStore {

@@ -73,7 +73,7 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
     if (e.target.matches(".load-mapping")) { e.preventDefault(); loadMappings(); }
   });
 
-  el.addEventListener("change", e => {
+  el.addEventListener("change", async e => {
     if (e.target.matches(".current-file")) { $el(".external-file-section").classList.add("hidden"); loadSheets(false); }
     if (e.target.matches(".external-file")) { $el(".external-file-section").classList.remove("hidden"); externalFile ? loadSheets(true) : setDropdown(["Select external file first..."], true); }
     if (e.target.matches(".file-picker-input") && e.target.files?.[0]) {
@@ -82,7 +82,9 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
       $el(".external-file").checked = true;
       $el(".external-file-section").classList.remove("hidden");
       showMessage(`Reading ${externalFile.name}...`);
-      loadSheets(true);
+      await loadSheets(true);
+      // Auto-load after user picks external file
+      await loadMappings();
     }
   });
 
@@ -104,7 +106,7 @@ export function setupMappingConfigEvents(el, config, index, onLoaded) {
     return Excel.run(async ctx => { const ws = ctx.workbook.worksheets; ws.load("items/name"); await ctx.sync(); return ws.items.map(w => w.name); });
   }
 
-  return { getMappings: () => mappings };
+  return { getMappings: () => mappings, loadMappings };
 }
 
 export function loadMappingConfigData(el, config) {

@@ -13,4 +13,5 @@ export const Events = {
   WEB_SEARCH_STATUS_CHANGED: 'webSearch:status:changed',
   SETTING_CHANGED: 'setting:changed',
   SETTINGS_PANEL_OPENED: 'settings:panel:opened',
+  TRACKING_CHANGED: 'tracking:changed',
 };
