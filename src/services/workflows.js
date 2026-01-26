@@ -15,13 +15,11 @@ export async function loadMappingSource(index, loadFn, params) {
 
   const update = (u) => { const s = { ...stateStore.get('mappings.sources') }; s[index] = { ...s[index], ...u }; stateStore.set('mappings.sources', s); };
   update({ status: "loading", error: null });
-  showMessage("Loading...");
 
   try {
     const result = await loadFn(params);
     update({ status: "synced", data: result });
     await combineMappingSources();
-    showMessage(`${Object.keys(result.reverse || {}).length} terms loaded`);
     return result;
   } catch (e) { const msg = formatError(e.message); update({ status: "error", error: msg, data: null }); showMessage(msg, "error"); throw e; }
 }

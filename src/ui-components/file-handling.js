@@ -108,8 +108,6 @@ export async function reloadMappingModules() {
 }
 
 function updateGlobalStatus() {
-  const loaded = Object.keys(getStateValue('mappings.sources') || {}).length, total = getStateValue('config.data')?.standard_mappings?.length || 0;
-  showMessage(!loaded ? "Ready to load mappings..." : loaded === total ? `All ${total} sources loaded` : `${loaded}/${total} sources loaded`);
   updateJsonDump();
 }
 

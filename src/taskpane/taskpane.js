@@ -13,7 +13,7 @@ import { Events } from "../core/events.js";
 import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
 import { $, showView, setupButton, openModal, closeModal } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
-import { showMessage, updateAllIndicators, setupIndicators } from "../utils/ui-feedback.js";
+import { showMessage, updateAllIndicators, setupIndicators, getCacheCounts } from "../utils/ui-feedback.js";
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 
 let researchThermo = null;
@@ -217,12 +217,21 @@ async function startLiveTracking() {
     const terms = Object.keys(mappings.reverse || {}).length, online = getStateValue('server.online');
     const info = await activateTracking(config, mappings);
 
+    // Build comprehensive status message
+    const { entities, aliases } = getCacheCounts();
+    const host = getStateValue('server.host');
+    const provider = getStateValue('server.info')?.provider;
+
     let msg = `✅ Tracking: ${terms} terms (${online ? "exact/fuzzy/LLM" : "exact/fuzzy only"})`;
     if (info.confidenceTotal > 0) {
-      const { confidenceTotal: t, confidenceMapped: m, confidenceFound: f, confidenceMissing: x } = info;
+      const { confidenceTotal: t, confidenceMapped: m, confidenceMissing: x } = info;
       msg += `\n${m === t ? "✅" : "⚠️"} Confidence: ${m}/${t} columns`;
       if (x.length) msg += `\n❌ Missing: ${x.join(", ")}`;
     }
+    msg += `\n\nEntities: ${entities} | Aliases: ${aliases}`;
+    msg += `\nBackend: ${online ? "Online" : "Offline"}`;
+    if (host) msg += `\nHost: ${host}`;
+    if (online && provider) msg += `\nLLM: ${provider}`;
     showMessage(msg);
 
     // Complete setup thermometer, show research thermometer

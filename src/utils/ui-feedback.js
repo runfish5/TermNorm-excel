@@ -37,7 +37,7 @@ export function showMessage(text, type = "info") {
 }
 
 // LED and indicator displays
-const getCacheCounts = () => {
+export const getCacheCounts = () => {
   const entries = getStateValue('history.entries') || {};
   const entities = Object.keys(entries).length;
   const aliases = Object.values(entries).reduce((sum, e) => sum + Object.keys(e.aliases || {}).length, 0);
