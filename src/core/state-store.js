@@ -13,7 +13,7 @@ const initialState = {
   server: { online: false, host: null, lastChecked: null, info: {} },
   config: { loaded: false, data: null, raw: null },
   mappings: { sources: {}, combined: null, loaded: false },
-  session: { workbooks: {}, initialized: false, termCount: 0, lastInitialized: null, error: null },
+  session: { workbooks: {}, sessionHistory: [], initialized: false, termCount: 0, lastInitialized: null, error: null },
   cache: { entities: {}, initialized: false },
   settings: { requireServerOnline: true, useWebSearch: true, useBraveApi: true, loaded: false },
   webSearch: { status: 'idle', error: null },

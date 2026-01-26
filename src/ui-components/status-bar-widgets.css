@@ -24,6 +24,7 @@
 .matcher-indicator.ready { border-color: #4CAF50; color: #2e7d32; }
 .matcher-indicator.limited { border-color: #FFC107; color: #f57c00; }
 .matcher-indicator.not-ready { border-color: #F44336; color: #c62828; }
+.matcher-indicator.paused { border-color: #F44336; color: #c62828; }
 
 .indicator-icon { font-size: 11px; }
 .indicator-counts { font-family: monospace; font-weight: 600; font-size: 11px; }

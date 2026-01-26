@@ -3,6 +3,7 @@ import { Events } from "../core/events.js";
 import { EVENT_LOG } from "../config/config.js";
 import { $ } from "../utils/dom-helpers.js";
 import { cacheEntity, getEntity } from "../utils/history-cache.js";
+import { addSessionHistoryEntry, getStateValue, clearSessionHistory, setSessionHistory } from "../core/state-actions.js";
 
 const sessionEvents = [];
 const addEvent = (e) => { if (!e.source) return; e.timestamp = e.timestamp || new Date().toISOString(); sessionEvents.unshift(e); if (sessionEvents.length > EVENT_LOG.MAX_ENTRIES) sessionEvents.pop(); };
@@ -58,6 +59,16 @@ const addClickHandler = (row, target, source) => {
 eventBus.on(Events.HISTORY_CACHE_INITIALIZED, ({ entries }) => populateFromCache(entries));
 eventBus.on(Events.CELL_SELECTED, async ({ cellKey, state, identifier, source }) => handleCellSelection(cellKey, state, identifier, source));
 eventBus.on(Events.MATCH_LOGGED, ({ value, cellKey, timestamp, result }) => addEntry(value, cellKey, timestamp, result));
+eventBus.on(Events.SESSION_HISTORY_CHANGED, () => {
+  const sessionHistory = getStateValue('session.sessionHistory') || [];
+  if (sessionHistory.length === 0) {
+    // State was cleared - clear UI
+    clearEvents();
+    sourceIndex.clear();
+    if (tableBody) { tableBody.innerHTML = ""; showPlaceholder(); }
+  }
+  updateHistoryTabCounter();
+});
 
 export function init(containerId = "processing-history-feed") {
   container = $(containerId);
@@ -80,6 +91,15 @@ export async function addEntry(source, cellKey, timestamp, result) {
   addEvent({ source, cellKey, timestamp: ts });
   const r = result || { target: "Unknown", method: "-", confidence: 0, web_search_status: "idle" };
   cacheEntity(source, r);
+  // Add to centralized state for reactive tab counter
+  addSessionHistoryEntry({
+    source,
+    target: r.target,
+    method: r.method,
+    confidence: r.confidence,
+    timestamp: ts,
+    web_search_status: r.web_search_status || "idle"
+  });
   const h = { timestamp: ts, target: r.target, method: r.method, confidence: r.confidence, web_search_status: r.web_search_status || "idle" };
   const existing = sourceIndex.get(key);
   if (existing) {
@@ -102,10 +122,17 @@ export async function addEntry(source, cellKey, timestamp, result) {
     sourceIndex.get(oldest)?.row?.remove();
     sourceIndex.delete(oldest);
   }
-  updateHistoryTabCounter();
+  // Tab counter updated reactively via SESSION_HISTORY_CHANGED
 }
 
-export function clear() { if (!tableBody) return; clearEvents(); sourceIndex.clear(); tableBody.innerHTML = ""; showPlaceholder(); updateHistoryTabCounter(); }
+export function clear() {
+  if (!tableBody) return;
+  clearEvents();
+  sourceIndex.clear();
+  tableBody.innerHTML = "";
+  showPlaceholder();
+  clearSessionHistory(); // Also clear central state
+}
 
 function scrollToAndHighlight(key, type = "sessionKey") {
   if (!tableBody || !key) return null;
@@ -124,7 +151,13 @@ function collapseExpandedRow() {
   expandedRowState = null;
 }
 
-export const updateHistoryTabCounter = () => { const t = $("history-tab")?.querySelector(".tab-icon"); if (t) t.textContent = `${sourceIndex.size}📜`; };
+export const updateHistoryTabCounter = () => {
+  const t = $("history-tab")?.querySelector(".tab-icon");
+  if (t) {
+    const count = (getStateValue('session.sessionHistory') || []).length;
+    t.textContent = `${count}📜`;
+  }
+};
 
 export async function handleCellSelection(cellKey, state, identifier, source) {
   if ($("history-view")?.classList.contains("hidden")) return;
@@ -191,10 +224,27 @@ export function populateFromCache(entries) {
     });
   });
   bySource.forEach(e => e.history.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)));
-  Array.from(bySource.entries())
+  const sortedEntries = Array.from(bySource.entries())
     .sort((a, b) => new Date(b[1].history[0]?.timestamp || 0) - new Date(a[1].history[0]?.timestamp || 0))
-    .slice(0, EVENT_LOG.MAX_ENTRIES)
-    .forEach(([k, e]) => {
+    .slice(0, EVENT_LOG.MAX_ENTRIES);
+
+  // Build flat list for session history state (most recent first)
+  const historyEntries = [];
+  sortedEntries.forEach(([, e]) => {
+    e.history.forEach(h => historyEntries.push({
+      source: e.displaySource,
+      target: h.target,
+      method: h.method,
+      confidence: h.confidence,
+      timestamp: h.timestamp,
+      web_search_status: h.web_search_status
+    }));
+  });
+  historyEntries.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  setSessionHistory(historyEntries);
+
+  // Render rows
+  sortedEntries.forEach(([k, e]) => {
       const latest = e.history[0];
       const row = renderRow(null, { source: e.displaySource, sessionKey: null, timestamp: latest.timestamp }, latest, e.history.length);
       row.classList.add("cached-entry");
@@ -202,5 +252,5 @@ export function populateFromCache(entries) {
       addClickHandler(row, latest.target, e.displaySource);
       tableBody.appendChild(row);
     });
-  updateHistoryTabCounter();
+  // Tab counter updated reactively via setSessionHistory -> SESSION_HISTORY_CHANGED
 }

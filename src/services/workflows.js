@@ -6,6 +6,8 @@ import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
+import { startTracking, stopTracking } from "./live-tracker.js";
+import { setTrackingActive, getStateValue, clearWorkbookCells, clearSessionHistory } from "../core/state-actions.js";
 
 export async function loadMappingSource(index, loadFn, params) {
   await checkServerStatus();
@@ -88,4 +90,43 @@ export async function initializeSettings() {
   if (settings.useBraveApi === false) fireAndForget(setBraveApi(false));
 
   return settings;
+}
+
+/**
+ * Central tracking activation - starts tracker and sets state
+ * @param {Object} config - App configuration with column_map
+ * @param {Object} mappings - Combined mappings with forward/reverse
+ * @returns {Promise<Object>} Tracking info (workbookId, columnCount, etc.)
+ */
+export async function activateTracking(config, mappings) {
+  const info = await startTracking(config, mappings);
+  setTrackingActive(true);
+  return info;
+}
+
+/**
+ * Central tracking deactivation - stops tracker, clears cells, sets state
+ * Single "master switch" that controls all tracking-related state
+ */
+export async function deactivateTracking() {
+  await stopTracking();
+  // Clear all workbook cells
+  const workbooks = getStateValue('session.workbooks') || {};
+  for (const wbId of Object.keys(workbooks)) {
+    clearWorkbookCells(wbId);
+  }
+  clearSessionHistory();
+  setTrackingActive(false);
+}
+
+/**
+ * Restart tracking - deactivate then reactivate with current config/mappings
+ */
+export async function restartTracking() {
+  await deactivateTracking();
+  const config = getStateValue('config.data');
+  const mappings = getStateValue('mappings.combined');
+  if (config && mappings) {
+    return activateTracking(config, mappings);
+  }
 }

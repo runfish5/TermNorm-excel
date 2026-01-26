@@ -7,6 +7,7 @@
 import { stateStore } from './state-store.js';
 import { eventBus } from './event-bus.js';
 import { Events } from './events.js';
+import { EVENT_LOG } from '../config/config.js';
 
 export function setServerHost(host) { stateStore.set('server.host', host); }
 export function setWebSearchStatus(status, error = null) {
@@ -65,4 +66,36 @@ export function deleteWorkbook(workbookId) {
 export function setTrackingActive(active) {
   stateStore.merge('tracking', { active });
   eventBus.emit(Events.TRACKING_CHANGED, { active });
+}
+
+/**
+ * Add an entry to session history (most recent first)
+ * @param {{source: string, target: string, method: string, confidence: number, timestamp: string, web_search_status?: string}} entry
+ */
+export function addSessionHistoryEntry(entry) {
+  stateStore.setState(state => {
+    state.session.sessionHistory.unshift(entry);
+    if (state.session.sessionHistory.length > EVENT_LOG.MAX_ENTRIES) {
+      state.session.sessionHistory.pop();
+    }
+    return state;
+  });
+  eventBus.emit(Events.SESSION_HISTORY_CHANGED);
+}
+
+/**
+ * Clear all session history entries
+ */
+export function clearSessionHistory() {
+  stateStore.set('session.sessionHistory', []);
+  eventBus.emit(Events.SESSION_HISTORY_CHANGED);
+}
+
+/**
+ * Set session history entries (bulk operation for cache loading)
+ * @param {Array<{source: string, target: string, method: string, confidence: number, timestamp: string, web_search_status?: string}>} entries
+ */
+export function setSessionHistory(entries) {
+  stateStore.set('session.sessionHistory', entries.slice(0, EVENT_LOG.MAX_ENTRIES));
+  eventBus.emit(Events.SESSION_HISTORY_CHANGED);
 }

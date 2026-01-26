@@ -1,4 +1,3 @@
-import { startTracking, stopTracking } from "../services/live-tracker.js";
 import { init as initHistory, updateHistoryTabCounter } from "../ui-components/processing-history.js";
 import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
@@ -6,9 +5,9 @@ import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
-import { initializeSettings } from "../services/workflows.js";
+import { initializeSettings, activateTracking, deactivateTracking } from "../services/workflows.js";
 import { saveSetting } from "../utils/settings-manager.js";
-import { getStateValue, setTrackingActive } from "../core/state-actions.js";
+import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
@@ -70,7 +69,17 @@ export const wizardState = {
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
-  eventBus.on(Events.TRACKING_CHANGED, ({ active }) => updateToggleUI(active));
+
+  // Central TRACKING_CHANGED handler - UI reacts to state changes
+  eventBus.on(Events.TRACKING_CHANGED, ({ active }) => {
+    updateToggleUI(active);
+    if (!active) {
+      wizardState.thermo?.uncomplete(4);
+      wizardState.goTo(4);
+      $("research-thermo")?.classList.add("hidden");
+      showView("home");
+    }
+  });
 
   // Wizard progression via state machine
   eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => online && wizardState.onServerOnline());
@@ -86,7 +95,6 @@ function setupUIReactivity() {
       if (v.ok) {
         try {
           await startLiveTracking();
-          setTrackingActive(true);
         } catch (e) { console.warn('Auto-activate failed:', e.message); }
       }
     }
@@ -144,17 +152,13 @@ Office.onReady(async (info) => {
 
     const isActive = getStateValue('tracking.active');
     if (isActive) {
-      // Deactivate
       try {
-        await stopTracking();
-        setTrackingActive(false);
+        await deactivateTracking();
         showMessage("Tracking stopped");
       } catch (e) { showMessage(`Stop failed: ${e.message}`, "error"); }
     } else {
-      // Activate
       try {
         await startLiveTracking();
-        setTrackingActive(true);
       } catch (e) { showMessage(`Activation failed: ${e.message}`, "error"); }
     }
   });
@@ -211,7 +215,7 @@ async function startLiveTracking() {
   try {
     const config = getStateValue('config.data'), mappings = getStateValue('mappings.combined');
     const terms = Object.keys(mappings.reverse || {}).length, online = getStateValue('server.online');
-    const info = await startTracking(config, mappings);
+    const info = await activateTracking(config, mappings);
 
     let msg = `✅ Tracking: ${terms} terms (${online ? "exact/fuzzy/LLM" : "exact/fuzzy only"})`;
     if (info.confidenceTotal > 0) {

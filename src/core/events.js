@@ -14,4 +14,5 @@ export const Events = {
   SETTING_CHANGED: 'setting:changed',
   SETTINGS_PANEL_OPENED: 'settings:panel:opened',
   TRACKING_CHANGED: 'tracking:changed',
+  SESSION_HISTORY_CHANGED: 'session:history:changed',
 };

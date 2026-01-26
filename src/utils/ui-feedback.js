@@ -57,14 +57,17 @@ export function updateMatcherIndicator() {
   if (!el) return;
 
   const { entities, aliases } = getCacheCounts(), online = getStateValue('server.online'), loaded = getStateValue('mappings.loaded');
+  const trackingActive = getStateValue('tracking.active');
   const counts = el.querySelector(".indicator-counts"), label = el.querySelector(".indicator-label");
-  if (counts) counts.textContent = `${entities}/${aliases}`;
+  if (counts) counts.textContent = `${aliases} → ${entities}`;
 
   const [status, text, title] = !loaded
     ? ["not-ready", "Not loaded", "Mappings: Not loaded\nClick to see details"]
-    : online
-      ? ["ready", "Ready", `Cache: ${entities} entities, ${aliases} aliases\nFull functionality (exact/fuzzy/LLM)`]
-      : ["limited", "Limited", `Cache: ${entities} entities, ${aliases} aliases\nExact/fuzzy only (LLM unavailable)`];
+    : !trackingActive
+      ? ["paused", "Paused", `Cache: ${entities} entities, ${aliases} aliases\nTracking is paused`]
+      : online
+        ? ["ready", "Ready", `Cache: ${entities} entities, ${aliases} aliases\nFull functionality (exact/fuzzy/LLM)`]
+        : ["limited", "Limited", `Cache: ${entities} entities, ${aliases} aliases\nExact/fuzzy only (LLM unavailable)`];
 
   if (label) label.textContent = text;
   el.className = `badge badge-bordered badge-interactive matcher-indicator ${status}`;
@@ -95,6 +98,7 @@ export function setupIndicators() {
   });
   eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);
   eventBus.on(Events.MATCH_LOGGED, updateMatcherIndicator);
+  eventBus.on(Events.TRACKING_CHANGED, updateMatcherIndicator);
 }
 
 function showMatcherDetails() {

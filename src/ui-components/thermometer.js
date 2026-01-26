@@ -85,6 +85,17 @@ class ThermoInstance {
         this._updateFill();
     }
 
+    uncomplete(step) {
+        if (!this.mode.sequential) return;
+        this.completedSteps.delete(step);
+        this.el.classList.remove('thermo--complete');
+        // Reset bubble text back to step number
+        const stepEl = this.el.querySelector(`[data-step="${step}"]`);
+        const bubble = stepEl?.querySelector('.thermo__bubble');
+        if (bubble) bubble.textContent = step;
+        this.setStep(step);
+    }
+
     reset() {
         this._currentStep = 1;
         this.completedSteps.clear();
