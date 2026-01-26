@@ -731,6 +731,8 @@ async def direct_prompt(
         query: Input text to process (required)
         user_prompt: User's instruction prompt (required)
         batch_id: Optional batch ID (for batch operations)
+        current_output: Optional current output column value (provides context)
+        project_context: Optional project-specific context string
 
     Returns:
         target: LLM output (processed/transformed value)
@@ -738,16 +740,19 @@ async def direct_prompt(
         confidence_corrected: True if output was not in terms
 
     Flow:
-    1. Send user_prompt + query to LLM
-    2. LLM returns output + confidence
-    3. Validate: if output not in session terms → confidence = 0
+    1. Build system prompt with project_context (if provided) + user_prompt
+    2. Send to LLM with query and current_output (if provided)
+    3. LLM returns output + confidence
+    4. Validate: if output not in session terms → confidence = 0
     """
     user_id = request.state.user_id
     query = payload.get("query", "").strip()
     user_prompt = payload.get("user_prompt", "").strip()
     batch_id = payload.get("batch_id")  # Optional
+    current_output = payload.get("current_output", "").strip()  # Current output column value
+    project_context = payload.get("project_context", "").strip()  # Project-specific context
 
-    logger.info(f"[DIRECT_PROMPT] Received: query='{query[:30] if query else 'EMPTY'}', prompt='{user_prompt[:30] if user_prompt else 'EMPTY'}', batch_id={batch_id}")
+    logger.info(f"[DIRECT_PROMPT] Received: query='{query[:30] if query else 'EMPTY'}', prompt='{user_prompt[:30] if user_prompt else 'EMPTY'}', batch_id={batch_id}, has_output={bool(current_output)}, has_context={bool(project_context)}")
 
     if not query:
         logger.warning("[DIRECT_PROMPT] Rejected: empty query")
@@ -771,10 +776,16 @@ async def direct_prompt(
     start_time = time.time()
 
     # Build system prompt for general LLM inference
+    context_sections = []
+    if project_context:
+        context_sections.append(f"PROJECT CONTEXT:\n{project_context}")
+    context_sections.append(f"USER INSTRUCTIONS:\n{user_prompt}")
+    if current_output:
+        context_sections.append(f"Current output value: {current_output}")
+
     system_prompt = f"""You are a helpful assistant that processes text according to user instructions.
 
-USER INSTRUCTIONS:
-{user_prompt}
+{chr(10).join(context_sections)}
 
 For the given input, apply the user's instructions and return a JSON object:
 {{
@@ -785,10 +796,15 @@ For the given input, apply the user's instructions and return a JSON object:
 
 Return ONLY valid JSON."""
 
+    # Build user message
+    user_content = f"Input: {query}"
+    if current_output:
+        user_content += f"\nCurrent output: {current_output}"
+
     # Single LLM call
     try:
         response = await llm_call(
-            messages=[{"role": "user", "content": f"Input: {query}"}],
+            messages=[{"role": "user", "content": user_content}],
             system=system_prompt,
             output_format="json",
             temperature=0.0,

@@ -11,15 +11,7 @@ import { Events } from "../core/events.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
 
-const HTML = `<summary class="direct-prompt-header">Direct Prompt</summary>
-<div class="direct-prompt-content">
-  <p class="hint-text">Select cells in Excel and provide custom LLM instructions.</p>
-  <div id="dp-range-display" class="range-display hidden">
-    <span class="range-label">Selected:</span>
-    <span id="dp-range-address" class="range-address">-</span>
-    <span id="dp-range-count" class="range-count">0 cells</span>
-  </div>
-  <button id="dp-refresh-btn" class="btn-secondary mb-md">Refresh Selection</button>
+const HTML = `<div class="direct-prompt-content">
   <div class="form-field">
     <label for="dp-user-prompt">Your Prompt:</label>
     <textarea id="dp-user-prompt" class="input input-md input-full input-textarea" placeholder="These are industrial pipe fittings. Match to standardized catalog codes..." rows="4"></textarea>
@@ -27,6 +19,10 @@ const HTML = `<summary class="direct-prompt-header">Direct Prompt</summary>
   <div class="form-actions">
     <button id="dp-process-btn" class="btn-primary" disabled>Process</button>
     <button id="dp-clear-btn" class="btn-secondary">Clear</button>
+  </div>
+  <div class="dp-status-row">
+    <span id="dp-hint" class="hint-text">Select cells in Excel to begin.</span>
+    <label class="checkbox-label"><input type="checkbox" id="dp-include-output" checked> Include output</label>
   </div>
   <div id="dp-progress" class="progress-container hidden">
     <div class="progress-bar"><div id="dp-progress-fill" class="progress-fill"></div></div>
@@ -38,25 +34,38 @@ export function init() {
   const resultsView = $("results-view");
   if (!resultsView) return false;
 
-  const section = document.createElement("details");
-  section.id = "direct-prompt-details";
-  section.className = "direct-prompt-panel";
-  section.innerHTML = HTML;
+  // Create trigger button
+  const btn = document.createElement("button");
+  btn.id = "dp-toggle-btn";
+  btn.className = "btn-sm btn-secondary";
+  btn.textContent = "Direct Prompt";
+  btn.addEventListener("click", togglePanel);
 
-  // Insert at TOP of results view (before first child)
-  resultsView.insertBefore(section, resultsView.firstChild);
+  // Insert button after the h3 header
+  const header = resultsView.querySelector("h3");
+  header?.after(btn);
 
-  // Track panel open/close
-  section.addEventListener("toggle", e => {
-    isPanelOpen = e.target.open;
-    if (isPanelOpen) { refreshSelection(); startTracking(); } else stopTracking();
-  });
+  // Create panel (hidden by default)
+  const panel = document.createElement("div");
+  panel.id = "direct-prompt-panel";
+  panel.className = "direct-prompt-panel hidden";
+  panel.innerHTML = HTML;
+  btn.after(panel);
 
-  $("dp-refresh-btn")?.addEventListener("click", refreshSelection);
+  // Wire up events
   $("dp-process-btn")?.addEventListener("click", processDirectPrompt);
   $("dp-clear-btn")?.addEventListener("click", clearSelection);
   $("dp-user-prompt")?.addEventListener("input", updateButtonState);
   return true;
+}
+
+function togglePanel() {
+  const panel = $("direct-prompt-panel");
+  if (!panel) return;
+  const wasHidden = panel.classList.toggle("hidden");
+  isPanelOpen = !wasHidden;
+  if (isPanelOpen) { refreshSelection(); startTracking(); }
+  else stopTracking();
 }
 
 async function startTracking() {
@@ -80,11 +89,35 @@ async function refreshSelection() {
       const range = ctx.workbook.getSelectedRange();
       range.load("address, rowCount, columnCount, values, rowIndex, columnIndex");
       await ctx.sync();
-      selectedRange = { address: range.address, rowCount: range.rowCount, columnCount: range.columnCount, values: range.values, rowIndex: range.rowIndex, columnIndex: range.columnIndex };
+      selectedRange = { address: range.address, rowCount: range.rowCount, columnCount: range.columnCount, values: range.values, rowIndex: range.rowIndex, columnIndex: range.columnIndex, outputValues: null };
+
+      // Try to read output column values (single-column selection only)
+      if (range.columnCount === 1) {
+        try {
+          const config = getStateValue('config.data');
+          if (config?.column_map) {
+            const headers = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
+            headers.load("values");
+            await ctx.sync();
+
+            const headerNames = headers.values[0].map(h => String(h || "").trim());
+            const columnMap = buildColumnMap(headerNames, config.column_map);
+            const outputColIdx = columnMap.get(range.columnIndex);
+
+            if (outputColIdx !== undefined) {
+              const outputRange = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(range.rowIndex, outputColIdx, range.rowCount, 1);
+              outputRange.load("values");
+              await ctx.sync();
+              selectedRange.outputValues = outputRange.values;
+            }
+          }
+        } catch {} // Silently proceed without output values
+      }
+
+      // Update hint with selection info (strip sheet prefix)
       const cellCount = range.values.flat().filter(v => v && String(v).trim()).length;
-      $("dp-range-display")?.classList.remove("hidden");
-      $("dp-range-address").textContent = range.address;
-      $("dp-range-count").textContent = `${cellCount} value${cellCount !== 1 ? 's' : ''}`;
+      const address = range.address.includes("!") ? range.address.split("!")[1] : range.address;
+      $("dp-hint").textContent = cellCount ? `Selected: ${address} (${cellCount} value${cellCount !== 1 ? "s" : ""})` : "Select cells in Excel to begin.";
       updateButtonState();
     });
   } catch (e) { showMessage(`Failed to read selection: ${e.message}`, "error"); }
@@ -111,8 +144,11 @@ async function processDirectPrompt() {
   $("dp-process-btn").disabled = true;
   $("dp-progress")?.classList.remove("hidden");
 
+  // Get project-specific context from config
+  const projectContext = getStateValue('config.data')?.direct_prompt_context || null;
+
   try {
-    const results = await processItems(values, userPrompt);
+    const results = await processItems(values, userPrompt, projectContext);
     eventBus.emit(Events.BATCH_RESULTS, { items: results, userPrompt });
     await writeResultsToExcel(results);
     showMessage(`Direct prompt complete: ${results.length} items processed`);
@@ -120,7 +156,7 @@ async function processDirectPrompt() {
   finally { isProcessing = false; updateButtonState(); $("dp-progress")?.classList.add("hidden"); }
 }
 
-async function processItems(values, userPrompt) {
+async function processItems(values, userPrompt, projectContext = null) {
   const results = [], headers = getHeaders(), startTime = Date.now();
   let batchId = null, successCount = 0, errorCount = 0;
 
@@ -136,6 +172,15 @@ async function processItems(values, userPrompt) {
     try {
       const payload = { query: value, user_prompt: userPrompt };
       if (batchId) payload.batch_id = batchId;
+      // Include current output value if toggle is enabled
+      const includeOutput = $("dp-include-output")?.checked;
+      if (includeOutput && selectedRange?.outputValues?.[i]) {
+        const currentOutput = String(selectedRange.outputValues[i][0] || "").trim();
+        if (currentOutput) payload.current_output = currentOutput;
+      }
+      // Include project context if configured
+      if (projectContext) payload.project_context = projectContext;
+
       const data = await apiPost(buildUrl(ENDPOINTS.PROMPTS), payload, headers);
       if (data) {
         const target = data.target || "No match";
@@ -205,7 +250,7 @@ async function writeResultsToExcel(results) {
 
 function clearSelection() {
   selectedRange = null;
-  $("dp-range-display")?.classList.add("hidden");
+  $("dp-hint").textContent = "Select cells in Excel to begin.";
   $("dp-user-prompt").value = "";
   $("dp-process-btn").disabled = true;
   showMessage("Selection cleared");

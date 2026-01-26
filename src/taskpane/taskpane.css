@@ -568,7 +568,15 @@
     line-height: 1.5;
 }
 
-/* Direct Prompt collapsible panel */
+/* Direct Prompt toggle button */
+#dp-toggle-btn {
+    margin: 8px 16px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Direct Prompt panel */
 .direct-prompt-panel {
     margin: 0 16px 16px 16px;
     padding: 12px;
@@ -576,17 +584,11 @@
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-lg);
 }
-.direct-prompt-header {
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 13px;
-    color: var(--gray-600);
-    list-style: none;
-}
-.direct-prompt-header::-webkit-details-marker { display: none; }
-.direct-prompt-header::before { content: "▶ "; font-size: 10px; }
-.direct-prompt-panel[open] .direct-prompt-header::before { content: "▼ "; }
-.direct-prompt-content { padding-top: 12px; }
+.direct-prompt-panel.hidden { display: none; }
+.direct-prompt-content { padding-top: 0; }
+.dp-status-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+.dp-status-row .hint-text { margin: 0; flex: 1; }
+.dp-status-row .checkbox-label { margin: 0; white-space: nowrap; font-size: 12px; }
 
 /* Settings Slide Panel */
 .settings-slide-panel {
