@@ -36,6 +36,12 @@ backend-api/logs/
 │           ├── metadata.json
 │           └── prompt.txt
 │
+├── schemas/                        # Schema registry (mirrors prompt registry)
+│   └── {schema_family}/
+│       └── {version}/
+│           ├── metadata.json
+│           └── schema.json
+│
 ├── activity.jsonl                  # Production telemetry (existing)
 └── match_database.json             # Match cache (existing)
 ```
@@ -100,13 +106,14 @@ end_time: 1733270400000
 
 ## Implementation
 
-All formats implemented in `utils/standards_logger.py`:
+All formats implemented in `utils/standards_logger.py` and `utils/schema_registry.py`:
 
 - `ExperimentManager` - MLflow experiment/run lifecycle
 - `RunManager` - Params, metrics, tags, artifacts
 - `TraceLogger` - Langfuse traces, observations, scores
 - `DatasetManager` - Tasks with ground truth
 - `ConfigTreeManager` - Experiment config variants
+- `SchemaRegistry` - Versioned JSON schema management (mirrors prompt registry pattern)
 
 **No external dependencies** - pure Python with standard library + PyYAML.
 

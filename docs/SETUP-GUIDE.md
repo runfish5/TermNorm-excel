@@ -65,18 +65,14 @@ Start server:
 
 1. Open TermNorm task pane - the thermometer shows 4 setup stages (Server→Config→Mappings→Activate)
 2. Drag your `app.config.json` into the field, see here on how to prepare one: **[Configuration Guide](CONFIGURATION.md)**
-3. Load each of the reference files
-  - For each Excel reference file, click **Browse**
-  - Select the corresponding Excel file
-  - Click **Load Mapping Table**
-  - Repeat for all reference files
-4. Click the **Activate tracking** button
 
-**✅ You're ready to go!**
+**✅ That's it!** Mappings auto-load and tracking auto-activates.
 
-5. **Select a cell** in your defined input column (e.g., "Input")
-6. **Type a term** you want to standardize (e.g., "stainless steel")
-7. **Press Enter**
+**Manual control:** Use the ON/OFF toggle switch in the dashboard to enable/disable tracking.
+
+3. **Select a cell** in your defined input column (e.g., "Input")
+4. **Type a term** you want to standardize (e.g., "stainless steel")
+5. **Press Enter**
 
 **What happens:**
 - The system processes your term using:
@@ -96,6 +92,22 @@ Start server:
 - Real-time processing shown in the Matching Journal
 - Py-Server indicator in navbar (green = online, red = offline)
 - Match history for debugging
+
+**Direct Prompt (advanced):**
+
+For custom LLM queries without the full research pipeline:
+
+1. Switch to the **Results** tab
+2. Click the **Direct Prompt** button to expand the panel
+3. Type your query (e.g., "What is the standard name for 316L?")
+4. Optional: Check **Include output** to add current output column values as context
+5. Click **Submit**
+
+The LLM response is validated against your reference terms:
+- **High confidence match (≥75%)**: Response is auto-corrected to the closest known term
+- **Low confidence match (<75%)**: A candidate picker appears with the top 10 similar terms for you to choose from
+
+To add domain context to all Direct Prompt queries, configure `direct_prompt_context` in your config file (see [Configuration Guide](CONFIGURATION.md)).
 
 ## Quick Verification Checklist
 

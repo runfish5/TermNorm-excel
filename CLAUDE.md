@@ -45,12 +45,12 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
 - **core/**: Event-driven state management
   - `state-store.js` - Immutable state container with subscriber pattern
   - `event-bus.js` - Pub/sub event system for loose coupling
-  - `events.js` - Event type definitions (MAPPINGS_LOADED, MATCH_LOGGED, etc.)
+  - `events.js` - Event type definitions (MAPPINGS_LOADED, MATCH_LOGGED, TRACKING_CHANGED, SESSION_HISTORY_CHANGED, etc.)
   - `state-actions.js` - Centralized state mutations (JSDoc typed)
 - **services/**: Business logic and data processing
   - `live-tracker.js` - Excel cell change tracking, emits MATCH_LOGGED events
   - `normalizer.js` - Three-tier matching pipeline (JSDoc typed)
-  - `workflows.js` - Async business logic: mappings, sessions, settings (JSDoc typed)
+  - `workflows.js` - Async business logic: mappings, sessions, settings, tracking lifecycle (JSDoc typed)
   - `mapping-processor.js` - Excel mapping file processor
 - **matchers/**: Matching algorithms
   - `matchers.js` - Cache + fuzzy matching (thresholds: forward 0.7, reverse 0.5) (JSDoc typed)
@@ -59,7 +59,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `thermometer.js` - Progress/status indicator with two modes
   - `candidate-ranking.js` - Drag-to-rank candidate selection
   - `processing-history.js` - Matching Journal view, listens for MATCH_LOGGED events
-  - `direct-prompt.js` - Custom LLM inference UI
+  - `direct-prompt.js` - Custom LLM inference UI with fuzzy validation and candidate picker
   - `file-handling.js` - Config file drag-and-drop
   - `mapping-config.js` - Mapping configuration panel
   - `settings-panel.js` - Settings UI
@@ -101,11 +101,13 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `cache_metadata.py` - Cache metadata tracking
   - `responses.py` - API response formatting
   - `utils.py` - General utilities
+  - `schema_registry.py` - Versioned JSON schema management
 - **config/**: Settings, middleware, users.json (hot-reload)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
   - `langfuse/` - Langfuse-compatible logging (traces, observations, scores, datasets)
   - `prompts/` - Versioned LLM prompts
+  - `schemas/` - Versioned JSON schemas for data structures
 
 ### Web Search
 Brave API → SearXNG → DuckDuckGo → Bing fallback chain.
@@ -124,9 +126,10 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
 8. **IP-Based Auth**: Users configured in `backend-api/config/users.json`
 9. **Office.js Operations**: Batch inside `Excel.run(async (ctx) => {...})`, commit with `ctx.sync()`
 10. **$ Helper Pattern**: DOM queries via `const $ = id => document.getElementById(id)`
-11. **Thermometer Component**: Progress indicator with two modes:
+11. **Thermometer Component**: Progress indicator in persistent dashboard with two modes:
     - `progress`: Sequential steps, collapsible, fill bar (setup wizard: server→config→mappings→activate)
     - `status`: Independent toggleable states (research pipeline: web→LLM→score→rank)
+12. **Centralized Tracking Workflows**: Tracking state managed via `workflows.js` with `TRACKING_CHANGED` events for reactive UI updates
 
 ## Code Quality Standards
 
@@ -193,9 +196,9 @@ Configuration Loading (Drag & Drop or filesystem)
     ↓
 Server Setup (backend-api venv + FastAPI on localhost:8000)
     ↓
-Mapping Processing (Load reference files + validate column mappings)
+Mapping Processing (Auto-load reference files + validate column mappings)
     ↓
-Activate Live Tracking (Monitor worksheet changes)
+Auto-Activate Live Tracking (ON/OFF toggle in dashboard)
     ↓
 [User Input: Cell Entry + Enter]
     ↓

@@ -120,7 +120,26 @@ This tells the system where to find your list of approved/standard terms.
 ]
 ```
 
+### `direct_prompt_context` (Optional)
 
+Provides domain-specific context for the Direct Prompt feature. This context is prepended to every Direct Prompt query to help the LLM make better domain-specific matches.
+
+```jsonc
+{
+  "excel-projects": {
+    "MyWorkbook.xlsx": {
+      "column_map": { ... },
+      "standard_mappings": [ ... ],
+      "direct_prompt_context": "These are industrial pipe fittings and valves used in oil & gas applications. Standard names follow API and ASME conventions."
+    }
+  }
+}
+```
+
+**When to use:**
+- Your domain has specialized terminology (medical, legal, industrial)
+- LLM needs context to disambiguate similar terms
+- You want consistent matching behavior across prompts
 
 ## Configuration Tips
 
@@ -188,7 +207,7 @@ This tells the system where to find your list of approved/standard terms.
 **Solutions:**
 1. Verify input column name matches exactly (case-sensitive)
 2. Check output column exists or can be created
-3. Activate tracking after loading configuration
+3. Verify tracking is ON (check toggle switch in dashboard)
 4. Check Matching Journal for processing status
 
 ### Multi-User Auth Issues
@@ -218,7 +237,8 @@ This tells the system where to find your list of approved/standard terms.
       "standard_mappings": [
         { "mapping_reference": "C:\\Reference\\ISO_Materials.xlsx", "worksheet": "Materials", "source_column": "", "target_column": "ISO_Code" },
         { "mapping_reference": "C:\\Reference\\Manufacturing_Processes.xlsx", "worksheet": "Processes", "source_column": "", "target_column": "Standard_Process_Name" }
-      ]
+      ],
+      "direct_prompt_context": "Materials follow ISO and ASTM standards. Common alloys include stainless steel (300/400 series), aluminum (6000 series), and tool steels."
     }
   }
 }

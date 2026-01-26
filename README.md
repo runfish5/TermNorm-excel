@@ -51,9 +51,11 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 
 ## ✨ Key Features
 
-- **Seamless Excel Integration:** - Allows for direct integration with legacy workflows and user-facing spreadsheets.
+- **Zero-Click Setup** - Drop config file, mappings auto-load, tracking auto-activates—start working immediately
+- **Seamless Excel Integration** - Direct integration with legacy workflows and user-facing spreadsheets
 - **Instant AI-Powered Matching** - Type in Excel, get standardized results automatically—web research and LLM reasoning happen in real-time
 - **Three-Tier Intelligence** - Exact cache for speed → Fuzzy matching for variants → AI research for unknowns
+- **Direct Prompt with Validation** - Custom LLM queries with fuzzy validation against your reference terms
 - **Transparent Decision Making** - See ranked candidates with confidence scores, entity profiles, and web sources—understand why each match was suggested
 - **Zero Database Setup** - Session-based architecture stores everything in memory—no database installation, no migration scripts
 - **Complete Audit Trail** - Every match logged with timestamps and metadata—perfect for compliance and training data collection
@@ -70,6 +72,8 @@ The workflow diagram above shows the Python/FastAPI backend pipeline that powers
 ## 💡 How It Works
 
 ```
+Drop Config File → Auto-Load Mappings → Auto-Activate Tracking
+    ↓
 User Input (Excel Cell)
     ↓
 1. Quick Lookup (cached exact matches)
@@ -84,6 +88,8 @@ Auto-apply or Manual Selection
     ↓
 Logging & State Update
 ```
+
+Use the ON/OFF toggle in the dashboard to pause/resume tracking anytime.
 
 ## 🚀 Quick Start
 

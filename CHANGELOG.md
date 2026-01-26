@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**Zero-Click Setup**
+- New ON/OFF toggle switch for tracking control in dashboard
+
+**Direct Prompt Enhancements**
+- "Include output column" checkbox adds context to prompts
+- New `direct_prompt_context` config option for domain-specific context
+- Fuzzy validation (0.75 threshold) validates LLM responses against known terms
+- Candidate picker: select from fuzzy-matched suggestions when validation fails
+
+**Backend Infrastructure**
+- Schema Registry (`utils/schema_registry.py`) for versioned JSON schema management
+- Schemas stored in `logs/schemas/` with version tracking
+
+**UI/UX Improvements**
+- Dynamic cache size indicator shows current cache count
+- Fixed cell selection scrolling and highlighting
+- Improved status indicator updates
+
 ## [1.0.4] - 2025-12-15
 
 ### Highlights

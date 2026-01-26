@@ -62,13 +62,21 @@ INFO:     127.0.0.1:59464 - "OPTIONS /test-connection HTTP/1.1" 200 OK
 
 ## Frontend Add-in Issues
 
-### "Load Mapping Table" Button Does Nothing
+### Mappings Don't Auto-Load
 
 **Troubleshooting steps:**
-1. Check Py-Server indicator - if red, backend is offline (see Backend Server Issues above)
-2. Open browser console (`F12` in Excel task pane) - look for JavaScript errors or network failures
-3. Check Settings tab - verify "Require server connection" setting
-4. If offline mode is acceptable, uncheck "Require server connection" to work with exact/fuzzy matching only
+1. Verify config file is valid JSON - check for syntax errors
+2. Check that workbook name in config matches exactly (case-sensitive)
+3. For external mapping files (not current workbook), you still need to Browse and select them manually due to browser security restrictions
+4. Check Matching Journal for any loading errors
+
+### Tracking Won't Activate
+
+**Troubleshooting steps:**
+1. Verify all mappings loaded successfully (thermometer step 3 complete)
+2. Check Py-Server indicator - if red, backend is offline (see Backend Server Issues above)
+3. Try toggling the tracking switch OFF then ON
+4. Check browser console (`F12` in Excel task pane) for JavaScript errors
 
 ### Add-in Not Working After Sideload
 
