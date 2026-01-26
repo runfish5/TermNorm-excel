@@ -45,8 +45,10 @@ export const wizardState = {
 
   _updateUI() {
     this.thermo.setStep(this.step);
+    // Step panels only go to 3; when on step 4, keep step 3 visible
+    const panelStep = this.step > 3 ? 3 : this.step;
     document.querySelectorAll(".step-panel").forEach(p =>
-      p.classList.toggle("active", p.dataset.step === String(this.step))
+      p.classList.toggle("active", p.dataset.step === String(panelStep))
     );
   },
 
@@ -54,14 +56,6 @@ export const wizardState = {
     this.step = 1;
     if (this.thermo) {
       this.thermo.reset();
-      this.thermo.expand();
-    }
-  },
-
-  completeAndCollapse() {
-    if (this.thermo) {
-      this.thermo.completeAll();
-      this.thermo.collapse();
     }
   },
 
@@ -141,19 +135,10 @@ Office.onReady(async (info) => {
     const tab = e.target.closest(".nav-tab");
     if (tab) { e.preventDefault(); showView(tab.dataset.view); }
 
-    // Collapsed thermometer bubble click - re-expand setup
-    const collapsed = e.target.closest(".thermo__collapsed");
-    if (collapsed && collapsed.closest("#setup-thermo")) {
-      wizardState.thermo?.expand();
-      showView("home");
-      return;
-    }
-
     const step = e.target.closest(".thermo__step");
     // Only switch panels for setup thermometer, not research thermometer
     if (step && step.closest("#setup-thermo") && wizardState.thermo) {
       e.preventDefault();
-      wizardState.thermo.expand();
       showView("home");
       wizardState.goTo(parseInt(step.dataset.step));
     }
@@ -199,8 +184,8 @@ async function startLiveTracking() {
     }
     showMessage(msg);
 
-    // Collapse setup thermometer, show research thermometer
-    wizardState.completeAndCollapse();
+    // Complete setup thermometer, show research thermometer
+    wizardState.thermo?.completeAll();
     $("research-thermo")?.classList.remove("hidden");
 
     // Initialize research thermometer with toggleable steps

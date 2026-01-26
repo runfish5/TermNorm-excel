@@ -54,17 +54,8 @@
         </div>
         
         <div class="status-bar">
-            <!-- Row 1: Setup thermo + Mappings + Message -->
+            <!-- Row 1: Mappings + Message -->
             <div class="system-status-row">
-                <nav class="thermo" id="setup-thermo" data-mode="progress">
-                    <div class="thermo__track"><div class="thermo__fill"></div></div>
-                    <button class="thermo__step thermo__step--active" data-step="1" data-key="server"><span class="thermo__bubble">1</span><span class="thermo__label">Server</span></button>
-                    <button class="thermo__step" data-step="2" data-key="config"><span class="thermo__bubble">2</span><span class="thermo__label">Config</span></button>
-                    <button class="thermo__step" data-step="3" data-key="mappings"><span class="thermo__bubble">3</span><span class="thermo__label">Mappings</span></button>
-                    <button class="thermo__step" data-step="4" data-key="activate"><span class="thermo__bubble">4</span><span class="thermo__label">Activate</span></button>
-                    <div class="thermo__collapsed"><span class="thermo__bubble">✓4</span></div>
-                </nav>
-
                 <div class="status-component">
                     <span class="component-label">Mappings:</span>
                     <div id="matcher-status-indicator" class="matcher-indicator not-ready" data-status="not-ready" title="Click for details">
@@ -101,6 +92,19 @@
         <!-- HOME VIEW (Setup + Landing) -->
         <section id="home-view" class="content view-section">
             <div id="home-setup" class="content-section">
+                <!-- Dashboard: always visible -->
+                <div class="setup-dashboard">
+                    <nav class="thermo thermo--narrow" id="setup-thermo" data-mode="progress">
+                        <div class="thermo__track"><div class="thermo__fill"></div></div>
+                        <button class="thermo__step thermo__step--active" data-step="1" data-key="server"><span class="thermo__bubble">1</span><span class="thermo__label">Server</span></button>
+                        <button class="thermo__step" data-step="2" data-key="config"><span class="thermo__bubble">2</span><span class="thermo__label">Config</span></button>
+                        <button class="thermo__step" data-step="3" data-key="mappings"><span class="thermo__bubble">3</span><span class="thermo__label">Mappings</span></button>
+                        <button class="thermo__step" data-step="4" data-key="activate"><span class="thermo__bubble">4</span><span class="thermo__label">Activate</span></button>
+                    </nav>
+                    <button id="show-metadata-btn" class="btn btn-secondary">Show Processing Details</button>
+                    <button id="setup-map-tracking" class="btn btn-primary">Activate Tracking</button>
+                </div>
+
                 <!-- Step 1: Backend Server Configuration -->
                 <div class="step-panel active" data-step="1">
                     <!-- Development Mode: Full Setup Instructions -->
@@ -237,14 +241,6 @@
                 <!-- Step 3: Load Mapping Files -->
                 <div class="step-panel" data-step="3">
                     <div id="mapping-configs-container"></div>
-                </div>
-
-                <!-- Step 4: Activate Tracking -->
-                <div class="step-panel" data-step="4">
-                    <div class="flex gap-lg">
-                        <button id="show-metadata-btn" class="btn btn-secondary">Show Processing Details</button>
-                        <button id="setup-map-tracking" class="btn btn-primary">Activate Tracking</button>
-                    </div>
                 </div>
             </div>
             <div id="home-hero" class="home-hero">

@@ -471,6 +471,17 @@ details[open] .collapsible-header::before {
 }
 
 /* ===================================
+   SETUP DASHBOARD
+   =================================== */
+
+.setup-dashboard {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+/* ===================================
    THERMOMETER (Progress Indicator)
    =================================== */
 
@@ -482,8 +493,28 @@ details[open] .collapsible-header::before {
     padding: 20px 0 8px;
 }
 
-.thermo--compact {
-    padding: 16px 0 6px;
+.thermo--narrow {
+    max-width: 140px;
+    padding: 12px 0 4px;
+}
+
+.thermo--narrow .thermo__track {
+    top: 20px;
+    height: 6px;
+}
+
+.thermo--narrow .thermo__bubble {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+}
+
+.thermo--narrow .thermo__step {
+    padding: 0 2px;
+}
+
+.thermo--narrow .thermo__label {
+    font-size: 8px;
 }
 
 /* Track (background line) */
@@ -497,9 +528,8 @@ details[open] .collapsible-header::before {
     border-radius: 0 4px 4px 0;  /* Pointy left, rounded right */
 }
 
-.thermo--compact .thermo__track {
-    top: 23px;
-    height: 6px;
+.thermo--complete .thermo__track {
+    display: none;
 }
 
 /* Ribbon SVG variant - flex positioned with SVG stroke */
@@ -591,12 +621,6 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-.thermo--compact .thermo__bubble {
-    width: 20px;
-    height: 20px;
-    font-size: 10px;
-}
-
 /* Label */
 .thermo__label {
     font-size: 10px;
@@ -665,48 +689,6 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
     50% { opacity: 0.4; }
 }
 
-/* Collapsed state (progress mode only) */
-.thermo--collapsed {
-    width: auto;
-    max-width: none;
-    min-width: 0;
-}
-
-.thermo--collapsed .thermo__track,
-.thermo--collapsed .thermo__step {
-    display: none;
-}
-
-.thermo--collapsed .thermo__collapsed {
-    display: flex;
-}
-
-.thermo__collapsed {
-    display: none;
-    justify-content: center;
-}
-
-.thermo__collapsed .thermo__bubble {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-    background: var(--success);
-    color: white;
-    cursor: pointer;
-}
-
-.thermo__collapsed .thermo__bubble:hover {
-    transform: scale(1.1);
-}
-
-/* Container for side-by-side thermos */
-.thermo-group {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    justify-content: center;
-}
-
 /* Disabled/toggled-off step */
 .thermo__step--disabled {
     opacity: 0.4;
@@ -727,21 +709,6 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .thermo__status {
     font-size: 8px;
     font-style: italic;
-}
-
-/* Status bar thermos */
-.status-bar .thermo {
-    padding: 8px 0 4px;
-    max-width: 220px;
-}
-
-.status-bar .thermo__track {
-    top: 18px;
-}
-
-/* Research thermo row */
-.status-bar > .thermo {
-    margin-left: 8px;
 }
 
 /* ===================================

@@ -1,13 +1,13 @@
 /**
  * Thermometer Component - Progress/status indicator
- * Modes: progress (sequential, collapsible) | status (toggleable steps)
+ * Modes: progress (sequential steps) | status (toggleable steps)
  */
 import { $ } from "../utils/dom-helpers.js";
 const instances = new Map();
 
 const MODES = {
-    progress: { hasFill: true, collapsible: true, sequential: true, tick: '✓' },
-    status: { hasFill: false, collapsible: false, sequential: false }
+    progress: { hasFill: true, sequential: true, tick: '✓' },
+    status: { hasFill: false, sequential: false }
 };
 
 class ThermoInstance {
@@ -16,7 +16,6 @@ class ThermoInstance {
         this.mode = MODES[el.dataset.mode] || MODES.progress;
         this.steps = el.querySelectorAll('.thermo__step');
         this.fill = this.mode.hasFill ? el.querySelector('.thermo__fill') : null;
-        this.collapsedEl = this.mode.collapsible ? el.querySelector('.thermo__collapsed') : null;
         this.completedSteps = new Set();
         this.toggleable = new Set();
         this.enabled = new Map();
@@ -30,7 +29,6 @@ class ThermoInstance {
                 if (this.toggleable.has(key)) this._toggle(key);
                 else if (this.mode.sequential) this.setStep(+step.dataset.step);
             }
-            if (this.mode.collapsible && e.target.closest('.thermo__collapsed')) this.expand();
         });
     }
 
@@ -55,14 +53,6 @@ class ThermoInstance {
         step.classList.toggle('thermo__step--disabled', !on);
         const bubble = step.querySelector('.thermo__bubble');
         if (bubble) bubble.innerHTML = `<span class="thermo__status">${on ? 'on' : 'off'}</span>`;
-    }
-
-    // Status mode: set step state
-    setStepState(key, state) {
-        const step = this.el.querySelector(`[data-key="${key}"]`);
-        if (!step) return;
-        ['on', 'off', 'active', 'error'].forEach(s => step.classList.remove(`thermo__step--${s}`));
-        step.classList.add(`thermo__step--${state}`);
     }
 
     // Progress mode: navigate/complete steps
@@ -95,21 +85,10 @@ class ThermoInstance {
         this._updateFill();
     }
 
-    collapse() {
-        if (!this.mode.collapsible) return;
-        this.el.classList.add('thermo--collapsed');
-        const b = this.collapsedEl?.querySelector('.thermo__bubble');
-        if (b) b.textContent = `${this.mode.tick}${this.steps.length}`;
-    }
-
-    expand() {
-        if (this.mode.collapsible) this.el.classList.remove('thermo--collapsed');
-    }
-
     reset() {
         this._currentStep = 1;
         this.completedSteps.clear();
-        this.el.classList.remove('thermo--complete', 'thermo--collapsed');
+        this.el.classList.remove('thermo--complete');
         this.steps.forEach((s, i) => {
             s.className = 'thermo__step' + (this.mode.sequential && i === 0 ? ' thermo__step--active' : '');
             if (this.mode.sequential) {
