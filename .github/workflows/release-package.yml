@@ -37,6 +37,7 @@ jobs:
           cp -r config deploy-package/
           cp README.md deploy-package/
           cp CHANGELOG.md deploy-package/
+          cp start-server-py-LLMs.bat deploy-package/
 
           # Create zip
           cd deploy-package
