@@ -1,5 +1,32 @@
 from difflib import SequenceMatcher
 
+
+def find_top_matches(llm_string, candidates, n=10):
+    """Find top N matching candidates using fuzzy matching.
+
+    Args:
+        llm_string: The LLM output string to match
+        candidates: List of valid candidate strings
+        n: Number of top matches to return (default: 10)
+
+    Returns:
+        List of (candidate, similarity_ratio) tuples, sorted by ratio descending
+    """
+    if not llm_string or not candidates:
+        return []
+
+    scores = []
+    llm_lower = llm_string.lower()
+
+    for candidate in candidates:
+        ratio = SequenceMatcher(None, llm_lower, candidate.lower()).ratio()
+        scores.append((candidate, ratio))
+
+    # Sort by similarity descending, return top N
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return scores[:n]
+
+
 def correct_candidate_strings(ranking_result, match_results):
     """
     Corrects LLM-altered candidate strings by finding best matches from original results.

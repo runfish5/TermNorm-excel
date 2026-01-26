@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
 from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
+from research_and_rank.correct_candidate_strings import find_top_matches
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
@@ -821,15 +822,34 @@ Return ONLY valid JSON."""
 
     total_time = round(time.time() - start_time, 2)
 
-    # VALIDATION: Check if output exists in session terms
-    # If not in terms → confidence = 0 (output is not a valid standardized term)
-    confidence_corrected = False
-    original_confidence = confidence
+    # VALIDATION: Fuzzy match LLM output against session terms
+    # Get top 10 closest matches and decide: accept, correct, or return candidates
+    ACCEPT_THRESHOLD = 0.75
+    fuzzy_corrected = False
+    needs_user_selection = False
+    candidates = []
+    fuzzy_score = 0.0
+    original_target = None
 
-    if target not in terms_set:
-        logger.info(f"[DIRECT_PROMPT] Output '{target[:50]}' not in terms, setting confidence to 0")
-        confidence_corrected = True
-        original_confidence = confidence
+    top_matches = find_top_matches(target, terms, n=10)
+    best_match, best_score = top_matches[0] if top_matches else (None, 0)
+    fuzzy_score = best_score
+
+    if best_score >= ACCEPT_THRESHOLD:
+        # Accept - LLM output is close enough to a valid term
+        if best_match != target:
+            original_target = target
+            target = best_match
+            fuzzy_corrected = True
+            logger.info(f"[DIRECT_PROMPT] Fuzzy corrected '{original_target[:30]}' -> '{target[:30]}' (score: {best_score:.2f})")
+        else:
+            logger.info(f"[DIRECT_PROMPT] Exact match found: '{target[:30]}' (score: {best_score:.2f})")
+    else:
+        # Poor match - return candidates for user selection
+        needs_user_selection = True
+        candidates = [{"candidate": c, "score": round(s, 3)} for c, s in top_matches]
+        logger.info(f"[DIRECT_PROMPT] No good match for '{target[:30]}' (best: {best_score:.2f}), returning {len(candidates)} candidates")
+        # Keep target as-is but set confidence to 0 to signal user action needed
         confidence = 0.0
 
     # Build training record
@@ -841,11 +861,16 @@ Return ONLY valid JSON."""
         "reasoning": reasoning,  # LLM's explanation
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "total_time": total_time,
+        "fuzzy_score": fuzzy_score,
     }
 
-    if confidence_corrected:
-        training_record["confidence_corrected"] = True
-        training_record["original_confidence"] = original_confidence
+    if fuzzy_corrected:
+        training_record["fuzzy_corrected"] = True
+        training_record["original_target"] = original_target
+
+    if needs_user_selection:
+        training_record["needs_user_selection"] = True
+        training_record["candidates"] = candidates
 
     # Langfuse logging with batch_id and user_prompt
     try:
@@ -859,20 +884,23 @@ Return ONLY valid JSON."""
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
-    # Update match database (live mode) - only if output is valid
-    if not confidence_corrected:
+    # Update match database (live mode) - only if accepted (not needing user selection)
+    if not needs_user_selection:
         update_match_database(training_record)
 
     # Update session usage stats
     if user_id in user_sessions:
         user_sessions[user_id]["query_count"] += 1
-        if not confidence_corrected:
+        if not needs_user_selection:
             targets = user_sessions[user_id]["targets_used"]
             targets[target] = targets.get(target, 0) + 1
 
+    # Build status message for logging
     status_msg = f"-> {target[:40]}..." if len(target) > 40 else f"-> {target}"
-    if confidence_corrected:
-        status_msg += f" (NOT IN TERMS, was {original_confidence:.0%})"
+    if needs_user_selection:
+        status_msg += f" (NEEDS SELECTION, best: {fuzzy_score:.0%})"
+    elif fuzzy_corrected:
+        status_msg += f" (corrected from '{original_target[:20]}', {fuzzy_score:.0%})"
     else:
         status_msg += f" ({confidence:.0%})"
 
@@ -883,11 +911,16 @@ Return ONLY valid JSON."""
         "confidence": confidence,
         "reasoning": reasoning,
         "total_time": total_time,
+        "fuzzy_score": fuzzy_score,
     }
 
-    if confidence_corrected:
-        response_data["confidence_corrected"] = True
-        response_data["original_confidence"] = original_confidence
+    if fuzzy_corrected:
+        response_data["fuzzy_corrected"] = True
+        response_data["original_target"] = original_target
+
+    if needs_user_selection:
+        response_data["needs_user_selection"] = True
+        response_data["candidates"] = candidates
 
     return success_response(
         message="Direct prompt completed",

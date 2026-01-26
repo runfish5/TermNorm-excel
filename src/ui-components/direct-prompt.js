@@ -10,6 +10,9 @@ import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
+let pendingSelections = []; // Items needing user selection
+let currentPendingIndex = 0;
+let allResults = []; // All results including pending
 
 const HTML = `<div class="direct-prompt-content">
   <div class="form-field">
@@ -27,6 +30,13 @@ const HTML = `<div class="direct-prompt-content">
   <div id="dp-progress" class="progress-container hidden">
     <div class="progress-bar"><div id="dp-progress-fill" class="progress-fill"></div></div>
     <div id="dp-progress-text" class="progress-text">Processing: 0 / 0</div>
+  </div>
+  <div id="dp-candidates-panel" class="dp-candidates-panel hidden">
+    <div class="dp-candidates-header">
+      <span id="dp-candidates-title">Select a match:</span>
+      <button id="dp-candidates-skip" class="btn-sm btn-secondary">Skip</button>
+    </div>
+    <div id="dp-candidates-list" class="dp-candidates-list"></div>
   </div>
 </div>`;
 
@@ -149,9 +159,26 @@ async function processDirectPrompt() {
 
   try {
     const results = await processItems(values, userPrompt, projectContext);
-    eventBus.emit(Events.BATCH_RESULTS, { items: results, userPrompt });
-    await writeResultsToExcel(results);
-    showMessage(`Direct prompt complete: ${results.length} items processed`);
+
+    // Separate results into accepted and pending selection
+    allResults = results;
+    pendingSelections = results
+      .map((r, i) => ({ ...r, index: i }))
+      .filter(r => r.needs_user_selection);
+
+    // Write accepted results immediately
+    const acceptedResults = results.filter(r => !r.needs_user_selection);
+    eventBus.emit(Events.BATCH_RESULTS, { items: acceptedResults, userPrompt });
+    await writeResultsToExcel(results); // Write all, pending ones show LLM output with warning color
+
+    if (pendingSelections.length > 0) {
+      // Show candidate picker for first pending item
+      currentPendingIndex = 0;
+      showCandidatePicker(pendingSelections[0]);
+      showMessage(`${acceptedResults.length} matched, ${pendingSelections.length} need selection`);
+    } else {
+      showMessage(`Direct prompt complete: ${results.length} items processed`);
+    }
   } catch (e) { showMessage(`Processing failed: ${e.message}`, "error"); }
   finally { isProcessing = false; updateButtonState(); $("dp-progress")?.classList.add("hidden"); }
 }
@@ -185,17 +212,32 @@ async function processItems(values, userPrompt, projectContext = null) {
       if (data) {
         const target = data.target || "No match";
         const confidence = data.confidence ?? 0;
-        results.push({ source: value, target, confidence, confidence_corrected: data.confidence_corrected || false });
+        const result = {
+          source: value,
+          target,
+          confidence,
+          fuzzy_corrected: data.fuzzy_corrected || false,
+          fuzzy_score: data.fuzzy_score ?? 0,
+          needs_user_selection: data.needs_user_selection || false,
+          candidates: data.candidates || [],
+          original_target: data.original_target || null,
+          rowIndex: selectedRange.rowIndex + i
+        };
+        results.push(result);
         successCount++;
-        eventBus.emit(Events.MATCH_LOGGED, {
-          value,
-          cellKey: `dp-${batchId || 'single'}-${i}`,
-          timestamp: new Date().toISOString(),
-          result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" }
-        });
+
+        // Only emit match logged for accepted results (not needing selection)
+        if (!result.needs_user_selection) {
+          eventBus.emit(Events.MATCH_LOGGED, {
+            value,
+            cellKey: `dp-${batchId || 'single'}-${i}`,
+            timestamp: new Date().toISOString(),
+            result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" }
+          });
+        }
       }
-      else { results.push({ source: value, target: "No response", confidence: 0 }); errorCount++; }
-    } catch (e) { results.push({ source: value, target: `Error: ${e.message}`, confidence: 0 }); errorCount++; }
+      else { results.push({ source: value, target: "No response", confidence: 0, needs_user_selection: false, candidates: [] }); errorCount++; }
+    } catch (e) { results.push({ source: value, target: `Error: ${e.message}`, confidence: 0, needs_user_selection: false, candidates: [] }); errorCount++; }
   }
 
   if (batchId) {
@@ -248,8 +290,131 @@ async function writeResultsToExcel(results) {
   } catch (e) { showMessage(`Failed to write results: ${e.message}`, "error"); }
 }
 
+// ========== CANDIDATE PICKER ==========
+
+function showCandidatePicker(pendingItem) {
+  const panel = $("dp-candidates-panel");
+  const list = $("dp-candidates-list");
+  const title = $("dp-candidates-title");
+  if (!panel || !list || !title) return;
+
+  // Update title with source info
+  title.textContent = `Select match for: "${pendingItem.source.slice(0, 40)}${pendingItem.source.length > 40 ? '...' : ''}"`;
+
+  // Build candidate list
+  list.innerHTML = pendingItem.candidates.map((c, i) =>
+    `<button class="dp-candidate-btn" data-index="${i}" data-candidate="${encodeURIComponent(c.candidate)}">
+      <span class="dp-candidate-name">${c.candidate}</span>
+      <span class="dp-candidate-score">${Math.round(c.score * 100)}%</span>
+    </button>`
+  ).join('');
+
+  // Wire up click handlers
+  list.querySelectorAll('.dp-candidate-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleCandidateSelection(decodeURIComponent(btn.dataset.candidate)));
+  });
+
+  // Wire up skip button
+  $("dp-candidates-skip")?.removeEventListener('click', handleSkipSelection);
+  $("dp-candidates-skip")?.addEventListener('click', handleSkipSelection);
+
+  panel.classList.remove('hidden');
+}
+
+function hideCandidatePicker() {
+  $("dp-candidates-panel")?.classList.add('hidden');
+}
+
+async function handleCandidateSelection(selectedCandidate) {
+  const pending = pendingSelections[currentPendingIndex];
+  if (!pending) return;
+
+  // Update result with user selection
+  allResults[pending.index].target = selectedCandidate;
+  allResults[pending.index].confidence = 1.0; // User confirmed
+  allResults[pending.index].needs_user_selection = false;
+
+  // Write to Excel
+  await writeSingleResult(pending.rowIndex, selectedCandidate, 1.0);
+
+  // Emit match logged event
+  eventBus.emit(Events.MATCH_LOGGED, {
+    value: pending.source,
+    cellKey: `dp-selection-${pending.index}`,
+    timestamp: new Date().toISOString(),
+    result: { target: selectedCandidate, method: "UserChoice", confidence: 1.0, web_search_status: "idle" }
+  });
+
+  advanceToNextPending();
+}
+
+function handleSkipSelection() {
+  // Keep original LLM output, mark as skipped
+  advanceToNextPending();
+}
+
+function advanceToNextPending() {
+  currentPendingIndex++;
+
+  if (currentPendingIndex < pendingSelections.length) {
+    showCandidatePicker(pendingSelections[currentPendingIndex]);
+    showMessage(`Selection ${currentPendingIndex + 1} of ${pendingSelections.length}`);
+  } else {
+    finishPendingSelections();
+  }
+}
+
+function finishPendingSelections() {
+  hideCandidatePicker();
+  pendingSelections = [];
+  currentPendingIndex = 0;
+  showMessage(`Direct prompt complete: all selections resolved`);
+}
+
+async function writeSingleResult(rowIndex, target, confidence) {
+  const config = getStateValue('config.data');
+  if (!config?.column_map) return;
+
+  try {
+    await Excel.run(async ctx => {
+      ctx.runtime.enableEvents = false;
+      const ws = ctx.workbook.worksheets.getActiveWorksheet();
+      const headers = ws.getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
+      headers.load("values");
+      await ctx.sync();
+
+      const headerNames = headers.values[0].map(h => String(h || "").trim());
+      const columnMap = buildColumnMap(headerNames, config.column_map);
+      const confidenceColumnMap = buildConfidenceColumnMap(headerNames, config.column_map).confidenceColumnMap;
+
+      const sourceCol = selectedRange.columnIndex;
+      const targetCol = columnMap.get(sourceCol);
+      const confidenceCol = confidenceColumnMap?.get(sourceCol);
+
+      if (targetCol !== undefined) {
+        const targetCell = ws.getRangeByIndexes(rowIndex, targetCol, 1, 1);
+        targetCell.values = [[target]];
+        targetCell.format.fill.color = getRelevanceColor(confidence);
+        if (confidenceCol !== undefined) {
+          ws.getRangeByIndexes(rowIndex, confidenceCol, 1, 1).values = [[confidence]];
+        }
+        await ctx.sync();
+      }
+      ctx.runtime.enableEvents = true;
+    });
+  } catch (e) {
+    showMessage(`Failed to write result: ${e.message}`, "error");
+  }
+}
+
+// ========== CLEAR / RESET ==========
+
 function clearSelection() {
   selectedRange = null;
+  pendingSelections = [];
+  currentPendingIndex = 0;
+  allResults = [];
+  hideCandidatePicker();
   $("dp-hint").textContent = "Select cells in Excel to begin.";
   $("dp-user-prompt").value = "";
   $("dp-process-btn").disabled = true;
