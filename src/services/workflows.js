@@ -83,9 +83,9 @@ export async function initializeSettings() {
   stateStore.merge('settings', { ...settings, loaded: true });
 
   // Sync backend-relevant settings (fire-and-forget, don't block startup)
-  const { setWebSearch, setBraveApi } = await import("../utils/settings-manager.js");
-  if (settings.useWebSearch === false) fireAndForget(setWebSearch(false));
-  if (settings.useBraveApi === false) fireAndForget(setBraveApi(false));
+  const { updateBackendSettings } = await import("../utils/settings-manager.js");
+  if (settings.useWebSearch === false) fireAndForget(updateBackendSettings({ web_search: false }));
+  if (settings.useBraveApi === false) fireAndForget(updateBackendSettings({ brave_api: false }));
 
   return settings;
 }

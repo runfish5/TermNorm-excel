@@ -4,7 +4,7 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { getStateValue } from "../core/state-actions.js";
-import { saveSetting, loadAvailableProviders, saveLlmProvider, setBraveApi, setWebSearch, DEFAULTS } from "../utils/settings-manager.js";
+import { saveSetting, getBackendSettings, updateBackendSettings, DEFAULTS } from "../utils/settings-manager.js";
 import { showMessage } from "../utils/ui-feedback.js";
 import { getCompactVersionString } from "../utils/app-utilities.js";
 import { $, confirmModal } from "../utils/dom-helpers.js";
@@ -70,7 +70,7 @@ async function loadLlm() {
   if (llmLoaded) return;
   const sel = $("set-llm-provider"), inp = $("set-llm-model"), btn = $("set-llm-apply");
   try {
-    const data = await loadAvailableProviders();
+    const data = await getBackendSettings();
     if (!data?.available_providers) {
       sel.innerHTML = "<option>Server offline</option>";
       inp.disabled = btn.disabled = true;
@@ -95,7 +95,7 @@ async function applyLlm() {
   const btn = $("set-llm-apply");
   btn.disabled = true;
   try {
-    await saveLlmProvider(provider, model);
+    await updateBackendSettings({ provider, model });
     setLlmStatus("connected", provider);
     showMessage(`LLM: ${provider}/${model}`);
   } catch (e) { showMessage(`Failed: ${e.message}`, "error"); }
@@ -125,7 +125,7 @@ export function init(containerId = "settings-panel-content") {
 
   // Toggles
   bindToggle("set-require-server", "requireServerOnline");
-  bindToggle("set-brave-api", "useBraveApi", setBraveApi);
+  bindToggle("set-brave-api", "useBraveApi", (enabled) => updateBackendSettings({ brave_api: enabled }));
 
   // LLM
   $("set-llm-apply")?.addEventListener("click", applyLlm);
@@ -135,7 +135,7 @@ export function init(containerId = "settings-panel-content") {
     if (!(await confirmModal("Reset all settings to defaults?", "Reset", "Cancel"))) return;
     localStorage.removeItem("termnorm_settings");
     Object.entries(DEFAULTS).forEach(([k, v]) => saveSetting(k, v));
-    try { await Promise.all([setBraveApi(true), setWebSearch(true)]); } catch {}
+    try { await Promise.all([updateBackendSettings({ brave_api: true }), updateBackendSettings({ web_search: true })]); } catch {}
     $("set-require-server").checked = $("set-brave-api").checked = true;
     showMessage("Settings reset");
   });

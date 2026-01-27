@@ -28,8 +28,3 @@ export function updateBackendSettings(settings, opts = {}) {
   return apiPut(buildUrl(ENDPOINTS.SETTINGS), settings, { silent: opts.silent, processingMessage: opts.processingMessage || "Updating settings" });
 }
 
-// Convenience wrappers for backward compatibility
-export function loadAvailableProviders() { return getBackendSettings(); }
-export function saveLlmProvider(provider, model) { return updateBackendSettings({ provider, model }); }
-export function setBraveApi(enabled, opts = {}) { return updateBackendSettings({ brave_api: enabled }, opts); }
-export function setWebSearch(enabled, opts = {}) { return updateBackendSettings({ web_search: enabled }, opts); }
