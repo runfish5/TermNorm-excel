@@ -46,6 +46,14 @@
 - **Visual Feedback** - Color-coded cells show match quality at a glance
 - **Multi-User Ready** - IP-based auth with hot-reload
 
+<p align="center">
+  <img src="assets/termnorm-taskpane-mapping-config.png" alt="Mapping configuration panel" width="440">
+</p>
+
+<p align="center">
+  <img src="assets/termnorm-taskpane-cached-target-ids.png" alt="Matching results with confidence scores" width="440">
+</p>
+
 ## 🚀 Quick Start
 
 ### Prerequisites

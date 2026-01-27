@@ -24,7 +24,7 @@ async function applyConfig(configData, source) {
   setConfig({ ...config, workbook }, configData);
   await ensureUISetup();
   await reloadMappingModules();
-  showMessage(`${source}: ${config.standard_mappings.length} mapping(s)`);
+  showMessage(`${source}: ${config.standard_mappings.length} mapping config(s)`);
   setStepStates(true);
 }
 
