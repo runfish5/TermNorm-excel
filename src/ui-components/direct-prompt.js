@@ -41,26 +41,17 @@ const HTML = `<div class="direct-prompt-content">
 </div>`;
 
 export function init() {
-  const resultsView = $("results-view");
-  if (!resultsView) return false;
+  const btn = $("dp-toggle-btn");
+  if (!btn) return false;
 
-  // Create trigger button
-  const btn = document.createElement("button");
-  btn.id = "dp-toggle-btn";
-  btn.className = "btn-sm btn-secondary";
-  btn.textContent = "Direct Prompt";
   btn.addEventListener("click", togglePanel);
 
-  // Insert button after the h3 header
-  const header = resultsView.querySelector("h3");
-  header?.after(btn);
-
-  // Create panel (hidden by default)
+  // Create panel (hidden by default), insert after the h3
   const panel = document.createElement("div");
   panel.id = "direct-prompt-panel";
   panel.className = "direct-prompt-panel hidden";
   panel.innerHTML = HTML;
-  btn.after(panel);
+  btn.closest("h3")?.after(panel);
 
   // Wire up events
   $("dp-process-btn")?.addEventListener("click", processDirectPrompt);

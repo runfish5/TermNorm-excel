@@ -22,7 +22,7 @@ export function addCandidate(value, result, context) {
   currentContext = context;
 
   const names = { key_match_factors: "Factors", spec_gaps: "Gaps", _scores: "Scores" };
-  const hidden = ["abc", "relevance_score", "core_concept_score", "spec_score"];
+  const hidden = ["relevance_score", "core_concept_score", "spec_score"];
   const cols = ["_scores", ...new Set(candidatesData.flatMap(c => Object.keys(c).filter(k => !k.startsWith("_") && !hidden.includes(k))))];
   const fmt = (v) => v != null ? v.toFixed(2) : "-";
   const cell = (c, col) => col === "_scores"
