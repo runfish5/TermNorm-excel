@@ -5,8 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-01-27
+
+### Highlights
+
 **Zero-Click Setup**
 - New ON/OFF toggle switch for tracking control in dashboard
+- Auto-load mappings when config file is loaded
 
 **Direct Prompt Enhancements**
 - "Include output column" checkbox adds context to prompts
@@ -17,11 +22,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Backend Infrastructure**
 - Schema Registry (`utils/schema_registry.py`) for versioned JSON schema management
 - Schemas stored in `logs/schemas/` with version tracking
+- Langfuse-compatible datasets endpoints
 
 **UI/UX Improvements**
 - Dynamic cache size indicator shows current cache count
+- Resizable columns in Matching Journal and Processing Results tables
+- Compact status bar with inline layout
+- Ellipsis truncation for long cell values
+- Improved error messages with actionable guidance
+
+### Bug Fixes
 - Fixed cell selection scrolling and highlighting
-- Improved status indicator updates
+- Fixed status message consolidation during startup
+- Prevented auto-expand of newly added Matching Journal rows
+- Added toggle for Matching Journal clear controls
+- Included start-server-py-LLMs.bat in release package
+- Removed invalid RequestedWidth from manifest Action element
+
+### Technical Details
+- 32 commits since v1.0.4: 8 features, 7 fixes, 3 refactors, 8 docs
+- Unified column_map config - removed redundant confidence_column_map
+- Removed backward compatibility wrappers from settings-manager
+- EULA and privacy policy added for App Store submission
+- No breaking changes from v1.0.4
 
 ## [1.0.4] - 2025-12-15
 
