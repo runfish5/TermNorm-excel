@@ -1,164 +1,89 @@
-# FastAPI-LLM-Entity-Mapper
+**Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
+
+# TermNorm - AI-Powered Database Identifier Assignment for Excel
 
 <p align="center">
   <img src="https://img.shields.io/badge/Office%20Add--in-Excel-217346?logo=microsoft-excel" alt="Office Add-in">
   <img src="https://img.shields.io/badge/Office.js-1.1-217346" alt="Office.js">
 </p>
 
-### An AI-Driven Unitary Mapping System for Data Normalization
+<p align="center">
+  <em>Match free-form text to standardized database identifiers using web research, LLM reasoning, and intelligent ranking</em>
+</p>
 
 <p align="center">
-  <em>Rerank existing tables with LLMs, custom workflow chains, and
-  continuous optimization campaigns</em>
+  Type in Excel, get results in real-time. Three-tier matching: Cache → Fuzzy → AI research.
 </p>
 
 <p align="center">
   <img src="assets/termnorm-demo.gif" alt="Animated demo: 11-step walkthrough showing TermNorm Excel add-in workflow - entering a term in Excel, taskpane displaying web research progress, LLM ranking candidates with confidence scores, and applying the matched database identifier" width="550">
 </p>
 
-**Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
-
-This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
-
 <p align="center">
   <img src="assets/llm-research-ranking-workflow-overview.png" alt="LLM Research & Ranking Workflow" width="480">
 </p>
 
-The workflow diagram above shows the Python/FastAPI backend pipeline that powers real-time terminology normalization directly within Excel.
-
-<p align="center">
-  <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="560">
-</p>
-
 ## 📚 Documentation
 
-**For Users:**
-- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
+- **[Installation Guide](docs/INSTALLATION.md)** - Setup for end users and IT admins
 - **[Setup Guide](docs/SETUP-GUIDE.md)** - How to use the add-in
-- **[Configuration Guide](docs/CONFIGURATION.md)** - Config file examples and multi-user setup
+- **[Developer Guide](docs/DEVELOPER.md)** - Modify the codebase, VS Code setup
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
-
-**For Developers:**
-- **[Developer Guide](docs/DEVELOPER.md)** - Full development setup, VS Code Office Add-ins Kit, modifying UI/backend
-- **[CLAUDE.md](CLAUDE.md)** - Architecture principles and internal documentation
-
 
 ## 📋 Use Cases
 
-- **Database Identifier Assignment**: Assign free-form names to standardized database identifiers
-- **Classification & Terminology Management**: Assign categories to unstructured text and maintain consistent terminology across documents
-- **Data Normalization & Entity Linking**: Standardize product names, material codes, process terms, and match free-text entities to standardized knowledge bases
+- **Database Identifier Assignment** - Match free-form names to standardized database identifiers
+- **Classification & Terminology Management** - Assign categories to unstructured text
+- **Data Normalization & Entity Linking** - Standardize product names, material codes, process terms
+
+> **Built for scale:** Tested against 11,750+ database identifiers with expert-level disambiguation for Life Cycle Assessment (LCA) workflows.
 
 ## ✨ Key Features
 
-- **Zero-Click Setup** - Drop config file, mappings auto-load, tracking auto-activates—start working immediately
-- **Seamless Excel Integration** - Direct integration with legacy workflows and user-facing spreadsheets
-- **Instant AI-Powered Matching** - Type in Excel, get standardized results automatically—web research and LLM reasoning happen in real-time
-- **Three-Tier Intelligence** - Exact cache for speed → Fuzzy matching for variants → AI research for unknowns
-- **Direct Prompt with Validation** - Custom LLM queries with fuzzy validation against your reference terms
-- **Transparent Decision Making** - See ranked candidates with confidence scores, entity profiles, and web sources—understand why each match was suggested
-- **Zero Database Setup** - Session-based architecture stores everything in memory—no database installation, no migration scripts
-- **Complete Audit Trail** - Every match logged with timestamps and metadata—perfect for compliance and training data collection
-- **Drag-and-Drop Configuration** - Single JSON file defines everything—share configs via email or network drive
-- **Visual Confidence Feedback** - Color-coded cells show match quality at a glance—green for high confidence, yellow for uncertain
-- **Multi-User Ready** - IP-based authentication with hot-reload—add users without server restart
-
-### Interface Preview
-
-<p align="center">
-  <img src="assets/termnorm-screenshot.png" alt="TermNorm Excel Add-in Interface" width="600">
-</p>
-
-## 💡 How It Works
-
-```
-Drop Config File → Auto-Load Mappings → Auto-Activate Tracking
-    ↓
-User Input (Excel Cell)
-    ↓
-1. Quick Lookup (cached exact matches)
-    ↓
-2. Fuzzy Matching (similarity algorithms)
-    ↓
-3. LLM Research (web + entity profiling)
-    ↓
-Ranked Candidates with Confidence Scores
-    ↓
-Auto-apply or Manual Selection
-    ↓
-Logging & State Update
-```
-
-Use the ON/OFF toggle in the dashboard to pause/resume tracking anytime.
+- **Zero-Click Setup** - Drop config file, start working immediately
+- **Transparent Decisions** - Ranked candidates with confidence scores, sources, and full audit trail
+- **Direct Prompt** - Custom LLM queries with fuzzy validation against your terms
+- **Visual Feedback** - Color-coded cells show match quality at a glance
+- **Multi-User Ready** - IP-based auth with hot-reload
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Microsoft Excel (Desktop or Microsoft 365)
-- **Python 3.9+** (for backend server)
+- Python 3.9+ (for backend server)
 - LLM API key (Groq recommended, OpenAI supported)
 
-### Installation for End Users
-
-**For users who just want to deploy and use the add-in**:
-
-**1. Download the deployment package**
-
-Visit the releases page and download `termnorm-deploy-vX.X.X.zip`:
+### For End Users
 
 **👉 [Download from GitHub Releases](https://github.com/runfish5/TermNorm-excel/releases)**
 
-This package contains only the pre-built files needed for deployment:
+Download `termnorm-deploy-vX.X.X.zip` - contains everything you need:
 - ✅ Pre-built frontend (`dist/`)
 - ✅ Python backend (`backend-api/`)
 - ✅ Manifest files
 - ✅ Configuration templates
 
-Extract the zip file to your desired location (e.g., `C:\TermNorm-excel\`)
+**Setup:**
 
-**2. Start backend server**
-
-Run `start-server-py-LLMs.bat` in the project directory.
-
-**Note:** Changes to `backend-api/config/users.json` are hot-reloaded automatically (no server restart needed).
-
-<details>
-<summary>What does the script do?</summary>
-
-The script automatically:
-- ✅ Sets up virtual environment
-- ✅ Installs all dependencies
-- ✅ Chooses deployment type (Local or Network)
-- ✅ Runs diagnostics and starts server
-</details>
+1. Extract to your desired location (e.g., `C:\TermNorm-excel\`)
+2. Run `start-server-py-LLMs.bat` to start the backend
+3. Install the add-in:
+   - **Microsoft 365**: Upload `manifest-cloud.xml` via *Home → Add-ins → Upload My Add-in*
+   - **Desktop Excel**: Requires network deployment - see [Installation Guide](docs/INSTALLATION.md#3-desktop-excel-deployment-network-sideloading)
 
 <details>
-<summary>Manual setup (alternative)</summary>
+<summary>Manual backend setup (alternative)</summary>
 
 ```bash
 cd backend-api
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-
-# Set API key
 setx GROQ_API_KEY "your_api_key_here"
-
-# Start server
-python -m uvicorn main:app --reload                              # Local
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
+python -m uvicorn main:app --reload
 ```
 </details>
-
-**3. Install Excel add-in**
-
-- **Microsoft 365** (Simple): Upload `manifest-cloud.xml` (from extracted folder) via *Home → Add-ins → Upload My Add-in*
-- **Desktop Excel** (Complex): Requires network deployment. See [Desktop Excel Deployment](#desktop-excel-deployment-network-sideloading) below for full setup.
-
-📖 **[Full Installation Guide](docs/INSTALLATION.md)** | **[Client Setup Guide (German)](docs/CLIENT_INSTALLATION_de.md)**
-
----
 
 ## 🖥️ Desktop Excel Deployment (Network Sideloading)
 
@@ -175,6 +100,12 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 ---
 
 ## 👨‍💻 For Developers
+
+This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
+
+<p align="center">
+  <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="600">
+</p>
 
 **Want to modify this codebase?** Check out the comprehensive developer guide:
 
@@ -194,8 +125,6 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 - [Sideloading from network share](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/create-a-network-shared-folder-catalog-for-task-pane-and-content-add-ins)
 
 ### Quick Start for Developers
-
-**For developers who want to modify the code:**
 
 ```bash
 git clone https://github.com/runfish5/TermNorm-excel.git
