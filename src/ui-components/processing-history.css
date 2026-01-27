@@ -1,7 +1,37 @@
 /* Processing History */
 
+/* Compact header for history table */
+#processing-history-feed .table thead th {
+    padding: 4px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+#processing-history-feed .table tbody td {
+    padding: 6px 8px;
+}
+
+/* Resizable columns */
+.table-resizable th {
+    position: relative;
+}
+
+.resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background: transparent;
+}
+
+.resize-handle:hover {
+    background: var(--primary);
+}
+
 /* Table columns */
-.table .time { font-family: monospace; color: #6c757d; font-size: 12px; white-space: nowrap; }
+.table .time { font-family: monospace; color: #6c757d; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
 .table .source { font-weight: 500; color: #0d6efd; word-break: break-word; }
 .table .target { font-weight: 500; color: #198754; word-break: break-word; }
 .table .confidence { font-weight: 600; text-align: center; white-space: nowrap; }
@@ -14,6 +44,9 @@
     border-radius: 12px;
     text-align: center;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
 }
 
 /* Method colors */
