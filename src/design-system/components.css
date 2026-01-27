@@ -980,6 +980,8 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .details-panel-compact {
     font-size: var(--font-size-base);
     line-height: 1.4;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-lg);
 }
 
 .details-row {
@@ -1010,8 +1012,8 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 
 .target-highlight {
     padding: 4px 8px;
-    margin: 4px 0;
     border-radius: var(--radius-sm);
+    flex: 1;
 }
 
 .profile-section {

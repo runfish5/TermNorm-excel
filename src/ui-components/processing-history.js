@@ -75,9 +75,13 @@ export function init(containerId = "processing-history-feed") {
   if (!container) return false;
   if (tableBody?.isConnected) return true;
   sourceIndex.clear();
-  container.innerHTML = `<table class="table table-rounded table-elevated"><thead><tr><th>Time</th><th>Source</th><th>Target</th><th>Method</th><th>Confidence</th></tr></thead><tbody></tbody></table>`;
+  container.innerHTML = `<table class="table table-sm table-rounded table-elevated table-resizable"><thead><tr><th>Time<span class="resize-handle"></span></th><th>Src<span class="resize-handle"></span></th><th>Tgt<span class="resize-handle"></span></th><th>Method<span class="resize-handle"></span></th><th>%</th></tr></thead><tbody></tbody></table>`;
   tableBody = container.querySelector("tbody");
+  setupColumnResize(container.querySelector("table"));
   $("clear-history")?.addEventListener("click", clear);
+  $("history-options-toggle")?.addEventListener("click", () => {
+    $("history-controls")?.classList.toggle("hidden");
+  });
   showPlaceholder();
   return true;
 }
@@ -144,6 +148,30 @@ function scrollToAndHighlight(key, type = "sessionKey") {
 
 const showPlaceholder = () => tableBody && !tableBody.querySelector(".history-row") && (tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No matches yet. Start tracking.</td></tr>');
 
+function setupColumnResize(table) {
+  const ths = table.querySelectorAll("th");
+  ths.forEach(th => {
+    const handle = th.querySelector(".resize-handle");
+    if (!handle) return;
+    let startX, startWidth;
+    handle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startX = e.pageX;
+      startWidth = th.offsetWidth;
+      const onMouseMove = (e) => {
+        const newWidth = Math.max(40, startWidth + e.pageX - startX);
+        th.style.width = newWidth + "px";
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+  });
+}
+
 function collapseExpandedRow() {
   if (!expandedRowState) return;
   const { originalRow, expandedRow, source } = expandedRowState;
@@ -191,11 +219,11 @@ function displayDetailsPanel(d, row) {
 
   const tr = document.createElement("tr");
   tr.className = "history-row expanded-details"; tr.dataset.identifier = d.identifier || ""; tr.dataset.source = source || "";
-  tr.innerHTML = `<td colspan="5" class="details-cell-compact"><div class="details-panel-compact">
-    <div class="details-row"><span class="details-label">Aliases (${aliases.length})</span><button class="btn-xs btn-ghost alias-toggle" title="Expand">⊞</button><button class="btn-collapse-sm">▲</button></div>
+  tr.innerHTML = `<td colspan="5" class="details-cell-compact"><div class="details-panel-compact card-info">
+    <div class="details-row"><div class="target-highlight"><strong>Target:</strong> ${d.identifier || "?"}</div><button class="btn-collapse-sm">▲</button></div>
+    <div class="details-row"><span class="details-label">Aliases (${aliases.length})</span><button class="btn-xs btn-ghost alias-toggle" title="Expand">⊞</button></div>
     <div class="aliases-inline">${aliasInline}</div>
     <div class="aliases-rows hidden">${aliasRows}</div>
-    <div class="target-highlight card-info"><strong>Target:</strong> ${d.identifier || "?"}</div>
     <div class="profile-section">${profile}</div>
     <details class="details-collapsible"><summary>Sources (${d.web_sources?.length || 0})</summary><ul class="list-plain list-scrollable">${srcHTML}</ul></details>
   </div></td>`;
