@@ -10,7 +10,8 @@ const addEvent = (e) => { if (!e.source) return; e.timestamp = e.timestamp || ne
 const clearEvents = () => { sessionEvents.length = 0; };
 
 let container = null, tableBody = null, expandedRowState = null;
-const sourceIndex = new Map(); // Map<normalizedSource, {row, history[]}>
+const sourceIndex = new Map(); // Map<normalizedSource, {row, history[], addedAt}>
+const AUTO_EXPAND_DELAY_MS = 1500; // Don't auto-expand rows added in the last 1.5 seconds
 
 const norm = (s) => (s || "").trim().toLowerCase();
 
@@ -108,13 +109,14 @@ export async function addEntry(source, cellKey, timestamp, result) {
   const existing = sourceIndex.get(key);
   if (existing) {
     insertSorted(existing.history, h);
+    existing.addedAt = Date.now(); // Update timestamp to prevent auto-expand
     tableBody.insertBefore(existing.row, tableBody.firstChild);
     const latest = existing.history[0];
     renderRow(existing.row, { source, timestamp: latest.timestamp }, latest, existing.history.length);
     addClickHandler(existing.row, latest.target, source);
   } else {
     const row = renderRow(null, { source, sessionKey: cellKey, timestamp: ts }, r, 1);
-    sourceIndex.set(key, { row, history: [h] });
+    sourceIndex.set(key, { row, history: [h], addedAt: Date.now() });
     tableBody.insertBefore(row, tableBody.firstChild);
     addClickHandler(row, r.target, source);
   }
@@ -191,8 +193,17 @@ export async function handleCellSelection(cellKey, state, identifier, source) {
   if ($("history-view")?.classList.contains("hidden")) return;
   const id = identifier || state?.result?.target;
   let row = scrollToAndHighlight(cellKey, "sessionKey");
-  if (!row && source) { const entry = sourceIndex.get(norm(source)); if (entry?.row) { collapseExpandedRow(); entry.row.scrollIntoView({ behavior: "smooth", block: "center" }); row = entry.row; } }
+  let entry = null;
+  if (!row && source) {
+    entry = sourceIndex.get(norm(source));
+    if (entry?.row) { collapseExpandedRow(); entry.row.scrollIntoView({ behavior: "smooth", block: "center" }); row = entry.row; }
+  }
   if (!row) row = scrollToAndHighlight(id, "identifier");
+  // Skip auto-expand for recently added rows (let user see the row first)
+  // Check entry if found by source, otherwise check by row's source data attribute
+  const sourceKey = entry ? null : (row?.dataset?.source ? norm(row.dataset.source) : null);
+  const entryToCheck = entry || (sourceKey ? sourceIndex.get(sourceKey) : null);
+  if (entryToCheck?.addedAt && Date.now() - entryToCheck.addedAt < AUTO_EXPAND_DELAY_MS) return;
   const currentId = row?.dataset?.identifier || id;
   if (currentId && row) fetchAndDisplayDetails(currentId, row);
 }
