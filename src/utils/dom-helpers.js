@@ -18,3 +18,27 @@ export const confirmModal = (msg, ok = "Confirm", cancel = "Cancel") => new Prom
   m.querySelectorAll("button")[1].onclick = () => done(false);
   m.onclick = e => e.target === m && done(false);
 });
+
+export function setupColumnResize(table) {
+  const ths = table.querySelectorAll("th");
+  ths.forEach(th => {
+    const handle = th.querySelector(".resize-handle");
+    if (!handle) return;
+    let startX, startWidth;
+    handle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startX = e.pageX;
+      startWidth = th.offsetWidth;
+      const onMouseMove = (e) => {
+        const newWidth = Math.max(40, startWidth + e.pageX - startX);
+        th.style.width = newWidth + "px";
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+  });
+}

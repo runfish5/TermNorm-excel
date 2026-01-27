@@ -711,3 +711,10 @@
     z-index: 1050;
 }
 .settings-overlay.hidden { display: none; }
+
+/* Candidate table ellipsis truncation */
+.candidate-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
+}

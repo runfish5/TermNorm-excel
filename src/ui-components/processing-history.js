@@ -1,7 +1,7 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { EVENT_LOG } from "../config/config.js";
-import { $ } from "../utils/dom-helpers.js";
+import { $, setupColumnResize } from "../utils/dom-helpers.js";
 import { cacheEntity, getEntity } from "../utils/history-cache.js";
 import { addSessionHistoryEntry, getStateValue, clearSessionHistory, setSessionHistory } from "../core/state-actions.js";
 
@@ -150,29 +150,6 @@ function scrollToAndHighlight(key, type = "sessionKey") {
 
 const showPlaceholder = () => tableBody && !tableBody.querySelector(".history-row") && (tableBody.innerHTML = '<tr class="placeholder-row"><td colspan="5">No matches yet. Start tracking.</td></tr>');
 
-function setupColumnResize(table) {
-  const ths = table.querySelectorAll("th");
-  ths.forEach(th => {
-    const handle = th.querySelector(".resize-handle");
-    if (!handle) return;
-    let startX, startWidth;
-    handle.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      startX = e.pageX;
-      startWidth = th.offsetWidth;
-      const onMouseMove = (e) => {
-        const newWidth = Math.max(40, startWidth + e.pageX - startX);
-        th.style.width = newWidth + "px";
-      };
-      const onMouseUp = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    });
-  });
-}
 
 function collapseExpandedRow() {
   if (!expandedRowState) return;

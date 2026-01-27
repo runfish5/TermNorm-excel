@@ -2,7 +2,7 @@ import { init as initHistory } from "./processing-history.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { UI_TIMINGS } from "../config/config.js";
-import { $ } from "../utils/dom-helpers.js";
+import { $, setupColumnResize } from "../utils/dom-helpers.js";
 
 let container = null, candidatesData = [], currentContext = null;
 
@@ -31,18 +31,21 @@ export function addCandidate(value, result, context) {
   const section = container.querySelector("#candidate-ranking-section");
   if (!section) return;
 
+  // Show the Apply First button in the header
+  const applyBtn = $("apply-first");
+  if (applyBtn) applyBtn.classList.remove("hidden");
+
   section.innerHTML = `
     <div class="candidate-entry">
       <div class="candidate-header">Input: "${value}"</div>
       <div class="candidate-inline-header">
-        <button id="apply-first" class="btn-primary">Apply First</button>
         <span class="candidate-drag-hint">Drag to reorder</span>
       </div>
-      <table class="candidate-table">
+      <table class="candidate-table table-resizable">
         <thead>
           <tr>
             <th>🔀</th>
-            ${cols.map(c => `<th>${names[c] || c.replace(/_/g, " ")}</th>`).join("")}
+            ${cols.map(c => `<th>${names[c] || c.replace(/_/g, " ")}<span class="resize-handle"></span></th>`).join("")}
           </tr>
         </thead>
         <tbody>
@@ -57,8 +60,11 @@ export function addCandidate(value, result, context) {
     </div>`;
 
   setupDragDrop(section);
-  const btn = section.querySelector("#apply-first");
-  if (btn) btn.onclick = async () => {
+  setupColumnResize(section.querySelector("table"));
+
+  // Wire up Apply First button in header
+  const headerBtn = $("apply-first");
+  if (headerBtn) headerBtn.onclick = async () => {
     const first = candidatesData[0];
     if (!first || !currentContext) return;
     const fb = showFeedback(section, "Processing...", "bg-muted");
