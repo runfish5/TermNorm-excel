@@ -527,6 +527,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         message=f"Research completed - Found {num_candidates} matches in {total_time}s",
         data={
             "ranked_candidates": llm_response.get('ranked_candidates', []),
+            "entity_profile": entity_profile,
+            "token_matched_candidates": candidate_results[:20],
             "llm_provider": llm_response.get('llm_provider'),
             "total_time": total_time,
             "web_search_status": "failed" if web_search_failed else "success",
