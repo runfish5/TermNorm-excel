@@ -27,7 +27,7 @@ def find_top_matches(llm_string, candidates, n=10):
     return scores[:n]
 
 
-def correct_candidate_strings(ranking_result, match_results):
+def correct_candidate_strings(ranking_result, match_results, relevance_weight_core=0.7):
     """
     Corrects LLM-altered candidate strings by finding best matches from original results.
     
@@ -78,7 +78,7 @@ def correct_candidate_strings(ranking_result, match_results):
         # Calculate relevance_score from existing scores (70% core concept + 30% spec)
         core_score = corrected_info.get('core_concept_score', 0.0)
         spec_score = corrected_info.get('spec_score', 0.0)
-        corrected_info['relevance_score'] = (core_score * 0.7 + spec_score * 0.3)
+        corrected_info['relevance_score'] = (core_score * relevance_weight_core + spec_score * (1 - relevance_weight_core))
 
         corrected_candidates.append(corrected_info)
     

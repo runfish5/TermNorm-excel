@@ -250,7 +250,7 @@ def _searxng_fallback(query, num_results=20, log=None):
     return []
 
 
-def _execute_search_fallback_chain(query, headers, search_log):
+def _execute_search_fallback_chain(query, headers, search_log, num_results=20):
     """Execute 4-tier search fallback chain, return (urls, search_method)"""
     # Check if web search is disabled globally
     if not settings.use_web_search:
@@ -261,12 +261,12 @@ def _execute_search_fallback_chain(query, headers, search_log):
         return [], "Web search disabled"
 
     # 1. Brave Search API (if configured/enabled)
-    urls = _brave_search(query, num_results=20, log=search_log)
+    urls = _brave_search(query, num_results=num_results, log=search_log)
     if urls:
         return urls, "Brave Search API"
 
     # 2. SearXNG meta-search
-    urls = _searxng_fallback(query, num_results=20, log=search_log)
+    urls = _searxng_fallback(query, num_results=num_results, log=search_log)
     if urls:
         return urls, "SearXNG meta-search"
 
@@ -343,7 +343,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             }
         }
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, verbose=False):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
@@ -363,7 +363,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     }
 
     # Execute search fallback chain (Brave → SearXNG → DuckDuckGo → Bing)
-    urls, search_method = _execute_search_fallback_chain(query, headers, search_log)
+    urls, search_method = _execute_search_fallback_chain(query, headers, search_log, num_results=num_results)
     
     scraped_content = []
     scrape_errors = []
@@ -427,7 +427,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     print()  # Blank line for readability
 
     messages = [{"role": "user", "content": prompt}]
-    result = await llm_call(messages=messages, temperature=0.3, max_tokens=1800, output_format="json")
+    result = await llm_call(messages=messages, temperature=profiling_temperature, max_tokens=profiling_max_tokens, output_format="json")
     
     processing_time = time.time() - start_time
     result['_metadata'] = {

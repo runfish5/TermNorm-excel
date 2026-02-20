@@ -31,11 +31,11 @@ RANKING_SCHEMA = {
     "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
 }
 
-async def call_llm_for_ranking(profile_info, entity_profile, match_results, query):
+async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, temperature=0, max_tokens=4000, sample_size=20, relevance_weight_core=0.7):
     """Rank candidates using LLM and return (result, debug_info) tuple"""
-    available_results = list(match_results[:20])
-    sample_size = min(len(available_results), 20)  
-    random_20 = random.sample(available_results, sample_size) if available_results else []
+    available_results = list(match_results[:sample_size])
+    effective_sample = min(len(available_results), sample_size)
+    random_20 = random.sample(available_results, effective_sample) if available_results else []
     matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
     
@@ -75,13 +75,13 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
 
     ranking_result = await llm_call(
         messages=[{"role": "user", "content": enhanced_prompt}],
-        temperature=0,
-        max_tokens=4000,
+        temperature=temperature,
+        max_tokens=max_tokens,
         output_format="json"  # Use json mode instead of schema
     )
-    
+
     print("\n[PIPELINE] Step 4: Correcting candidate strings")
-    corrected = correct_candidate_strings(ranking_result, match_results)
+    corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)
     
     if corrected and 'ranked_candidates' in corrected:
         candidates = corrected['ranked_candidates']

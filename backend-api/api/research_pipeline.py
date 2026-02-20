@@ -401,6 +401,19 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     query = payload.get("query", "")
     skip_llm_ranking = payload.get("skip_llm_ranking", False)
 
+    # Pipeline parameter overrides (forwarded from PromptPotter)
+    max_sites = payload.get("max_sites", 7)
+    num_results = payload.get("num_results", 20)
+    content_char_limit = payload.get("content_char_limit", 800)
+    raw_content_limit = payload.get("raw_content_limit", 5000)
+    profiling_temperature = payload.get("profiling_temperature", 0.3)
+    profiling_max_tokens = payload.get("profiling_max_tokens", 1800)
+    ranking_temperature = payload.get("ranking_temperature", 0)
+    ranking_max_tokens = payload.get("ranking_max_tokens", 4000)
+    ranking_sample_size = payload.get("ranking_sample_size", 20)
+    max_token_candidates = payload.get("max_token_candidates", 20)
+    relevance_weight_core = payload.get("relevance_weight_core", 0.7)
+
     # Retrieve terms from session
     if user_id not in user_sessions:
         raise HTTPException(
@@ -420,9 +433,14 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info("[PIPELINE] Step 1: Researching")
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
-        max_sites=7,
+        max_sites=max_sites,
         schema=ENTITY_SCHEMA,
-        verbose=True
+        content_char_limit=content_char_limit,
+        raw_content_limit=raw_content_limit,
+        num_results=num_results,
+        profiling_temperature=profiling_temperature,
+        profiling_max_tokens=profiling_max_tokens,
+        verbose=True,
     )
     pprint(entity_profile)
 
@@ -448,15 +466,19 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
-                for term, score in candidate_results[:20]
+                for term, score in candidate_results[:max_token_candidates]
             ]
         }
-        ranking_debug = {"inputs": {"token_matched_candidates": candidate_results[:20]}}
+        ranking_debug = {"inputs": {"token_matched_candidates": candidate_results[:max_token_candidates]}}
     else:
         logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
-            profile_info, entity_profile, candidate_results, query
+            profile_info, entity_profile, candidate_results, query,
+            temperature=ranking_temperature,
+            max_tokens=ranking_max_tokens,
+            sample_size=ranking_sample_size,
+            relevance_weight_core=relevance_weight_core,
         )
 
     total_time = round(time.time() - start_time, 2)
@@ -474,6 +496,21 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
 
+    # Collect non-default pipeline params for traceability
+    _pipeline_params = {
+        "max_sites": max_sites,
+        "num_results": num_results,
+        "content_char_limit": content_char_limit,
+        "raw_content_limit": raw_content_limit,
+        "profiling_temperature": profiling_temperature,
+        "profiling_max_tokens": profiling_max_tokens,
+        "ranking_temperature": ranking_temperature,
+        "ranking_max_tokens": ranking_max_tokens,
+        "ranking_sample_size": ranking_sample_size,
+        "max_token_candidates": max_token_candidates,
+        "relevance_weight_core": relevance_weight_core,
+    }
+
     # Training record for logging
     training_record = {
         "source": query,
@@ -484,6 +521,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "total_time": total_time,
         "web_search_status": "failed" if web_search_failed else "success",
+        "pipeline_params": _pipeline_params,
         # Verbose data (goes to separate observation files)
         "entity_profile": entity_profile,
         "candidates": [
@@ -528,11 +566,12 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         data={
             "ranked_candidates": llm_response.get('ranked_candidates', []),
             "entity_profile": entity_profile,
-            "token_matched_candidates": candidate_results[:20],
+            "token_matched_candidates": candidate_results[:max_token_candidates],
             "llm_provider": llm_response.get('llm_provider'),
             "total_time": total_time,
             "web_search_status": "failed" if web_search_failed else "success",
-            "web_search_error": scraped_sources.get("error") if web_search_failed else None
+            "web_search_error": scraped_sources.get("error") if web_search_failed else None,
+            "pipeline_params": _pipeline_params,
         }
     )
 
