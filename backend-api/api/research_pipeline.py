@@ -400,6 +400,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     user_id = request.state.user_id
     query = payload.get("query", "")
     skip_llm_ranking = payload.get("skip_llm_ranking", False)
+    steps = payload.get("steps")  # e.g. ["entity_profiling", "token_matching"]
 
     # Pipeline parameter overrides (forwarded from PromptPotter)
     max_sites = payload.get("max_sites", 7)
@@ -413,6 +414,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     ranking_sample_size = payload.get("ranking_sample_size", 20)
     max_token_candidates = payload.get("max_token_candidates", 20)
     relevance_weight_core = payload.get("relevance_weight_core", 0.7)
+    ranking_prompt = payload.get("ranking_prompt", None)
 
     # Retrieve terms from session
     if user_id not in user_sessions:
@@ -431,6 +433,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     # Step 1: Research (always returns tuple)
     logger.info("[PIPELINE] Step 1: Researching")
+    step1_start = time.time()
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         max_sites=max_sites,
@@ -442,6 +445,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         profiling_max_tokens=profiling_max_tokens,
         verbose=True,
     )
+    step1_time = round(time.time() - step1_start, 3)
     pprint(entity_profile)
 
     # Step 2: Token matching
@@ -454,14 +458,23 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(f"Search terms: {len(search_terms)} total → {len(unique_search_terms)} unique")
     logger.info(f"Unique terms: {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
-    match_start = time.time()
+    step2_start = time.time()
     candidate_results = token_matcher.match(unique_search_terms)
+    step2_time = round(time.time() - step2_start, 3)
 
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
-    logger.info(f"Match completed in {time.time() - match_start:.2f}s")
+    logger.info(f"Match completed in {step2_time:.2f}s")
 
     # Step 3: LLM ranking (conditional)
-    if skip_llm_ranking:
+    # When `steps` is provided, it controls which stages execute.
+    # When absent, fall back to `skip_llm_ranking` flag.
+    if steps is not None:
+        run_llm_ranking = "llm_ranking" in steps
+    else:
+        run_llm_ranking = not skip_llm_ranking
+
+    step3_start = time.time()
+    if not run_llm_ranking:
         logger.info(CYAN + "\n[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
         llm_response = {
             "ranked_candidates": [
@@ -479,7 +492,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             max_tokens=ranking_max_tokens,
             sample_size=ranking_sample_size,
             relevance_weight_core=relevance_weight_core,
+            ranking_prompt=ranking_prompt,
         )
+    step3_time = round(time.time() - step3_start, 3) if run_llm_ranking else None
 
     total_time = round(time.time() - start_time, 2)
 
@@ -497,7 +512,16 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
 
     # Collect non-default pipeline params for traceability
+    # Echo actual steps that ran (when `steps` was provided, use it; otherwise derive)
+    if steps is not None:
+        _actual_steps = steps
+    else:
+        _actual_steps = ["web_search", "entity_profiling", "token_matching"]
+        if run_llm_ranking:
+            _actual_steps.append("llm_ranking")
+
     _pipeline_params = {
+        "steps": _actual_steps,
         "max_sites": max_sites,
         "num_results": num_results,
         "content_char_limit": content_char_limit,
@@ -569,6 +593,11 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             "token_matched_candidates": candidate_results[:max_token_candidates],
             "llm_provider": llm_response.get('llm_provider'),
             "total_time": total_time,
+            "step_timings": {
+                "entity_profiling": step1_time,
+                "token_matching": step2_time,
+                "llm_ranking": step3_time,
+            },
             "web_search_status": "failed" if web_search_failed else "success",
             "web_search_error": scraped_sources.get("error") if web_search_failed else None,
             "pipeline_params": _pipeline_params,

@@ -31,27 +31,33 @@ RANKING_SCHEMA = {
     "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
 }
 
-async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, temperature=0, max_tokens=4000, sample_size=20, relevance_weight_core=0.7):
+async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, temperature=0, max_tokens=4000, sample_size=20, relevance_weight_core=0.7, ranking_prompt=None):
     """Rank candidates using LLM and return (result, debug_info) tuple"""
     available_results = list(match_results[:sample_size])
     effective_sample = min(len(available_results), sample_size)
     random_20 = random.sample(available_results, effective_sample) if available_results else []
     matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
-    
-    # Get prompt from registry
-    registry = get_prompt_registry()
+
     import json as json_lib
     entity_profile_json = json_lib.dumps(entity_profile, indent=2)
-    
-    prompt = registry.render_prompt(
-        family="llm_ranking",
-        version=1,  # Explicit version for reproducibility
-        query=query,
-        core_concept=core_concept,
-        entity_profile_json=entity_profile_json,
-        matches=matches
-    )
+
+    if ranking_prompt:
+        # Use custom prompt with {{variable}} substitution
+        prompt = ranking_prompt.replace("{{core_concept}}", core_concept)
+        prompt = prompt.replace("{{entity_profile_json}}", entity_profile_json)
+        prompt = prompt.replace("{{matches}}", matches)
+    else:
+        # Get prompt from registry
+        registry = get_prompt_registry()
+        prompt = registry.render_prompt(
+            family="llm_ranking",
+            version=1,  # Explicit version for reproducibility
+            query=query,
+            core_concept=core_concept,
+            entity_profile_json=entity_profile_json,
+            matches=matches
+        )
     
     enhanced_prompt = f"""{prompt}
 
