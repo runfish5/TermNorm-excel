@@ -28,8 +28,14 @@ SCRAPE_TITLE_MAX_LENGTH = _WS_CONFIG["title_truncate_length"]
 SKIP_EXTENSIONS = _WS_CONFIG["skip_extensions"]
 SKIP_DOMAINS = _WS_CONFIG["skip_domains"]
 
+_USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+]
 
-def generate_format_string_from_schema(schema):
+
+def _generate_format_string_from_schema(schema):
     """Generate the JSON format string for LLM prompt from a JSON schema"""
     if 'properties' not in schema:
         raise ValueError("Schema must contain 'properties' field")
@@ -61,7 +67,7 @@ def scrape_url(url, char_limit):
 
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': random.choice(_USER_AGENTS),
             'Accept-Language': 'en-US,en;q=0.9'
         }
 
@@ -217,23 +223,14 @@ def _searxng_fallback(query, num_results=20, log=None):
     SearXNG meta-search fallback - queries 70+ engines simultaneously
     Rotates through multiple public instances for reliability
     """
-    # Expanded instance pool with known-working alternatives
-    searx_instances = [
-        'https://searx.be',
-        'https://searx.tiekoetter.com',
-        'https://searx.ninja',
-        'https://search.bus-hit.me',
-        'https://paulgo.io',
-        'https://searx.work',
-        'https://opnxng.com'
-    ]
+    searx_instances = _WS_CONFIG["searxng_instances"]
 
     for instance in searx_instances:
         try:
             response = requests.get(
                 f"{instance}/search",
                 params={'q': query, 'format': 'json', 'language': 'en', 'safesearch': 0},
-                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+                headers={'User-Agent': random.choice(_USER_AGENTS)},
                 timeout=_WS_CONFIG["searxng_timeout"]
             )
 
@@ -305,7 +302,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
             [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
         )[:raw_content_limit]
 
-    format_string = generate_format_string_from_schema(schema)
+    format_string = _generate_format_string_from_schema(schema)
 
     # Get prompt from registry (versioned)
     registry = get_prompt_registry()
@@ -365,14 +362,8 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         print(f"{MAGENTA}[WEB_SCRAPE] Skipped (LLM knowledge only){RESET}")
         search_log.append("Web search skipped (skip_search=True)")
     else:
-        # User-Agent rotation for bot mitigation
-        user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-        ]
         headers = {
-            'User-Agent': random.choice(user_agents),
+            'User-Agent': random.choice(_USER_AGENTS),
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         }

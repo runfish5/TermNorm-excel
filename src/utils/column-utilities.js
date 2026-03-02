@@ -1,3 +1,5 @@
+import { LIMITS } from "../config/config.js";
+
 export function findColumnIndex(headers, columnName) {
   if (!columnName || !headers) return -1;
   return headers.findIndex((h) => h?.toString().trim().toLowerCase() === columnName.toLowerCase());
@@ -60,7 +62,7 @@ export function buildConfidenceColumnMap(headers, columnMap) {
  * @returns {Promise<{headerNames: string[], columnMap: Map, confidenceColumnMap: Map, confidenceFound: string[], confidenceMissing: string[]}>}
  */
 export async function resolveColumnMaps(ws, ctx, columnConfig, worksheetName) {
-  const headers = ws.getRangeByIndexes(0, 0, 1, 100);
+  const headers = ws.getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
   headers.load("values");
   await ctx.sync();
   const headerNames = headers.values[0].map(h => String(h || "").trim());

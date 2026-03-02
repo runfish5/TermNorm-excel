@@ -29,7 +29,7 @@ export function showMessage(text, type = "info") {
     el.classList.remove("status-message--error");
     const dotsEl = el.querySelector('.loading-dots'), states = ['', '.', '..', '...', '..', '.'];
     let i = 0;
-    dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % 6]; }, UI_TIMINGS.LOADING_DOTS_MS);
+    dotsInterval = setInterval(() => { if (dotsEl) dotsEl.textContent = states[i = (i + 1) % states.length]; }, UI_TIMINGS.LOADING_DOTS_MS);
   } else {
     el.textContent = text;
     el.classList.toggle("status-message--error", type === "error");

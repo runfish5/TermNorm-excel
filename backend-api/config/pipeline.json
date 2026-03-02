@@ -65,6 +65,7 @@
         "relevance_weight_core": 0.7,
         "tokenization_regex": "[a-zA-Z0-9]+",
         "high_confidence_threshold": 0.8,
+        "accept_threshold": 0.75,
         "correction_top_n": 10
       }
     },

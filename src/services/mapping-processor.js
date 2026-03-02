@@ -9,7 +9,7 @@ function validateParams(params) {
   return params;
 }
 
-export function processMappings(data, sourceColumn, targetColumn) {
+function processMappings(data, sourceColumn, targetColumn) {
   if (!data?.length || data.length < 2) throw new Error("Need header row and at least one data row");
 
   const [headers, ...rows] = data;

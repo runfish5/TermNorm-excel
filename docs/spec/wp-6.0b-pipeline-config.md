@@ -26,7 +26,8 @@ Each runtime (backend, frontend) gets its own config file with two sections:
       "config": {
         "threshold": 70,
         "scorer": "WRatio",
-        "limit": 5
+        "limit": 5,
+        "_note": "0-100 scale (rapidfuzz). Frontend uses 0-1 scale with levenshtein_word."
       }
     },
     "web_search": {
@@ -78,6 +79,7 @@ Each runtime (backend, frontend) gets its own config file with two sections:
         "relevance_weight_core": 0.7,
         "tokenization_regex": "[a-zA-Z0-9]+",
         "high_confidence_threshold": 0.8,
+        "accept_threshold": 0.75,
         "correction_top_n": 10
       }
     },
@@ -145,62 +147,63 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 
 | Node | Parameter | Default | Source |
 |------|-----------|---------|--------|
-| `fuzzy_matching` | `threshold` | `70` | `fuzzy_matching.py:27` |
-| | `scorer` | `"WRatio"` | `fuzzy_matching.py:28` |
-| | `limit` | `5` | `fuzzy_matching.py:29` |
-| `web_search` | `max_sites` | `7` | `research_pipeline.py:407` |
-| | `num_results` | `20` | `research_pipeline.py:408` |
-| | `content_char_limit` | `800` | `research_pipeline.py:409` |
-| | `raw_content_limit` | `5000` | `research_pipeline.py:410` |
-| | `scrape_timeout` | `5` | `web_generate_entity_profile.py:56` |
-| | `search_engine_timeout` | `10` | `web_generate_entity_profile.py:80` |
-| | `brave_api_timeout` | `10` | `web_generate_entity_profile.py:170` |
-| | `searxng_timeout` | `12` | `web_generate_entity_profile.py:225` |
-| | `http_content_limit` | `50000` | `web_generate_entity_profile.py:60` |
-| | `min_page_text_length` | `200` | `web_generate_entity_profile.py:65` |
-| | `max_page_text_length` | `10000` | `web_generate_entity_profile.py:65` |
-| | `title_truncate_length` | `100` | `web_generate_entity_profile.py:69` |
-| | `scrape_workers` | `10` | `web_generate_entity_profile.py:375` |
-| | `scrape_url_multiplier` | `2` | `web_generate_entity_profile.py:373` |
-| | `content_per_site_in_prompt` | `500` | `web_generate_entity_profile.py:298` |
-| | `fallback_keywords_max` | `8` | `web_generate_entity_profile.py:294` |
-| | `bot_mitigation_delay` | `1` | `web_generate_entity_profile.py:274` |
-| | `skip_extensions` | 7 file types | `web_generate_entity_profile.py:44` |
-| | `skip_domains` | 4 academic domains | `web_generate_entity_profile.py:45` |
-| | `searxng_instances` | 7 public instances | `web_generate_entity_profile.py:209-217` |
-| `entity_profiling` | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py:11` |
-| | `temperature` | `0.3` | `research_pipeline.py:411` |
-| | `max_tokens` | `1800` | `research_pipeline.py:412` |
-| | `output_format` | `"json"` | `web_generate_entity_profile.py:430` |
-| | `prompt_family` | `"entity_profiling"` | `web_generate_entity_profile.py:306` |
-| | `prompt_version` | `1` | `web_generate_entity_profile.py:307` |
-| | `schema_family` | `"entity_profile"` | `research_pipeline.py:37` |
-| | `schema_version` | `1` | `standards_logger.py:1079` |
-| `token_matching` | `max_token_candidates` | `20` | `research_pipeline.py:416` |
-| | `relevance_weight_core` | `0.7` | `research_pipeline.py:417` |
-| | `tokenization_regex` | `[a-zA-Z0-9]+` | `research_pipeline.py:334` |
-| | `high_confidence_threshold` | `0.8` | `research_pipeline.py:147` |
-| | `correction_top_n` | `10` | `correct_candidate_strings.py:4` |
-| `llm_ranking` | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py:11` |
-| | `temperature` | `0.0` | `call_llm_for_ranking.py:34` |
-| | `max_tokens` | `4000` | `call_llm_for_ranking.py:34` |
-| | `output_format` | `"json"` | `call_llm_for_ranking.py:86` |
-| | `ranking_sample_size` | `20` | `call_llm_for_ranking.py:34` |
-| | `prompt_family` | `"llm_ranking"` | `call_llm_for_ranking.py:54` |
-| | `prompt_version` | `1` | `call_llm_for_ranking.py:55` |
-| | `ranking_schema` | inline JSON schema | `call_llm_for_ranking.py:10-32` |
+| `fuzzy_matching` | `threshold` | `70` | `fuzzy_matching.py` |
+| | `scorer` | `"WRatio"` | `fuzzy_matching.py` |
+| | `limit` | `5` | `fuzzy_matching.py` |
+| `web_search` | `max_sites` | `7` | `research_pipeline.py` |
+| | `num_results` | `20` | `research_pipeline.py` |
+| | `content_char_limit` | `800` | `research_pipeline.py` |
+| | `raw_content_limit` | `5000` | `research_pipeline.py` |
+| | `scrape_timeout` | `5` | `web_generate_entity_profile.py` |
+| | `search_engine_timeout` | `10` | `web_generate_entity_profile.py` |
+| | `brave_api_timeout` | `10` | `web_generate_entity_profile.py` |
+| | `searxng_timeout` | `12` | `web_generate_entity_profile.py` |
+| | `http_content_limit` | `50000` | `web_generate_entity_profile.py` |
+| | `min_page_text_length` | `200` | `web_generate_entity_profile.py` |
+| | `max_page_text_length` | `10000` | `web_generate_entity_profile.py` |
+| | `title_truncate_length` | `100` | `web_generate_entity_profile.py` |
+| | `scrape_workers` | `10` | `web_generate_entity_profile.py` |
+| | `scrape_url_multiplier` | `2` | `web_generate_entity_profile.py` |
+| | `content_per_site_in_prompt` | `500` | `web_generate_entity_profile.py` |
+| | `fallback_keywords_max` | `8` | `web_generate_entity_profile.py` |
+| | `bot_mitigation_delay` | `1` | `web_generate_entity_profile.py` |
+| | `skip_extensions` | 7 file types | `web_generate_entity_profile.py` |
+| | `skip_domains` | 4 academic domains | `web_generate_entity_profile.py` |
+| | `searxng_instances` | 7 public instances | `web_generate_entity_profile.py` |
+| `entity_profiling` | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py` |
+| | `temperature` | `0.3` | `research_pipeline.py` |
+| | `max_tokens` | `1800` | `research_pipeline.py` |
+| | `output_format` | `"json"` | `web_generate_entity_profile.py` |
+| | `prompt_family` | `"entity_profiling"` | `web_generate_entity_profile.py` |
+| | `prompt_version` | `1` | `web_generate_entity_profile.py` |
+| | `schema_family` | `"entity_profile"` | `research_pipeline.py` |
+| | `schema_version` | `1` | `standards_logger.py` |
+| `token_matching` | `max_token_candidates` | `20` | `research_pipeline.py` |
+| | `relevance_weight_core` | `0.7` | `research_pipeline.py` |
+| | `tokenization_regex` | `[a-zA-Z0-9]+` | `research_pipeline.py` |
+| | `high_confidence_threshold` | `0.8` | `research_pipeline.py` |
+| | `accept_threshold` | `0.75` | `research_pipeline.py` |
+| | `correction_top_n` | `10` | `correct_candidate_strings.py` |
+| `llm_ranking` | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py` |
+| | `temperature` | `0.0` | `call_llm_for_ranking.py` |
+| | `max_tokens` | `4000` | `call_llm_for_ranking.py` |
+| | `output_format` | `"json"` | `call_llm_for_ranking.py` |
+| | `ranking_sample_size` | `20` | `call_llm_for_ranking.py` |
+| | `prompt_family` | `"llm_ranking"` | `call_llm_for_ranking.py` |
+| | `prompt_version` | `1` | `call_llm_for_ranking.py` |
+| | `ranking_schema` | inline JSON schema | `call_llm_for_ranking.py` |
 
 | Root section | Parameter | Default | Source |
 |-------------|-----------|---------|--------|
-| `llm_defaults` | `provider` | `"groq"` | `llm_providers.py:10` |
-| | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py:11` |
-| | `timeout` | `60` | `llm_providers.py:98` |
-| | `retry_attempts` | `3` | `llm_providers.py:86` |
-| | `retry_backoff_base` | `2` | `llm_providers.py:113` |
-| | `token_estimation_multiplier` | `1.3` | `llm_providers.py:38` |
-| | `token_limit` | `100000` | `llm_providers.py:39` |
-| `batch_overrides` | `max_sites` | `5` | `research_pipeline.py:692` |
-| | `verbose` | `false` | `research_pipeline.py:694` |
+| `llm_defaults` | `provider` | `"groq"` | `llm_providers.py` |
+| | `model` | `meta-llama/llama-4-maverick-17b-128e-instruct` | `llm_providers.py` |
+| | `timeout` | `60` | `llm_providers.py` |
+| | `retry_attempts` | `3` | `llm_providers.py` |
+| | `retry_backoff_base` | `2` | `llm_providers.py` |
+| | `token_estimation_multiplier` | `1.3` | `llm_providers.py` |
+| | `token_limit` | `100000` | `llm_providers.py` |
+| `batch_overrides` | `max_sites` | `5` | `research_pipeline.py` |
+| | `verbose` | `false` | `research_pipeline.py` |
 
 **Schema notes:**
 - `entity_profiling` references the schema registry (`schema_family`/`schema_version`) since it's already registered there.
@@ -211,24 +214,33 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 ```json
 {
   "name": "TermNorm-Frontend",
-  "version": "v1.0",
+  "version": "v1.1",
   "nodes": {
     "cache_lookup": { "type": "DeterministicFunction", "short_circuit": true, "config": {} },
     "fuzzy_matching": {
       "type": "DeterministicFunction",
       "short_circuit": true,
-      "config": { "algorithm": "levenshtein_word", "threshold": 0.7 }
+      "config": {
+        "algorithm": "levenshtein_word",
+        "threshold": 0.7,
+        "_note": "0-1 scale (frontend). Backend uses 0-100 scale with rapidfuzz WRatio."
+      }
     }
   },
   "pipelines": {
     "default": ["cache_lookup", "fuzzy_matching"],
     "cache_only": ["cache_lookup"]
   },
-  "backend_pipeline": "default"
+  "backend_pipeline": "default",
+  "backend_default_steps": ["web_search", "entity_profiling", "token_matching", "llm_ranking"],
+  "backend_toggles": {
+    "useWebSearch": ["web_search"],
+    "useLlmRanking": ["llm_ranking"]
+  }
 }
 ```
 
-`algorithm: "levenshtein_word"` distinguishes from backend's `scorer: "WRatio"`. The `backend_pipeline` field declares which named pipeline arrangement the frontend invokes when local tiers miss. Webpack 5 imports JSON natively — no loader needed.
+`algorithm: "levenshtein_word"` distinguishes from backend's `scorer: "WRatio"`. The `backend_pipeline` field declares which named pipeline arrangement the frontend invokes when local tiers miss. `backend_default_steps` lists the backend nodes to run by default; `backend_toggles` maps UI settings to backend steps that can be disabled at runtime. Webpack 5 imports JSON natively — no loader needed.
 
 ---
 
@@ -327,6 +339,6 @@ curl -X POST http://localhost:8000/pipeline/trace \
 # Frontend verification:
 # - npm test passes
 # - Fuzzy uses threshold 0.7 from local src/config/pipeline.json
-# - Trace creation sends pipeline_version: "v1.0"
+# - Trace creation sends pipeline_version: "v1.1"
 # - backend_pipeline: "default" references backend's named pipeline
 ```

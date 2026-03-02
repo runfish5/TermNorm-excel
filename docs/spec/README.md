@@ -27,14 +27,14 @@ Frontend (src/config/pipeline.json)     Backend (backend-api/config/pipeline.jso
 │  default: cache → fuzzy     │        │    DeterministicFn                   │
 │  cache_only: cache          │        │  llm_ranking                         │
 │                             │        │    LLMGeneration                     │
-│ version: v1.0               │        │                                      │
-└────────┬────────────────────┘        │ Pipelines:                           │
-         │ miss                        │  default: web→EP→TM→LLM             │
-         └────────────────────────────►│  with_fuzzy: fuzz→web→EP→TM→LLM     │
-                                       │  fuzzy_only: fuzz                    │
-                                       │                                      │
-                                       │ version: v1.1                        │
-                                       └──────────────────────────────────────┘
+│ backend_pipeline: "default" │        │                                      │
+│ backend_default_steps: [..] │        │ Pipelines:                           │
+│ backend_toggles: {..}       │        │  default: web→EP→TM→LLM             │
+│                             │        │  with_fuzzy: fuzz→web→EP→TM→LLM     │
+│ version: v1.1               │        │  fuzzy_only: fuzz                    │
+└────────┬────────────────────┘        │                                      │
+         │ miss                        │ version: v1.1                        │
+         └────────────────────────────►└──────────────────────────────────────┘
 ```
 
 Each runtime owns its own config. The frontend's `fuzzy_matching` (Levenshtein, 0-1 scale) is a different implementation from the backend's (rapidfuzz WRatio, 0-100 scale). `cache_lookup` is frontend-only — the backend can't execute it.

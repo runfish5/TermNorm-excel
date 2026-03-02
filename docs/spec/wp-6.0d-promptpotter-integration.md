@@ -8,14 +8,13 @@
 
 ## 4A: Frontend Reads Pipeline Config
 
-### Modify `src/services/normalizer.js`
+### `src/services/normalizer.js` — static import (no runtime fetch)
 
-- Add `fetchPipelineConfig()`: fetch `GET /pipeline` at init, extract fuzzy threshold + scorer
-- `findFuzzyMatch()`: use fetched threshold or fall back to `FUZZY_THRESHOLD` constant
-
-### Modify `src/services/workflows.js`
-
-- Call `fetchPipelineConfig()` during session init (alongside `POST /sessions`)
+- Import `src/config/pipeline.json` as a static webpack 5 JSON module: `import frontendPipeline from "../config/pipeline.json"`
+- Read fuzzy threshold from `frontendPipeline.nodes.fuzzy_matching.config.threshold`
+- Read `backend_toggles` to build the backend `steps` array dynamically via `buildBackendSteps()` — disables backend nodes when the corresponding UI setting is off
+- Send `frontendPipeline.version` as `pipeline_version` in trace metadata
+- No runtime fetch of `GET /pipeline` — frontend uses local config only. `workflows.js` is unchanged.
 
 ---
 
@@ -37,7 +36,7 @@
 ```
 PromptPotter                                    TermNorm
 ────────────                                    ────────
-1. GET /pipeline ──────────────────────────────► Returns 6-step config
+1. GET /pipeline ──────────────────────────────► Returns 5-node config
    - Discovers fuzzy_matching step               with "name": "TermNorm"
    - Reads param_keys: threshold, scorer
 
@@ -71,7 +70,7 @@ PromptPotter                                    TermNorm
 
 ## Verification
 
-1. Frontend console: pipeline config fetched at init, threshold value used
+1. `normalizer.js` reads threshold from local `src/config/pipeline.json`, no runtime fetch
 2. PromptPotter `parse_pipeline_response()` matches `"termnorm"` in `_KNOWN_PIPELINES`
 3. PromptPotter grid search with `fuzzy_threshold` / `fuzzy_scorer` axes works end-to-end
 4. Trace shows complete pipeline journey for all scenarios (cache hit, fuzzy hit, LLM)

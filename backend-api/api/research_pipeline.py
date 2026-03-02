@@ -51,7 +51,7 @@ _pipeline = lambda name: _pipeline_config["pipelines"][name]
 
 # Shared thresholds (from pipeline.json where available)
 HIGH_CONFIDENCE_THRESHOLD = _node("token_matching")["high_confidence_threshold"]
-ACCEPT_THRESHOLD = 0.75
+ACCEPT_THRESHOLD = _node("token_matching")["accept_threshold"]
 VERIFIED_METHODS = {"UserChoice", "DirectEdit", "cached", "fuzzy"}
 
 

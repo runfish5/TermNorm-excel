@@ -1,4 +1,3 @@
-#@title def display_profile
 def display_profile(entity_profile, title_prefix="COMPREHENSIVE ENTITY PROFILE"):
     """
     Format the research profile and return it as a string

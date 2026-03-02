@@ -53,7 +53,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `workflows.js` - Async business logic: mappings, sessions, settings, tracking lifecycle (JSDoc typed)
   - `mapping-processor.js` - Excel mapping file processor
 - **matchers/**: Matching algorithms
-  - `matchers.js` - Cache + fuzzy matching (thresholds: forward 0.7, reverse 0.5) (JSDoc typed)
+  - `matchers.js` - Cache + fuzzy matching (single threshold, default 0.7) (JSDoc typed)
 - **taskpane/**: Main entry point (`taskpane.js` - Office.onReady, wizard state machine)
 - **ui-components/**: Reusable UI modules
   - `thermometer.js` - Progress/status indicator with two modes
