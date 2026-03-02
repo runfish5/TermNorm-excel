@@ -7,8 +7,22 @@ import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflow
 import { showMessage } from "../utils/ui-feedback.js";
 import frontendPipeline from "../config/pipeline.json";
 
-// Fuzzy threshold from local pipeline config (webpack 5 imports JSON natively)
+// Pipeline config from local pipeline.json (webpack 5 imports JSON natively)
 const _fuzzyThreshold = frontendPipeline.nodes.fuzzy_matching.config.threshold;
+const _backendToggles = frontendPipeline.backend_toggles || {};
+
+/** Build backend steps array from toggle states and pipeline config */
+function buildBackendSteps() {
+  const disabled = new Set();
+  for (const [setting, steps] of Object.entries(_backendToggles)) {
+    if (getStateValue(`settings.${setting}`) === false) {
+      steps.forEach(s => disabled.add(s));
+    }
+  }
+  // Backend default pipeline: web_search, entity_profiling, token_matching, llm_ranking
+  return ["web_search", "entity_profiling", "token_matching", "llm_ranking"]
+    .filter(s => !disabled.has(s));
+}
 
 export function findFuzzyMatch(value, forward, reverse) {
   return findFuzzyMatchDomain(value, forward, reverse, _fuzzyThreshold);
@@ -19,8 +33,7 @@ export async function findTokenMatch(value, traceId = null) {
   if (!normalized || !(await ensureSessionInitialized())) return null;
 
   setWebSearchStatus('idle');
-  const skipLlmRanking = getStateValue('settings.useLlmRanking') === false;
-  const payload = { query: normalized, skip_llm_ranking: skipLlmRanking };
+  const payload = { query: normalized, steps: buildBackendSteps() };
   if (traceId) payload.trace_id = traceId;
   const data = await executeWithSessionRecovery(() => apiPost(buildUrl(SESSION_ENDPOINTS.RESEARCH), payload, getHeaders()));
   if (!data) return null;

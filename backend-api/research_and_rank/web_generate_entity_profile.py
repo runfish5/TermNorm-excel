@@ -261,13 +261,8 @@ def _searxng_fallback(query, num_results=20, log=None):
 
 def _execute_search_fallback_chain(query, headers, search_log, num_results=20):
     """Execute 4-tier search fallback chain, return (urls, search_method)"""
-    # Check if web search is disabled globally
-    if not settings.use_web_search:
-        msg = "Web search disabled by user (USE_WEB_SEARCH=false)"
-        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
-        if search_log:
-            search_log.append(msg)
-        return [], "Web search disabled"
+    # Gating is handled by the pipeline handler (research_pipeline.py).
+    # If this function is called, web search should proceed.
 
     # 1. Brave Search API (if configured/enabled)
     urls = _brave_search(query, num_results=num_results, log=search_log)

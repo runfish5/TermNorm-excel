@@ -249,17 +249,12 @@ async function startLiveTracking() {
         const llmRankingOn = getStateValue('settings.useLlmRanking') !== false;
         researchThermo.setToggleable('llm2', llmRankingOn);
 
-        researchThermo.onToggle = async (key, enabled) => {
-          if (key === 'webS') {
-            saveSetting('useWebSearch', enabled);
-            try {
-              const { updateBackendSettings } = await import("../utils/settings-manager.js");
-              await updateBackendSettings({ web_search: enabled }, { silent: true });
-              showMessage(enabled ? 'Web search ON' : 'Web search OFF');
-            } catch (e) { showMessage(`Failed: ${e.message}`, "error"); }
-          } else if (key === 'llm2') {
-            saveSetting('useLlmRanking', enabled);
-            showMessage(enabled ? 'LLM ranking ON' : 'LLM ranking OFF');
+        researchThermo.onToggle = (key, enabled) => {
+          const settings = { webS: 'useWebSearch', llm2: 'useLlmRanking' };
+          const labels = { webS: 'Web search', llm2: 'LLM ranking' };
+          if (settings[key]) {
+            saveSetting(settings[key], enabled);
+            showMessage(`${labels[key]} ${enabled ? 'ON' : 'OFF'}`);
           }
         };
       }

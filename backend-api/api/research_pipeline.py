@@ -27,6 +27,7 @@ from utils.langfuse_logger import (
     log_cache_match, log_fuzzy_match, log_user_correction
 )
 from utils.schema_registry import get_schema_registry
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ cache_metadata = CacheMetadata()
 _PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
 _pipeline_config = json.loads(_PIPELINE_CONFIG_PATH.read_text())
 _node = lambda name: _pipeline_config["nodes"][name]["config"]
+_pipeline = lambda name: _pipeline_config["pipelines"][name]
 
 
 def load_match_database():
@@ -404,8 +406,11 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     """Normalize a term - research and rank candidates using LLM + token matching"""
     user_id = request.state.user_id
     query = payload.get("query", "")
-    skip_llm_ranking = payload.get("skip_llm_ranking", False)
-    steps = payload.get("steps")  # e.g. ["entity_profiling", "token_matching"]
+    steps = payload.get("steps") or _pipeline("default")
+
+    # Admin override: .env USE_WEB_SEARCH=false force-disables web search
+    if not settings.use_web_search:
+        steps = [s for s in steps if s not in ("web_search", "entity_profiling")]
 
     # Pipeline parameter overrides — defaults from pipeline.json, overridable per-request
     _ws = _node("web_search")
@@ -481,22 +486,28 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     token_matcher = TokenLookupMatcher(terms)
     logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
 
-    # Step 1: Research (always returns tuple)
-    logger.info("[PIPELINE] Step 1: Researching")
+    # Step 1: Research (conditional on steps)
     step1_start = time.time()
-    entity_profile, profile_debug = await web_generate_entity_profile(
-        query,
-        max_sites=max_sites,
-        schema=ENTITY_SCHEMA,
-        content_char_limit=content_char_limit,
-        raw_content_limit=raw_content_limit,
-        num_results=num_results,
-        profiling_temperature=profiling_temperature,
-        profiling_max_tokens=profiling_max_tokens,
-        verbose=True,
-    )
+    run_web_search = "web_search" in steps
+    if run_web_search:
+        logger.info("[PIPELINE] Step 1: Researching")
+        entity_profile, profile_debug = await web_generate_entity_profile(
+            query,
+            max_sites=max_sites,
+            schema=ENTITY_SCHEMA,
+            content_char_limit=content_char_limit,
+            raw_content_limit=raw_content_limit,
+            num_results=num_results,
+            profiling_temperature=profiling_temperature,
+            profiling_max_tokens=profiling_max_tokens,
+            verbose=True,
+        )
+        pprint(entity_profile)
+    else:
+        logger.info(CYAN + "[PIPELINE] Step 1: Skipping web research" + RESET)
+        entity_profile = []
+        profile_debug = {"inputs": {"scraped_sources": {"sources_fetched": [], "note": "Skipped by pipeline steps"}}}
     step1_time = round(time.time() - step1_start, 3)
-    pprint(entity_profile)
 
     # Step 2: Token matching
     logger.info("\n[PIPELINE] Step 2: Matching candidates")
@@ -515,13 +526,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
     logger.info(f"Match completed in {step2_time:.2f}s")
 
-    # Step 3: LLM ranking (conditional)
-    # When `steps` is provided, it controls which stages execute.
-    # When absent, fall back to `skip_llm_ranking` flag.
-    if steps is not None:
-        run_llm_ranking = "llm_ranking" in steps
-    else:
-        run_llm_ranking = not skip_llm_ranking
+    # Step 3: LLM ranking (conditional on steps)
+    run_llm_ranking = "llm_ranking" in steps
 
     step3_start = time.time()
     if not run_llm_ranking:
@@ -558,16 +564,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
 
     # Collect non-default pipeline params for traceability
-    # Echo actual steps that ran (when `steps` was provided, use it; otherwise derive)
-    if steps is not None:
-        _actual_steps = steps
-    else:
-        _actual_steps = ["web_search", "entity_profiling", "token_matching"]
-        if run_llm_ranking:
-            _actual_steps.append("llm_ranking")
-
     _pipeline_params = {
-        "steps": _actual_steps,
+        "steps": steps,
         "max_sites": max_sites,
         "num_results": num_results,
         "content_char_limit": content_char_limit,

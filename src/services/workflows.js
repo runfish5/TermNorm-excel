@@ -84,8 +84,10 @@ export async function initializeSettings() {
 
   // Sync backend-relevant settings (fire-and-forget, don't block startup)
   const { updateBackendSettings } = await import("../utils/settings-manager.js");
-  if (settings.useWebSearch === false) fireAndForget(updateBackendSettings({ web_search: false }));
-  if (settings.useBraveApi === false) fireAndForget(updateBackendSettings({ brave_api: false }));
+  fireAndForget(updateBackendSettings({
+    web_search: settings.useWebSearch !== false,
+    brave_api: settings.useBraveApi !== false,
+  }));
 
   return settings;
 }
