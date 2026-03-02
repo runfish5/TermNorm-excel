@@ -17,6 +17,7 @@ from api import (
     system_router,
     research_router,
     experiments_router,
+    pipeline_router,
 )
 from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
@@ -52,6 +53,7 @@ setup_middleware(app)
 app.include_router(system_router)      # Health checks, connection test, activity logging
 app.include_router(research_router)    # /research-and-match pipeline (stateless)
 app.include_router(experiments_router)  # Experiments/traces data endpoints
+app.include_router(pipeline_router)    # Pipeline config + trace lifecycle
 
 
 @app.on_event("startup")

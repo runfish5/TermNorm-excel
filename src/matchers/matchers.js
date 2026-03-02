@@ -1,5 +1,5 @@
 /** Matchers - Three-tier pipeline: Cache (exact) → Fuzzy → LLM */
-import { FUZZY_THRESHOLDS } from "../config/config.js";
+import { FUZZY_THRESHOLD } from "../config/config.js";
 
 const norm = v => v ? String(v).trim() : '';
 const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
@@ -60,14 +60,14 @@ function calculateSimilarity(words1, words2) {
   return totalScore / Math.max(words1.length, words2.length);
 }
 
-function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLDS.DEFAULT) {
+function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLD) {
   const queryWords = normalizeText(query);
   return candidates
     .map(c => { const similarity = calculateSimilarity(queryWords, normalizeText(c)); return { text: c, similarity, isMatch: similarity >= threshold }; })
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT) {
+function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLD) {
   if (!query || !mappingData) return null;
 
   const isMap = mappingData instanceof Map;
@@ -87,22 +87,21 @@ function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLDS.DEFAULT)
  * @param {string} value - Input term to match
  * @param {Object<string, string|{target: string}>} forward - Source→target mappings
  * @param {Object<string, string>} reverse - Target→source mappings
- * @param {number} [forwardThreshold=0.7] - Minimum similarity for forward match
- * @param {number} [reverseThreshold=0.5] - Minimum similarity for reverse match
+ * @param {number} [threshold=0.7] - Minimum similarity for matching
  * @returns {import('../config/config.js').MatchResult|null}
  */
-export function findFuzzyMatch(value, forward, reverse, forwardThreshold = FUZZY_THRESHOLDS.FORWARD, reverseThreshold = FUZZY_THRESHOLDS.REVERSE) {
+export function findFuzzyMatch(value, forward, reverse, threshold = FUZZY_THRESHOLD) {
   const normalized = value ? String(value).trim() : '';
   if (!normalized) return null;
 
-  const fwd = findBestMatch(normalized, forward, forwardThreshold);
+  const fwd = findBestMatch(normalized, forward, threshold);
   if (fwd) {
     const target = typeof fwd.value === 'string' ? fwd.value : fwd.value.target;
-    return { target, method: 'fuzzy', confidence: fwd.score, timestamp: new Date().toISOString(), source: normalized, matched_key: fwd.key, direction: 'forward' };
+    return { target, method: 'fuzzy', confidence: fwd.score, timestamp: new Date().toISOString(), source: normalized, matched_key: fwd.key };
   }
 
-  const rev = findBestMatch(normalized, reverse, reverseThreshold);
-  if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized, matched_key: rev.key, direction: 'reverse' };
+  const rev = findBestMatch(normalized, reverse, threshold);
+  if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized, matched_key: rev.key };
 
   return null;
 }

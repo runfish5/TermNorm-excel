@@ -85,6 +85,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `research_pipeline.py` - `/sessions`, `/matches`, `/batches`, `/prompts`, `/activities`
   - `system.py` - `/health`, `/settings`, `/history`, `/cache`
   - `experiments_api.py` - `/experiments/*` for eval/optimization integration
+  - `pipeline.py` - `/pipeline`, `/pipeline/trace`, `/pipeline/steps`
 - **core/**: Infrastructure
   - `llm_providers.py` - Unified Groq/OpenAI interface with retry logic
   - `logging.py` - Backend logging configuration
@@ -94,6 +95,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `call_llm_for_ranking.py` - LLM candidate ranking
   - `correct_candidate_strings.py` - Fuzzy correction of LLM outputs
   - `display_profile.py` - Entity profile formatting
+  - `fuzzy_matching.py` - rapidfuzz-based fuzzy matching (threshold 70, WRatio)
 - **utils/**:
   - `langfuse_logger.py` - Langfuse-compatible logging
   - `prompt_registry.py` - Versioned prompt management
@@ -102,7 +104,7 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `responses.py` - API response formatting
   - `utils.py` - General utilities
   - `schema_registry.py` - Versioned JSON schema management
-- **config/**: Settings, middleware, users.json (hot-reload)
+- **config/**: Settings, middleware, users.json (hot-reload), pipeline.json (v1.1 — all tunable params)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
   - `langfuse/` - Langfuse-compatible logging (traces, observations, scores, datasets)
@@ -130,6 +132,7 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
     - `progress`: Sequential steps, collapsible, fill bar (setup wizard: server→config→mappings→activate)
     - `status`: Independent toggleable states (research pipeline: web→LLM→score→rank)
 12. **Centralized Tracking Workflows**: Tracking state managed via `workflows.js` with `TRACKING_CHANGED` events for reactive UI updates
+13. **Pipeline Composability**: `nodes` + `pipelines` JSON format shared across backend, frontend, and PromptPotter. Backend exposes all tunable params via `GET /pipeline` (v1.1). Frontend owns local tiers and declares `backend_pipeline: "default"`. PromptPotter discovers the schema and sweeps parameters. See `docs/spec/README.md`.
 
 ## Code Quality Standards
 
@@ -152,6 +155,8 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
 - `config/app.config.json` - Frontend runtime config (backend URL, column mappings)
 - `backend-api/.env` - Environment variables (API keys)
 - `backend-api/config/users.json` - IP-based user authentication (hot-reload)
+- `backend-api/config/pipeline.json` - Pipeline node configs, named pipelines, LLM defaults (v1.1)
+- `src/config/pipeline.json` - Frontend pipeline config with `backend_pipeline` reference
 
 ### app.config.json Structure
 ```json

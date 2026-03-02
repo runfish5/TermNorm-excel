@@ -320,6 +320,7 @@ def log_pipeline(
     session_id: str = None,
     batch_id: str = None,
     user_prompt: str = None,
+    trace_id: str = None,
 ) -> str:
     """
     Log full pipeline result.
@@ -332,6 +333,8 @@ def log_pipeline(
         session_id: Optional user session ID
         batch_id: Optional batch ID (for batch operations)
         user_prompt: Optional user prompt (for DirectPrompt method)
+        trace_id: Optional existing trace ID (from frontend unified tracing).
+                  When provided, skips trace creation and attaches to existing trace.
     """
     query = record.get("source")
     method = record.get("method")
@@ -349,15 +352,16 @@ def log_pipeline(
         metadata["confidence_corrected"] = True
         metadata["original_confidence"] = record.get("original_confidence")
 
-    # Create trace
-    trace_id = create_trace(
-        name="termnorm_pipeline",
-        input={"query": query},
-        user_id=session_id or "anonymous",
-        session_id=session_id,
-        metadata=metadata,
-        tags=["production"],
-    )
+    # Use existing trace or create new one
+    if trace_id is None:
+        trace_id = create_trace(
+            name="termnorm_pipeline",
+            input={"query": query},
+            user_id=session_id or "anonymous",
+            session_id=session_id,
+            metadata=metadata,
+            tags=["production"],
+        )
 
     # Create dataset item linked to trace
     item_id = get_or_create_item(query, source_trace_id=trace_id)
@@ -648,9 +652,9 @@ def _profile_summary(profile: Optional[Dict]) -> Optional[Dict]:
 # LEGACY COMPATIBILITY
 # =============================================================================
 
-def log_to_langfuse(record: Dict[str, Any], session_id: str = None) -> str:
+def log_to_langfuse(record: Dict[str, Any], session_id: str = None, trace_id: str = None) -> str:
     """Alias for log_pipeline."""
-    return log_pipeline(record, session_id)
+    return log_pipeline(record, session_id, trace_id=trace_id)
 
 
 def log_to_experiments(record: Dict[str, Any]) -> str:

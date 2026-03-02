@@ -5,6 +5,7 @@ pydantic-settings
 groq
 openai
 python-dotenv
+rapidfuzz
 regex
 googlesearch-python
 beautifulsoup4

@@ -16,6 +16,7 @@ from research_and_rank.web_generate_entity_profile import web_generate_entity_pr
 from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 from research_and_rank.correct_candidate_strings import find_top_matches
+from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
@@ -415,6 +416,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     max_token_candidates = payload.get("max_token_candidates", 20)
     relevance_weight_core = payload.get("relevance_weight_core", 0.7)
     ranking_prompt = payload.get("ranking_prompt", None)
+    fuzzy_threshold = payload.get("fuzzy_threshold", 70)
+    fuzzy_scorer = payload.get("fuzzy_scorer", "WRatio")
+    trace_id = payload.get("trace_id")  # Optional: from frontend unified tracing
 
     # Retrieve terms from session
     if user_id not in user_sessions:
@@ -426,6 +430,42 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     terms = user_sessions[user_id]["terms"]
     logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms from session")
     start_time = time.time()
+
+    # Step 0: Fuzzy matching (when requested via steps)
+    run_fuzzy = steps is not None and "fuzzy_matching" in steps
+    fuzzy_results = []
+    fuzzy_time = None
+
+    if run_fuzzy:
+        logger.info(CYAN + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+        fuzzy_start = time.time()
+        fuzzy_results = fuzzy_match_terms(
+            query, terms, threshold=fuzzy_threshold, scorer=fuzzy_scorer, limit=5
+        )
+        fuzzy_time = round(time.time() - fuzzy_start, 3)
+        logger.info(f"[PIPELINE] Fuzzy: {len(fuzzy_results)} matches in {fuzzy_time}s")
+
+        # Short-circuit: fuzzy-only mode
+        fuzzy_only = steps == ["fuzzy_matching"]
+        if fuzzy_only:
+            best = fuzzy_results[0] if fuzzy_results else None
+            total_time = round(time.time() - start_time, 2)
+            return success_response(
+                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {total_time}s",
+                data={
+                    "ranked_candidates": [
+                        {"candidate": term, "relevance_score": score}
+                        for term, score in fuzzy_results
+                    ],
+                    "total_time": total_time,
+                    "step_timings": {"fuzzy_matching": fuzzy_time},
+                    "pipeline_params": {
+                        "steps": ["fuzzy_matching"],
+                        "fuzzy_threshold": fuzzy_threshold,
+                        "fuzzy_scorer": fuzzy_scorer,
+                    },
+                }
+            )
 
     # Create token matcher from session terms
     token_matcher = TokenLookupMatcher(terms)
@@ -533,6 +573,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         "ranking_sample_size": ranking_sample_size,
         "max_token_candidates": max_token_candidates,
         "relevance_weight_core": relevance_weight_core,
+        "fuzzy_threshold": fuzzy_threshold,
+        "fuzzy_scorer": fuzzy_scorer,
     }
 
     # Training record for logging
@@ -567,8 +609,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     # Langfuse logging (traces, observations, scores, dataset items, events.jsonl)
     try:
-        trace_id = log_to_langfuse(training_record, session_id=user_id)
-        logger.info(f"[LANGFUSE] Logged trace: {trace_id}")
+        logged_trace_id = log_to_langfuse(training_record, session_id=user_id, trace_id=trace_id)
+        logger.info(f"[LANGFUSE] Logged trace: {logged_trace_id}")
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
@@ -594,6 +636,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             "llm_provider": llm_response.get('llm_provider'),
             "total_time": total_time,
             "step_timings": {
+                "fuzzy_matching": fuzzy_time,
                 "entity_profiling": step1_time,
                 "token_matching": step2_time,
                 "llm_ranking": step3_time,

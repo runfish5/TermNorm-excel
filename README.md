@@ -29,6 +29,13 @@
 - **[Setup Guide](docs/SETUP-GUIDE.md)** - How to use the add-in
 - **[Developer Guide](docs/DEVELOPER.md)** - Modify the codebase, VS Code setup
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues & solutions
+- **[Pipeline Composability Spec](docs/spec/README.md)** - Cross-repo pipeline interface (nodes, pipelines, discovery)
+
+### Pipeline Composability
+
+TermNorm's backend exposes its processing steps as a JSON contract (`GET /pipeline`) — nodes with typed configs, named pipelines, and tunable parameters. This interface is already consumed by multiple codebases: the frontend reads it to declare which backend pipeline to invoke, and [PromptPotter](https://github.com/runfish5/PromptPotter) discovers it to sweep parameters and run evaluations automatically.
+
+Why this matters: domain-specific processes (like matching LCA terminology against 11,750+ database identifiers) have parameters that shouldn't be guessed. With a small, representative dataset and this discoverable pipeline schema, an optimizer can find good configurations for pennies in LLM token cost — no manual tuning required.
 
 ## 📋 Use Cases
 
@@ -125,6 +132,7 @@ This project demonstrates a reusable architecture for building Excel add-ins wit
 - ✅ Frontend development (UI customization)
 - ✅ Backend development (Python server)
 - ✅ Building and deployment
+- ✅ **Pipeline configuration** (`GET /pipeline`) with nodes, named pipelines, and tunable parameters
 - ✅ Debugging tips and best practices
 
 **Learn Excel Add-ins:**

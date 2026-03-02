@@ -57,3 +57,15 @@ export const apiGet = (url, headers = {}, silent = false) => apiFetch(url, { met
 export const apiPut = (url, body, opts = {}) => apiFetch(url, { method: "PUT", headers: getHeaders(), body: JSON.stringify(body), ...opts });
 export const fireAndForget = p => p.catch(() => {});
 export const logMatch = (data, h = {}) => fireAndForget(serverFetch(buildUrl(ENDPOINTS.ACTIVITY_MATCHES), { method: "POST", headers: { ...getHeaders(), ...h }, body: JSON.stringify(data) }));
+
+// Pipeline trace helpers (unified tracing)
+export const createPipelineTrace = (query, headers = {}, pipelineVersion = null) =>
+  apiPost(buildUrl('/pipeline/trace'),
+    { query, ...(pipelineVersion && { pipeline_version: pipelineVersion }) },
+    headers, { silent: true });
+
+export const reportPipelineStep = (traceId, stepName, result, latencyMs = 0, headers = {}) =>
+  fireAndForget(apiPost(buildUrl('/pipeline/steps'),
+    { trace_id: traceId, step_name: stepName, result, latency_ms: latencyMs },
+    headers, { silent: true }
+  ));

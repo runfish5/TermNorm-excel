@@ -1,0 +1,24 @@
+{
+  "name": "TermNorm-Frontend",
+  "version": "v1.0",
+  "nodes": {
+    "cache_lookup": {
+      "type": "DeterministicFunction",
+      "short_circuit": true,
+      "config": {}
+    },
+    "fuzzy_matching": {
+      "type": "DeterministicFunction",
+      "short_circuit": true,
+      "config": {
+        "algorithm": "levenshtein_word",
+        "threshold": 0.7
+      }
+    }
+  },
+  "pipelines": {
+    "default": ["cache_lookup", "fuzzy_matching"],
+    "cache_only": ["cache_lookup"]
+  },
+  "backend_pipeline": "default"
+}
