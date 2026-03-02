@@ -5,6 +5,7 @@ import { SESSION_RETRY, ENDPOINTS } from "../config/config.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { startTracking, stopTracking } from "./live-tracker.js";
+import { processTermNormalization } from "./normalizer.js";
 import {
   setTrackingActive, getStateValue, clearWorkbookCells, clearSessionHistory,
   updateMappingSource, setSessionState, setCombinedMappings, setSettings,
@@ -98,7 +99,7 @@ export async function initializeSettings() {
  * @returns {Promise<Object>} Tracking info (workbookId, columnCount, etc.)
  */
 export async function activateTracking(config, mappings) {
-  const info = await startTracking(config, mappings);
+  const info = await startTracking(config, mappings, processTermNormalization);
   setTrackingActive(true);
   return info;
 }

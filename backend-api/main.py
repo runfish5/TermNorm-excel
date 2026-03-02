@@ -73,8 +73,8 @@ async def startup_event():
     # - If experiments dir newer than cache → rebuild from experiments
     # - If no cache and no experiments → starts empty (fresh install)
     # This ensures dev data (experiments) stays local while cache is gitignored
-    from api.research_pipeline import load_match_database
-    load_match_database()
+    from services.match_database import load
+    load()
 
     # Verify LLM API key is configured
     import os

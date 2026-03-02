@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body
 from config.environment import get_connection_info
 from config.settings import settings
 from core import llm_providers
+from services import match_database as match_db
 from utils.responses import success_response, error_response
 
 logger = logging.getLogger(__name__)
@@ -80,12 +81,12 @@ async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]
 @router.get("/matches/{identifier}")
 async def get_match_details(identifier: str) -> Dict[str, Any]:
     """Fetch match details from match_database by identifier (target)"""
-    from api.research_pipeline import match_database
+    db = match_db.get_db()
 
-    if not match_database:
+    if not db:
         return error_response("Match database not loaded")
 
-    entry = match_database.get(identifier)
+    entry = db.get(identifier)
     if not entry:
         return error_response(f"No entry found for identifier: {identifier}")
 
@@ -106,13 +107,13 @@ async def get_processed_entries() -> Dict[str, Any]:
     """Return aggregated match history for frontend cache.
 
     Used by frontend on server reconnection to populate history view
-    with previously processed matches (source→target mappings with profiles).
+    with previously processed matches (source->target mappings with profiles).
     """
-    from api.research_pipeline import match_database
+    db = match_db.get_db()
 
     return success_response(
-        message=f"Retrieved {len(match_database)} processed entries",
-        data={"entries": match_database}
+        message=f"Retrieved {len(db)} processed entries",
+        data={"entries": db}
     )
 
 @router.get("/cache")
@@ -126,18 +127,16 @@ async def get_cache_status() -> Dict[str, Any]:
     - Total identifiers and aliases
     - Data sources and freshness
     """
-    from api.research_pipeline import match_database, cache_metadata
-
-    cache_summary = cache_metadata.get_summary()
+    db = match_db.get_db()
 
     return success_response(
         message="Cache status retrieved",
         data={
             "match_database": {
-                "identifiers": len(match_database),
-                "aliases": sum(len(entry["aliases"]) for entry in match_database.values()),
+                "identifiers": len(db),
+                "aliases": sum(len(entry["aliases"]) for entry in db.values()),
             },
-            "cache_metadata": cache_summary,
+            "cache_metadata": match_db.get_cache_metadata().get_summary(),
         }
     )
 
@@ -149,9 +148,7 @@ async def rebuild_cache() -> Dict[str, Any]:
 
     Useful for forcing a refresh of the match_database.
     """
-    from api.research_pipeline import rebuild_match_database
-
-    identifiers_count = rebuild_match_database()
+    identifiers_count = match_db.rebuild()
 
     return success_response(
         message=f"Cache rebuilt with {identifiers_count} identifiers",

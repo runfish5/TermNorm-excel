@@ -1,7 +1,6 @@
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
-import { processTermNormalization } from "./normalizer.js";
 import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
 import { PROCESSING_COLORS, ENDPOINTS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
@@ -22,7 +21,7 @@ const removeHandlers = async (tracker) => {
   });
 };
 
-export async function startTracking(config, mappings) {
+export async function startTracking(config, mappings, normalizeFn) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
   const workbookId = await getCurrentWorkbookName();
   if (activationInProgress.has(workbookId)) return;
@@ -40,7 +39,7 @@ export async function startTracking(config, mappings) {
 
     await removeHandlers(activeTrackers.get(workbookId));
 
-    const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap: confidenceColumnMap || new Map(), confidenceFound, confidenceMissing, mappings, config, workbookId };
+    const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap: confidenceColumnMap || new Map(), confidenceFound, confidenceMissing, mappings, config, workbookId, normalizeFn };
 
     await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
@@ -172,7 +171,7 @@ async function writeCellResult(row, inputCol, outputCol, targetValue, confidence
 async function processCell(row, col, targetCol, value, tracker) {
   const outputCellKey = `${row}:${targetCol}`;
   try {
-    const result = await processTermNormalization(value, tracker.mappings.forward, tracker.mappings.reverse);
+    const result = await tracker.normalizeFn(value, tracker.mappings.forward, tracker.mappings.reverse);
     if (result.candidates) eventBus.emit(Events.CANDIDATES_AVAILABLE, { source: value, result, applyChoice: choice => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) });
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
     logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);

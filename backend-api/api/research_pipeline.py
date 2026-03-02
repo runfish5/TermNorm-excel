@@ -4,10 +4,7 @@ Research Pipeline API - Session-based term matching
 import json
 import logging
 import time
-import re
-from pathlib import Path
 from datetime import datetime
-from collections import defaultdict
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request, Body
 
@@ -16,11 +13,12 @@ from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 from research_and_rank.correct_candidate_strings import find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
+from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
-from utils.cache_metadata import CacheMetadata
+from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
 from utils.langfuse_logger import (
     log_batch_start, log_batch_complete, log_pipeline,
     log_cache_match, log_fuzzy_match, log_user_correction
@@ -37,37 +35,15 @@ router = APIRouter()
 _schema_registry = get_schema_registry()
 ENTITY_SCHEMA = _schema_registry.get_schema("entity_profile")  # latest version by default
 
-# Match database - persistent index of identifiers
-MATCH_DB_PATH = Path(__file__).parent.parent / "logs" / "match_database.json"
-match_database: Dict[str, Any] = {}
-
-# Cache metadata tracker - sophisticated tracking of loaded data
-cache_metadata = CacheMetadata()
+# Module-level aliases for match database (used by callers that import from this module)
+match_database = get_match_database()
+cache_metadata = get_cache_metadata()
 
 _node = get_node_config
 _pipeline = get_pipeline_steps
 
-# Shared thresholds (from pipeline.json where available)
-HIGH_CONFIDENCE_THRESHOLD = _node("token_matching")["high_confidence_threshold"]
+# Threshold for accepting fuzzy corrections in direct prompt
 ACCEPT_THRESHOLD = _node("token_matching")["accept_threshold"]
-VERIFIED_METHODS = {"UserChoice", "DirectEdit", "cached", "fuzzy"}
-
-
-def _is_alias_verified(method, confidence):
-    """Check if an alias should be marked as verified (user-confirmed or high-confidence)"""
-    return method in VERIFIED_METHODS or confidence >= HIGH_CONFIDENCE_THRESHOLD
-
-
-def _ensure_db_entry(target, web_sources=None, timestamp=None):
-    """Create a match_database entry for target if it doesn't exist. Returns the entry."""
-    if target not in match_database:
-        match_database[target] = {
-            "entity_profile": None,
-            "aliases": {},
-            "web_sources": web_sources or [],
-            "last_updated": timestamp,
-        }
-    return match_database[target]
 
 
 def _update_session_usage(user_id, target=None):
@@ -78,303 +54,6 @@ def _update_session_usage(user_id, target=None):
     if target:
         targets = user_sessions[user_id]["targets_used"]
         targets[target] = targets.get(target, 0) + 1
-
-
-def _find_and_extract_error(obj, path=None):
-    """Recursively find error dict in nested structure"""
-    if path is None:
-        path = []
-    if isinstance(obj, dict):
-        if "error" in obj:
-            return obj, path
-        for key, value in obj.items():
-            result, error_path = _find_and_extract_error(value, path + [key])
-            if result:
-                return result, error_path
-    return None, []
-
-
-def load_match_database():
-    """
-    Load match database from JSON file on startup.
-
-    Smart rebuild logic:
-    - If cache missing → rebuild
-    - If experiments directory newer than cache → rebuild
-    - Otherwise → load from cache
-
-    This ensures cache stays fresh without expensive staleness checks.
-    """
-    global match_database
-
-    experiments_path = Path(__file__).parent.parent / "logs" / "experiments"
-
-    # Check if rebuild needed (simple file timestamp comparison)
-    needs_rebuild = False
-
-    if not MATCH_DB_PATH.exists():
-        logger.info("[MATCH_DB] Cache missing, will rebuild")
-        needs_rebuild = True
-    elif experiments_path.exists():
-        # Compare timestamps: is experiments dir newer than cache?
-        cache_mtime = MATCH_DB_PATH.stat().st_mtime
-
-        # Check if ANY experiment has newer content
-        for exp_dir in experiments_path.iterdir():
-            if not exp_dir.is_dir() or exp_dir.name.startswith('.'):
-                continue
-
-            runs_dir = exp_dir / "runs"
-            if runs_dir.exists() and runs_dir.stat().st_mtime > cache_mtime:
-                logger.info(f"[MATCH_DB] Experiment {exp_dir.name} has new data, will rebuild")
-                needs_rebuild = True
-                break
-
-    # Rebuild if needed
-    if needs_rebuild:
-        rebuild_match_database()
-        return
-
-    # Load existing cache
-    try:
-        with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
-            match_database = json.load(f)
-        logger.info(f"[MATCH_DB] Loaded {len(match_database)} identifiers from cache")
-
-        # Log cache summary
-        summary = cache_metadata.get_summary()
-        logger.info(f"[MATCH_DB] Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
-    except (json.JSONDecodeError, IOError) as e:
-        logger.warning(f"[MATCH_DB] Failed to load cache: {e}, rebuilding...")
-        rebuild_match_database()
-
-
-def save_match_database():
-    """Persist match database to JSON file"""
-    MATCH_DB_PATH.parent.mkdir(exist_ok=True)
-    with open(MATCH_DB_PATH, 'w', encoding='utf-8') as f:
-        json.dump(match_database, f, indent=2, ensure_ascii=False)
-
-
-def update_match_database(record: Dict[str, Any]):
-    """Live mode: Update database from single log record"""
-    target = record.get("target")
-    source = record.get("source")
-    if not target or not source or target == "No matches found":
-        return
-
-    now = datetime.utcnow().isoformat() + "Z"
-
-    # Step 1: Update all existing aliases for this source to point to new target
-    # This preserves history while tracking the "ground truth" current assignment
-    for entity_id, entity in match_database.items():
-        if entity_id == target:
-            continue  # Skip the new target
-        if source in entity.get("aliases", {}):
-            entity["aliases"][source]["current_target"] = target
-
-    # Track if new entry (before creating)
-    is_new = target not in match_database
-
-    # Create or update identifier entry
-    # Note: entity_profile is NOT stored here because it describes the SOURCE (user query),
-    # not the TARGET (matched identifier). The profile explains what the user searched for,
-    # not what the standardized term means.
-    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=now)
-
-    method = record.get("method")
-    confidence = record.get("confidence", 0)
-    verified = _is_alias_verified(method, confidence)
-
-    # Update alias WITHOUT current_target (this IS the current target)
-    entry["aliases"][source] = {
-        "timestamp": now,
-        "method": method,
-        "confidence": confidence,
-        "verified": verified
-    }
-
-    # Update web_sources and timestamp if provided
-    if record.get("web_sources"):
-        entry["web_sources"] = record.get("web_sources", [])
-        entry["last_updated"] = now
-
-    # Track incremental update in metadata
-    cache_metadata.add_incremental_update(
-        source="backend_pipeline",
-        records_added=1,
-        identifiers_added=1 if is_new else 0,
-        identifiers_updated=0 if is_new else 1,
-    )
-
-    save_match_database()
-
-
-def rebuild_match_database():
-    """
-    Rebuild mode: Regenerate database from langfuse structure.
-
-    Scans all traces and observations in logs/langfuse/ to build the match database.
-    Extracts entity profiles, aliases, and web sources.
-    """
-    global match_database
-    match_database = {}
-
-    langfuse_path = Path(__file__).parent.parent / "logs" / "langfuse"
-    traces_path = langfuse_path / "traces"
-    observations_path = langfuse_path / "observations"
-
-    if not traces_path.exists():
-        logger.warning("[MATCH_DB] No langfuse traces directory found")
-        save_match_database()
-        return 0
-
-    logger.info("[MATCH_DB] Rebuilding from langfuse structure...")
-    cache_metadata.mark_rebuild_start("langfuse")
-
-    total_records = 0
-
-    for trace_file in traces_path.glob("*.json"):
-        try:
-            with open(trace_file, 'r', encoding='utf-8') as f:
-                trace = json.load(f)
-
-            trace_id = trace.get("id")
-            query = trace.get("input", {}).get("query")
-            output = trace.get("output", {})
-            target = output.get("target")
-
-            if not query or not target:
-                continue
-
-            normalized_record = {
-                "source": query,
-                "target": target,
-                "method": output.get("method"),
-                "confidence": output.get("confidence"),
-                "timestamp": trace.get("timestamp"),
-                "session_id": trace.get("session_id"),
-            }
-
-            # Load observations for entity_profile and web_sources
-            obs_dir = observations_path / trace_id
-            if obs_dir.exists():
-                for obs_file in obs_dir.glob("*.json"):
-                    with open(obs_file, 'r', encoding='utf-8') as of:
-                        obs = json.load(of)
-                        if obs.get("name") == "entity_profiling":
-                            normalized_record["entity_profile"] = obs.get("output")
-                        elif obs.get("name") == "web_search":
-                            normalized_record["web_sources"] = obs.get("output", {}).get("sources", [])
-
-            _update_db_entry(normalized_record)
-            total_records += 1
-
-        except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"[MATCH_DB] Error reading {trace_file}: {e}")
-            continue
-
-    # Count identifiers and aliases
-    identifiers_count = len(match_database)
-    aliases_count = sum(len(entry["aliases"]) for entry in match_database.values())
-
-    save_match_database()
-
-    # Update cache metadata
-    cache_metadata.mark_rebuild_complete(
-        source_type="langfuse",
-        records_processed=total_records,
-        identifiers_count=identifiers_count,
-        aliases_count=aliases_count,
-        data_sources=[{"type": "langfuse", "traces_loaded": total_records}],
-    )
-
-    logger.info(f"[MATCH_DB] Rebuilt from langfuse: {identifiers_count} identifiers, {total_records} records")
-    return identifiers_count
-
-
-def _update_db_entry(record: Dict[str, Any]):
-    """Internal: Update database entry without saving (for batch rebuild)"""
-    target = record.get("target")
-    source = record.get("source")
-    if not target or not source or target == "No matches found":
-        return
-
-    # Note: entity_profile is NOT stored - it describes the source query, not the target
-    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=record.get("timestamp"))
-
-    existing = entry["aliases"].get(source)
-    if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
-        method = record.get("method")
-        confidence = record.get("confidence", 0)
-        verified = _is_alias_verified(method, confidence or 0)
-
-        entry["aliases"][source] = {
-            "timestamp": record.get("timestamp"),
-            "method": method,
-            "confidence": confidence,
-            "verified": verified
-        }
-
-    if record.get("web_sources") and record.get("timestamp", "") > entry.get("last_updated", ""):
-        entry["web_sources"] = record.get("web_sources", [])
-        entry["last_updated"] = record.get("timestamp")
-
-
-def _prioritize_errors(record):
-    """Check for errors in training record and move to first position if detected"""
-    error_info, error_path = _find_and_extract_error(record)
-
-    if error_info:
-        # Navigate to parent and pop the error
-        parent = record
-        for key in error_path[:-1]:
-            parent = parent[key]
-        parent.pop(error_path[-1])
-
-        # Merge with error_info first, then rest of record
-        return {**error_info, **record}
-
-    return record
-
-
-class TokenLookupMatcher:
-    """Token-based matcher for candidate filtering"""
-
-    def __init__(self, terms: List[str]):
-        self.deduplicated_terms = list(set(terms))
-        self.token_term_lookup = self._build_index()
-
-    def _tokenize(self, text):
-        return set(re.findall(r'[a-zA-Z0-9]+', str(text).lower()))
-
-    def _build_index(self):
-        index = defaultdict(set)
-        for i, term in enumerate(self.deduplicated_terms):
-            for token in self._tokenize(term):
-                index[token].add(i)
-        return index
-
-    def match(self, query):
-        query_tokens = self._tokenize(query)
-        if not query_tokens:
-            return []
-
-        # Find candidates
-        candidates = set()
-        for token in query_tokens:
-            candidates.update(self.token_term_lookup.get(token, set()))
-
-        # Score candidates
-        scores = []
-        for i in candidates:
-            term_tokens = self._tokenize(self.deduplicated_terms[i])
-            shared_token_count = len(query_tokens & term_tokens)
-            if shared_token_count > 0:
-                score = shared_token_count / len(term_tokens)
-                scores.append((self.deduplicated_terms[i], score))
-
-        return sorted(scores, key=lambda x: x[1], reverse=True)
 
 
 # Session storage - stores terms array and usage stats per user
@@ -525,69 +204,48 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
     return llm_response, ranking_debug, elapsed
 
 
-def _build_training_record(
+def _build_pipeline_results(
     query: str, user_id: str, llm_response: dict, entity_profile: list,
     profile_debug: dict, ranking_debug: dict, candidates: list,
-    params: Dict, steps: List[str], total_time: float,
-) -> Dict[str, Any]:
-    """Build training record for langfuse logging and match DB update."""
-    ranked_candidates = llm_response.get("ranked_candidates", [])
-    target = ranked_candidates[0].get("candidate") if ranked_candidates else "No matches found"
-    confidence = ranked_candidates[0].get("relevance_score", 0) if ranked_candidates else 0
+    params: Dict, steps: List[str], step_timings: dict, total_time: float,
+) -> tuple:
+    """Build training record and API response from pipeline results. Returns (training_record, api_response)."""
+    ranked = llm_response.get("ranked_candidates", [])
+    target = ranked[0].get("candidate") if ranked else "No matches found"
+    confidence = ranked[0].get("relevance_score", 0) if ranked else 0
 
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
+    web_status = "failed" if web_search_failed else "success"
+    web_error = scraped_sources.get("error") if web_search_failed else None
+    web_sources = scraped_sources.get("sources_fetched", []) if not web_search_failed else []
 
-    record = {
-        "source": query,
-        "target": target,
-        "method": "ProfileRank",
-        "confidence": confidence,
-        "session_id": user_id,
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "total_time": total_time,
-        "web_search_status": "failed" if web_search_failed else "success",
-        "pipeline_params": {"steps": steps, **params},
-        "entity_profile": entity_profile,
+    training_record = {
+        "source": query, "target": target, "method": "ProfileRank", "confidence": confidence,
+        "session_id": user_id, "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "total_time": total_time, "web_search_status": web_status, "error": web_error,
+        "pipeline_params": {"steps": steps, **params}, "entity_profile": entity_profile,
         "candidates": [
             {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
              "core_score": c.get("core_concept_score"), "spec_score": c.get("spec_score")}
-            for i, c in enumerate(ranked_candidates)
-        ] if ranked_candidates else [],
+            for i, c in enumerate(ranked)
+        ] if ranked else [],
         "token_matches": ranking_debug["inputs"]["token_matched_candidates"] if ranking_debug else [],
-        "web_sources": scraped_sources.get("sources_fetched", []) if not web_search_failed else [],
+        "web_sources": web_sources,
     }
-    return _prioritize_errors(record)
 
-
-def _build_pipeline_response(
-    llm_response: dict, entity_profile: list, candidates: list,
-    profile_debug: dict, step_timings: dict, params: Dict,
-    steps: List[str], total_time: float,
-) -> Dict[str, Any]:
-    """Build standardized API response."""
-    ranked = llm_response.get("ranked_candidates", [])
-    scraped_sources = profile_debug["inputs"]["scraped_sources"]
-    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
-
-    result = success_response(
+    api_response = success_response(
         message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
         data={
-            "ranked_candidates": ranked,
-            "entity_profile": entity_profile,
+            "ranked_candidates": ranked, "entity_profile": entity_profile,
             "token_matched_candidates": candidates[:params["max_token_candidates"]],
-            "llm_provider": llm_response.get("llm_provider"),
-            "total_time": total_time,
-            "step_timings": step_timings,
-            "web_search_status": "failed" if web_search_failed else "success",
-            "web_search_error": scraped_sources.get("error") if web_search_failed else None,
-            "pipeline_params": {"steps": steps, **params},
+            "llm_provider": llm_response.get("llm_provider"), "total_time": total_time,
+            "step_timings": step_timings, "web_search_status": web_status,
+            "web_search_error": web_error, "pipeline_params": {"steps": steps, **params},
         }
     )
-    logger.info(YELLOW)
-    logger.info(json.dumps(result, indent=2))
-    logger.info(RESET)
-    return result
+    logger.info(YELLOW + json.dumps(api_response, indent=2) + RESET)
+    return training_record, api_response
 
 
 @router.post("/matches")
@@ -638,93 +296,21 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     step_timings = {"fuzzy_matching": fuzzy_time, "entity_profiling": step1_time, "token_matching": step2_time, "llm_ranking": step3_time}
 
     # Log and persist
-    training_record = _build_training_record(query, user_id, llm_response, entity_profile, profile_debug, ranking_debug, candidate_results, params, steps, total_time)
+    training_record, api_response = _build_pipeline_results(
+        query, user_id, llm_response, entity_profile, profile_debug,
+        ranking_debug, candidate_results, params, steps, step_timings, total_time,
+    )
 
     try:
-        logged_trace_id = log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
-        logger.info(f"[LANGFUSE] Logged trace: {logged_trace_id}")
+        log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
     update_match_database(training_record)
-    logger.info(f"[PIPELINE] Training record saved: {query} → {training_record['target']}")
     _update_session_usage(user_id, training_record["target"])
 
-    return _build_pipeline_response(llm_response, entity_profile, candidate_results, profile_debug, step_timings, params, steps, total_time)
+    return api_response
 
-
-@router.post("/batches/{batch_id}/items")
-async def batch_process_single(
-    request: Request,
-    batch_id: str,
-    payload: Dict[str, Any] = Body(...)
-) -> Dict[str, Any]:
-    """
-    Process a single query within a batch.
-    Uses the same step functions as /matches for consistency.
-    """
-    user_id = request.state.user_id
-    query = payload.get("query", "")
-    context = payload.get("context", "")  # User-provided context
-
-    if not query:
-        return {"status": "error", "message": "Query is required"}
-
-    if user_id not in user_sessions:
-        raise HTTPException(status_code=400, detail="No session found - initialize session first")
-
-    terms = user_sessions[user_id]["terms"]
-    logger.info(f"[BATCH] Processing: {query} (context: {context[:50] if context else 'none'}...)")
-
-    start_time = time.time()
-
-    # Resolve params from pipeline.json (batch overrides via payload)
-    steps = payload.get("steps") or _pipeline("default")
-    params = _resolve_pipeline_params(payload)
-
-    # Step 1: Research — use query+context for profiling
-    research_query = f"{query} {context}" if context else query
-    entity_profile, profile_debug, step1_time = await _run_research_step(research_query, steps, params)
-
-    # Step 2: Token matching — use plain query for candidate lookup
-    token_matcher = TokenLookupMatcher(terms)
-    candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
-
-    # Step 3: LLM ranking — include context in ranking query
-    ranking_query = f"{query} (User context: {context})" if context else query
-    llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, ranking_query, steps, params)
-
-    total_time = round(time.time() - start_time, 2)
-
-    # Build training record via shared function
-    training_record = _build_training_record(query, user_id, llm_response, entity_profile, profile_debug, ranking_debug, candidate_results, params, steps, total_time)
-    training_record["method"] = "BatchProfileRank"
-
-    try:
-        log_pipeline(training_record, session_id=user_id)
-    except Exception as e:
-        logger.error(f"[LANGFUSE] Failed to log batch: {e}")
-
-    update_match_database(training_record)
-    _update_session_usage(user_id, training_record["target"])
-
-    ranked_candidates = llm_response.get("ranked_candidates", [])
-    logger.info(f"[BATCH] Completed: {query} -> {training_record['target']} ({training_record['confidence']:.0%}) in {total_time}s")
-
-    return success_response(
-        message="Single batch item processed",
-        data={
-            "target": training_record["target"],
-            "confidence": training_record["confidence"],
-            "candidates": ranked_candidates[:3],
-            "total_time": total_time
-        }
-    )
-
-
-# =============================================================================
-# DIRECT PROMPT - Single LLM call without web search
-# =============================================================================
 
 @router.post("/batches")
 async def batch_start(
@@ -832,27 +418,17 @@ async def direct_prompt(
     current_output = payload.get("current_output", "").strip()  # Current output column value
     project_context = payload.get("project_context", "").strip()  # Project-specific context
 
-    logger.info(f"[DIRECT_PROMPT] Received: query='{query[:30] if query else 'EMPTY'}', prompt='{user_prompt[:30] if user_prompt else 'EMPTY'}', batch_id={batch_id}, has_output={bool(current_output)}, has_context={bool(project_context)}")
+    logger.info(f"[DIRECT_PROMPT] query='{query[:30]}', batch_id={batch_id}")
 
     if not query:
-        logger.warning("[DIRECT_PROMPT] Rejected: empty query")
         raise HTTPException(400, "Query is required")
     if not user_prompt:
-        logger.warning("[DIRECT_PROMPT] Rejected: empty user_prompt")
         raise HTTPException(400, "user_prompt is required")
 
-    # Retrieve terms from session for validation
     if user_id not in user_sessions:
-        logger.warning(f"[DIRECT_PROMPT] Rejected: no session for user_id={user_id}")
-        raise HTTPException(
-            400,
-            "No session found - initialize session first with POST /sessions"
-        )
+        raise HTTPException(400, "No session found - initialize session first with POST /sessions")
 
     terms = user_sessions[user_id]["terms"]
-    terms_set = set(terms)  # For O(1) lookup
-
-    logger.info(f"[DIRECT_PROMPT] Processing: {query[:50]}... (batch_id: {batch_id or 'none'})")
     start_time = time.time()
 
     # Build system prompt for general LLM inference
@@ -914,91 +490,44 @@ Return ONLY valid JSON."""
     fuzzy_score = best_score
 
     if best_score >= ACCEPT_THRESHOLD:
-        # Accept - LLM output is close enough to a valid term
         if best_match != target:
             original_target = target
             target = best_match
             fuzzy_corrected = True
-            logger.info(f"[DIRECT_PROMPT] Fuzzy corrected '{original_target[:30]}' -> '{target[:30]}' (score: {best_score:.2f})")
-        else:
-            logger.info(f"[DIRECT_PROMPT] Exact match found: '{target[:30]}' (score: {best_score:.2f})")
     else:
-        # Poor match - return candidates for user selection
         needs_user_selection = True
         candidates = [{"candidate": c, "score": round(s, 3)} for c, s in top_matches]
-        logger.info(f"[DIRECT_PROMPT] No good match for '{target[:30]}' (best: {best_score:.2f}), returning {len(candidates)} candidates")
-        # Keep target as-is but set confidence to 0 to signal user action needed
         confidence = 0.0
 
-    # Build training record
+    # Build training record (full dict, no conditional updates)
     training_record = {
-        "source": query,
-        "target": target,
-        "method": "DirectPrompt",
-        "confidence": confidence,
-        "reasoning": reasoning,  # LLM's explanation
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "total_time": total_time,
-        "fuzzy_score": fuzzy_score,
+        "source": query, "target": target, "method": "DirectPrompt",
+        "confidence": confidence, "reasoning": reasoning,
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}", "total_time": total_time,
+        "fuzzy_score": fuzzy_score, "fuzzy_corrected": fuzzy_corrected,
+        "original_target": original_target, "needs_user_selection": needs_user_selection,
+        "candidates": candidates,
     }
 
-    if fuzzy_corrected:
-        training_record["fuzzy_corrected"] = True
-        training_record["original_target"] = original_target
-
-    if needs_user_selection:
-        training_record["needs_user_selection"] = True
-        training_record["candidates"] = candidates
-
-    # Langfuse logging with batch_id and user_prompt
     try:
-        trace_id = log_pipeline(
-            training_record,
-            session_id=user_id,
-            batch_id=batch_id,
-            user_prompt=user_prompt,
-        )
-        logger.info(f"[LANGFUSE] Logged DirectPrompt trace: {trace_id}")
+        log_pipeline(training_record, session_id=user_id, batch_id=batch_id, user_prompt=user_prompt)
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
-    # Update match database (live mode) - only if accepted (not needing user selection)
     if not needs_user_selection:
         update_match_database(training_record)
-
-    # Update session usage stats
     _update_session_usage(user_id, target if not needs_user_selection else None)
 
-    # Build status message for logging
-    status_msg = f"-> {target[:40]}..." if len(target) > 40 else f"-> {target}"
-    if needs_user_selection:
-        status_msg += f" (NEEDS SELECTION, best: {fuzzy_score:.0%})"
-    elif fuzzy_corrected:
-        status_msg += f" (corrected from '{original_target[:20]}', {fuzzy_score:.0%})"
-    else:
-        status_msg += f" ({confidence:.0%})"
-
-    logger.info(f"[DIRECT_PROMPT] Completed: {query[:30]}... {status_msg} in {total_time}s")
-
-    response_data = {
-        "target": target,
-        "confidence": confidence,
-        "reasoning": reasoning,
-        "total_time": total_time,
-        "fuzzy_score": fuzzy_score,
-    }
-
-    if fuzzy_corrected:
-        response_data["fuzzy_corrected"] = True
-        response_data["original_target"] = original_target
-
-    if needs_user_selection:
-        response_data["needs_user_selection"] = True
-        response_data["candidates"] = candidates
+    logger.info(f"[DIRECT_PROMPT] {query[:30]}... -> {target[:30]} ({confidence:.0%}) in {total_time}s")
 
     return success_response(
         message="Direct prompt completed",
-        data=response_data
+        data={
+            "target": target, "confidence": confidence, "reasoning": reasoning,
+            "total_time": total_time, "fuzzy_score": fuzzy_score,
+            "fuzzy_corrected": fuzzy_corrected, "original_target": original_target,
+            "needs_user_selection": needs_user_selection, "candidates": candidates,
+        }
     )
 
 

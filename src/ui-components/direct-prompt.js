@@ -8,12 +8,9 @@ import { $ } from "../utils/dom-helpers.js";
 import { LIMITS, ENDPOINTS } from "../config/config.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
-
-const TITLE_TRUNCATE_LENGTH = 40;
+import { initPicker, startSelection, hide as hideCandidatePicker } from "./dp-candidate-picker.js";
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
-let pendingSelections = []; // Items needing user selection
-let currentPendingIndex = 0;
 let allResults = []; // All results including pending
 
 const HTML = `<div class="direct-prompt-content">
@@ -32,13 +29,6 @@ const HTML = `<div class="direct-prompt-content">
   <div id="dp-progress" class="progress-container hidden">
     <div class="progress-bar"><div id="dp-progress-fill" class="progress-fill"></div></div>
     <div id="dp-progress-text" class="progress-text">Processing: 0 / 0</div>
-  </div>
-  <div id="dp-candidates-panel" class="dp-candidates-panel hidden">
-    <div class="dp-candidates-header">
-      <span id="dp-candidates-title">Select a match:</span>
-      <button id="dp-candidates-skip" class="btn-sm btn-secondary">Skip</button>
-    </div>
-    <div id="dp-candidates-list" class="dp-candidates-list"></div>
   </div>
 </div>`;
 
@@ -59,6 +49,9 @@ export function init() {
   $("dp-process-btn")?.addEventListener("click", processDirectPrompt);
   $("dp-clear-btn")?.addEventListener("click", clearSelection);
   $("dp-user-prompt")?.addEventListener("input", updateButtonState);
+
+  // Initialize candidate picker inside the panel
+  initPicker(panel);
   return true;
 }
 
@@ -151,20 +144,19 @@ async function processDirectPrompt() {
 
     // Separate results into accepted and pending selection
     allResults = results;
-    pendingSelections = results
-      .map((r, i) => ({ ...r, index: i }))
-      .filter(r => r.needs_user_selection);
+    const pending = results.map((r, i) => ({ ...r, index: i })).filter(r => r.needs_user_selection);
+    const acceptedResults = results.filter(r => !r.needs_user_selection);
 
     // Write accepted results immediately
-    const acceptedResults = results.filter(r => !r.needs_user_selection);
     eventBus.emit(Events.BATCH_RESULTS, { items: acceptedResults, userPrompt });
     await _writeResultRows(results.map((r, i) => ({ rowIndex: selectedRange.rowIndex + i, target: r.target, confidence: r.confidence })));
 
-    if (pendingSelections.length > 0) {
-      // Show candidate picker for first pending item
-      currentPendingIndex = 0;
-      showCandidatePicker(pendingSelections[0]);
-      showMessage(`${acceptedResults.length} matched, ${pendingSelections.length} need selection`);
+    if (pending.length > 0) {
+      startSelection(pending, {
+        onSelect: (item, candidate) => _handleCandidateSelected(item, candidate),
+        onResolved: () => {},
+      });
+      showMessage(`${acceptedResults.length} matched, ${pending.length} need selection`);
     } else {
       showMessage(`Direct prompt complete: ${results.length} items processed`);
     }
@@ -266,93 +258,27 @@ async function _writeResultRows(rows) {
   } catch (e) { showMessage(`Failed to write results: ${e.message}`, "error"); }
 }
 
-// ========== CANDIDATE PICKER ==========
+// ========== CANDIDATE SELECTION CALLBACK ==========
 
-function showCandidatePicker(pendingItem) {
-  const panel = $("dp-candidates-panel");
-  const list = $("dp-candidates-list");
-  const title = $("dp-candidates-title");
-  if (!panel || !list || !title) return;
+async function _handleCandidateSelected(pendingItem, selectedCandidate) {
+  allResults[pendingItem.index].target = selectedCandidate;
+  allResults[pendingItem.index].confidence = 1.0;
+  allResults[pendingItem.index].needs_user_selection = false;
 
-  // Update title with source info
-  title.textContent = `Select match for: "${pendingItem.source.slice(0, TITLE_TRUNCATE_LENGTH)}${pendingItem.source.length > TITLE_TRUNCATE_LENGTH ? '...' : ''}"`;
+  await _writeResultRows([{ rowIndex: pendingItem.rowIndex, target: selectedCandidate, confidence: 1.0 }]);
 
-  // Build candidate list
-  list.innerHTML = pendingItem.candidates.map((c, i) =>
-    `<button class="dp-candidate-btn" data-index="${i}" data-candidate="${encodeURIComponent(c.candidate)}">
-      <span class="dp-candidate-name">${c.candidate}</span>
-      <span class="dp-candidate-score">${Math.round(c.score * 100)}%</span>
-    </button>`
-  ).join('');
-
-  // Wire up click handlers
-  list.querySelectorAll('.dp-candidate-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleCandidateSelection(decodeURIComponent(btn.dataset.candidate)));
-  });
-
-  // Wire up skip button
-  $("dp-candidates-skip")?.removeEventListener('click', handleSkipSelection);
-  $("dp-candidates-skip")?.addEventListener('click', handleSkipSelection);
-
-  panel.classList.remove('hidden');
-}
-
-function hideCandidatePicker() {
-  $("dp-candidates-panel")?.classList.add('hidden');
-}
-
-async function handleCandidateSelection(selectedCandidate) {
-  const pending = pendingSelections[currentPendingIndex];
-  if (!pending) return;
-
-  // Update result with user selection
-  allResults[pending.index].target = selectedCandidate;
-  allResults[pending.index].confidence = 1.0; // User confirmed
-  allResults[pending.index].needs_user_selection = false;
-
-  // Write to Excel
-  await _writeResultRows([{ rowIndex: pending.rowIndex, target: selectedCandidate, confidence: 1.0 }]);
-
-  // Emit match logged event
   eventBus.emit(Events.MATCH_LOGGED, {
-    value: pending.source,
-    cellKey: `dp-selection-${pending.index}`,
+    value: pendingItem.source,
+    cellKey: `dp-selection-${pendingItem.index}`,
     timestamp: new Date().toISOString(),
     result: { target: selectedCandidate, method: "UserChoice", confidence: 1.0, web_search_status: "idle" }
   });
-
-  advanceToNextPending();
-}
-
-function handleSkipSelection() {
-  // Keep original LLM output, mark as skipped
-  advanceToNextPending();
-}
-
-function advanceToNextPending() {
-  currentPendingIndex++;
-
-  if (currentPendingIndex < pendingSelections.length) {
-    showCandidatePicker(pendingSelections[currentPendingIndex]);
-    showMessage(`Selection ${currentPendingIndex + 1} of ${pendingSelections.length}`);
-  } else {
-    finishPendingSelections();
-  }
-}
-
-function finishPendingSelections() {
-  hideCandidatePicker();
-  pendingSelections = [];
-  currentPendingIndex = 0;
-  showMessage(`Direct prompt complete: all selections resolved`);
 }
 
 // ========== CLEAR / RESET ==========
 
 function clearSelection() {
   selectedRange = null;
-  pendingSelections = [];
-  currentPendingIndex = 0;
   allResults = [];
   hideCandidatePicker();
   $("dp-hint").textContent = "Select cells in Excel to begin.";

@@ -22,6 +22,12 @@ function buildBackendSteps() {
     .filter(s => !disabled.has(s));
 }
 
+/** Report a pipeline step to trace or log as a standalone match */
+function _report(traceId, step, data, latency, normalized) {
+  if (traceId) reportPipelineStep(traceId, step, data, latency, getHeaders());
+  else logMatch({ source: normalized, target: data.target, method: step === 'cache_lookup' ? 'cached' : 'fuzzy', confidence: data.confidence ?? 1.0, latency_ms: latency, ...(data.matched_key ? { matched_key: data.matched_key } : {}) }, getHeaders());
+}
+
 export function findFuzzyMatch(value, forward, reverse) {
   return findFuzzyMatchDomain(value, forward, reverse, _fuzzyThreshold);
 }
@@ -62,24 +68,18 @@ export async function processTermNormalization(value, forward, reverse) {
   // Tier 1: Cache lookup
   const cached = getCachedMatch(normalized, forward, reverse);
   if (cached) {
-    const latency = performance.now() - startTime;
-    if (traceId) reportPipelineStep(traceId, 'cache_lookup', { ...cached, source: normalized }, latency, getHeaders());
-    else logMatch({ source: normalized, target: cached.target, method: 'cached', confidence: 1.0, latency_ms: latency }, getHeaders());
+    _report(traceId, 'cache_lookup', { ...cached, source: normalized }, performance.now() - startTime, normalized);
     return createMatchResult(cached);
   }
-  // Report cache miss
-  if (traceId) reportPipelineStep(traceId, 'cache_lookup', { source: normalized, method: 'miss' }, performance.now() - startTime, getHeaders());
+  if (traceId) _report(traceId, 'cache_lookup', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
 
   // Tier 2: Fuzzy matching
   const fuzzy = findFuzzyMatch(normalized, forward, reverse);
   if (fuzzy) {
-    const latency = performance.now() - startTime;
-    if (traceId) reportPipelineStep(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, latency, getHeaders());
-    else logMatch({ source: normalized, target: fuzzy.target, method: 'fuzzy', confidence: fuzzy.confidence, latency_ms: latency, matched_key: fuzzy.matched_key }, getHeaders());
+    _report(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, performance.now() - startTime, normalized);
     return createMatchResult(fuzzy);
   }
-  // Report fuzzy miss
-  if (traceId) reportPipelineStep(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime, getHeaders());
+  if (traceId) _report(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
 
   // Tier 3: LLM research — pass trace_id so backend adds to same trace
   const token = await findTokenMatch(normalized, traceId);
