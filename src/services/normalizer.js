@@ -4,7 +4,6 @@ import { ENDPOINTS, createMatchResult } from "../config/config.js";
 import { getHeaders, buildUrl, apiPost, logMatch, createPipelineTrace, reportPipelineStep } from "../utils/api-fetch.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflows.js";
-import { showMessage } from "../utils/ui-feedback.js";
 import frontendPipeline from "../config/pipeline.json";
 
 // Pipeline config from local pipeline.json (webpack 5 imports JSON natively)
@@ -39,7 +38,7 @@ export async function findTokenMatch(value, traceId = null) {
   if (data.web_search_status) setWebSearchStatus(data.web_search_status, data.web_search_error || null);
 
   const best = data.ranked_candidates?.[0];
-  if (!best) { showMessage("No matches found"); return null; }
+  if (!best) return null;
   return createMatchResult({ target: best.candidate, method: "ProfileRank", confidence: best.relevance_score, source: data.query || best.candidate, candidates: data.ranked_candidates, total_time: data.total_time, llm_provider: data.llm_provider, web_search_status: data.web_search_status });
 }
 
@@ -54,7 +53,7 @@ export async function processTermNormalization(value, forward, reverse) {
   const startTime = performance.now();
   const normalized = value ? String(value).trim() : "";
   if (!normalized) return createMatchResult({ target: "Empty value", method: "no_match", confidence: 0, source: value });
-  if (!getStateValue('mappings.loaded')) { showMessage("Mappings not loaded", "error"); return createMatchResult({ target: "Mappings not loaded", method: "no_match", confidence: 0, source: normalized }); }
+  if (!getStateValue('mappings.loaded')) return createMatchResult({ target: "Mappings not loaded", method: "no_match", confidence: 0, source: normalized });
 
   // Create unified trace for this query (include pipeline version for trace metadata)
   const traceData = await createPipelineTrace(normalized, getHeaders(), frontendPipeline.version);

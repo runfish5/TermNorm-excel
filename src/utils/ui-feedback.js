@@ -99,6 +99,7 @@ export function setupIndicators() {
   eventBus.on(Events.WEB_SEARCH_STATUS_CHANGED, updateWarnings);
   eventBus.on(Events.MATCH_LOGGED, updateMatcherIndicator);
   eventBus.on(Events.TRACKING_CHANGED, updateMatcherIndicator);
+  eventBus.on(Events.SERVICE_MESSAGE, ({ text, type }) => showMessage(text, type));
 }
 
 function showMatcherDetails() {

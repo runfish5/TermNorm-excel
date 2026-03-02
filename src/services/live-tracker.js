@@ -5,7 +5,6 @@ import { processTermNormalization } from "./normalizer.js";
 import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
 import { PROCESSING_COLORS, ENDPOINTS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
-import { showMessage } from "../utils/ui-feedback.js";
 import { findTargetBySource } from "../utils/history-cache.js";
 import { apiPost, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
 
@@ -111,7 +110,7 @@ const handleWorksheetChange = async (e, tracker) => {
 
     const withValue = cells.filter(c => c.value);
     if (withValue.length >= 2) {
-      return showMessage(`Paste detected (${cells.length} cells). Edit individually.`, "warning");
+      eventBus.emit(Events.SERVICE_MESSAGE, { text: `Paste detected (${cells.length} cells). Edit individually.`, type: "warning" }); return;
     }
 
     const tasks = withValue.map(({ row, col, targetCol, value }) => {

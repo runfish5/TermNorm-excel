@@ -51,22 +51,10 @@ class Settings(BaseSettings):
         "/cache",
     ]
 
-    # Cloud Environment Detection
-    # Azure
+    # Cloud Environment Detection (one sentinel per major provider)
     azure_site_name: Optional[str] = Field(None, alias="WEBSITE_SITE_NAME")
-    azure_resource_group: Optional[str] = Field(None, alias="WEBSITE_RESOURCE_GROUP")
-
-    # AWS
     aws_lambda_function: Optional[str] = Field(None, alias="AWS_LAMBDA_FUNCTION_NAME")
-    aws_execution_env: Optional[str] = Field(None, alias="AWS_EXECUTION_ENV")
-
-    # Google Cloud
     google_cloud_project: Optional[str] = Field(None, alias="GOOGLE_CLOUD_PROJECT")
-    google_app_engine: Optional[str] = Field(None, alias="GAE_APPLICATION")
-
-    # Generic Cloud
-    cloud_provider: Optional[str] = Field(None, alias="CLOUD_PROVIDER")
-    kubernetes_host: Optional[str] = Field(None, alias="KUBERNETES_SERVICE_HOST")
 
     # Network Configuration
     uvicorn_host: Optional[str] = Field(None, alias="UVICORN_HOST")
@@ -79,16 +67,7 @@ class Settings(BaseSettings):
     @property
     def is_cloud_environment(self) -> bool:
         """Detect if running in cloud environment"""
-        return any([
-            self.azure_site_name,
-            self.azure_resource_group,
-            self.aws_lambda_function,
-            self.aws_execution_env,
-            self.google_cloud_project,
-            self.google_app_engine,
-            self.cloud_provider,
-            self.kubernetes_host
-        ])
+        return bool(self.azure_site_name or self.aws_lambda_function or self.google_cloud_project)
 
     @property
     def is_network_mode(self) -> bool:

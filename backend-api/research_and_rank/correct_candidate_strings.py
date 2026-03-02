@@ -46,28 +46,15 @@ def correct_candidate_strings(
     # Extract just the candidate strings from match results for faster lookup
     original_candidates = [result[0] for result in match_results]
 
-    def find_best_match(llm_string: str, candidates: list[str]) -> tuple[str | None, float]:
-        """Find the best matching candidate string using fuzzy matching"""
-        best_match = None
-        best_ratio = 0
-
-        for candidate in candidates:
-            # Calculate similarity ratio
-            ratio = SequenceMatcher(None, llm_string.lower(), candidate.lower()).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_match = candidate
-
-        return best_match, best_ratio
-
     # Process each ranked candidate
     corrected_candidates = []
 
     for candidate_info in ranking_result['ranked_candidates']:
         llm_candidate = candidate_info['candidate']
 
-        # Find best match from original results
-        best_match, similarity = find_best_match(llm_candidate, original_candidates)
+        # Find best match from original results (reuse find_top_matches with n=1)
+        top = find_top_matches(llm_candidate, original_candidates, n=1)
+        best_match, similarity = top[0] if top else (None, 0)
 
         # Create corrected candidate info
         corrected_info = candidate_info.copy()

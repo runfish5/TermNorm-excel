@@ -158,7 +158,7 @@ async function processDirectPrompt() {
     // Write accepted results immediately
     const acceptedResults = results.filter(r => !r.needs_user_selection);
     eventBus.emit(Events.BATCH_RESULTS, { items: acceptedResults, userPrompt });
-    await writeResultsToExcel(results); // Write all, pending ones show LLM output with warning color
+    await _writeResultRows(results.map((r, i) => ({ rowIndex: selectedRange.rowIndex + i, target: r.target, confidence: r.confidence })));
 
     if (pendingSelections.length > 0) {
       // Show candidate picker for first pending item
@@ -170,6 +170,17 @@ async function processDirectPrompt() {
     }
   } catch (e) { showMessage(`Processing failed: ${e.message}`, "error"); }
   finally { isProcessing = false; updateButtonState(); $("dp-progress")?.classList.add("hidden"); }
+}
+
+function _buildItemPayload(value, userPrompt, batchId, itemIndex, projectContext) {
+  const payload = { query: value, user_prompt: userPrompt };
+  if (batchId) payload.batch_id = batchId;
+  if ($("dp-include-output")?.checked && selectedRange?.outputValues?.[itemIndex]) {
+    const currentOutput = String(selectedRange.outputValues[itemIndex][0] || "").trim();
+    if (currentOutput) payload.current_output = currentOutput;
+  }
+  if (projectContext) payload.project_context = projectContext;
+  return payload;
 }
 
 async function processItems(values, userPrompt, projectContext = null) {
@@ -186,42 +197,23 @@ async function processItems(values, userPrompt, projectContext = null) {
     $("dp-progress-text").textContent = `Processing: ${i + 1} / ${values.length}`;
 
     try {
-      const payload = { query: value, user_prompt: userPrompt };
-      if (batchId) payload.batch_id = batchId;
-      // Include current output value if toggle is enabled
-      const includeOutput = $("dp-include-output")?.checked;
-      if (includeOutput && selectedRange?.outputValues?.[i]) {
-        const currentOutput = String(selectedRange.outputValues[i][0] || "").trim();
-        if (currentOutput) payload.current_output = currentOutput;
-      }
-      // Include project context if configured
-      if (projectContext) payload.project_context = projectContext;
-
-      const data = await apiPost(buildUrl(ENDPOINTS.PROMPTS), payload, headers);
+      const data = await apiPost(buildUrl(ENDPOINTS.PROMPTS), _buildItemPayload(value, userPrompt, batchId, i, projectContext), headers);
       if (data) {
         const target = data.target || "No match";
         const confidence = data.confidence ?? 0;
         const result = {
-          source: value,
-          target,
-          confidence,
-          fuzzy_corrected: data.fuzzy_corrected || false,
-          fuzzy_score: data.fuzzy_score ?? 0,
-          needs_user_selection: data.needs_user_selection || false,
-          candidates: data.candidates || [],
-          original_target: data.original_target || null,
-          rowIndex: selectedRange.rowIndex + i
+          source: value, target, confidence,
+          fuzzy_corrected: data.fuzzy_corrected || false, fuzzy_score: data.fuzzy_score ?? 0,
+          needs_user_selection: data.needs_user_selection || false, candidates: data.candidates || [],
+          original_target: data.original_target || null, rowIndex: selectedRange.rowIndex + i,
         };
         results.push(result);
         successCount++;
 
-        // Only emit match logged for accepted results (not needing selection)
         if (!result.needs_user_selection) {
           eventBus.emit(Events.MATCH_LOGGED, {
-            value,
-            cellKey: `dp-${batchId || 'single'}-${i}`,
-            timestamp: new Date().toISOString(),
-            result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" }
+            value, cellKey: `dp-${batchId || 'single'}-${i}`, timestamp: new Date().toISOString(),
+            result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" },
           });
         }
       }
@@ -241,8 +233,12 @@ async function processItems(values, userPrompt, projectContext = null) {
   return results;
 }
 
-async function writeResultsToExcel(results) {
-  if (!results?.length) return;
+/**
+ * Resolve column mappings and write result rows to Excel.
+ * @param {{rowIndex: number, target: string, confidence: number}[]} rows - Rows to write
+ */
+async function _writeResultRows(rows) {
+  if (!rows?.length) return;
   const config = getStateValue('config.data');
   if (!config?.column_map) { showMessage("No column mapping configured", "error"); return; }
 
@@ -258,12 +254,11 @@ async function writeResultsToExcel(results) {
       const sourceCol = selectedRange.columnIndex, targetCol = columnMap.get(sourceCol), confidenceCol = confidenceColumnMap?.get(sourceCol);
       if (targetCol === undefined) { showMessage("No column mapping found for selected column", "error"); return; }
 
-      for (let i = 0; i < results.length; i++) {
-        const rowIdx = selectedRange.rowIndex + i, { target, confidence } = results[i];
-        const targetCell = ws.getRangeByIndexes(rowIdx, targetCol, 1, 1);
-        targetCell.values = [[target || "No result"]];
-        targetCell.format.fill.color = getRelevanceColor(confidence);
-        if (confidenceCol !== undefined) ws.getRangeByIndexes(rowIdx, confidenceCol, 1, 1).values = [[confidence]];
+      for (const { rowIndex, target, confidence } of rows) {
+        const cell = ws.getRangeByIndexes(rowIndex, targetCol, 1, 1);
+        cell.values = [[target || "No result"]];
+        cell.format.fill.color = getRelevanceColor(confidence);
+        if (confidenceCol !== undefined) ws.getRangeByIndexes(rowIndex, confidenceCol, 1, 1).values = [[confidence]];
       }
       await ctx.sync();
       ctx.runtime.enableEvents = true;
@@ -316,7 +311,7 @@ async function handleCandidateSelection(selectedCandidate) {
   allResults[pending.index].needs_user_selection = false;
 
   // Write to Excel
-  await writeSingleResult(pending.rowIndex, selectedCandidate, 1.0);
+  await _writeResultRows([{ rowIndex: pending.rowIndex, target: selectedCandidate, confidence: 1.0 }]);
 
   // Emit match logged event
   eventBus.emit(Events.MATCH_LOGGED, {
@@ -350,36 +345,6 @@ function finishPendingSelections() {
   pendingSelections = [];
   currentPendingIndex = 0;
   showMessage(`Direct prompt complete: all selections resolved`);
-}
-
-async function writeSingleResult(rowIndex, target, confidence) {
-  const config = getStateValue('config.data');
-  if (!config?.column_map) return;
-
-  try {
-    await Excel.run(async ctx => {
-      ctx.runtime.enableEvents = false;
-      const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      const { columnMap, confidenceColumnMap } = await resolveColumnMaps(ws, ctx, config);
-
-      const sourceCol = selectedRange.columnIndex;
-      const targetCol = columnMap.get(sourceCol);
-      const confidenceCol = confidenceColumnMap?.get(sourceCol);
-
-      if (targetCol !== undefined) {
-        const targetCell = ws.getRangeByIndexes(rowIndex, targetCol, 1, 1);
-        targetCell.values = [[target]];
-        targetCell.format.fill.color = getRelevanceColor(confidence);
-        if (confidenceCol !== undefined) {
-          ws.getRangeByIndexes(rowIndex, confidenceCol, 1, 1).values = [[confidence]];
-        }
-        await ctx.sync();
-      }
-      ctx.runtime.enableEvents = true;
-    });
-  } catch (e) {
-    showMessage(`Failed to write result: ${e.message}`, "error");
-  }
 }
 
 // ========== CLEAR / RESET ==========

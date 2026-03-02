@@ -42,6 +42,46 @@ export function setHistoryCacheInitialized(initialized, entryCount = 0) {
 }
 
 /**
+ * Update a single mapping source entry (read-modify-write)
+ * @param {number|string} index - Source index
+ * @param {Object} update - Fields to merge into the source entry
+ */
+export function updateMappingSource(index, update) {
+  const sources = { ...stateStore.get('mappings.sources') };
+  sources[index] = { ...sources[index], ...update };
+  stateStore.set('mappings.sources', sources);
+}
+
+/**
+ * Merge fields into session state
+ * @param {Object} state - Fields to merge (initialized, termCount, error, etc.)
+ */
+export function setSessionState(state) {
+  stateStore.merge('session', state);
+}
+
+/**
+ * Set combined mappings and emit MAPPINGS_LOADED
+ * @param {Object|null} combined - Combined mapping data, or null to clear
+ */
+export function setCombinedMappings(combined) {
+  if (combined) {
+    stateStore.merge('mappings', { combined, loaded: true });
+    eventBus.emit(Events.MAPPINGS_LOADED, { mappings: combined });
+  } else {
+    stateStore.merge('mappings', { combined: null, loaded: false });
+  }
+}
+
+/**
+ * Set loaded settings into state
+ * @param {Object} settings - Settings object from loadSettings()
+ */
+export function setSettings(settings) {
+  stateStore.merge('settings', { ...settings, loaded: true });
+}
+
+/**
  * Set cell state for a specific workbook and cell
  * @param {string} workbookId - Workbook identifier
  * @param {string} cellKey - Cell key in "row:col" format

@@ -48,9 +48,8 @@ def get_environment_details() -> dict:
         "is_network": settings.is_network_mode,
         "local_ip": get_local_ip(),
         "cloud_indicators": {
-            "azure": bool(settings.azure_site_name or settings.azure_resource_group),
-            "aws": bool(settings.aws_lambda_function or settings.aws_execution_env),
-            "google": bool(settings.google_cloud_project or settings.google_app_engine),
-            "generic": bool(settings.cloud_provider or settings.kubernetes_host),
+            "azure": bool(settings.azure_site_name),
+            "aws": bool(settings.aws_lambda_function),
+            "google": bool(settings.google_cloud_project),
         }
     }

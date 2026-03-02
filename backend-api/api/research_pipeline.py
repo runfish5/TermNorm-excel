@@ -412,108 +412,60 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
     )
 
 
-@router.post("/matches")
-async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Normalize a term - research and rank candidates using LLM + token matching"""
-    user_id = request.state.user_id
-    query = payload.get("query", "")
-    steps = payload.get("steps") or _pipeline("default")
-
-    # Admin override: .env USE_WEB_SEARCH=false force-disables web scraping
-    if not settings.use_web_search:
-        steps = [s for s in steps if s != "web_search"]
-
-    # Pipeline parameter overrides — defaults from pipeline.json, overridable per-request
+def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract pipeline parameters with defaults from pipeline.json, overridable per-request."""
     _ws = _node("web_search")
     _ep = _node("entity_profiling")
     _tm = _node("token_matching")
     _lr = _node("llm_ranking")
     _fm = _node("fuzzy_matching")
+    return {
+        "max_sites": payload.get("max_sites", _ws["max_sites"]),
+        "num_results": payload.get("num_results", _ws["num_results"]),
+        "content_char_limit": payload.get("content_char_limit", _ws["content_char_limit"]),
+        "raw_content_limit": payload.get("raw_content_limit", _ws["raw_content_limit"]),
+        "profiling_temperature": payload.get("profiling_temperature", _ep["temperature"]),
+        "profiling_max_tokens": payload.get("profiling_max_tokens", _ep["max_tokens"]),
+        "ranking_temperature": payload.get("ranking_temperature", _lr["temperature"]),
+        "ranking_max_tokens": payload.get("ranking_max_tokens", _lr["max_tokens"]),
+        "ranking_sample_size": payload.get("ranking_sample_size", _lr["ranking_sample_size"]),
+        "max_token_candidates": payload.get("max_token_candidates", _tm["max_token_candidates"]),
+        "relevance_weight_core": payload.get("relevance_weight_core", _tm["relevance_weight_core"]),
+        "ranking_prompt": payload.get("ranking_prompt", None),
+        "fuzzy_threshold": payload.get("fuzzy_threshold", _fm["threshold"]),
+        "fuzzy_scorer": payload.get("fuzzy_scorer", _fm["scorer"]),
+    }
 
-    max_sites = payload.get("max_sites", _ws["max_sites"])
-    num_results = payload.get("num_results", _ws["num_results"])
-    content_char_limit = payload.get("content_char_limit", _ws["content_char_limit"])
-    raw_content_limit = payload.get("raw_content_limit", _ws["raw_content_limit"])
-    profiling_temperature = payload.get("profiling_temperature", _ep["temperature"])
-    profiling_max_tokens = payload.get("profiling_max_tokens", _ep["max_tokens"])
-    ranking_temperature = payload.get("ranking_temperature", _lr["temperature"])
-    ranking_max_tokens = payload.get("ranking_max_tokens", _lr["max_tokens"])
-    ranking_sample_size = payload.get("ranking_sample_size", _lr["ranking_sample_size"])
-    max_token_candidates = payload.get("max_token_candidates", _tm["max_token_candidates"])
-    relevance_weight_core = payload.get("relevance_weight_core", _tm["relevance_weight_core"])
-    ranking_prompt = payload.get("ranking_prompt", None)
-    fuzzy_threshold = payload.get("fuzzy_threshold", _fm["threshold"])
-    fuzzy_scorer = payload.get("fuzzy_scorer", _fm["scorer"])
-    trace_id = payload.get("trace_id")  # Optional: from frontend unified tracing
 
-    # Retrieve terms from session
-    if user_id not in user_sessions:
-        raise HTTPException(
-            status_code=400,
-            detail="No session found - initialize session first with POST /sessions"
-        )
+def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
+    """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
+    logger.info(CYAN + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+    t0 = time.time()
+    results = fuzzy_match_terms(
+        query, terms, threshold=params["fuzzy_threshold"], scorer=params["fuzzy_scorer"], limit=5
+    )
+    elapsed = round(time.time() - t0, 3)
+    logger.info(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
+    return results, elapsed
 
-    terms = user_sessions[user_id]["terms"]
-    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms from session")
-    start_time = time.time()
 
-    # Step 0: Fuzzy matching (when requested via steps)
-    run_fuzzy = steps is not None and "fuzzy_matching" in steps
-    fuzzy_results = []
-    fuzzy_time = None
-
-    if run_fuzzy:
-        logger.info(CYAN + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
-        fuzzy_start = time.time()
-        fuzzy_results = fuzzy_match_terms(
-            query, terms, threshold=fuzzy_threshold, scorer=fuzzy_scorer, limit=5
-        )
-        fuzzy_time = round(time.time() - fuzzy_start, 3)
-        logger.info(f"[PIPELINE] Fuzzy: {len(fuzzy_results)} matches in {fuzzy_time}s")
-
-        # Short-circuit: fuzzy-only mode
-        fuzzy_only = steps == ["fuzzy_matching"]
-        if fuzzy_only:
-            best = fuzzy_results[0] if fuzzy_results else None
-            total_time = round(time.time() - start_time, 2)
-            return success_response(
-                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {total_time}s",
-                data={
-                    "ranked_candidates": [
-                        {"candidate": term, "relevance_score": score}
-                        for term, score in fuzzy_results
-                    ],
-                    "total_time": total_time,
-                    "step_timings": {"fuzzy_matching": fuzzy_time},
-                    "pipeline_params": {
-                        "steps": ["fuzzy_matching"],
-                        "fuzzy_threshold": fuzzy_threshold,
-                        "fuzzy_scorer": fuzzy_scorer,
-                    },
-                }
-            )
-
-    # Create token matcher from session terms
-    token_matcher = TokenLookupMatcher(terms)
-    logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
-
-    # Step 1: Research (conditional on steps — web_search and entity_profiling are independent)
-    step1_start = time.time()
+async def _run_research_step(query: str, steps: List[str], params: Dict) -> tuple:
+    """Step 1: Web search + entity profiling. Returns (entity_profile, profile_debug, elapsed_time)."""
     run_web_search = "web_search" in steps
     run_entity_profiling = "entity_profiling" in steps
 
+    t0 = time.time()
     if run_entity_profiling:
-        # Halve max_tokens when running without web data for a conciser profile
-        effective_max_tokens = profiling_max_tokens // 2 if not run_web_search else profiling_max_tokens
+        effective_max_tokens = params["profiling_max_tokens"] // 2 if not run_web_search else params["profiling_max_tokens"]
         logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
         entity_profile, profile_debug = await web_generate_entity_profile(
             query,
-            max_sites=max_sites,
+            max_sites=params["max_sites"],
             schema=ENTITY_SCHEMA,
-            content_char_limit=content_char_limit,
-            raw_content_limit=raw_content_limit,
-            num_results=num_results,
-            profiling_temperature=profiling_temperature,
+            content_char_limit=params["content_char_limit"],
+            raw_content_limit=params["raw_content_limit"],
+            num_results=params["num_results"],
+            profiling_temperature=params["profiling_temperature"],
             profiling_max_tokens=effective_max_tokens,
             verbose=True,
             skip_search=not run_web_search,
@@ -523,82 +475,72 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         logger.info(CYAN + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
         entity_profile = []
         profile_debug = {"inputs": {"scraped_sources": {"sources_fetched": [], "note": "Skipped by pipeline steps"}}}
-    step1_time = round(time.time() - step1_start, 3)
 
-    # Step 2: Token matching
+    return entity_profile, profile_debug, round(time.time() - t0, 3)
+
+
+def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
+    """Step 2: Token matching. Returns (candidate_results, elapsed_time)."""
     logger.info("\n[PIPELINE] Step 2: Matching candidates")
-
-    # Build search terms from query and entity profile
     search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
     unique_search_terms = list(set(search_terms))
 
     logger.info(f"Search terms: {len(search_terms)} total → {len(unique_search_terms)} unique")
     logger.info(f"Unique terms: {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
-    step2_start = time.time()
+    t0 = time.time()
     candidate_results = token_matcher.match(unique_search_terms)
-    step2_time = round(time.time() - step2_start, 3)
+    elapsed = round(time.time() - t0, 3)
 
     logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
-    logger.info(f"Match completed in {step2_time:.2f}s")
+    logger.info(f"Match completed in {elapsed:.2f}s")
+    return candidate_results, elapsed
 
-    # Step 3: LLM ranking (conditional on steps)
+
+async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: List[str], params: Dict) -> tuple:
+    """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time)."""
     run_llm_ranking = "llm_ranking" in steps
+    max_token_candidates = params["max_token_candidates"]
 
-    step3_start = time.time()
+    t0 = time.time()
     if not run_llm_ranking:
         logger.info(CYAN + "\n[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
-                for term, score in candidate_results[:max_token_candidates]
+                for term, score in candidates[:max_token_candidates]
             ]
         }
-        ranking_debug = {"inputs": {"token_matched_candidates": candidate_results[:max_token_candidates]}}
+        ranking_debug = {"inputs": {"token_matched_candidates": candidates[:max_token_candidates]}}
     else:
         logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
-            profile_info, entity_profile, candidate_results, query,
-            temperature=ranking_temperature,
-            max_tokens=ranking_max_tokens,
-            sample_size=ranking_sample_size,
-            relevance_weight_core=relevance_weight_core,
-            ranking_prompt=ranking_prompt,
+            profile_info, entity_profile, candidates, query,
+            temperature=params["ranking_temperature"],
+            max_tokens=params["ranking_max_tokens"],
+            sample_size=params["ranking_sample_size"],
+            relevance_weight_core=params["relevance_weight_core"],
+            ranking_prompt=params["ranking_prompt"],
         )
-    step3_time = round(time.time() - step3_start, 3) if run_llm_ranking else None
+    elapsed = round(time.time() - t0, 3) if run_llm_ranking else None
+    return llm_response, ranking_debug, elapsed
 
-    total_time = round(time.time() - start_time, 2)
 
-    # Get top ranked candidate and prepare flattened structure
-    ranked_candidates = llm_response.get('ranked_candidates', [])
-    target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches found"
-    confidence = ranked_candidates[0].get('relevance_score', 0) if ranked_candidates else 0
+def _build_training_record(
+    query: str, user_id: str, llm_response: dict, entity_profile: list,
+    profile_debug: dict, ranking_debug: dict, candidates: list,
+    params: Dict, steps: List[str], total_time: float,
+) -> Dict[str, Any]:
+    """Build training record for langfuse logging and match DB update."""
+    ranked_candidates = llm_response.get("ranked_candidates", [])
+    target = ranked_candidates[0].get("candidate") if ranked_candidates else "No matches found"
+    confidence = ranked_candidates[0].get("relevance_score", 0) if ranked_candidates else 0
 
-    # Check web search status
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
 
-    # Collect non-default pipeline params for traceability
-    _pipeline_params = {
-        "steps": steps,
-        "max_sites": max_sites,
-        "num_results": num_results,
-        "content_char_limit": content_char_limit,
-        "raw_content_limit": raw_content_limit,
-        "profiling_temperature": profiling_temperature,
-        "profiling_max_tokens": profiling_max_tokens,
-        "ranking_temperature": ranking_temperature,
-        "ranking_max_tokens": ranking_max_tokens,
-        "ranking_sample_size": ranking_sample_size,
-        "max_token_candidates": max_token_candidates,
-        "relevance_weight_core": relevance_weight_core,
-        "fuzzy_threshold": fuzzy_threshold,
-        "fuzzy_scorer": fuzzy_scorer,
-    }
-
-    # Training record for logging
-    training_record = {
+    record = {
         "source": query,
         "target": target,
         "method": "ProfileRank",
@@ -607,67 +549,110 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "total_time": total_time,
         "web_search_status": "failed" if web_search_failed else "success",
-        "pipeline_params": _pipeline_params,
-        # Verbose data (goes to separate observation files)
+        "pipeline_params": {"steps": steps, **params},
         "entity_profile": entity_profile,
         "candidates": [
-            {
-                "rank": i,
-                "name": c.get('candidate'),
-                "score": c.get('relevance_score'),
-                "core_score": c.get('core_concept_score'),
-                "spec_score": c.get('spec_score'),
-            }
+            {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
+             "core_score": c.get("core_concept_score"), "spec_score": c.get("spec_score")}
             for i, c in enumerate(ranked_candidates)
         ] if ranked_candidates else [],
         "token_matches": ranking_debug["inputs"]["token_matched_candidates"] if ranking_debug else [],
         "web_sources": scraped_sources.get("sources_fetched", []) if not web_search_failed else [],
     }
+    return _prioritize_errors(record)
 
-    # Check for errors and move to first position if detected
-    training_record = _prioritize_errors(training_record)
 
-    # Langfuse logging (traces, observations, scores, dataset items, events.jsonl)
+def _build_pipeline_response(
+    llm_response: dict, entity_profile: list, candidates: list,
+    profile_debug: dict, step_timings: dict, params: Dict,
+    steps: List[str], total_time: float,
+) -> Dict[str, Any]:
+    """Build standardized API response."""
+    ranked = llm_response.get("ranked_candidates", [])
+    scraped_sources = profile_debug["inputs"]["scraped_sources"]
+    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
+
+    result = success_response(
+        message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
+        data={
+            "ranked_candidates": ranked,
+            "entity_profile": entity_profile,
+            "token_matched_candidates": candidates[:params["max_token_candidates"]],
+            "llm_provider": llm_response.get("llm_provider"),
+            "total_time": total_time,
+            "step_timings": step_timings,
+            "web_search_status": "failed" if web_search_failed else "success",
+            "web_search_error": scraped_sources.get("error") if web_search_failed else None,
+            "pipeline_params": {"steps": steps, **params},
+        }
+    )
+    logger.info(YELLOW)
+    logger.info(json.dumps(result, indent=2))
+    logger.info(RESET)
+    return result
+
+
+@router.post("/matches")
+async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Normalize a term - research and rank candidates using LLM + token matching"""
+    user_id = request.state.user_id
+    query = payload.get("query", "")
+    steps = payload.get("steps") or _pipeline("default")
+    trace_id = payload.get("trace_id")
+
+    if not settings.use_web_search:
+        steps = [s for s in steps if s != "web_search"]
+
+    params = _resolve_pipeline_params(payload)
+
+    if user_id not in user_sessions:
+        raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")
+
+    terms = user_sessions[user_id]["terms"]
+    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms from session")
+    start_time = time.time()
+
+    # Step 0: Fuzzy matching (optional, short-circuits if fuzzy-only)
+    fuzzy_time = None
+    if steps is not None and "fuzzy_matching" in steps:
+        fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params)
+        if steps == ["fuzzy_matching"]:
+            total_time = round(time.time() - start_time, 2)
+            return success_response(
+                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {total_time}s",
+                data={
+                    "ranked_candidates": [{"candidate": t, "relevance_score": s} for t, s in fuzzy_results],
+                    "total_time": total_time,
+                    "step_timings": {"fuzzy_matching": fuzzy_time},
+                    "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_threshold": params["fuzzy_threshold"], "fuzzy_scorer": params["fuzzy_scorer"]},
+                }
+            )
+
+    # Steps 1-3: Research → Token matching → LLM ranking
+    token_matcher = TokenLookupMatcher(terms)
+    logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
+
+    entity_profile, profile_debug, step1_time = await _run_research_step(query, steps, params)
+    candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
+    llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params)
+
+    total_time = round(time.time() - start_time, 2)
+    step_timings = {"fuzzy_matching": fuzzy_time, "entity_profiling": step1_time, "token_matching": step2_time, "llm_ranking": step3_time}
+
+    # Log and persist
+    training_record = _build_training_record(query, user_id, llm_response, entity_profile, profile_debug, ranking_debug, candidate_results, params, steps, total_time)
+
     try:
         logged_trace_id = log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
         logger.info(f"[LANGFUSE] Logged trace: {logged_trace_id}")
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
-    # Update match database (live mode)
     update_match_database(training_record)
+    logger.info(f"[PIPELINE] Training record saved: {query} → {training_record['target']}")
+    _update_session_usage(user_id, training_record["target"])
 
-    logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
-
-    # Update session usage stats automatically
-    _update_session_usage(user_id, target)
-
-    # Build standardized response (web_search_failed already calculated above)
-    num_candidates = len(llm_response.get('ranked_candidates', []))
-    result = success_response(
-        message=f"Research completed - Found {num_candidates} matches in {total_time}s",
-        data={
-            "ranked_candidates": llm_response.get('ranked_candidates', []),
-            "entity_profile": entity_profile,
-            "token_matched_candidates": candidate_results[:max_token_candidates],
-            "llm_provider": llm_response.get('llm_provider'),
-            "total_time": total_time,
-            "step_timings": {
-                "fuzzy_matching": fuzzy_time,
-                "entity_profiling": step1_time,
-                "token_matching": step2_time,
-                "llm_ranking": step3_time,
-            },
-            "web_search_status": "failed" if web_search_failed else "success",
-            "web_search_error": scraped_sources.get("error") if web_search_failed else None,
-            "pipeline_params": _pipeline_params,
-        }
-    )
-
-    logger.info(YELLOW)
-    logger.info(json.dumps(result, indent=2))
-    logger.info(RESET)
-    return result
+    return _build_pipeline_response(llm_response, entity_profile, candidate_results, profile_debug, step_timings, params, steps, total_time)
 
 
 @router.post("/batches/{batch_id}/items")
