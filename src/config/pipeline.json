@@ -12,7 +12,8 @@
       "short_circuit": true,
       "config": {
         "algorithm": "levenshtein_word",
-        "threshold": 0.7
+        "threshold": 0.7,
+        "_note": "0-1 scale (frontend). Backend uses 0-100 scale with rapidfuzz WRatio."
       }
     }
   },

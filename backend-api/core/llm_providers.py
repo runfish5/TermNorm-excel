@@ -3,12 +3,22 @@
 import os
 import json
 import asyncio
+from pathlib import Path
 from typing import List, Dict, Optional, Literal, Union
 from fastapi import HTTPException
 
-# Global configuration - set once for entire application
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
-LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
+# Load llm_defaults from pipeline.json (single read at import time)
+_pipeline_path = Path(__file__).parent.parent / "config" / "pipeline.json"
+_llm_cfg = json.loads(_pipeline_path.read_text()).get("llm_defaults", {})
+
+# Global configuration - env vars override pipeline.json defaults
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", _llm_cfg.get("provider", "groq"))
+LLM_MODEL = os.getenv("LLM_MODEL", _llm_cfg.get("model", "meta-llama/llama-4-maverick-17b-128e-instruct"))
+_TIMEOUT = _llm_cfg.get("timeout", 60)
+_RETRY_ATTEMPTS = _llm_cfg.get("retry_attempts", 3)
+_RETRY_BACKOFF_BASE = _llm_cfg.get("retry_backoff_base", 2)
+_TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg.get("token_estimation_multiplier", 1.3)
+_TOKEN_LIMIT = _llm_cfg.get("token_limit", 100000)
 
 
 def get_available_providers() -> List[str]:
@@ -35,8 +45,8 @@ async def llm_call(
     """Universal LLM function - uses global provider config"""
 
     # Request validation - prevent guaranteed failures
-    total_tokens = sum(len(m.get('content', '').split()) for m in messages) * 1.3
-    if total_tokens > 100000:
+    total_tokens = sum(len(m.get('content', '').split()) for m in messages) * _TOKEN_ESTIMATION_MULTIPLIER
+    if total_tokens > _TOKEN_LIMIT:
         raise HTTPException(400, "Request exceeds token limit")
 
     if system:
@@ -82,8 +92,8 @@ async def llm_call(
     if not api_key:
         raise ValueError(f"API key not found for {LLM_PROVIDER}")
 
-    # Retry logic with exponential backoff (3 attempts)
-    for attempt in range(3):
+    # Retry logic with exponential backoff
+    for attempt in range(_RETRY_ATTEMPTS):
         try:
             # Anthropic uses different API structure
             if LLM_PROVIDER == "anthropic":
@@ -95,11 +105,11 @@ async def llm_call(
                 }
                 if system:
                     anthropic_params["system"] = system
-                response = await asyncio.wait_for(client.messages.create(**anthropic_params), timeout=60)
+                response = await asyncio.wait_for(client.messages.create(**anthropic_params), timeout=_TIMEOUT)
                 content = response.content[0].text if response.content else ""
             else:
                 # OpenAI/Groq use same API
-                response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=60)
+                response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=_TIMEOUT)
                 content = response.choices[0].message.content if response.choices else ""
 
             # Parse JSON if needed
@@ -108,10 +118,10 @@ async def llm_call(
             return content
 
         except asyncio.TimeoutError:
-            if attempt == 2:
+            if attempt == _RETRY_ATTEMPTS - 1:
                 raise HTTPException(503, "LLM request timeout")
-            await asyncio.sleep(2 ** attempt)
+            await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
         except Exception as e:
-            if attempt == 2:
+            if attempt == _RETRY_ATTEMPTS - 1:
                 raise HTTPException(503, f"LLM error: {str(e)}")
-            await asyncio.sleep(2 ** attempt)
+            await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)

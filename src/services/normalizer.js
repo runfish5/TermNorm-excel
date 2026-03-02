@@ -10,10 +10,6 @@ import frontendPipeline from "../config/pipeline.json";
 // Fuzzy threshold from local pipeline config (webpack 5 imports JSON natively)
 const _fuzzyThreshold = frontendPipeline.nodes.fuzzy_matching.config.threshold;
 
-export function getPipelineConfig() {
-  return frontendPipeline;
-}
-
 export function findFuzzyMatch(value, forward, reverse) {
   return findFuzzyMatchDomain(value, forward, reverse, _fuzzyThreshold);
 }

@@ -118,7 +118,6 @@ def update_match_database(record: Dict[str, Any]):
     if not target or not source or target == "No matches found":
         return
 
-    from datetime import datetime
     now = datetime.utcnow().isoformat() + "Z"
 
     # Step 1: Update all existing aliases for this source to point to new target

@@ -8,7 +8,8 @@
       "config": {
         "threshold": 70,
         "scorer": "WRatio",
-        "limit": 5
+        "limit": 5,
+        "_note": "0-100 scale (rapidfuzz). Frontend uses 0-1 scale with levenshtein_word."
       }
     },
     "web_search": {
