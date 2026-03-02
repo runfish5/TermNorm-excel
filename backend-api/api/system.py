@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body
 from config.environment import get_connection_info
 from config.settings import settings
 from core import llm_providers
-from utils.responses import success_response
+from utils.responses import success_response, error_response
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]
         logger.info(f"Brave API {'enabled' if payload['brave_api'] else 'disabled'}")
 
     if not updated:
-        return {"status": "error", "message": "No valid settings provided"}
+        return error_response("No valid settings provided")
 
     return success_response(message="Settings updated", data=updated)
 
@@ -83,11 +83,11 @@ async def get_match_details(identifier: str) -> Dict[str, Any]:
     from api.research_pipeline import match_database
 
     if not match_database:
-        return {"status": "error", "message": "Match database not loaded"}
+        return error_response("Match database not loaded")
 
     entry = match_database.get(identifier)
     if not entry:
-        return {"status": "error", "message": f"No entry found for identifier: {identifier}"}
+        return error_response(f"No entry found for identifier: {identifier}")
 
     return success_response(
         message="Match details retrieved",

@@ -99,7 +99,7 @@ observations/{trace_id}/
 
 ```
 1. User enters query
-   → log_to_langfuse() creates:
+   → log_pipeline() creates:
      - Trace (lean)
      - Dataset item (linked via source_trace_id)
      - Observations (verbose steps)

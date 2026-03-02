@@ -64,6 +64,44 @@ export async function startTracking(config, mappings) {
   } finally { activationInProgress.delete(workbookId); }
 }
 
+async function handleDirectEdits(ws, ctx, tracker, rowIndex, columnIndex, rowCount, columnCount, values) {
+  const outputEdits = Array.from({ length: rowCount }, (_, r) => Array.from({ length: columnCount }, (_, c) => {
+    const row = rowIndex + r, col = columnIndex + c, newValue = values[r][c];
+    if (row === 0 || !newValue) return null;
+    for (const [inputCol, outputCol] of tracker.columnMap) {
+      if (outputCol === col) return { row, inputCol, newValue };
+    }
+    return null;
+  })).flat().filter(Boolean);
+
+  for (const { row, inputCol, newValue } of outputEdits) {
+    const cellKey = `${row}:${inputCol}`;
+    const cellState = getWorkbookCellState(tracker.workbookId, cellKey);
+
+    // Prefer stored value (guaranteed to match), fallback to Excel read
+    let sourceValue = cellState?.value;
+    if (!sourceValue) {
+      const inputRange = ws.getRangeByIndexes(row, inputCol, 1, 1);
+      inputRange.load("values");
+      await ctx.sync();
+      sourceValue = inputRange.values[0][0];
+    }
+
+    if (sourceValue) {
+      const timestamp = new Date().toISOString();
+      const source = String(sourceValue).trim();
+      const target = String(newValue).trim();
+      const result = { target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp, source };
+
+      eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
+      fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp }, getHeaders()));
+
+      const confCol = tracker.confidenceColumnMap.get(inputCol);
+      if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[100]];
+    }
+  }
+}
+
 const handleWorksheetChange = async (e, tracker) => {
   if (!tracker.active) return;
   await Excel.run(async (ctx) => {
@@ -77,51 +115,11 @@ const handleWorksheetChange = async (e, tracker) => {
       return row > 0 && targetCol !== undefined ? { row, col, targetCol, value: values[r][c] } : null;
     })).flat().filter(Boolean);
 
-    // Check for output column edits (DirectEdit - user typed directly in result column)
-    const outputEdits = Array.from({ length: rowCount }, (_, r) => Array.from({ length: columnCount }, (_, c) => {
-      const row = rowIndex + r, col = columnIndex + c, newValue = values[r][c];
-      if (row === 0 || !newValue) return null;
-      for (const [inputCol, outputCol] of tracker.columnMap) {
-        if (outputCol === col) return { row, inputCol, newValue };
-      }
-      return null;
-    })).flat().filter(Boolean);
-
-    // Log DirectEdits (fire-and-forget, don't block normal processing)
-    for (const { row, inputCol, newValue } of outputEdits) {
-      const cellKey = `${row}:${inputCol}`;
-      const cellState = getWorkbookCellState(tracker.workbookId, cellKey);
-
-      // Prefer stored value (guaranteed to match), fallback to Excel read
-      let sourceValue = cellState?.value;
-      if (!sourceValue) {
-        const inputRange = ws.getRangeByIndexes(row, inputCol, 1, 1);
-        inputRange.load("values");
-        await ctx.sync();
-        sourceValue = inputRange.values[0][0];
-      }
-
-      if (sourceValue) {
-        const timestamp = new Date().toISOString();
-        const source = String(sourceValue).trim();
-        const target = String(newValue).trim();
-        const result = { target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp, source };
-
-        // Emit event for history table
-        eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
-
-        // Also log to API (fire-and-forget)
-        fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp }, getHeaders()));
-
-        // Update confidence column
-        const confCol = tracker.confidenceColumnMap.get(inputCol);
-        if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[100]];
-      }
-    }
+    // Detect and log DirectEdits (user typed directly in result column)
+    await handleDirectEdits(ws, ctx, tracker, rowIndex, columnIndex, rowCount, columnCount, values);
 
     const withValue = cells.filter(c => c.value);
     if (withValue.length >= 2) {
-      // Don't color cells - just warn and exit (avoids leaving cells yellow permanently)
       return showMessage(`Paste detected (${cells.length} cells). Edit individually.`, "warning");
     }
 

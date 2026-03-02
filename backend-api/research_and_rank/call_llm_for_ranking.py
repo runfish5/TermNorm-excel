@@ -1,4 +1,6 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
+import json
+from typing import Optional
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
@@ -7,16 +9,39 @@ from utils.prompt_registry import get_prompt_registry
 GREEN = '\033[92m'
 RESET = '\033[0m'
 
-async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, temperature=0, max_tokens=4000, sample_size=20, relevance_weight_core=0.7, ranking_prompt=None):
-    """Rank candidates using LLM and return (result, debug_info) tuple"""
+
+def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]]) -> tuple[dict, dict]:
+    """Build standardized (result, debug_info) tuple for ranking responses."""
+    result = {
+        "query": query,
+        "total_matches": len(candidates),
+        "research_performed": True,
+        "ranked_candidates": candidates,
+        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+    }
+    debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
+    return result, debug_info
+
+
+async def call_llm_for_ranking(
+    profile_info: str,
+    entity_profile: dict,
+    match_results: list[tuple[str, float]],
+    query: str,
+    temperature: float = 0,
+    max_tokens: int = 4000,
+    sample_size: int = 20,
+    relevance_weight_core: float = 0.7,
+    ranking_prompt: Optional[str] = None,
+) -> tuple[dict, dict]:
+    """Rank candidates using LLM and return (result, debug_info) tuple."""
     available_results = list(match_results[:sample_size])
     effective_sample = min(len(available_results), sample_size)
     random_20 = random.sample(available_results, effective_sample) if available_results else []
     matches = "\n".join(f"- {term}" for term, score in random_20)
     core_concept = entity_profile["core_concept"]
 
-    import json as json_lib
-    entity_profile_json = json_lib.dumps(entity_profile, indent=2)
+    entity_profile_json = json.dumps(entity_profile, indent=2)
 
     if ranking_prompt:
         # Use custom prompt with {{variable}} substitution
@@ -34,7 +59,7 @@ async def call_llm_for_ranking(profile_info, entity_profile, match_results, quer
             entity_profile_json=entity_profile_json,
             matches=matches
         )
-    
+
     enhanced_prompt = f"""{prompt}
 
 IMPORTANT: Return a valid JSON response matching this exact structure:
@@ -64,7 +89,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
 
     print("\n[PIPELINE] Step 4: Correcting candidate strings")
     corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)
-    
+
     if corrected and 'ranked_candidates' in corrected:
         candidates = corrected['ranked_candidates']
         print(f"\n[PIPELINE] Success! Found {len(candidates)} matches.")
@@ -74,23 +99,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
             spec_score = c.get('spec_score', 0.0)
             print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (core: {core_score:.1f}, spec: {spec_score:.1f})")
 
-        result = {
-            "query": query,
-            "total_matches": len(candidates),
-            "research_performed": True,
-            "ranked_candidates": candidates,
-            "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        }
-        debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
-        return result, debug_info
+        return _build_result(query, candidates, match_results)
 
     print(f"[WARNING] Unexpected results format: {type(corrected)}")
-    result = {
-        "query": query,
-        "total_matches": 0,
-        "research_performed": True,
-        "ranked_candidates": [],
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-    }
-    debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
-    return result, debug_info
+    return _build_result(query, [], match_results)

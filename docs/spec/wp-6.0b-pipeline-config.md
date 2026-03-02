@@ -238,9 +238,8 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 
 Uses `rapidfuzz` — MIT-licensed, C-optimized, the standard Python NLP library for string matching. Exposes multiple algorithms (ratio, partial_ratio, token_sort_ratio, WRatio) as a tunable `scorer` parameter that PromptPotter can sweep.
 
-Two functions:
+One function:
 - `fuzzy_match_terms(query, candidates, threshold=70, scorer="WRatio", limit=5)` → list of `(candidate, normalized_score_0to1)`
-- `fuzzy_match_mappings(query, forward, reverse, threshold, scorer)` → MatchResult dict or None
 
 Scores normalized from rapidfuzz's 0-100 to 0.0-1.0 to match existing confidence model.
 

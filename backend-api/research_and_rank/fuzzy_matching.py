@@ -9,7 +9,7 @@ Scores normalized from rapidfuzz's 0-100 to 0.0-1.0.
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Tuple
 from rapidfuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
@@ -62,63 +62,3 @@ def fuzzy_match_terms(
 
     # results: list of (match, score, index) — normalize score to 0.0-1.0
     return [(match, round(score / 100.0, 4)) for match, score, _ in results]
-
-
-def fuzzy_match_mappings(
-    query: str,
-    forward: Dict[str, Any],
-    reverse: Dict[str, str],
-    threshold: int = 70,
-    scorer: str = "WRatio",
-) -> Optional[Dict[str, Any]]:
-    """
-    Match query against forward/reverse mapping keys.
-
-    Searches forward keys first, then reverse keys, same threshold.
-
-    Args:
-        query: Input term to match
-        forward: Source→target mappings
-        reverse: Target→source mappings
-        threshold: Minimum score 0-100
-        scorer: Algorithm name
-
-    Returns:
-        MatchResult dict or None
-    """
-    if not query:
-        return None
-
-    # Search forward mappings
-    if forward:
-        fwd_matches = fuzzy_match_terms(
-            query, list(forward.keys()), threshold, scorer, limit=1
-        )
-        if fwd_matches:
-            matched_key, score = fwd_matches[0]
-            value = forward[matched_key]
-            target = value if isinstance(value, str) else value.get("target", matched_key)
-            return {
-                "target": target,
-                "method": "fuzzy",
-                "confidence": score,
-                "source": query,
-                "matched_key": matched_key,
-            }
-
-    # Search reverse mappings
-    if reverse:
-        rev_matches = fuzzy_match_terms(
-            query, list(reverse.keys()), threshold, scorer, limit=1
-        )
-        if rev_matches:
-            matched_key, score = rev_matches[0]
-            return {
-                "target": matched_key,
-                "method": "fuzzy",
-                "confidence": score,
-                "source": query,
-                "matched_key": matched_key,
-            }
-
-    return None

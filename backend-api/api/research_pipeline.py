@@ -23,7 +23,7 @@ from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
 from utils.cache_metadata import CacheMetadata
 from utils.langfuse_logger import (
-    log_to_langfuse, log_batch_start, log_batch_complete, log_pipeline,
+    log_batch_start, log_batch_complete, log_pipeline,
     log_cache_match, log_fuzzy_match, log_user_correction
 )
 from utils.schema_registry import get_schema_registry
@@ -615,7 +615,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     # Langfuse logging (traces, observations, scores, dataset items, events.jsonl)
     try:
-        logged_trace_id = log_to_langfuse(training_record, session_id=user_id, trace_id=trace_id)
+        logged_trace_id = log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
         logger.info(f"[LANGFUSE] Logged trace: {logged_trace_id}")
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
@@ -735,7 +735,7 @@ async def batch_process_single(
 
     # Langfuse logging
     try:
-        log_to_langfuse(training_record, session_id=user_id)
+        log_pipeline(training_record, session_id=user_id)
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log batch: {e}")
 

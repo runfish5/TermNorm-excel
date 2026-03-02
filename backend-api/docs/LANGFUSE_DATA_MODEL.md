@@ -123,7 +123,7 @@ Items link TO traces via `source_trace_id` (Langfuse convention).
 ```
 User Query: "mexican alu"
          ↓
-    log_to_langfuse()
+    log_pipeline()
          ↓
     ┌────────────────────────────────────┐
     │ 1. Create TRACE (lean)             │

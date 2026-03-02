@@ -123,7 +123,7 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
    - Mutations via `state-actions.js` functions
 4. **Centralized Config**: All constants in `config/config.js` with JSDoc typedefs
 5. **Session-Based**: No database - in-memory state with JSON persistence
-6. **Three-Tier Matching**: Cache → Fuzzy → LLM (auto-apply threshold: confidence > 0.9)
+6. **Three-Tier Matching**: Cache → Fuzzy → LLM (best result always written; 0.9 threshold is UI color only)
 7. **Workbook-Scoped Tracking**: Multiple workbooks track cells independently
 8. **IP-Based Auth**: Users configured in `backend-api/config/users.json`
 9. **Office.js Operations**: Batch inside `Excel.run(async (ctx) => {...})`, commit with `ctx.sync()`

@@ -14,6 +14,15 @@ from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 
+# Scraping constants
+SCRAPE_TIMEOUT_SECONDS = 5
+SCRAPE_MAX_RESPONSE_BYTES = 50_000
+SCRAPE_MIN_TEXT_LENGTH = 200
+SCRAPE_MAX_TEXT_LENGTH = 10_000
+SCRAPE_MAX_WORKERS = 10
+SCRAPE_TITLE_MAX_LENGTH = 100
+
+
 def generate_format_string_from_schema(schema):
     """Generate the JSON format string for LLM prompt from a JSON schema"""
     if 'properties' not in schema:
@@ -53,20 +62,20 @@ def scrape_url(url, char_limit):
             'Accept-Language': 'en-US,en;q=0.9'
         }
 
-        response = requests.get(url, timeout=5, headers=headers)
+        response = requests.get(url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers)
         if response.status_code != 200:
             return None
 
-        soup = BeautifulSoup(response.content[:50000], 'html.parser')
+        soup = BeautifulSoup(response.content[:SCRAPE_MAX_RESPONSE_BYTES], 'html.parser')
         for tag in soup(['script', 'style', 'nav', 'header', 'footer']):
             tag.decompose()
 
         text = re.sub(r'\s+', ' ', soup.get_text().strip())
-        if len(text) < 200 or len(text) > 10000:
+        if len(text) < SCRAPE_MIN_TEXT_LENGTH or len(text) > SCRAPE_MAX_TEXT_LENGTH:
             return None
 
         title = soup.find('title')
-        title = title.get_text().strip()[:100] if title else url.split('/')[-1]
+        title = title.get_text().strip()[:SCRAPE_TITLE_MAX_LENGTH] if title else url.split('/')[-1]
 
         return {'title': title, 'content': text[:char_limit], 'url': url}
 
@@ -372,7 +381,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     if urls:
         print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), max_sites * 2)} URLs in parallel...{RESET}")
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
             results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:max_sites * 2]))
 
             for i, result in enumerate(results):

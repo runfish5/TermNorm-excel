@@ -5,10 +5,6 @@ import { $, setupColumnResize } from "../utils/dom-helpers.js";
 import { cacheEntity, getEntity } from "../utils/history-cache.js";
 import { addSessionHistoryEntry, getStateValue, clearSessionHistory, setSessionHistory } from "../core/state-actions.js";
 
-const sessionEvents = [];
-const addEvent = (e) => { if (!e.source) return; e.timestamp = e.timestamp || new Date().toISOString(); sessionEvents.unshift(e); if (sessionEvents.length > EVENT_LOG.MAX_ENTRIES) sessionEvents.pop(); };
-const clearEvents = () => { sessionEvents.length = 0; };
-
 let container = null, tableBody = null, expandedRowState = null;
 const sourceIndex = new Map(); // Map<normalizedSource, {row, history[], addedAt}>
 const AUTO_EXPAND_DELAY_MS = 1500; // Don't auto-expand rows added in the last 1.5 seconds
@@ -64,7 +60,6 @@ eventBus.on(Events.SESSION_HISTORY_CHANGED, () => {
   const sessionHistory = getStateValue('session.sessionHistory') || [];
   if (sessionHistory.length === 0) {
     // State was cleared - clear UI
-    clearEvents();
     sourceIndex.clear();
     if (tableBody) { tableBody.innerHTML = ""; showPlaceholder(); }
   }
@@ -93,7 +88,6 @@ export async function addEntry(source, cellKey, timestamp, result) {
   tableBody.querySelector(".placeholder-row")?.remove();
   const ts = timestamp || new Date().toISOString();
   const key = norm(source);
-  addEvent({ source, cellKey, timestamp: ts });
   const r = result || { target: "Unknown", method: "-", confidence: 0, web_search_status: "idle" };
   cacheEntity(source, r);
   // Add to centralized state for reactive tab counter
@@ -133,7 +127,6 @@ export async function addEntry(source, cellKey, timestamp, result) {
 
 export function clear() {
   if (!tableBody) return;
-  clearEvents();
   sourceIndex.clear();
   tableBody.innerHTML = "";
   showPlaceholder();

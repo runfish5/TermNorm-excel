@@ -646,17 +646,3 @@ def _profile_summary(profile: Optional[Dict]) -> Optional[Dict]:
         "entity_name": profile.get("entity_name"),
         "core_concept": profile.get("core_concept"),
     }
-
-
-# =============================================================================
-# LEGACY COMPATIBILITY
-# =============================================================================
-
-def log_to_langfuse(record: Dict[str, Any], session_id: str = None, trace_id: str = None) -> str:
-    """Alias for log_pipeline."""
-    return log_pipeline(record, session_id, trace_id=trace_id)
-
-
-def log_to_experiments(record: Dict[str, Any]) -> str:
-    """Legacy wrapper."""
-    return log_pipeline(record, record.get("session_id"))

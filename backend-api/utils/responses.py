@@ -24,3 +24,25 @@ def success_response(message: str, data: Any = None) -> Dict[str, Any]:
         response["data"] = data
 
     return response
+
+
+def error_response(message: str, data: Any = None) -> Dict[str, Any]:
+    """
+    Create standardized error response.
+
+    Args:
+        message: User-friendly error message
+        data: Optional response payload
+
+    Returns:
+        Standardized response dict
+    """
+    response = {
+        "status": "error",
+        "message": message
+    }
+
+    if data is not None:
+        response["data"] = data
+
+    return response
