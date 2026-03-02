@@ -16,4 +16,5 @@ export const Events = {
   TRACKING_CHANGED: 'tracking:changed',
   SESSION_HISTORY_CHANGED: 'session:history:changed',
   SERVICE_MESSAGE: 'service:message',
+  SERVER_LED_CLICKED: 'server:led:clicked',
 };

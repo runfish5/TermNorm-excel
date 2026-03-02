@@ -27,6 +27,7 @@ from utils.langfuse_logger import (
 )
 from utils.schema_registry import get_schema_registry
 from config.settings import settings
+from config.pipeline_config import get_node_config, get_pipeline_steps
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,8 @@ match_database: Dict[str, Any] = {}
 # Cache metadata tracker - sophisticated tracking of loaded data
 cache_metadata = CacheMetadata()
 
-# Load pipeline.json defaults (single read at import time)
-_PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
-_pipeline_config = json.loads(_PIPELINE_CONFIG_PATH.read_text())
-_node = lambda name: _pipeline_config["nodes"][name]["config"]
-_pipeline = lambda name: _pipeline_config["pipelines"][name]
+_node = get_node_config
+_pipeline = get_pipeline_steps
 
 # Shared thresholds (from pipeline.json where available)
 HIGH_CONFIDENCE_THRESHOLD = _node("token_matching")["high_confidence_threshold"]
@@ -663,7 +661,7 @@ async def batch_process_single(
 ) -> Dict[str, Any]:
     """
     Process a single query within a batch.
-    Lightweight version of /matches for batch operations.
+    Uses the same step functions as /matches for consistency.
     """
     user_id = request.state.user_id
     query = payload.get("query", "")
@@ -672,83 +670,53 @@ async def batch_process_single(
     if not query:
         return {"status": "error", "message": "Query is required"}
 
-    # Retrieve terms from session
     if user_id not in user_sessions:
-        raise HTTPException(
-            status_code=400,
-            detail="No session found - initialize session first"
-        )
+        raise HTTPException(status_code=400, detail="No session found - initialize session first")
 
     terms = user_sessions[user_id]["terms"]
     logger.info(f"[BATCH] Processing: {query} (context: {context[:50] if context else 'none'}...)")
 
     start_time = time.time()
 
-    # Create token matcher
+    # Resolve params from pipeline.json (batch overrides via payload)
+    steps = payload.get("steps") or _pipeline("default")
+    params = _resolve_pipeline_params(payload)
+
+    # Step 1: Research — use query+context for profiling
+    research_query = f"{query} {context}" if context else query
+    entity_profile, profile_debug, step1_time = await _run_research_step(research_query, steps, params)
+
+    # Step 2: Token matching — use plain query for candidate lookup
     token_matcher = TokenLookupMatcher(terms)
+    candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
 
-    # Build entity profile with context (fewer sites for batch)
-    query_with_context = f"{query} {context}" if context else query
-    entity_profile, profile_debug = await web_generate_entity_profile(
-        query_with_context,
-        max_sites=5,  # Fewer sites for batch processing
-        schema=ENTITY_SCHEMA,
-        verbose=False
-    )
-
-    # Token matching
-    search_terms = [word for s in [query] + utils.flatten_strings(entity_profile)
-                    for word in s.split()]
-    unique_search_terms = list(set(search_terms))
-    candidate_results = token_matcher.match(unique_search_terms)
-
-    # LLM ranking with context
-    profile_info = display_profile(entity_profile, "BATCH PROFILE")
-    llm_response, ranking_debug = await call_llm_for_ranking(
-        profile_info,
-        entity_profile,
-        candidate_results,
-        f"{query} (User context: {context})" if context else query
-    )
-
-    ranked_candidates = llm_response.get('ranked_candidates', [])
-    target = ranked_candidates[0].get('candidate') if ranked_candidates else "No matches"
-    confidence = ranked_candidates[0].get('relevance_score', 0) if ranked_candidates else 0
+    # Step 3: LLM ranking — include context in ranking query
+    ranking_query = f"{query} (User context: {context})" if context else query
+    llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, ranking_query, steps, params)
 
     total_time = round(time.time() - start_time, 2)
 
-    # Build training record for logging
-    training_record = {
-        "source": query,
-        "target": target,
-        "method": "BatchProfileRank",
-        "confidence": confidence,
-        "entity_profile": entity_profile,
-        "web_sources": profile_debug.get("inputs", {}).get("scraped_sources", {}).get("sources_fetched", []),
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
-        "total_time": total_time,
-    }
+    # Build training record via shared function
+    training_record = _build_training_record(query, user_id, llm_response, entity_profile, profile_debug, ranking_debug, candidate_results, params, steps, total_time)
+    training_record["method"] = "BatchProfileRank"
 
-    # Langfuse logging
     try:
         log_pipeline(training_record, session_id=user_id)
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log batch: {e}")
 
-    # Update match database
     update_match_database(training_record)
+    _update_session_usage(user_id, training_record["target"])
 
-    # Update session usage stats
-    _update_session_usage(user_id, target)
-
-    logger.info(f"[BATCH] Completed: {query} -> {target} ({confidence:.0%}) in {total_time}s")
+    ranked_candidates = llm_response.get("ranked_candidates", [])
+    logger.info(f"[BATCH] Completed: {query} -> {training_record['target']} ({training_record['confidence']:.0%}) in {total_time}s")
 
     return success_response(
         message="Single batch item processed",
         data={
-            "target": target,
-            "confidence": confidence,
-            "candidates": ranked_candidates[:3],  # Top 3 only for batch
+            "target": training_record["target"],
+            "confidence": training_record["confidence"],
+            "candidates": ranked_candidates[:3],
             "total_time": total_time
         }
     )

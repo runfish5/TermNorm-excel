@@ -1,5 +1,6 @@
 /** API Client - HTTP operations and server connectivity */
-import { showMessage } from "./ui-feedback.js";
+import { eventBus } from "../core/event-bus.js";
+import { Events } from "../core/events.js";
 import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
 import { ERROR_GUIDANCE, ENDPOINTS, SERVER_DEFAULTS } from "../config/config.js";
 import { $ } from "./dom-helpers.js";
@@ -36,19 +37,21 @@ export async function serverFetch(url, options = {}) {
   catch (e) { if (e.name !== "AbortError") setServerStatus(false); throw e; }
 }
 
+const _msg = (text, type = "info") => eventBus.emit(Events.SERVICE_MESSAGE, { text, type });
+
 async function apiFetch(url, options = {}) {
   const { silent, processingMessage, ...fetchOpts } = options;
-  if (!silent) showMessage(processingMessage || "Working", "processing");
+  if (!silent) _msg(processingMessage || "Working", "processing");
   try {
     const response = await serverFetch(url, fetchOpts), data = await response.json();
-    if (response.ok) { if (!silent) showMessage(data.message || "Operation successful"); return data.data ?? null; }
+    if (response.ok) { if (!silent) _msg(data.message || "Operation successful"); return data.data ?? null; }
     if (!silent) {
       const msg = data.message || data.detail || "Request failed";
       const guidance = (response.status === 400 && msg.includes("No session found")) ? ERROR_GUIDANCE.SESSION_LOST : ERROR_GUIDANCE[response.status];
-      showMessage(guidance ? `${msg}\n\n${guidance}` : msg, "error");
+      _msg(guidance ? `${msg}\n\n${guidance}` : msg, "error");
     }
     return null;
-  } catch { if (!silent) showMessage(`Server offline - Check backend is running on ${getHost()}\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
+  } catch { if (!silent) _msg(`Server offline - Check backend is running on ${getHost()}\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
 }
 
 // HTTP method wrappers

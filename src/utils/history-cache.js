@@ -1,5 +1,4 @@
 import { getStateValue, setHistoryEntries, setHistoryCacheInitialized } from "../core/state-actions.js";
-import { stateStore } from "../core/state-store.js";
 import { serverFetch, apiGet, getHeaders, buildUrl } from "./api-fetch.js";
 import { ENDPOINTS } from "../config/config.js";
 
@@ -39,5 +38,5 @@ export function cacheEntity(source, { target, method, confidence, timestamp, web
     entries[target].last_updated = timestamp;
     if (web_sources?.length) entries[target].web_sources = web_sources;
   }
-  stateStore.set('history.entries', entries);
+  setHistoryEntries(entries);
 }

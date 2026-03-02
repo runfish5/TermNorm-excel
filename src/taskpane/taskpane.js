@@ -70,6 +70,15 @@ function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
 
+  // Server LED click — orchestration lives here, not in ui-feedback
+  eventBus.on(Events.SERVER_LED_CLICKED, ({ online }) => {
+    if (online) { checkServerStatus(); return; }
+    showView("setup");
+    wizardState.reset();
+    wizardState.goTo(1);
+    showMessage("Start the Python server using the instructions below");
+  });
+
   // Central TRACKING_CHANGED handler - UI reacts to state changes
   eventBus.on(Events.TRACKING_CHANGED, ({ active }) => {
     updateToggleUI(active);

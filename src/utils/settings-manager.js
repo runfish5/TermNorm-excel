@@ -1,6 +1,6 @@
 import { apiGet, apiPut, buildUrl } from "./api-fetch.js";
 import { ENDPOINTS } from "../config/config.js";
-import { stateStore } from "../core/state-store.js";
+import { getStateValue, setSettings } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
@@ -15,10 +15,10 @@ export function loadSettings() {
 }
 
 export function saveSetting(key, value) {
-  const current = stateStore.get('settings') || {};
+  const current = getStateValue('settings') || {};
   const updated = { ...current, [key]: value };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  stateStore.merge('settings', { ...updated, loaded: true });
+  setSettings(updated);
   eventBus.emit(Events.SETTING_CHANGED, { key, value });
 }
 

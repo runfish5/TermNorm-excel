@@ -1,15 +1,13 @@
 """Simple global LLM provider - one config for entire app"""
 
 import os
-import json
 import asyncio
-from pathlib import Path
 from typing import List, Dict, Optional, Literal, Union
 from fastapi import HTTPException
 
-# Load llm_defaults from pipeline.json (single read at import time)
-_pipeline_path = Path(__file__).parent.parent / "config" / "pipeline.json"
-_llm_cfg = json.loads(_pipeline_path.read_text()).get("llm_defaults", {})
+from config.pipeline_config import get_llm_defaults
+
+_llm_cfg = get_llm_defaults()
 
 # Global configuration - env vars override pipeline.json defaults
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", _llm_cfg.get("provider", "groq"))

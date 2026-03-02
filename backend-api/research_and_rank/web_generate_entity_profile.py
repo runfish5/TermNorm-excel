@@ -1,23 +1,20 @@
-import json
 import time
 import random
 import logging
 import re
 import requests
-from pathlib import Path
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
 from core.llm_providers import llm_call
 from utils.utils import CYAN, MAGENTA, RED, RESET, YELLOW, GREEN, BOLD
 from config.settings import settings
+from config.pipeline_config import get_node_config
 from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 
-# Load web_search config from pipeline.json (single source of truth)
-_PIPELINE_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
-_WS_CONFIG = json.loads(_PIPELINE_PATH.read_text())["nodes"]["web_search"]["config"]
+_WS_CONFIG = get_node_config("web_search")
 
 SCRAPE_TIMEOUT_SECONDS = _WS_CONFIG["scrape_timeout"]
 SCRAPE_MAX_RESPONSE_BYTES = _WS_CONFIG["http_content_limit"]
