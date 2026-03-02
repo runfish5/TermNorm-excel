@@ -43,6 +43,11 @@ match_database: Dict[str, Any] = {}
 # Cache metadata tracker - sophisticated tracking of loaded data
 cache_metadata = CacheMetadata()
 
+# Load pipeline.json defaults (single read at import time)
+_PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
+_pipeline_config = json.loads(_PIPELINE_CONFIG_PATH.read_text())
+_node = lambda name: _pipeline_config["nodes"][name]["config"]
+
 
 def load_match_database():
     """
@@ -403,21 +408,27 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     skip_llm_ranking = payload.get("skip_llm_ranking", False)
     steps = payload.get("steps")  # e.g. ["entity_profiling", "token_matching"]
 
-    # Pipeline parameter overrides (forwarded from PromptPotter)
-    max_sites = payload.get("max_sites", 7)
-    num_results = payload.get("num_results", 20)
-    content_char_limit = payload.get("content_char_limit", 800)
-    raw_content_limit = payload.get("raw_content_limit", 5000)
-    profiling_temperature = payload.get("profiling_temperature", 0.3)
-    profiling_max_tokens = payload.get("profiling_max_tokens", 1800)
-    ranking_temperature = payload.get("ranking_temperature", 0)
-    ranking_max_tokens = payload.get("ranking_max_tokens", 4000)
-    ranking_sample_size = payload.get("ranking_sample_size", 20)
-    max_token_candidates = payload.get("max_token_candidates", 20)
-    relevance_weight_core = payload.get("relevance_weight_core", 0.7)
+    # Pipeline parameter overrides — defaults from pipeline.json, overridable per-request
+    _ws = _node("web_search")
+    _ep = _node("entity_profiling")
+    _tm = _node("token_matching")
+    _lr = _node("llm_ranking")
+    _fm = _node("fuzzy_matching")
+
+    max_sites = payload.get("max_sites", _ws["max_sites"])
+    num_results = payload.get("num_results", _ws["num_results"])
+    content_char_limit = payload.get("content_char_limit", _ws["content_char_limit"])
+    raw_content_limit = payload.get("raw_content_limit", _ws["raw_content_limit"])
+    profiling_temperature = payload.get("profiling_temperature", _ep["temperature"])
+    profiling_max_tokens = payload.get("profiling_max_tokens", _ep["max_tokens"])
+    ranking_temperature = payload.get("ranking_temperature", _lr["temperature"])
+    ranking_max_tokens = payload.get("ranking_max_tokens", _lr["max_tokens"])
+    ranking_sample_size = payload.get("ranking_sample_size", _lr["ranking_sample_size"])
+    max_token_candidates = payload.get("max_token_candidates", _tm["max_token_candidates"])
+    relevance_weight_core = payload.get("relevance_weight_core", _tm["relevance_weight_core"])
     ranking_prompt = payload.get("ranking_prompt", None)
-    fuzzy_threshold = payload.get("fuzzy_threshold", 70)
-    fuzzy_scorer = payload.get("fuzzy_scorer", "WRatio")
+    fuzzy_threshold = payload.get("fuzzy_threshold", _fm["threshold"])
+    fuzzy_scorer = payload.get("fuzzy_scorer", _fm["scorer"])
     trace_id = payload.get("trace_id")  # Optional: from frontend unified tracing
 
     # Retrieve terms from session
@@ -537,10 +548,6 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     step3_time = round(time.time() - step3_start, 3) if run_llm_ranking else None
 
     total_time = round(time.time() - start_time, 2)
-
-    # Save training record
-    from datetime import datetime
-    from core.llm_providers import LLM_PROVIDER, LLM_MODEL
 
     # Get top ranked candidate and prepare flattened structure
     ranked_candidates = llm_response.get('ranked_candidates', [])
@@ -716,7 +723,6 @@ async def batch_process_single(
     total_time = round(time.time() - start_time, 2)
 
     # Build training record for logging
-    from core.llm_providers import LLM_PROVIDER, LLM_MODEL
     training_record = {
         "source": query,
         "target": target,

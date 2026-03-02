@@ -57,7 +57,7 @@ export async function processTermNormalization(value, forward, reverse) {
   if (cached) {
     const latency = performance.now() - startTime;
     if (traceId) reportPipelineStep(traceId, 'cache_lookup', { ...cached, source: normalized }, latency, getHeaders());
-    logMatch({ source: normalized, target: cached.target, method: 'cached', confidence: 1.0, latency_ms: latency }, getHeaders());
+    else logMatch({ source: normalized, target: cached.target, method: 'cached', confidence: 1.0, latency_ms: latency }, getHeaders());
     return createMatchResult(cached);
   }
   // Report cache miss
@@ -68,7 +68,7 @@ export async function processTermNormalization(value, forward, reverse) {
   if (fuzzy) {
     const latency = performance.now() - startTime;
     if (traceId) reportPipelineStep(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, latency, getHeaders());
-    logMatch({ source: normalized, target: fuzzy.target, method: 'fuzzy', confidence: fuzzy.confidence, latency_ms: latency, matched_key: fuzzy.matched_key }, getHeaders());
+    else logMatch({ source: normalized, target: fuzzy.target, method: 'fuzzy', confidence: fuzzy.confidence, latency_ms: latency, matched_key: fuzzy.matched_key }, getHeaders());
     return createMatchResult(fuzzy);
   }
   // Report fuzzy miss

@@ -8,8 +8,11 @@ Scorers: ratio, partial_ratio, token_sort_ratio, token_set_ratio, WRatio
 Scores normalized from rapidfuzz's 0-100 to 0.0-1.0.
 """
 
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 from rapidfuzz import fuzz, process
+
+logger = logging.getLogger(__name__)
 
 # Map scorer names to rapidfuzz functions
 SCORERS = {
@@ -45,6 +48,8 @@ def fuzzy_match_terms(
     if not query or not candidates:
         return []
 
+    if scorer not in SCORERS:
+        logger.warning(f"Unknown scorer '{scorer}', falling back to WRatio")
     scorer_fn = SCORERS.get(scorer, fuzz.WRatio)
 
     results = process.extract(

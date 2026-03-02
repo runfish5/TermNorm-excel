@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from utils.responses import success_response
 from utils.langfuse_logger import (
     create_trace, create_observation, create_score, update_trace,
+    _log_event, get_or_create_item,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,5 +95,19 @@ async def report_pipeline_step(report: StepReport):
             "method": report.result["method"],
             "confidence": report.result.get("confidence", 0),
         }, metadata={"method": report.result["method"]})
+
+        # Log event and dataset item (replaces what /activities/matches would have done)
+        query = report.result.get("source", "")
+        item_id = get_or_create_item(query, source_trace_id=report.trace_id) if query else None
+        _log_event({
+            "event": "pipeline",
+            "trace_id": report.trace_id,
+            "item_id": item_id,
+            "query": query,
+            "target": report.result["target"],
+            "method": report.result["method"],
+            "confidence": report.result.get("confidence", 0),
+            "latency_ms": report.latency_ms,
+        })
 
     return success_response(message="Step reported")

@@ -7,30 +7,6 @@ from utils.prompt_registry import get_prompt_registry
 GREEN = '\033[92m'
 RESET = '\033[0m'
 
-RANKING_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "profile_summary": {"type": "string"},
-        "core_concept_description": {"type": "string"},
-        "ranked_candidates": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "candidate": {"type": "string"},
-                    "core_concept_score": {"type": "number"},
-                    "spec_score": {"type": "number"},
-                    "evaluation_reasoning": {"type": "string"},
-                    "key_match_factors": {"type": "array", "items": {"type": "string"}},
-                    "spec_gaps": {"type": "array", "items": {"type": "string"}}
-                },
-                "required": ["candidate", "core_concept_score", "spec_score", "evaluation_reasoning", "key_match_factors"]
-            }
-        }
-    },
-    "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
-}
-
 async def call_llm_for_ranking(profile_info, entity_profile, match_results, query, temperature=0, max_tokens=4000, sample_size=20, relevance_weight_core=0.7, ranking_prompt=None):
     """Rank candidates using LLM and return (result, debug_info) tuple"""
     available_results = list(match_results[:sample_size])

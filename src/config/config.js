@@ -79,11 +79,6 @@ export const ERROR_GUIDANCE = {
   OFFLINE: "💡 Open your TermNorm folder and double-click start-server-py-LLMs.bat",
 };
 
-// Fuzzy matching threshold (single value for both forward and reverse)
-export const FUZZY_THRESHOLD = 0.7;
-/** @deprecated Use FUZZY_THRESHOLD — kept for one release cycle */
-export const FUZZY_THRESHOLDS = { FORWARD: FUZZY_THRESHOLD, REVERSE: FUZZY_THRESHOLD, DEFAULT: FUZZY_THRESHOLD };
-
 // Confidence score thresholds for UI coloring
 export const RELEVANCE_THRESHOLDS = {
   EXCELLENT: 0.9,    // Green - high confidence

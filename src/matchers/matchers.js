@@ -1,5 +1,4 @@
 /** Matchers - Three-tier pipeline: Cache (exact) → Fuzzy → LLM */
-import { FUZZY_THRESHOLD } from "../config/config.js";
 
 const norm = v => v ? String(v).trim() : '';
 const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
@@ -60,14 +59,14 @@ function calculateSimilarity(words1, words2) {
   return totalScore / Math.max(words1.length, words2.length);
 }
 
-function fuzzyMatch(query, candidates, threshold = FUZZY_THRESHOLD) {
+function fuzzyMatch(query, candidates, threshold) {
   const queryWords = normalizeText(query);
   return candidates
     .map(c => { const similarity = calculateSimilarity(queryWords, normalizeText(c)); return { text: c, similarity, isMatch: similarity >= threshold }; })
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLD) {
+function findBestMatch(query, mappingData, threshold) {
   if (!query || !mappingData) return null;
 
   const isMap = mappingData instanceof Map;
@@ -87,10 +86,10 @@ function findBestMatch(query, mappingData, threshold = FUZZY_THRESHOLD) {
  * @param {string} value - Input term to match
  * @param {Object<string, string|{target: string}>} forward - Source→target mappings
  * @param {Object<string, string>} reverse - Target→source mappings
- * @param {number} [threshold=0.7] - Minimum similarity for matching
+ * @param {number} threshold - Minimum similarity for matching
  * @returns {import('../config/config.js').MatchResult|null}
  */
-export function findFuzzyMatch(value, forward, reverse, threshold = FUZZY_THRESHOLD) {
+export function findFuzzyMatch(value, forward, reverse, threshold) {
   const normalized = value ? String(value).trim() : '';
   if (!normalized) return null;
 
