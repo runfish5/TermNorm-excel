@@ -19,6 +19,8 @@ export const confirmModal = (msg, ok = "Confirm", cancel = "Cancel") => new Prom
   m.onclick = e => e.target === m && done(false);
 });
 
+const MIN_COLUMN_WIDTH = 40;
+
 export function setupColumnResize(table) {
   const ths = table.querySelectorAll("th");
   ths.forEach(th => {
@@ -30,7 +32,7 @@ export function setupColumnResize(table) {
       startX = e.pageX;
       startWidth = th.offsetWidth;
       const onMouseMove = (e) => {
-        const newWidth = Math.max(40, startWidth + e.pageX - startX);
+        const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + e.pageX - startX);
         th.style.width = newWidth + "px";
       };
       const onMouseUp = () => {

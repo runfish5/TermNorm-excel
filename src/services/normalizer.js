@@ -1,6 +1,6 @@
 // services/normalizer.js - Three-tier term normalization: Exact → Fuzzy → LLM
 import { getCachedMatch, findFuzzyMatch as findFuzzyMatchDomain } from "../matchers/matchers.js";
-import { SESSION_ENDPOINTS, createMatchResult } from "../config/config.js";
+import { ENDPOINTS, createMatchResult } from "../config/config.js";
 import { getHeaders, buildUrl, apiPost, logMatch, createPipelineTrace, reportPipelineStep } from "../utils/api-fetch.js";
 import { getStateValue, setWebSearchStatus } from "../core/state-actions.js";
 import { ensureSessionInitialized, executeWithSessionRecovery } from "./workflows.js";
@@ -19,8 +19,7 @@ function buildBackendSteps() {
       steps.forEach(s => disabled.add(s));
     }
   }
-  // Backend default pipeline: web_search, entity_profiling, token_matching, llm_ranking
-  return ["web_search", "entity_profiling", "token_matching", "llm_ranking"]
+  return (frontendPipeline.backend_default_steps || [])
     .filter(s => !disabled.has(s));
 }
 
@@ -35,7 +34,7 @@ export async function findTokenMatch(value, traceId = null) {
   setWebSearchStatus('idle');
   const payload = { query: normalized, steps: buildBackendSteps() };
   if (traceId) payload.trace_id = traceId;
-  const data = await executeWithSessionRecovery(() => apiPost(buildUrl(SESSION_ENDPOINTS.RESEARCH), payload, getHeaders()));
+  const data = await executeWithSessionRecovery(() => apiPost(buildUrl(ENDPOINTS.MATCHES), payload, getHeaders()));
   if (!data) return null;
   if (data.web_search_status) setWebSearchStatus(data.web_search_status, data.web_search_error || null);
 

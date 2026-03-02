@@ -11,6 +11,7 @@
  * @property {number} confidence - Score 0-1
  * @property {string} timestamp - ISO timestamp
  * @property {string} source - Original input
+ * @property {string|null} [matched_key] - Key that matched in mappings (fuzzy only)
  * @property {Array|null} [candidates] - LLM candidates (ProfileRank only)
  * @property {Object|null} [entity_profile] - Entity profile (ProfileRank only)
  * @property {Array|null} [web_sources] - Web search sources used
@@ -20,7 +21,7 @@
  */
 
 /** @param {Partial<MatchResult>} [r] @returns {MatchResult} */
-export const createMatchResult = (r = {}) => ({ target: r.target || "Unknown", method: r.method || "unknown", confidence: r.confidence ?? 0, timestamp: r.timestamp || new Date().toISOString(), source: r.source || "", candidates: r.candidates || null, entity_profile: r.entity_profile || null, web_sources: r.web_sources || null, total_time: r.total_time || null, llm_provider: r.llm_provider || null, web_search_status: r.web_search_status || "idle" });
+export const createMatchResult = (r = {}) => ({ target: r.target || "Unknown", method: r.method || "unknown", confidence: r.confidence ?? 0, timestamp: r.timestamp || new Date().toISOString(), source: r.source || "", matched_key: r.matched_key || null, candidates: r.candidates || null, entity_profile: r.entity_profile || null, web_sources: r.web_sources || null, total_time: r.total_time || null, llm_provider: r.llm_provider || null, web_search_status: r.web_search_status || "idle" });
 
 /**
  * @typedef {Object} CellState
@@ -70,8 +71,6 @@ export const ENDPOINTS = {
   CACHE: "/cache",
 };
 
-// Legacy aliases for backward compatibility during migration
-export const SESSION_ENDPOINTS = { INIT: ENDPOINTS.SESSIONS, RESEARCH: ENDPOINTS.MATCHES };
 export const ERROR_GUIDANCE = {
   403: "💡 Check your IP is in backend-api/config/users.json",
   500: "💡 Server error - check backend-api/logs/app.log",

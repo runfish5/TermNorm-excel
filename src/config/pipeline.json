@@ -22,8 +22,9 @@
     "cache_only": ["cache_lookup"]
   },
   "backend_pipeline": "default",
+  "backend_default_steps": ["web_search", "entity_profiling", "token_matching", "llm_ranking"],
   "backend_toggles": {
-    "useWebSearch": ["web_search", "entity_profiling"],
+    "useWebSearch": ["web_search"],
     "useLlmRanking": ["llm_ranking"]
   }
 }

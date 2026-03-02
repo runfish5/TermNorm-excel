@@ -1,11 +1,11 @@
 /** API Client - HTTP operations and server connectivity */
 import { showMessage } from "./ui-feedback.js";
 import { getStateValue, setServerStatus, setServerHost } from "../core/state-actions.js";
-import { ERROR_GUIDANCE, ENDPOINTS } from "../config/config.js";
+import { ERROR_GUIDANCE, ENDPOINTS, SERVER_DEFAULTS } from "../config/config.js";
 import { $ } from "./dom-helpers.js";
 
 // Server utilities
-export function getHost() { return getStateValue('server.host') || "http://127.0.0.1:8000"; }
+export function getHost() { return getStateValue('server.host') || SERVER_DEFAULTS.URL; }
 export function getHeaders() { return { "Content-Type": "application/json" }; }
 export const buildUrl = endpoint => `${getHost()}${endpoint}`;
 
@@ -48,7 +48,7 @@ async function apiFetch(url, options = {}) {
       showMessage(guidance ? `${msg}\n\n${guidance}` : msg, "error");
     }
     return null;
-  } catch { if (!silent) showMessage(`Server offline - Check backend is running on port 8000\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
+  } catch { if (!silent) showMessage(`Server offline - Check backend is running on ${getHost()}\n\n${ERROR_GUIDANCE.OFFLINE}`, "error"); return null; }
 }
 
 // HTTP method wrappers

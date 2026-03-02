@@ -2,7 +2,7 @@
 import { showMessage, formatError } from "../utils/ui-feedback.js";
 import { loadSettings } from "../utils/settings-manager.js";
 import { checkServerStatus, getHeaders, buildUrl, fireAndForget, apiPost } from "../utils/api-fetch.js";
-import { SESSION_RETRY, SESSION_ENDPOINTS } from "../config/config.js";
+import { SESSION_RETRY, ENDPOINTS } from "../config/config.js";
 import { stateStore } from "../core/state-store.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -36,7 +36,7 @@ async function initSessionWithRetry(terms) {
 
 async function initSession(terms) {
   try {
-    if (await apiPost(buildUrl(SESSION_ENDPOINTS.INIT), { terms }, getHeaders(), { silent: true })) {
+    if (await apiPost(buildUrl(ENDPOINTS.SESSIONS), { terms }, getHeaders(), { silent: true })) {
       stateStore.merge('session', { initialized: true, termCount: terms.length, lastInitialized: new Date().toISOString(), error: null });
       return true;
     }

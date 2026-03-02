@@ -3,11 +3,13 @@ import { apiPost, serverFetch, getHeaders, buildUrl } from "../utils/api-fetch.j
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
 import { reinitializeSession } from "../services/workflows.js";
-import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
+import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { $ } from "../utils/dom-helpers.js";
 import { LIMITS, ENDPOINTS } from "../config/config.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
+
+const TITLE_TRUNCATE_LENGTH = 40;
 
 let selectedRange = null, isProcessing = false, selectionHandler = null, isPanelOpen = false;
 let pendingSelections = []; // Items needing user selection
@@ -97,12 +99,8 @@ async function refreshSelection() {
         try {
           const config = getStateValue('config.data');
           if (config?.column_map) {
-            const headers = ctx.workbook.worksheets.getActiveWorksheet().getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
-            headers.load("values");
-            await ctx.sync();
-
-            const headerNames = headers.values[0].map(h => String(h || "").trim());
-            const columnMap = buildColumnMap(headerNames, config.column_map);
+            const ws = ctx.workbook.worksheets.getActiveWorksheet();
+            const { columnMap } = await resolveColumnMaps(ws, ctx, config);
             const outputColIdx = columnMap.get(range.columnIndex);
 
             if (outputColIdx !== undefined) {
@@ -252,17 +250,9 @@ async function writeResultsToExcel(results) {
     await Excel.run(async ctx => {
       ctx.runtime.enableEvents = false;
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      const usedRange = ws.getUsedRange(true);
-      usedRange.load("columnIndex, columnCount");
-      const headers = ws.getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
-      headers.load("values");
-      await ctx.sync();
-
-      const headerNames = headers.values[0].map(h => String(h || "").trim());
       let columnMap, confidenceColumnMap;
       try {
-        columnMap = buildColumnMap(headerNames, config.column_map);
-        confidenceColumnMap = buildConfidenceColumnMap(headerNames, config.column_map).confidenceColumnMap;
+        ({ columnMap, confidenceColumnMap } = await resolveColumnMaps(ws, ctx, config));
       } catch (e) { showMessage(`Column mapping error: ${e.message}`, "error"); return; }
 
       const sourceCol = selectedRange.columnIndex, targetCol = columnMap.get(sourceCol), confidenceCol = confidenceColumnMap?.get(sourceCol);
@@ -290,7 +280,7 @@ function showCandidatePicker(pendingItem) {
   if (!panel || !list || !title) return;
 
   // Update title with source info
-  title.textContent = `Select match for: "${pendingItem.source.slice(0, 40)}${pendingItem.source.length > 40 ? '...' : ''}"`;
+  title.textContent = `Select match for: "${pendingItem.source.slice(0, TITLE_TRUNCATE_LENGTH)}${pendingItem.source.length > TITLE_TRUNCATE_LENGTH ? '...' : ''}"`;
 
   // Build candidate list
   list.innerHTML = pendingItem.candidates.map((c, i) =>
@@ -370,13 +360,7 @@ async function writeSingleResult(rowIndex, target, confidence) {
     await Excel.run(async ctx => {
       ctx.runtime.enableEvents = false;
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
-      const headers = ws.getRangeByIndexes(0, 0, 1, LIMITS.MAX_HEADER_COLUMNS);
-      headers.load("values");
-      await ctx.sync();
-
-      const headerNames = headers.values[0].map(h => String(h || "").trim());
-      const columnMap = buildColumnMap(headerNames, config.column_map);
-      const confidenceColumnMap = buildConfidenceColumnMap(headerNames, config.column_map).confidenceColumnMap;
+      const { columnMap, confidenceColumnMap } = await resolveColumnMaps(ws, ctx, config);
 
       const sourceCol = selectedRange.columnIndex;
       const targetCol = columnMap.get(sourceCol);

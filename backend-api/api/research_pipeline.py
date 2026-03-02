@@ -6,7 +6,6 @@ import logging
 import time
 import re
 from pathlib import Path
-from pprint import pprint
 from datetime import datetime
 from collections import defaultdict
 from typing import Dict, Any, List
@@ -49,6 +48,52 @@ _PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json
 _pipeline_config = json.loads(_PIPELINE_CONFIG_PATH.read_text())
 _node = lambda name: _pipeline_config["nodes"][name]["config"]
 _pipeline = lambda name: _pipeline_config["pipelines"][name]
+
+# Shared thresholds (from pipeline.json where available)
+HIGH_CONFIDENCE_THRESHOLD = _node("token_matching")["high_confidence_threshold"]
+ACCEPT_THRESHOLD = 0.75
+VERIFIED_METHODS = {"UserChoice", "DirectEdit", "cached", "fuzzy"}
+
+
+def _is_alias_verified(method, confidence):
+    """Check if an alias should be marked as verified (user-confirmed or high-confidence)"""
+    return method in VERIFIED_METHODS or confidence >= HIGH_CONFIDENCE_THRESHOLD
+
+
+def _ensure_db_entry(target, web_sources=None, timestamp=None):
+    """Create a match_database entry for target if it doesn't exist. Returns the entry."""
+    if target not in match_database:
+        match_database[target] = {
+            "entity_profile": None,
+            "aliases": {},
+            "web_sources": web_sources or [],
+            "last_updated": timestamp,
+        }
+    return match_database[target]
+
+
+def _update_session_usage(user_id, target=None):
+    """Increment session query count and optionally track target usage."""
+    if user_id not in user_sessions:
+        return
+    user_sessions[user_id]["query_count"] += 1
+    if target:
+        targets = user_sessions[user_id]["targets_used"]
+        targets[target] = targets.get(target, 0) + 1
+
+
+def _find_and_extract_error(obj, path=None):
+    """Recursively find error dict in nested structure"""
+    if path is None:
+        path = []
+    if isinstance(obj, dict):
+        if "error" in obj:
+            return obj, path
+        for key, value in obj.items():
+            result, error_path = _find_and_extract_error(value, path + [key])
+            if result:
+                return result, error_path
+    return None, []
 
 
 def load_match_database():
@@ -137,21 +182,11 @@ def update_match_database(record: Dict[str, Any]):
     # Note: entity_profile is NOT stored here because it describes the SOURCE (user query),
     # not the TARGET (matched identifier). The profile explains what the user searched for,
     # not what the standardized term means.
-    if is_new:
-        match_database[target] = {
-            "entity_profile": None,
-            "aliases": {},
-            "web_sources": record.get("web_sources", []),
-            "last_updated": now
-        }
+    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=now)
 
-    entry = match_database[target]
-
-    # Determine if alias is verified (user-confirmed or high-confidence)
     method = record.get("method")
     confidence = record.get("confidence", 0)
-    HIGH_CONFIDENCE_THRESHOLD = 0.8
-    verified = method in ("UserChoice", "DirectEdit", "cached", "fuzzy") or confidence >= HIGH_CONFIDENCE_THRESHOLD
+    verified = _is_alias_verified(method, confidence)
 
     # Update alias WITHOUT current_target (this IS the current target)
     entry["aliases"][source] = {
@@ -268,22 +303,13 @@ def _update_db_entry(record: Dict[str, Any]):
         return
 
     # Note: entity_profile is NOT stored - it describes the source query, not the target
-    if target not in match_database:
-        match_database[target] = {
-            "entity_profile": None,
-            "aliases": {},
-            "web_sources": record.get("web_sources", []),
-            "last_updated": record.get("timestamp")
-        }
+    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=record.get("timestamp"))
 
-    entry = match_database[target]
     existing = entry["aliases"].get(source)
     if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
-        # Determine if alias is verified (user-confirmed or high-confidence)
         method = record.get("method")
         confidence = record.get("confidence", 0)
-        HIGH_CONFIDENCE_THRESHOLD = 0.8
-        verified = method in ("UserChoice", "DirectEdit", "cached", "fuzzy") or (confidence or 0) >= HIGH_CONFIDENCE_THRESHOLD
+        verified = _is_alias_verified(method, confidence or 0)
 
         entry["aliases"][source] = {
             "timestamp": record.get("timestamp"),
@@ -299,21 +325,6 @@ def _update_db_entry(record: Dict[str, Any]):
 
 def _prioritize_errors(record):
     """Check for errors in training record and move to first position if detected"""
-
-    def _find_and_extract_error(obj, path=[]):
-        """Recursively find error dict in nested structure"""
-        if isinstance(obj, dict):
-            # Check if this dict contains an 'error' key
-            if "error" in obj:
-                return obj, path
-            # Recurse into nested dicts
-            for key, value in obj.items():
-                result, error_path = _find_and_extract_error(value, path + [key])
-                if result:
-                    return result, error_path
-        return None, []
-
-    # Search for error in record
     error_info, error_path = _find_and_extract_error(record)
 
     if error_info:
@@ -408,9 +419,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     query = payload.get("query", "")
     steps = payload.get("steps") or _pipeline("default")
 
-    # Admin override: .env USE_WEB_SEARCH=false force-disables web search
+    # Admin override: .env USE_WEB_SEARCH=false force-disables web scraping
     if not settings.use_web_search:
-        steps = [s for s in steps if s not in ("web_search", "entity_profiling")]
+        steps = [s for s in steps if s != "web_search"]
 
     # Pipeline parameter overrides — defaults from pipeline.json, overridable per-request
     _ws = _node("web_search")
@@ -486,11 +497,15 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     token_matcher = TokenLookupMatcher(terms)
     logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
 
-    # Step 1: Research (conditional on steps)
+    # Step 1: Research (conditional on steps — web_search and entity_profiling are independent)
     step1_start = time.time()
     run_web_search = "web_search" in steps
-    if run_web_search:
-        logger.info("[PIPELINE] Step 1: Researching")
+    run_entity_profiling = "entity_profiling" in steps
+
+    if run_entity_profiling:
+        # Halve max_tokens when running without web data for a conciser profile
+        effective_max_tokens = profiling_max_tokens // 2 if not run_web_search else profiling_max_tokens
+        logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
         entity_profile, profile_debug = await web_generate_entity_profile(
             query,
             max_sites=max_sites,
@@ -499,12 +514,13 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             raw_content_limit=raw_content_limit,
             num_results=num_results,
             profiling_temperature=profiling_temperature,
-            profiling_max_tokens=profiling_max_tokens,
+            profiling_max_tokens=effective_max_tokens,
             verbose=True,
+            skip_search=not run_web_search,
         )
-        pprint(entity_profile)
+        logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
     else:
-        logger.info(CYAN + "[PIPELINE] Step 1: Skipping web research" + RESET)
+        logger.info(CYAN + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
         entity_profile = []
         profile_debug = {"inputs": {"scraped_sources": {"sources_fetched": [], "note": "Skipped by pipeline steps"}}}
     step1_time = round(time.time() - step1_start, 3)
@@ -624,10 +640,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     logger.info(f"[PIPELINE] Training record saved: {query} → {target}")
 
     # Update session usage stats automatically
-    if user_id in user_sessions:
-        user_sessions[user_id]["query_count"] += 1
-        targets = user_sessions[user_id]["targets_used"]
-        targets[target] = targets.get(target, 0) + 1
+    _update_session_usage(user_id, target)
 
     # Build standardized response (web_search_failed already calculated above)
     num_candidates = len(llm_response.get('ranked_candidates', []))
@@ -741,10 +754,7 @@ async def batch_process_single(
     update_match_database(training_record)
 
     # Update session usage stats
-    if user_id in user_sessions:
-        user_sessions[user_id]["query_count"] += 1
-        targets = user_sessions[user_id]["targets_used"]
-        targets[target] = targets.get(target, 0) + 1
+    _update_session_usage(user_id, target)
 
     logger.info(f"[BATCH] Completed: {query} -> {target} ({confidence:.0%}) in {total_time}s")
 
@@ -940,7 +950,6 @@ Return ONLY valid JSON."""
 
     # VALIDATION: Fuzzy match LLM output against session terms
     # Get top 10 closest matches and decide: accept, correct, or return candidates
-    ACCEPT_THRESHOLD = 0.75
     fuzzy_corrected = False
     needs_user_selection = False
     candidates = []
@@ -1005,11 +1014,7 @@ Return ONLY valid JSON."""
         update_match_database(training_record)
 
     # Update session usage stats
-    if user_id in user_sessions:
-        user_sessions[user_id]["query_count"] += 1
-        if not needs_user_selection:
-            targets = user_sessions[user_id]["targets_used"]
-            targets[target] = targets.get(target, 0) + 1
+    _update_session_usage(user_id, target if not needs_user_selection else None)
 
     # Build status message for logging
     status_msg = f"-> {target[:40]}..." if len(target) > 40 else f"-> {target}"

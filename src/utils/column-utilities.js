@@ -50,3 +50,21 @@ export function buildConfidenceColumnMap(headers, columnMap) {
 
   return { confidenceColumnMap: map, confidenceFound: found, confidenceMissing: missing };
 }
+
+/**
+ * Read Excel headers and build column maps in a single sync round-trip
+ * @param {Excel.Worksheet} ws - Active worksheet
+ * @param {Excel.RequestContext} ctx - Request context
+ * @param {Object} columnConfig - Config with column_map
+ * @param {string} [worksheetName] - For error messages
+ * @returns {Promise<{headerNames: string[], columnMap: Map, confidenceColumnMap: Map, confidenceFound: string[], confidenceMissing: string[]}>}
+ */
+export async function resolveColumnMaps(ws, ctx, columnConfig, worksheetName) {
+  const headers = ws.getRangeByIndexes(0, 0, 1, 100);
+  headers.load("values");
+  await ctx.sync();
+  const headerNames = headers.values[0].map(h => String(h || "").trim());
+  const columnMap = buildColumnMap(headerNames, columnConfig.column_map, worksheetName);
+  const confResult = buildConfidenceColumnMap(headerNames, columnConfig.column_map);
+  return { headerNames, columnMap, ...confResult };
+}

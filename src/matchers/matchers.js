@@ -1,7 +1,7 @@
 /** Matchers - Three-tier pipeline: Cache (exact) → Fuzzy → LLM */
+import { createMatchResult } from '../config/config.js';
 
 const norm = v => v ? String(v).trim() : '';
-const cacheResult = (source, target) => ({ target, method: 'cached', confidence: 1.0, timestamp: new Date().toISOString(), source });
 
 /**
  * Get exact cache match from forward or reverse mappings
@@ -13,8 +13,8 @@ const cacheResult = (source, target) => ({ target, method: 'cached', confidence:
 export function getCachedMatch(value, forward, reverse) {
   const n = norm(value);
   if (!n) return null;
-  if (n in forward) return cacheResult(n, typeof forward[n] === 'string' ? forward[n] : forward[n].target);
-  if (n in reverse) return cacheResult(n, n);
+  if (n in forward) return createMatchResult({ target: typeof forward[n] === 'string' ? forward[n] : forward[n].target, method: 'cached', confidence: 1.0, source: n });
+  if (n in reverse) return createMatchResult({ target: n, method: 'cached', confidence: 1.0, source: n });
   return null;
 }
 
@@ -96,11 +96,11 @@ export function findFuzzyMatch(value, forward, reverse, threshold) {
   const fwd = findBestMatch(normalized, forward, threshold);
   if (fwd) {
     const target = typeof fwd.value === 'string' ? fwd.value : fwd.value.target;
-    return { target, method: 'fuzzy', confidence: fwd.score, timestamp: new Date().toISOString(), source: normalized, matched_key: fwd.key };
+    return createMatchResult({ target, method: 'fuzzy', confidence: fwd.score, source: normalized, matched_key: fwd.key });
   }
 
   const rev = findBestMatch(normalized, reverse, threshold);
-  if (rev) return { target: rev.key, method: 'fuzzy', confidence: rev.score, timestamp: new Date().toISOString(), source: normalized, matched_key: rev.key };
+  if (rev) return createMatchResult({ target: rev.key, method: 'fuzzy', confidence: rev.score, source: normalized, matched_key: rev.key });
 
   return null;
 }

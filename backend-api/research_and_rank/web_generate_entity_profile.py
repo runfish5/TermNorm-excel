@@ -4,6 +4,7 @@ import random
 import logging
 import re
 import requests
+from pathlib import Path
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote_plus
@@ -14,13 +15,18 @@ from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 
-# Scraping constants
-SCRAPE_TIMEOUT_SECONDS = 5
-SCRAPE_MAX_RESPONSE_BYTES = 50_000
-SCRAPE_MIN_TEXT_LENGTH = 200
-SCRAPE_MAX_TEXT_LENGTH = 10_000
-SCRAPE_MAX_WORKERS = 10
-SCRAPE_TITLE_MAX_LENGTH = 100
+# Load web_search config from pipeline.json (single source of truth)
+_PIPELINE_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
+_WS_CONFIG = json.loads(_PIPELINE_PATH.read_text())["nodes"]["web_search"]["config"]
+
+SCRAPE_TIMEOUT_SECONDS = _WS_CONFIG["scrape_timeout"]
+SCRAPE_MAX_RESPONSE_BYTES = _WS_CONFIG["http_content_limit"]
+SCRAPE_MIN_TEXT_LENGTH = _WS_CONFIG["min_page_text_length"]
+SCRAPE_MAX_TEXT_LENGTH = _WS_CONFIG["max_page_text_length"]
+SCRAPE_MAX_WORKERS = _WS_CONFIG["scrape_workers"]
+SCRAPE_TITLE_MAX_LENGTH = _WS_CONFIG["title_truncate_length"]
+SKIP_EXTENSIONS = _WS_CONFIG["skip_extensions"]
+SKIP_DOMAINS = _WS_CONFIG["skip_domains"]
 
 
 def generate_format_string_from_schema(schema):
@@ -50,10 +56,7 @@ def generate_format_string_from_schema(schema):
 
 def scrape_url(url, char_limit):
     """Simple URL scraping with requests"""
-    skip_extensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
-    skip_domains = ['academia.edu', 'researchgate.net', 'arxiv.org', 'ieee.org']
-
-    if any(ext in url.lower() for ext in skip_extensions) or any(domain in url.lower() for domain in skip_domains):
+    if any(ext in url.lower() for ext in SKIP_EXTENSIONS) or any(domain in url.lower() for domain in SKIP_DOMAINS):
         return None
 
     try:
@@ -86,7 +89,7 @@ def scrape_url(url, char_limit):
 def _search_engine(engine_name, search_url, headers, query, log):
     """Helper: Try search engine and return URLs"""
     try:
-        response = requests.get(search_url, headers=headers, timeout=10)
+        response = requests.get(search_url, headers=headers, timeout=_WS_CONFIG["search_engine_timeout"])
         msg = f"{engine_name} status: {response.status_code}"
         print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
         log.append(msg)
@@ -176,7 +179,7 @@ def _brave_search(query, num_results=20, log=None):
                 'country': 'US'
             },
             headers=headers,
-            timeout=10
+            timeout=_WS_CONFIG["brave_api_timeout"]
         )
 
         if response.status_code == 200:
@@ -231,7 +234,7 @@ def _searxng_fallback(query, num_results=20, log=None):
                 f"{instance}/search",
                 params={'q': query, 'format': 'json', 'language': 'en', 'safesearch': 0},
                 headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
-                timeout=12
+                timeout=_WS_CONFIG["searxng_timeout"]
             )
 
             if response.status_code == 200:
@@ -347,53 +350,58 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             }
         }
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
     start_time = time.time()
     search_log = []
 
-    # User-Agent rotation for bot mitigation
-    user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-    ]
-    headers = {
-        'User-Agent': random.choice(user_agents),
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-    }
-
-    # Execute search fallback chain (Brave → SearXNG → DuckDuckGo → Bing)
-    urls, search_method = _execute_search_fallback_chain(query, headers, search_log, num_results=num_results)
-    
     scraped_content = []
     scrape_errors = []
+    search_method = "skipped"
 
-    # Parallel URL scraping with ThreadPoolExecutor
-    if urls:
-        print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), max_sites * 2)} URLs in parallel...{RESET}")
-
-        with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
-            results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:max_sites * 2]))
-
-            for i, result in enumerate(results):
-                if result:
-                    scraped_content.append(result)
-                    print(f"{MAGENTA}[WEB_SCRAPE] ✓ {len(scraped_content)}/{max_sites}: {result['title'][:50]}{RESET}")
-                    if len(scraped_content) >= max_sites:
-                        break
-                else:
-                    scrape_errors.append(urls[i])
-
-        if scraped_content:
-            print(f"{MAGENTA}[WEB_SCRAPE] ✓ {len(scraped_content)} successful{RESET}")
-        else:
-            print(f"{RED}[WEB_SCRAPE] ✗ All scraping failed ({len(scrape_errors)} attempts){RESET}")
+    if skip_search:
+        print(f"{MAGENTA}[WEB_SCRAPE] Skipped (LLM knowledge only){RESET}")
+        search_log.append("Web search skipped (skip_search=True)")
     else:
-        print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
+        # User-Agent rotation for bot mitigation
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+        ]
+        headers = {
+            'User-Agent': random.choice(user_agents),
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+
+        # Execute search fallback chain (Brave → SearXNG → DuckDuckGo → Bing)
+        urls, search_method = _execute_search_fallback_chain(query, headers, search_log, num_results=num_results)
+
+        # Parallel URL scraping with ThreadPoolExecutor
+        if urls:
+            print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), max_sites * 2)} URLs in parallel...{RESET}")
+
+            with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
+                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:max_sites * 2]))
+
+                for i, result in enumerate(results):
+                    if result:
+                        scraped_content.append(result)
+                        print(f"{MAGENTA}[WEB_SCRAPE] ✓ {len(scraped_content)}/{max_sites}: {result['title'][:50]}{RESET}")
+                        if len(scraped_content) >= max_sites:
+                            break
+                    else:
+                        scrape_errors.append(urls[i])
+
+            if scraped_content:
+                print(f"{MAGENTA}[WEB_SCRAPE] ✓ {len(scraped_content)} successful{RESET}")
+            else:
+                print(f"{RED}[WEB_SCRAPE] ✗ All scraping failed ({len(scrape_errors)} attempts){RESET}")
+        else:
+            print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
     
     # Build research prompt
     prompt = _build_research_prompt(query, scraped_content, schema, raw_content_limit)

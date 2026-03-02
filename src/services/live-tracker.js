@@ -2,7 +2,7 @@ import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
 import { processTermNormalization } from "./normalizer.js";
-import { buildColumnMap, buildConfidenceColumnMap } from "../utils/column-utilities.js";
+import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
 import { PROCESSING_COLORS, ENDPOINTS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
 import { showMessage } from "../utils/ui-feedback.js";
@@ -35,17 +35,8 @@ export async function startTracking(config, mappings) {
     const { columnMap, confidenceColumnMap, confidenceFound, confidenceMissing } = await Excel.run(async (ctx) => {
       const ws = ctx.workbook.worksheets.getActiveWorksheet();
       ws.load("name");
-      const usedRange = ws.getUsedRange(true);
-      usedRange.load("columnIndex, columnCount");
       await ctx.sync();
-
-      const headers = ws.getRangeByIndexes(0, 0, 1, usedRange.columnIndex + usedRange.columnCount);
-      headers.load("values");
-      await ctx.sync();
-
-      const headerNames = headers.values[0].map(h => String(h || "").trim());
-      const confResult = buildConfidenceColumnMap(headerNames, config.column_map, ws.name);
-      return { columnMap: buildColumnMap(headerNames, config.column_map, ws.name), ...confResult };
+      return resolveColumnMaps(ws, ctx, config, ws.name);
     });
 
     await removeHandlers(activeTrackers.get(workbookId));
@@ -225,5 +216,3 @@ export async function stopTracking(workbookId) {
   activeTrackers.delete(workbookId);
   deleteWorkbook(workbookId);
 }
-
-export function getActiveTrackers() { return Array.from(activeTrackers.keys()); }
