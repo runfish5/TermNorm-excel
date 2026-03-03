@@ -22,9 +22,19 @@
     "cache_only": ["cache_lookup"]
   },
   "backend_pipeline": "default",
-  "backend_default_steps": ["web_search", "entity_profiling", "token_matching", "llm_ranking"],
+  "backend_default_steps": ["fuzzy_matching", "web_search", "entity_profiling", "token_matching", "llm_ranking"],
   "backend_toggles": {
     "useWebSearch": ["web_search"],
-    "useLlmRanking": ["llm_ranking"]
+    "useLlmRanking": ["llm_ranking"],
+    "usePyFuzzy": ["fuzzy_matching"]
+  },
+  "thermo_order": ["py_fuzzy", "js_fuzzy", "web_search", "entity_profiling", "token_matching", "llm_ranking"],
+  "thermo_display": {
+    "py_fuzzy":          { "label": "fuzzy", "settingKey": "usePyFuzzy",    "defaultOn": false, "params": { "threshold": 70, "scorer": "WRatio", "limit": 5 } },
+    "js_fuzzy":          { "label": "fuzzy", "settingKey": "useJsFuzzy",    "defaultOn": true, "color": "yellow", "params": { "algorithm": "levenshtein_word", "threshold": 0.7 } },
+    "web_search":        { "label": "webS",  "settingKey": "useWebSearch",  "defaultOn": true,  "params": { "max_sites": 7, "num_results": 20, "scrape_timeout": 5 } },
+    "entity_profiling":  { "label": "LLM",   "settingKey": null,            "defaultOn": true,  "params": { "model": "llama-4-maverick-17b", "temperature": 0.3, "max_tokens": 1800 } },
+    "token_matching":    { "label": "score",  "settingKey": null,            "defaultOn": true,  "params": { "max_candidates": 20, "accept_threshold": 0.75, "high_confidence": 0.8 } },
+    "llm_ranking":       { "label": "LLM₂",  "settingKey": "useLlmRanking", "defaultOn": true,  "params": { "model": "llama-4-maverick-17b", "temperature": 0.0, "sample_size": 20 } }
   }
 }

@@ -3,6 +3,7 @@ import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
 import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
+import { rebuildResearchThermo } from "../ui-components/thermo-builder.js";
 import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { initializeSettings, activateTracking, deactivateTracking } from "../services/workflows.js";
@@ -14,9 +15,12 @@ import { initializeProjectPathDisplay } from "../utils/app-utilities.js";
 import { $, showView, setupButton, openModal, closeModal } from "../utils/dom-helpers.js";
 import { setupFileHandling, loadStaticConfig } from "../ui-components/file-handling.js";
 import { showMessage, updateAllIndicators, setupIndicators, getCacheCounts } from "../utils/ui-feedback.js";
+import frontendPipeline from "../config/pipeline.json";
 const refresh = () => { updateAllIndicators(); updateButtonStates(); };
 
 let researchThermo = null;
+const _thermoDisplay = frontendPipeline.thermo_display || {};
+const PIPELINE_SETTINGS = new Set(Object.values(_thermoDisplay).map(c => c.settingKey).filter(Boolean));
 
 // Wizard state machine - centralizes all setup wizard progression logic
 export const wizardState = {
@@ -69,6 +73,11 @@ export const wizardState = {
 function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
+
+  // Rebuild research thermometer when a pipeline-related setting changes externally
+  eventBus.on(Events.SETTING_CHANGED, ({ key }) => {
+    if (PIPELINE_SETTINGS.has(key) && researchThermo) initResearchThermo();
+  });
 
   // Server LED click — orchestration lives here, not in ui-feedback
   eventBus.on(Events.SERVER_LED_CLICKED, ({ online }) => {
@@ -247,29 +256,32 @@ async function startLiveTracking() {
     wizardState.thermo?.completeAll();
     $("research-thermo")?.classList.remove("hidden");
 
-    // Initialize research thermometer with toggleable steps
-    if (!researchThermo) {
-      researchThermo = Thermometer.init('research-thermo');
-      if (researchThermo) {
-        // Web search toggle
-        const webSearchOn = getStateValue('settings.useWebSearch') !== false;
-        researchThermo.setToggleable('webS', webSearchOn);
-        // LLM ranking toggle
-        const llmRankingOn = getStateValue('settings.useLlmRanking') !== false;
-        researchThermo.setToggleable('llm2', llmRankingOn);
-
-        researchThermo.onToggle = (key, enabled) => {
-          const settings = { webS: 'useWebSearch', llm2: 'useLlmRanking' };
-          const labels = { webS: 'Web search', llm2: 'LLM ranking' };
-          if (settings[key]) {
-            saveSetting(settings[key], enabled);
-            showMessage(`${labels[key]} ${enabled ? 'ON' : 'OFF'}`);
-          }
-        };
-      }
-    }
+    initResearchThermo();
 
     showView("results");
   } catch (err) { showMessage(`Error: ${err.message}`, "error"); }
+}
+
+function initResearchThermo() {
+  const { thermo, toggleableKeys } = rebuildResearchThermo('research-thermo');
+  researchThermo = thermo;
+  if (!researchThermo) return;
+
+  // Mark toggleable nodes and set their initial on/off state
+  for (const key of toggleableKeys) {
+    const cfg = _thermoDisplay[key];
+    if (!cfg?.settingKey) continue;
+    const isOn = getStateValue(`settings.${cfg.settingKey}`) ?? cfg.defaultOn;
+    researchThermo.setToggleable(key, isOn);
+  }
+
+  // Toggle callback: save setting → rebuild → show message
+  researchThermo.onToggle = (key, enabled) => {
+    const cfg = _thermoDisplay[key];
+    if (!cfg?.settingKey) return;
+    saveSetting(cfg.settingKey, enabled);
+    initResearchThermo();
+    showMessage(`${cfg.label} ${enabled ? 'ON' : 'OFF'}`);
+  };
 }
 

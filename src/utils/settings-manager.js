@@ -5,7 +5,7 @@ import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
 
 const STORAGE_KEY = "termnorm_settings";
-export const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true };
+export const DEFAULTS = { requireServerOnline: true, useBraveApi: true, useWebSearch: true, useLlmRanking: true, useJsFuzzy: true, usePyFuzzy: false };
 
 export function loadSettings() {
   try {

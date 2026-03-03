@@ -123,5 +123,6 @@ export const Thermometer = {
         const inst = new ThermoInstance(el);
         instances.set(id, inst);
         return inst;
-    }
+    },
+    destroy(id) { instances.delete(id); }
 };

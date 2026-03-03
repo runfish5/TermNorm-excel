@@ -73,13 +73,15 @@ export async function processTermNormalization(value, forward, reverse) {
   }
   if (traceId) _report(traceId, 'cache_lookup', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
 
-  // Tier 2: Fuzzy matching
-  const fuzzy = findFuzzyMatch(normalized, forward, reverse);
-  if (fuzzy) {
-    _report(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, performance.now() - startTime, normalized);
-    return createMatchResult(fuzzy);
+  // Tier 2: Fuzzy matching (JS — toggleable via settings)
+  if (getStateValue('settings.useJsFuzzy') !== false) {
+    const fuzzy = findFuzzyMatch(normalized, forward, reverse);
+    if (fuzzy) {
+      _report(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, performance.now() - startTime, normalized);
+      return createMatchResult(fuzzy);
+    }
+    if (traceId) _report(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
   }
-  if (traceId) _report(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
 
   // Tier 3: LLM research — pass trace_id so backend adds to same trace
   const token = await findTokenMatch(normalized, traceId);

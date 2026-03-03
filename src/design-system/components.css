@@ -575,7 +575,7 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 
 /* Compact thermometer variant (inline status bar) */
 .thermo--compact {
-    max-width: 160px;
+    max-width: 220px;
     padding: 4px 0;
     flex-shrink: 0;
 }
@@ -733,6 +733,29 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .thermo__step--disabled .thermo__label {
     text-decoration: line-through;
     color: var(--gray-400);
+}
+
+/* Separator between connected and disconnected nodes */
+.thermo__separator {
+    width: 1px;
+    height: 28px;
+    margin: 4px 4px 0;
+    background: var(--gray-400);
+    opacity: 0.5;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* Color variant: yellow (JS fuzzy node) */
+.thermo__step--color-yellow .thermo__bubble {
+    background: var(--warning-light, #fef3cd);
+    border-color: var(--warning, #f0ad4e);
+}
+.thermo__step--color-yellow .thermo__label {
+    color: var(--warning-dark, #856404);
+}
+.thermo__step--color-yellow .thermo__led {
+    background: var(--warning, #f0ad4e);
 }
 
 /* Toggle status text (on/off inside bubble) */

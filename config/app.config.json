@@ -14,7 +14,7 @@
         }
       ]
     },
-    "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
+    "parked-addin.xlsx": {
       "column_map": {
         "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" }
       },
@@ -24,6 +24,19 @@
           "worksheet": "Sheet1",
           "source_column": "SourceColumn",
           "target_column": "TargetColumn"
+        }
+      ]
+    },
+    "Excel add-in 5c2fb0a9-f3b1-4d46-8641-c2896f6785d5.xlsx": {
+      "column_map": {
+        "ana": { "output": "ana_std", "confidence": "ana_confidence" }
+      },
+      "standard_mappings": [
+        {
+          "mapping_reference": "C:\\Users\\dsacc\\Downloads\\OneDrive_2025-07-02\\Austausch Beispiele\\Prozessnamen\\BOM-example.xlsx",
+          "worksheet": "Materials",
+          "source_column": "",
+          "target_column": "Dataset in SP"
         }
       ]
     },
