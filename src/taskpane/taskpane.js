@@ -74,6 +74,28 @@ function setupUIReactivity() {
   [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
   eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
 
+  // Node-level thermo glow: highlight only the nodes that participated
+  const METHOD_NODES = { cached: ['cache_lookup'], fuzzy: ['cache_lookup', 'js_fuzzy'] };
+
+  eventBus.on(Events.PIPELINE_STARTED, () => {
+    document.querySelectorAll('#research-thermo .thermo__step--glow')
+      .forEach(el => el.classList.remove('thermo__step--glow'));
+  });
+
+  eventBus.on(Events.PIPELINE_FINISHED, ({ method }) => {
+    const container = $('research-thermo');
+    if (!container) return;
+    const nodes = METHOD_NODES[method];
+    if (nodes) {
+      nodes.forEach(key =>
+        container.querySelector(`[data-key="${key}"]`)?.classList.add('thermo__step--glow'));
+    } else {
+      // ProfileRank / no_match: glow all non-disabled nodes
+      container.querySelectorAll('.thermo__step:not(.thermo__step--disabled)')
+        .forEach(el => el.classList.add('thermo__step--glow'));
+    }
+  });
+
   // Rebuild research thermometer when a pipeline-related setting changes externally
   eventBus.on(Events.SETTING_CHANGED, ({ key }) => {
     if (PIPELINE_SETTINGS.has(key) && researchThermo) initResearchThermo();

@@ -17,4 +17,6 @@ export const Events = {
   SESSION_HISTORY_CHANGED: 'session:history:changed',
   SERVICE_MESSAGE: 'service:message',
   SERVER_LED_CLICKED: 'server:led:clicked',
+  PIPELINE_STARTED: 'pipeline:started',
+  PIPELINE_FINISHED: 'pipeline:finished',
 };

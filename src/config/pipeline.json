@@ -28,8 +28,9 @@
     "useLlmRanking": ["llm_ranking"],
     "usePyFuzzy": ["fuzzy_matching"]
   },
-  "thermo_order": ["py_fuzzy", "js_fuzzy", "web_search", "entity_profiling", "token_matching", "llm_ranking"],
+  "thermo_order": ["cache_lookup", "py_fuzzy", "js_fuzzy", "web_search", "entity_profiling", "token_matching", "llm_ranking"],
   "thermo_display": {
+    "cache_lookup":      { "label": "exact", "settingKey": null,            "defaultOn": true, "color": "yellow", "params": { "method": "key_lookup", "short_circuit": true } },
     "py_fuzzy":          { "label": "fuzzy", "settingKey": "usePyFuzzy",    "defaultOn": false, "params": { "threshold": 70, "scorer": "WRatio", "limit": 5 } },
     "js_fuzzy":          { "label": "fuzzy", "settingKey": "useJsFuzzy",    "defaultOn": true, "color": "yellow", "params": { "algorithm": "levenshtein_word", "threshold": 0.7 } },
     "web_search":        { "label": "webS",  "settingKey": "useWebSearch",  "defaultOn": true,  "params": { "max_sites": 7, "num_results": 20, "scrape_timeout": 5 } },

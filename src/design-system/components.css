@@ -575,31 +575,31 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 
 /* Compact thermometer variant (inline status bar) */
 .thermo--compact {
-    max-width: 220px;
+    max-width: 260px;
     padding: 4px 0;
     flex-shrink: 0;
 }
 
 .thermo--compact .thermo__bubble {
-    width: 18px;
-    height: 18px;
+    width: 21px;
+    height: 21px;
 }
 
 .thermo--compact .thermo__led {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
 }
 
 .thermo--compact .thermo__label {
-    font-size: 8px;
+    font-size: 9px;
 }
 
 .thermo--compact .thermo__step {
-    padding: 0 2px;
+    padding: 0 2.5px;
 }
 
 .thermo--compact svg.thermo__ribbon {
-    height: 28px;
+    height: 31px;
     margin: 0 -4px;
 }
 
@@ -1170,4 +1170,17 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .toggle--primary.toggle--active {
     border-color: var(--success);
     background: var(--success-light);
+}
+
+/* ===================================
+   THERMOMETER NODE GLOW (per-step)
+   =================================== */
+
+.thermo__step--glow:not(.thermo__step--disabled) .thermo__bubble {
+    box-shadow: 0 0 8px rgba(0, 200, 220, 0.5), 0 0 2px rgba(0, 200, 220, 0.3);
+}
+
+.thermo__step--glow:not(.thermo__step--disabled) .thermo__led {
+    background: rgb(0, 200, 220);
+    box-shadow: 0 0 6px rgba(0, 200, 220, 0.6);
 }

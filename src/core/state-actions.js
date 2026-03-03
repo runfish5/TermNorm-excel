@@ -123,9 +123,6 @@ export function addSessionHistoryEntry(entry) {
   eventBus.emit(Events.SESSION_HISTORY_CHANGED);
 }
 
-/**
- * Clear all session history entries
- */
 export function clearSessionHistory() {
   stateStore.set('session.sessionHistory', []);
   eventBus.emit(Events.SESSION_HISTORY_CHANGED);
