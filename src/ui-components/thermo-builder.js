@@ -4,6 +4,8 @@
  */
 import { Thermometer } from "./thermometer.js";
 import { getStateValue } from "../core/state-actions.js";
+import { saveSetting } from "../utils/settings-manager.js";
+import { showMessage } from "../utils/ui-feedback.js";
 import frontendPipeline from "../config/pipeline.json";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -89,4 +91,35 @@ export function rebuildResearchThermo(containerId) {
   const toggleableKeys = buildResearchThermo(container);
   const thermo = Thermometer.init(containerId);
   return { thermo, toggleableKeys };
+}
+
+/**
+ * Build (or rebuild) the research thermometer with toggle callbacks.
+ * Returns the Thermometer instance (or null if container missing).
+ * @param {string} containerId - Element ID of the thermo container
+ * @param {Object} thermoDisplay - Pipeline thermo_display config
+ * @returns {object|null} Thermometer instance
+ */
+export function initResearchThermo(containerId, thermoDisplay) {
+  const { thermo, toggleableKeys } = rebuildResearchThermo(containerId);
+  if (!thermo) return null;
+
+  // Mark toggleable nodes and set their initial on/off state
+  for (const key of toggleableKeys) {
+    const cfg = thermoDisplay[key];
+    if (!cfg?.settingKey) continue;
+    const isOn = getStateValue(`settings.${cfg.settingKey}`) ?? cfg.defaultOn;
+    thermo.setToggleable(key, isOn);
+  }
+
+  // Toggle callback: save setting -> rebuild -> show message
+  thermo.onToggle = (key, enabled) => {
+    const cfg = thermoDisplay[key];
+    if (!cfg?.settingKey) return;
+    saveSetting(cfg.settingKey, enabled);
+    initResearchThermo(containerId, thermoDisplay);
+    showMessage(`${cfg.label} ${enabled ? 'ON' : 'OFF'}`);
+  };
+
+  return thermo;
 }

@@ -24,10 +24,14 @@ function buildBackendSteps() {
     .filter(s => !disabled.has(s));
 }
 
-/** Report a pipeline step to trace or log as a standalone match */
-function _report(traceId, step, data, latency, normalized) {
-  if (traceId) reportPipelineStep(traceId, step, data, latency, getHeaders());
-  else logMatch({ source: normalized, target: data.target, method: step === 'cache_lookup' ? 'cached' : 'fuzzy', confidence: data.confidence ?? 1.0, latency_ms: latency, ...(data.matched_key ? { matched_key: data.matched_key } : {}) }, getHeaders());
+/** Report a pipeline step observation to the backend trace */
+function _traceStep(traceId, step, data, latency) {
+  reportPipelineStep(traceId, step, data, latency, getHeaders());
+}
+
+/** Log a standalone match (no trace — e.g. single-term lookup outside pipeline) */
+function _logStandaloneMatch(normalized, data, method, latency) {
+  logMatch({ source: normalized, target: data.target, method, confidence: data.confidence ?? 1.0, latency_ms: latency, ...(data.matched_key ? { matched_key: data.matched_key } : {}) }, getHeaders());
 }
 
 export function findFuzzyMatch(value, forward, reverse) {
@@ -73,41 +77,38 @@ export async function processTermNormalization(value, forward, reverse) {
   const cached = getCachedMatch(normalized, forward, reverse);
   if (cached) {
     const elapsed = performance.now() - startTime;
-    _report(traceId, 'cache_lookup', { ...cached, source: normalized }, elapsed, normalized);
-    eventBus.emit(Events.SERVICE_MESSAGE, { text: `Match [exact] in ${Math.round(elapsed)}ms` });
-    eventBus.emit(Events.PIPELINE_FINISHED, { method: 'cached' });
+    if (traceId) _traceStep(traceId, 'cache_lookup', { ...cached, source: normalized }, elapsed);
+    else _logStandaloneMatch(normalized, cached, 'cached', elapsed);
+    eventBus.emit(Events.PIPELINE_FINISHED, { method: 'cached', elapsedMs: elapsed });
     return createMatchResult(cached);
   }
-  if (traceId) _report(traceId, 'cache_lookup', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
+  if (traceId) _traceStep(traceId, 'cache_lookup', { source: normalized, method: 'miss' }, performance.now() - startTime);
 
   // Tier 2: Fuzzy matching (JS — toggleable via settings)
   if (getStateValue('settings.useJsFuzzy') !== false) {
     const fuzzy = findFuzzyMatch(normalized, forward, reverse);
     if (fuzzy) {
       const elapsed = performance.now() - startTime;
-      _report(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, elapsed, normalized);
+      if (traceId) _traceStep(traceId, 'fuzzy_matching', { ...fuzzy, source: normalized }, elapsed);
+      else _logStandaloneMatch(normalized, fuzzy, 'fuzzy', elapsed);
       forward[normalized] = fuzzy.target;
       if (!reverse[fuzzy.target]) reverse[fuzzy.target] = normalized;
-      eventBus.emit(Events.SERVICE_MESSAGE, { text: `Match [fuzzy] in ${Math.round(elapsed)}ms` });
-      eventBus.emit(Events.PIPELINE_FINISHED, { method: 'fuzzy' });
+      eventBus.emit(Events.PIPELINE_FINISHED, { method: 'fuzzy', elapsedMs: elapsed });
       return createMatchResult(fuzzy);
     }
-    if (traceId) _report(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime, normalized);
+    if (traceId) _traceStep(traceId, 'fuzzy_matching', { source: normalized, method: 'miss' }, performance.now() - startTime);
   }
 
   // Tier 3: LLM research — pass trace_id so backend adds to same trace
   const token = await findTokenMatch(normalized, traceId);
-  const elapsed3 = ((performance.now() - startTime) / 1000).toFixed(1);
+  const elapsed3 = performance.now() - startTime;
   if (token) {
     forward[normalized] = token.target;
     if (!reverse[token.target]) reverse[token.target] = normalized;
-    const count = token.candidates?.length || 0;
-    eventBus.emit(Events.SERVICE_MESSAGE, { text: `Research completed [ProfileRank] — ${count} candidate${count !== 1 ? 's' : ''} in ${elapsed3}s` });
-    eventBus.emit(Events.PIPELINE_FINISHED, { method: 'ProfileRank' });
+    eventBus.emit(Events.PIPELINE_FINISHED, { method: 'ProfileRank', elapsedMs: elapsed3, candidateCount: token.candidates?.length || 0 });
     return token;
   }
 
-  eventBus.emit(Events.SERVICE_MESSAGE, { text: `No match in ${elapsed3}s` });
-  eventBus.emit(Events.PIPELINE_FINISHED, { method: 'no_match' });
+  eventBus.emit(Events.PIPELINE_FINISHED, { method: 'no_match', elapsedMs: elapsed3 });
   return createMatchResult({ target: "No matches found", method: "no_match", confidence: 0, source: normalized });
 }

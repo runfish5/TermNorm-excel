@@ -2,7 +2,8 @@ import { showMessage } from "../utils/ui-feedback.js";
 import { apiPost, serverFetch, getHeaders, buildUrl } from "../utils/api-fetch.js";
 import { getStateValue } from "../core/state-actions.js";
 import { getRelevanceColor } from "../utils/app-utilities.js";
-import { reinitializeSession } from "../services/workflows.js";
+import { ensureSessionInitialized } from "../services/workflows.js";
+import { logMatchResult } from "../services/result-logger.js";
 import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { $ } from "../utils/dom-helpers.js";
 import { LIMITS, ENDPOINTS } from "../config/config.js";
@@ -130,7 +131,7 @@ async function processDirectPrompt() {
     !values.length ? "No values in selection" : values.length > LIMITS.MAX_DIRECT_PROMPT_ITEMS ? `Max ${LIMITS.MAX_DIRECT_PROMPT_ITEMS} items allowed` : null;
   if (error) { showMessage(error, "error"); return; }
   if (isProcessing) return;
-  if (!(await reinitializeSession())) { showMessage("Failed to initialize session", "error"); return; }
+  if (!(await ensureSessionInitialized())) { showMessage("Failed to initialize session", "error"); return; }
 
   isProcessing = true;
   $("dp-process-btn").disabled = true;
@@ -203,10 +204,7 @@ async function processItems(values, userPrompt, projectContext = null) {
         successCount++;
 
         if (!result.needs_user_selection) {
-          eventBus.emit(Events.MATCH_LOGGED, {
-            value, cellKey: `dp-${batchId || 'single'}-${i}`, timestamp: new Date().toISOString(),
-            result: { target, method: "DirectPrompt", confidence, web_search_status: "idle" },
-          });
+          logMatchResult(value, `dp-${batchId || 'single'}-${i}`, { target, method: "DirectPrompt", confidence });
         }
       }
       else { results.push({ source: value, target: "No response", confidence: 0, needs_user_selection: false, candidates: [] }); errorCount++; }
@@ -267,12 +265,7 @@ async function _handleCandidateSelected(pendingItem, selectedCandidate) {
 
   await _writeResultRows([{ rowIndex: pendingItem.rowIndex, target: selectedCandidate, confidence: 1.0 }]);
 
-  eventBus.emit(Events.MATCH_LOGGED, {
-    value: pendingItem.source,
-    cellKey: `dp-selection-${pendingItem.index}`,
-    timestamp: new Date().toISOString(),
-    result: { target: selectedCandidate, method: "UserChoice", confidence: 1.0, web_search_status: "idle" }
-  });
+  logMatchResult(pendingItem.source, `dp-selection-${pendingItem.index}`, { target: selectedCandidate, method: "UserChoice", confidence: 1.0 });
 }
 
 // ========== CLEAR / RESET ==========

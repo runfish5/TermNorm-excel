@@ -3,11 +3,11 @@ import { init as initDirectPrompt } from "../ui-components/direct-prompt.js";
 import { init as initCandidates } from "../ui-components/candidate-ranking.js";
 import { init as initSettingsPanel } from "../ui-components/settings-panel.js";
 import { Thermometer } from "../ui-components/thermometer.js";
-import { rebuildResearchThermo } from "../ui-components/thermo-builder.js";
+import { initResearchThermo } from "../ui-components/thermo-builder.js";
+import { initPipelineObserver } from "../core/pipeline-observer.js";
 import { setupServerEvents, checkServerStatus } from "../utils/api-fetch.js";
 import { initializeHistoryCache } from "../utils/history-cache.js";
 import { initializeSettings, activateTracking, deactivateTracking } from "../services/workflows.js";
-import { saveSetting } from "../utils/settings-manager.js";
 import { getStateValue } from "../core/state-actions.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -70,38 +70,9 @@ export const wizardState = {
   }
 };
 
-function setupUIReactivity() {
-  [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
-  eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
+// ========== UI REACTIVITY ==========
 
-  // Node-level thermo glow: highlight only the nodes that participated
-  const METHOD_NODES = { cached: ['cache_lookup'], fuzzy: ['cache_lookup', 'js_fuzzy'] };
-
-  eventBus.on(Events.PIPELINE_STARTED, () => {
-    document.querySelectorAll('#research-thermo .thermo__step--glow')
-      .forEach(el => el.classList.remove('thermo__step--glow'));
-  });
-
-  eventBus.on(Events.PIPELINE_FINISHED, ({ method }) => {
-    const container = $('research-thermo');
-    if (!container) return;
-    const nodes = METHOD_NODES[method];
-    if (nodes) {
-      nodes.forEach(key =>
-        container.querySelector(`[data-key="${key}"]`)?.classList.add('thermo__step--glow'));
-    } else {
-      // ProfileRank / no_match: glow all non-disabled nodes
-      container.querySelectorAll('.thermo__step:not(.thermo__step--disabled)')
-        .forEach(el => el.classList.add('thermo__step--glow'));
-    }
-  });
-
-  // Rebuild research thermometer when a pipeline-related setting changes externally
-  eventBus.on(Events.SETTING_CHANGED, ({ key }) => {
-    if (PIPELINE_SETTINGS.has(key) && researchThermo) initResearchThermo();
-  });
-
-  // Server LED click — orchestration lives here, not in ui-feedback
+function setupServerLEDHandler() {
   eventBus.on(Events.SERVER_LED_CLICKED, ({ online }) => {
     if (online) { checkServerStatus(); return; }
     showView("setup");
@@ -109,8 +80,9 @@ function setupUIReactivity() {
     wizardState.goTo(1);
     showMessage("Start the Python server using the instructions below");
   });
+}
 
-  // Central TRACKING_CHANGED handler - UI reacts to state changes
+function setupTrackingReactions() {
   eventBus.on(Events.TRACKING_CHANGED, ({ active }) => {
     updateToggleUI(active);
     if (!active) {
@@ -120,8 +92,9 @@ function setupUIReactivity() {
       showView("home");
     }
   });
+}
 
-  // Wizard progression via state machine
+function setupWizardProgression() {
   eventBus.on(Events.SERVER_STATUS_CHANGED, ({ online }) => online && wizardState.onServerOnline());
   eventBus.on(Events.CONFIG_LOADED, () => wizardState.onConfigLoaded());
   eventBus.on(Events.MAPPINGS_LOADED, async () => {
@@ -139,26 +112,29 @@ function setupUIReactivity() {
       }
     }
   });
+}
 
+function setupUIReactivity() {
+  [Events.SERVER_STATUS_CHANGED, Events.MAPPINGS_LOADED, Events.SETTING_CHANGED].forEach(e => eventBus.on(e, refresh));
+  eventBus.on(Events.CONFIG_LOADED, updateButtonStates);
+
+  // Rebuild research thermometer when a pipeline-related setting changes externally
+  eventBus.on(Events.SETTING_CHANGED, ({ key }) => {
+    if (PIPELINE_SETTINGS.has(key) && researchThermo) {
+      researchThermo = initResearchThermo('research-thermo', _thermoDisplay);
+    }
+  });
+
+  setupServerLEDHandler();
+  setupTrackingReactions();
+  setupWizardProgression();
   refresh();
 }
 
-Office.onReady(async (info) => {
-  if (info.host !== Office.HostType.Excel) return $("sideload-msg").textContent = "This add-in requires Microsoft Excel";
+// ========== DOM HANDLERS ==========
 
-  initHistory(); initDirectPrompt(); initCandidates(); updateHistoryTabCounter();
-  $("sideload-msg")?.classList.add("hidden");
-  const appBody = $("app-body");
-  if (appBody) { appBody.classList.remove("hidden"); appBody.classList.add("app-body--active"); }
-
-  wizardState.init(Thermometer.init('setup-thermo'));
-  initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
-  eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
-  setupUIReactivity();
-  checkServerStatus(); initializeProjectPathDisplay();
-  initSettingsPanel();
-
-  // Settings slide panel handlers
+function setupDOMHandlers() {
+  // Settings slide panel
   const openSettings = () => {
     $("settings-slide-panel")?.classList.add("active");
     $("settings-overlay")?.classList.remove("hidden");
@@ -172,37 +148,36 @@ Office.onReady(async (info) => {
   setupButton("close-settings-btn", closeSettings);
   $("settings-overlay")?.addEventListener("click", closeSettings);
 
+  // Misc buttons
   setupButton("offline-mode-warning", () => { openSettings(); showMessage("Offline mode active - re-enable in Settings"); });
   setupButton("close-hero-btn", () => $("home-hero")?.classList.add("hidden"));
 
+  // Metadata toggle
   $("show-metadata-btn")?.addEventListener("click", () => {
     const c = $("metadata-content");
     if (c) { c.classList.toggle("hidden"); $("show-metadata-btn").textContent = c.classList.contains("hidden") ? "Show Processing Details" : "Hide Processing Details"; }
   });
 
-  // Modal delegation - handles all modals via data attributes
+  // Help modal
   setupButton("help-icon-btn", () => openModal("help-modal"));
   setupButton("close-help-modal", () => closeModal("help-modal"));
   $("help-modal")?.addEventListener("click", (e) => e.target.classList.contains("help-modal") && closeModal("help-modal"));
 
-  // Tracking toggle handler
+  // Tracking toggle
   const toggle = $("tracking-toggle");
   toggle?.addEventListener("click", async () => {
     if (toggle.classList.contains("toggle--disabled")) return;
-
     const isActive = getStateValue('tracking.active');
     if (isActive) {
-      try {
-        await deactivateTracking();
-        showMessage("Tracking stopped");
-      } catch (e) { showMessage(`Stop failed: ${e.message}`, "error"); }
+      try { await deactivateTracking(); showMessage("Tracking stopped"); }
+      catch (e) { showMessage(`Stop failed: ${e.message}`, "error"); }
     } else {
-      try {
-        await startLiveTracking();
-      } catch (e) { showMessage(`Activation failed: ${e.message}`, "error"); }
+      try { await startLiveTracking(); }
+      catch (e) { showMessage(`Activation failed: ${e.message}`, "error"); }
     }
   });
 
+  // Click delegation (nav tabs + setup thermo steps)
   document.addEventListener("click", async (e) => {
     const tab = e.target.closest(".nav-tab");
     if (tab) { e.preventDefault(); showView(tab.dataset.view); }
@@ -215,9 +190,31 @@ Office.onReady(async (info) => {
       wizardState.goTo(parseInt(step.dataset.step));
     }
   });
+}
+
+// ========== BOOT SEQUENCE ==========
+
+Office.onReady(async (info) => {
+  if (info.host !== Office.HostType.Excel) return $("sideload-msg").textContent = "This add-in requires Microsoft Excel";
+
+  initHistory(); initDirectPrompt(); initCandidates(); updateHistoryTabCounter();
+  $("sideload-msg")?.classList.add("hidden");
+  const appBody = $("app-body");
+  if (appBody) { appBody.classList.remove("hidden"); appBody.classList.add("app-body--active"); }
+
+  wizardState.init(Thermometer.init('setup-thermo'));
+  initializeSettings(); setupFileHandling(); setupServerEvents(); setupIndicators();
+  eventBus.on(Events.SERVER_RECONNECTED, () => initializeHistoryCache());
+  setupUIReactivity();
+  initPipelineObserver();
+  checkServerStatus(); initializeProjectPathDisplay();
+  initSettingsPanel();
+  setupDOMHandlers();
 
   try { await loadStaticConfig(); } catch (err) { console.error("Init failed:", err); showMessage(`Init failed: ${err.message}`, "error"); }
 });
+
+// ========== TRACKING HELPERS ==========
 
 function canActivateTracking() {
   const config = getStateValue('config.loaded'), mappings = getStateValue('mappings.combined'), online = getStateValue('server.online');
@@ -246,6 +243,24 @@ function updateToggleUI(active) {
   if (label) label.textContent = active ? "ON" : "OFF";
 }
 
+function buildTrackingStatusMessage(terms, online, info) {
+  const { entities, aliases } = getCacheCounts();
+  const host = getStateValue('server.host');
+  const provider = getStateValue('server.info')?.provider;
+
+  let msg = `✅ Tracking: ${terms} terms (${online ? "exact/fuzzy/LLM" : "exact/fuzzy only"})`;
+  if (info.confidenceTotal > 0) {
+    const { confidenceTotal: t, confidenceMapped: m, confidenceMissing: x } = info;
+    msg += `\n${m === t ? "✅" : "⚠️"} Confidence: ${m}/${t} columns`;
+    if (x.length) msg += `\n❌ Missing: ${x.join(", ")}`;
+  }
+  msg += `\n\nEntities: ${entities} | Aliases: ${aliases}`;
+  msg += `\nBackend: ${online ? "Online" : "Offline"}`;
+  if (host) msg += `\nHost: ${host}`;
+  if (online && provider) msg += `\nLLM: ${provider}`;
+  return msg;
+}
+
 async function startLiveTracking() {
   await checkServerStatus();
   const v = canActivateTracking();
@@ -257,53 +272,11 @@ async function startLiveTracking() {
     const terms = Object.keys(mappings.reverse || {}).length, online = getStateValue('server.online');
     const info = await activateTracking(config, mappings);
 
-    // Build comprehensive status message
-    const { entities, aliases } = getCacheCounts();
-    const host = getStateValue('server.host');
-    const provider = getStateValue('server.info')?.provider;
+    showMessage(buildTrackingStatusMessage(terms, online, info));
 
-    let msg = `✅ Tracking: ${terms} terms (${online ? "exact/fuzzy/LLM" : "exact/fuzzy only"})`;
-    if (info.confidenceTotal > 0) {
-      const { confidenceTotal: t, confidenceMapped: m, confidenceMissing: x } = info;
-      msg += `\n${m === t ? "✅" : "⚠️"} Confidence: ${m}/${t} columns`;
-      if (x.length) msg += `\n❌ Missing: ${x.join(", ")}`;
-    }
-    msg += `\n\nEntities: ${entities} | Aliases: ${aliases}`;
-    msg += `\nBackend: ${online ? "Online" : "Offline"}`;
-    if (host) msg += `\nHost: ${host}`;
-    if (online && provider) msg += `\nLLM: ${provider}`;
-    showMessage(msg);
-
-    // Complete setup thermometer, show research thermometer
     wizardState.thermo?.completeAll();
     $("research-thermo")?.classList.remove("hidden");
-
-    initResearchThermo();
-
+    researchThermo = initResearchThermo('research-thermo', _thermoDisplay);
     showView("results");
   } catch (err) { showMessage(`Error: ${err.message}`, "error"); }
 }
-
-function initResearchThermo() {
-  const { thermo, toggleableKeys } = rebuildResearchThermo('research-thermo');
-  researchThermo = thermo;
-  if (!researchThermo) return;
-
-  // Mark toggleable nodes and set their initial on/off state
-  for (const key of toggleableKeys) {
-    const cfg = _thermoDisplay[key];
-    if (!cfg?.settingKey) continue;
-    const isOn = getStateValue(`settings.${cfg.settingKey}`) ?? cfg.defaultOn;
-    researchThermo.setToggleable(key, isOn);
-  }
-
-  // Toggle callback: save setting → rebuild → show message
-  researchThermo.onToggle = (key, enabled) => {
-    const cfg = _thermoDisplay[key];
-    if (!cfg?.settingKey) return;
-    saveSetting(cfg.settingKey, enabled);
-    initResearchThermo();
-    showMessage(`${cfg.label} ${enabled ? 'ON' : 'OFF'}`);
-  };
-}
-

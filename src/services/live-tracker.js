@@ -3,9 +3,9 @@ import { Events } from "../core/events.js";
 import { setCellState, getWorkbookCellState, clearWorkbookCells, deleteWorkbook } from "../core/state-actions.js";
 import { resolveColumnMaps } from "../utils/column-utilities.js";
 import { getCurrentWorkbookName, getRelevanceColor } from "../utils/app-utilities.js";
-import { PROCESSING_COLORS, ENDPOINTS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
+import { PROCESSING_COLORS, createMatchResult, USER_ACTION_CONFIDENCE } from "../config/config.js";
 import { findTargetBySource } from "../utils/history-cache.js";
-import { apiPost, getHeaders, buildUrl, fireAndForget } from "../utils/api-fetch.js";
+import { logCellResult, logMatchResult, postActivity } from "./result-logger.js";
 
 const activeTrackers = new Map();
 const activationInProgress = new Set();
@@ -131,8 +131,8 @@ async function handleDirectEdits(ws, ctx, tracker, rowIndex, columnIndex, rowCou
       const target = String(newValue).trim();
       const result = { target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp, source };
 
-      eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
-      fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source, target, method: "DirectEdit", confidence: USER_ACTION_CONFIDENCE, timestamp }, getHeaders()));
+      logMatchResult(source, cellKey, result);
+      postActivity(source, target, "DirectEdit", USER_ACTION_CONFIDENCE, timestamp);
 
       const confCol = tracker.confidenceColumnMap.get(inputCol);
       if (confCol !== undefined) ws.getRangeByIndexes(row, confCol, 1, 1).values = [[100]];
@@ -195,11 +195,6 @@ const handleSelectionChange = async (e, tracker) => {
   });
 };
 
-function logResult(workbookId, cellKey, value, result, status, row, col) {
-  setCellState(workbookId, cellKey, { value, result, status, row, col, timestamp: result.timestamp });
-  eventBus.emit(Events.MATCH_LOGGED, { value, cellKey, timestamp: result.timestamp, result });
-}
-
 async function writeCellResult(row, inputCol, outputCol, targetValue, confidence, confidenceColumnMap) {
   await Excel.run(async (ctx) => {
     ctx.runtime.enableEvents = false;
@@ -223,7 +218,7 @@ async function processCell(row, col, targetCol, value, tracker) {
     const result = await tracker.normalizeFn(value, tracker.mappings.forward, tracker.mappings.reverse);
     if (result.candidates) eventBus.emit(Events.CANDIDATES_AVAILABLE, { source: value, result, applyChoice: choice => applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) });
     await writeCellResult(row, col, targetCol, result.target, result.confidence, tracker.confidenceColumnMap);
-    logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
+    logCellResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
   } catch (error) {
     await handleCellError(row, col, targetCol, value, error, outputCellKey, tracker);
   }
@@ -245,14 +240,14 @@ async function handleCellError(row, col, targetCol, value, error, outputCellKey,
       ctx.runtime.enableEvents = true;
     }
   });
-  logResult(tracker.workbookId, outputCellKey, value, createMatchResult({ target: msg, method: "error", confidence: 0, source: value }), "error", row, targetCol);
+  logCellResult(tracker.workbookId, outputCellKey, value, createMatchResult({ target: msg, method: "error", confidence: 0, source: value }), "error", row, targetCol);
 }
 
 async function applyChoiceToCell(row, col, targetCol, value, choice, outputCellKey, tracker) {
   const result = createMatchResult({ target: choice.candidate, method: "UserChoice", confidence: USER_ACTION_CONFIDENCE, source: value, entity_profile: choice.entity_profile || null, web_sources: choice.web_sources || null });
   await writeCellResult(row, col, targetCol, choice.candidate, USER_ACTION_CONFIDENCE, tracker.confidenceColumnMap);
-  logResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
-  fireAndForget(apiPost(buildUrl(ENDPOINTS.ACTIVITIES), { source: value, target: choice.candidate, method: "UserChoice", confidence: USER_ACTION_CONFIDENCE, timestamp: result.timestamp }, getHeaders()));
+  logCellResult(tracker.workbookId, outputCellKey, value, result, "complete", row, targetCol);
+  postActivity(value, choice.candidate, "UserChoice", USER_ACTION_CONFIDENCE, result.timestamp);
 }
 
 export async function stopTracking(workbookId) {
