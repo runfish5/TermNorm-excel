@@ -1073,6 +1073,7 @@ svg.thermo__ribbon:has(+ .thermo__step--disabled) path {
 .alias-chip.DirectPrompt { background: var(--warning-light); color: var(--warning-text); }
 .alias-chip.UserChoice { background: #e8f5e9; color: #2e7d32; }
 .alias-chip.DirectEdit { background: var(--gray-200); color: var(--text-primary); }
+.alias-chip.PreExisting { background: var(--gray-100); color: var(--text-muted); }
 
 .alias-toggle {
     font-size: var(--font-size-sm);

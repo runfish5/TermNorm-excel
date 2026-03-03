@@ -21,6 +21,52 @@ const removeHandlers = async (tracker) => {
   });
 };
 
+async function scanExistingPairs(columnMap, confidenceColumnMap, mappings, workbookId) {
+  let ingested = 0;
+  await Excel.run(async (ctx) => {
+    const ws = ctx.workbook.worksheets.getActiveWorksheet();
+    const used = ws.getUsedRange();
+    used.load("rowCount");
+    await ctx.sync();
+
+    const rowCount = used.rowCount;
+    if (rowCount <= 1) return; // header only or empty
+
+    const ranges = [];
+    for (const [inputCol, outputCol] of columnMap) {
+      const inputRange = ws.getRangeByIndexes(1, inputCol, rowCount - 1, 1);
+      const outputRange = ws.getRangeByIndexes(1, outputCol, rowCount - 1, 1);
+      inputRange.load("values");
+      outputRange.load("values");
+      ranges.push({ inputCol, outputCol, inputRange, outputRange });
+    }
+    await ctx.sync();
+
+    const timestamp = new Date().toISOString();
+    for (const { inputCol, outputCol, inputRange, outputRange } of ranges) {
+      const inputs = inputRange.values;
+      const outputs = outputRange.values;
+      for (let r = 0; r < inputs.length; r++) {
+        const source = String(inputs[r][0] ?? "").trim();
+        const target = String(outputs[r][0] ?? "").trim();
+        if (!source || !target) continue;
+
+        // No-overwrite: reference file mappings take priority
+        if (!mappings.forward[source]) mappings.forward[source] = target;
+        if (!mappings.reverse[target]) mappings.reverse[target] = source;
+
+        const row = r + 1; // offset for header
+        const cellKey = `${row}:${outputCol}`;
+        const result = { target, method: "PreExisting", confidence: USER_ACTION_CONFIDENCE, timestamp, source };
+        setCellState(workbookId, cellKey, { value: source, result, status: "complete", row, col: outputCol, timestamp });
+        eventBus.emit(Events.MATCH_LOGGED, { value: source, cellKey, timestamp, result });
+        ingested++;
+      }
+    }
+  });
+  return ingested;
+}
+
 export async function startTracking(config, mappings, normalizeFn) {
   if (!config?.column_map || !mappings) throw new Error("Config and mappings required");
   const workbookId = await getCurrentWorkbookName();
@@ -38,6 +84,9 @@ export async function startTracking(config, mappings, normalizeFn) {
     });
 
     await removeHandlers(activeTrackers.get(workbookId));
+
+    const ingestedCount = await scanExistingPairs(columnMap, confidenceColumnMap, mappings, workbookId);
+    if (ingestedCount > 0) eventBus.emit(Events.SERVICE_MESSAGE, { text: `Scanned ${ingestedCount} existing pair${ingestedCount !== 1 ? 's' : ''} into cache`, type: "success" });
 
     const tracker = { active: true, handler: null, selectionHandler: null, columnMap, confidenceColumnMap: confidenceColumnMap || new Map(), confidenceFound, confidenceMissing, mappings, config, workbookId, normalizeFn };
 

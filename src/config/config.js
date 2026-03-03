@@ -7,7 +7,7 @@
 /**
  * @typedef {Object} MatchResult
  * @property {string} target - Matched output value
- * @property {'cached'|'fuzzy'|'ProfileRank'|'no_match'|'DirectEdit'|'UserChoice'|'DirectPrompt'|'error'} method - Match method
+ * @property {'cached'|'fuzzy'|'ProfileRank'|'no_match'|'DirectEdit'|'UserChoice'|'DirectPrompt'|'PreExisting'|'error'} method - Match method
  * @property {number} confidence - Score 0-1
  * @property {string} timestamp - ISO timestamp
  * @property {string} source - Original input
