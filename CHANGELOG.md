@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Registry-driven `GET /pipeline`**: `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references from on-disk registries into top-level `resolved_schemas`/`resolved_prompts` dicts. External consumers get full field metadata without hardcoded knowledge.
+- **`/status` endpoint**: Aggregates session, match DB, experiment, and pipeline info into a single snapshot for external tools (PromptPotter).
+- **`llm_ranking_output` schema**: Committed to `logs/schemas/llm_ranking_output/1/`. Both LLMGeneration nodes (`entity_profiling`, `llm_ranking`) now use registry references.
+
+### Changed
+- `llm_ranking` node config: replaced inline `ranking_schema` with `schema_family: "llm_ranking_output"` + `schema_version: 1`
+- PromptPotter integration: dynamic metadata discovery from live `GET /pipeline` response — no hardcoded schemas or prompts on the optimizer side
+
 ## [1.0.5] - 2026-01-27
 
 ### Highlights

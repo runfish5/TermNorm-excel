@@ -20,14 +20,25 @@
 
 ## 4B: PromptPotter Cross-Repo Updates
 
-### Modify `prompt-potter-optimizer/api/services/pipeline_discovery.py`
+### Pipeline discovery (`pipeline_discovery.py`)
 
-- `fuzzy_matching` PipelineStep: add `param_keys={"fuzzy_threshold", "fuzzy_scorer"}`
-- Add `observation_mappings` for fuzzy result extraction
+- `TERMNORM_DEFAULT_SCHEMA` carries **structural metadata only**: observation_mappings, langfuse_type, param_keys, runtime. No hardcoded `output_schema` or `prompt_meta`.
+- `parse_pipeline_response()` consumes `resolved_schemas`/`resolved_prompts` from the live `GET /pipeline` response and merges `StepOutputSchema`/`StepPromptMeta` onto matching steps. **Live always wins** — no `is None` guard.
+- Three response formats handled: new top-level resolved, legacy inline, legacy steps list.
+- `fuzzy_matching` PipelineStep: `param_keys={"fuzzy_threshold", "fuzzy_scorer"}`
 
-### Modify `prompt-potter-optimizer/api/services/backend_client.py`
+### Smart search (`smart_search.py`)
 
-- Add `"fuzzy_matching": {"fuzzy_threshold", "fuzzy_scorer"}` to `PIPELINE_STEP_PARAMS`
+- `filter_variant_library()` drops optimization axes not owned by active pipeline steps (e.g. drops `prompt_fields` when `llm_ranking` is inactive)
+
+### Scan advisor (`scan_advisor.py`)
+
+- Pipeline anatomy now includes `output_schema` (field names, descriptions) and `prompt_meta` (template variables, description) from registry metadata — gives the LLM advisor full pipeline visibility
+
+### Backend client (`backend_client.py`)
+
+- `fetch_pipeline()` calls `GET /pipeline` for live config
+- `PIPELINE_STEP_PARAMS` includes `"fuzzy_matching": {"fuzzy_threshold", "fuzzy_scorer"}`
 
 ---
 
@@ -36,9 +47,15 @@
 ```
 PromptPotter                                    TermNorm
 ────────────                                    ────────
-1. GET /pipeline ──────────────────────────────► Returns 5-node config
-   - Discovers fuzzy_matching step               with "name": "TermNorm"
-   - Reads param_keys: threshold, scorer
+1. GET /pipeline ──────────────────────────────► _enrich_with_registries()
+   Response includes:                            resolves schema_family/
+   - nodes (tunable params)                      prompt_family refs from
+   - resolved_schemas (fields, JSON schema)      on-disk registries
+   - resolved_prompts (template, variables)
+
+   parse_pipeline_response() →
+   PipelineSchema with StepOutputSchema
+   + StepPromptMeta on each step
 
 2. Grid search:
    POST /matches {                    ─────────► Runs fuzzy_matching step
@@ -63,7 +80,8 @@ PromptPotter                                    TermNorm
 4. Analyze results
    - hit@k metrics per step
    - McNemar test across configs
-   - Fuzzy hit-rate measurement
+   - Scan advisor uses schema/prompt metadata
+     for better axis recommendations
 ```
 
 ---

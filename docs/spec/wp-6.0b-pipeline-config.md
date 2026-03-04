@@ -93,30 +93,8 @@ Each runtime (backend, frontend) gets its own config file with two sections:
         "ranking_sample_size": 20,
         "prompt_family": "llm_ranking",
         "prompt_version": 1,
-        "ranking_schema": {
-          "type": "object",
-          "properties": {
-            "profile_summary": { "type": "string" },
-            "core_concept_description": { "type": "string" },
-            "ranked_candidates": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "candidate": { "type": "string" },
-                  "core_concept_score": { "type": "number" },
-                  "spec_score": { "type": "number" },
-                  "evaluation_reasoning": { "type": "string" },
-                  "key_match_factors": { "type": "array", "items": { "type": "string" } },
-                  "spec_gaps": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["candidate", "core_concept_score", "spec_score",
-                             "evaluation_reasoning", "key_match_factors"]
-              }
-            }
-          },
-          "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
-        }
+        "schema_family": "llm_ranking_output",
+        "schema_version": 1
       }
     }
   },
@@ -191,7 +169,8 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 | | `ranking_sample_size` | `20` | `call_llm_for_ranking.py` |
 | | `prompt_family` | `"llm_ranking"` | `call_llm_for_ranking.py` |
 | | `prompt_version` | `1` | `call_llm_for_ranking.py` |
-| | `ranking_schema` | inline JSON schema | `call_llm_for_ranking.py` |
+| | `schema_family` | `"llm_ranking_output"` | `call_llm_for_ranking.py` |
+| | `schema_version` | `1` | `call_llm_for_ranking.py` |
 
 | Root section | Parameter | Default | Source |
 |-------------|-----------|---------|--------|
@@ -206,8 +185,8 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 | | `verbose` | `false` | `research_pipeline.py` |
 
 **Schema notes:**
-- `entity_profiling` references the schema registry (`schema_family`/`schema_version`) since it's already registered there.
-- `llm_ranking` embeds `ranking_schema` inline because `RANKING_SCHEMA` is currently hardcoded in `call_llm_for_ranking.py` and not yet in the registry.
+- Both `LLMGeneration` nodes (`entity_profiling`, `llm_ranking`) reference the schema registry via `schema_family`/`schema_version`. Schemas are committed to git at `logs/schemas/{family}/{version}/`.
+- `GET /pipeline` calls `_enrich_with_registries()` to resolve these references into top-level `resolved_schemas`/`resolved_prompts` dicts. Node configs are NOT modified — the resolved artifacts live in separate top-level sections.
 
 ### Frontend `src/config/pipeline.json`
 
@@ -267,7 +246,7 @@ Nodes+pipelines structure as shown above. 5 backend nodes, 3 named pipelines, pl
 
 ### `backend-api/api/pipeline.py`
 
-- `GET /pipeline` → returns full config (nodes + pipelines + llm_defaults + batch_overrides)
+- `GET /pipeline` → returns full config (nodes + pipelines + llm_defaults + batch_overrides). `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references into top-level `resolved_schemas`/`resolved_prompts` dicts.
 - `POST /pipeline/trace` → creates trace with optional `pipeline_version` in metadata
 - `POST /pipeline/steps` → reports frontend step results as observations
 

@@ -83,9 +83,9 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
 - **main.py**: FastAPI app entry point
 - **api/**: Route handlers (RESTful endpoints)
   - `research_pipeline.py` - `/sessions`, `/matches`, `/batches`, `/prompts`, `/activities`
-  - `system.py` - `/health`, `/settings`, `/history`, `/cache`
+  - `system.py` - `/health`, `/status`, `/settings`, `/history`, `/cache`
   - `experiments_api.py` - `/experiments/*` for eval/optimization integration
-  - `pipeline.py` - `/pipeline`, `/pipeline/trace`, `/pipeline/steps`
+  - `pipeline.py` - `/pipeline` (with registry resolution via `_enrich_with_registries()`), `/pipeline/trace`, `/pipeline/steps`
 - **core/**: Infrastructure
   - `llm_providers.py` - Unified Groq/OpenAI interface with retry logic
   - `logging.py` - Backend logging configuration
@@ -103,13 +103,13 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `cache_metadata.py` - Cache metadata tracking
   - `responses.py` - API response formatting
   - `utils.py` - General utilities
-  - `schema_registry.py` - Versioned JSON schema management
+  - `schema_registry.py` - Versioned JSON schema management. Serves the pipeline resolution contract — `_enrich_with_registries()` reads registered schemas on-demand.
 - **config/**: Settings, middleware, users.json (hot-reload), pipeline.json (v1.1 — all tunable params)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
   - `langfuse/` - Langfuse-compatible logging (traces, observations, scores, datasets)
-  - `prompts/` - Versioned LLM prompts
-  - `schemas/` - Versioned JSON schemas for data structures
+  - `prompts/` - Versioned LLM prompts (defaults committed to git, not runtime-initialized)
+  - `schemas/` - Versioned JSON schemas (`entity_profile`, `llm_ranking_output`) — committed to git, resolved at request time by `GET /pipeline`
 
 ### Web Search
 Brave API → SearXNG → DuckDuckGo → Bing fallback chain.
@@ -132,7 +132,7 @@ Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.
     - `progress`: Sequential steps, collapsible, fill bar (setup wizard: server→config→mappings→activate)
     - `status`: Independent toggleable states (research pipeline: web→LLM→score→rank)
 12. **Centralized Tracking Workflows**: Tracking state managed via `workflows.js` with `TRACKING_CHANGED` events for reactive UI updates
-13. **Pipeline Composability**: `nodes` + `pipelines` JSON format shared across backend, frontend, and PromptPotter. Backend exposes all tunable params via `GET /pipeline` (v1.1). Frontend owns local tiers and declares `backend_pipeline: "default"`. PromptPotter discovers the schema and sweeps parameters. See `docs/spec/README.md`.
+13. **Pipeline Composability**: `nodes` + `pipelines` JSON format shared across backend, frontend, and PromptPotter. Backend exposes all tunable params via `GET /pipeline` (v1.1). `LLMGeneration` nodes carry `schema_family`/`prompt_family` references; `_enrich_with_registries()` resolves them from on-disk registries into top-level `resolved_schemas`/`resolved_prompts` dicts. This gives external consumers (PromptPotter) full visibility into field names, descriptions, template variables, and JSON schemas — no hardcoded metadata needed. Frontend owns local tiers and declares `backend_pipeline: "default"`. See `docs/spec/README.md`.
 
 ## Code Quality Standards
 

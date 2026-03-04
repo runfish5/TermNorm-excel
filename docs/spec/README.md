@@ -46,11 +46,18 @@ The shared contract follows a discovery pattern:
 ```
 Optimizer (PromptPotter)              Backend (TermNorm)
      │                                  │
-     ├── GET /pipeline ────────────────►│  Returns {nodes, pipelines, llm_defaults}
-     │◄── pipeline.json ────────────────│
+     ├── GET /pipeline ────────────────►│  _enrich_with_registries() resolves
+     │◄── pipeline config ─────────────│  schema_family/prompt_family refs from
+     │                                  │  on-disk registries (logs/schemas/,
+     │  Response includes:              │  logs/prompts/)
+     │  - nodes (tunable params)        │
+     │  - resolved_schemas (fields,     │
+     │    descriptions, JSON schema)    │
+     │  - resolved_prompts (template,   │
+     │    template_variables)           │
      │                                  │
-     │  Parse nodes → learn tunable     │
-     │  parameters per step             │
+     │  Parse → PipelineSchema with     │
+     │  StepOutputSchema + StepPromptMeta│
      │                                  │
      ├── POST /matches {param_combo} ──►│  Execute pipeline with overrides
      │◄── results + step_timings ───────│
@@ -86,7 +93,7 @@ A frontend declares which backend pipeline it invokes via `backend_pipeline: "de
 | 3B | 6.0c | [Backend accepts trace_id](wp-6.0c-unified-tracing.md#3b-backend-accepts-trace_id) | [x] |
 | 3C | 6.0c | [Frontend trace integration](wp-6.0c-unified-tracing.md#3c-frontend-trace-integration) | [x] |
 | 4A | 6.0d | [Frontend reads pipeline config](wp-6.0d-promptpotter-integration.md#4a-frontend-reads-pipeline-config) | [x] |
-| 4B | 6.0d | [PromptPotter cross-repo updates](wp-6.0d-promptpotter-integration.md#4b-promptpotter-cross-repo-updates) | [ ] |
+| 4B | 6.0d | [PromptPotter cross-repo updates](wp-6.0d-promptpotter-integration.md#4b-promptpotter-cross-repo-updates) | [x] |
 
 ## Dependency Graph
 
