@@ -1,0 +1,58 @@
+{
+  "type": "object",
+  "properties": {
+    "profile_summary": {
+      "type": "string",
+      "description": "1-2 sentence summary of the entity profile"
+    },
+    "core_concept_description": {
+      "type": "string",
+      "description": "Description of the core concept match"
+    },
+    "ranked_candidates": {
+      "type": "array",
+      "description": "Candidates ranked by relevance score",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate": {
+            "type": "string"
+          },
+          "core_concept_score": {
+            "type": "number"
+          },
+          "spec_score": {
+            "type": "number"
+          },
+          "evaluation_reasoning": {
+            "type": "string"
+          },
+          "key_match_factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "spec_gaps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "candidate",
+          "core_concept_score",
+          "spec_score",
+          "evaluation_reasoning",
+          "key_match_factors"
+        ]
+      }
+    }
+  },
+  "required": [
+    "profile_summary",
+    "core_concept_description",
+    "ranked_candidates"
+  ]
+}

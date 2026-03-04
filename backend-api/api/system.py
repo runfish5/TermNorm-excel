@@ -7,10 +7,12 @@ from typing import Dict, Any, List
 from fastapi import APIRouter, Body
 
 from config.environment import get_connection_info
+from config.pipeline_config import get_pipeline_config
 from config.settings import settings
 from core import llm_providers
 from services import match_database as match_db
 from utils.responses import success_response, error_response
+from utils.standards_logger import ExperimentManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,58 @@ async def health() -> Dict[str, Any]:
             "connection_type": connection_type,
             "connection_url": connection_url,
             "environment": environment
+        }
+    )
+
+
+@router.get("/status")
+async def status() -> Dict[str, Any]:
+    """Status endpoint — returns current server state for external tools.
+
+    Public (no auth required). Aggregates session, match DB, experiment,
+    and pipeline info into a single snapshot.
+    """
+    from api.research_pipeline import user_sessions
+
+    db = match_db.get_db()
+    experiments = ExperimentManager().list_experiments()
+
+    # Count total mappings across all experiments (with per-experiment breakdown)
+    mappings_count = 0
+    experiment_details: List[Dict[str, Any]] = []
+    for exp in experiments:
+        exp_id = exp["experiment_id"]
+        mappings_path = (
+            ExperimentManager().base_path / exp_id / "mappings.tsv"
+        )
+        exp_mappings = 0
+        if mappings_path.exists():
+            # Subtract 1 for header row
+            exp_mappings = max(0, sum(1 for _ in open(mappings_path)) - 1)
+        mappings_count += exp_mappings
+        experiment_details.append({"id": exp_id, "mappings": exp_mappings})
+
+    pipeline_cfg = get_pipeline_config()
+    pipeline_version = pipeline_cfg.get("version", "unknown")
+
+    return success_response(
+        message="Server status",
+        data={
+            "session_active": len(user_sessions) > 0,
+            "active_sessions": len(user_sessions),
+            "terms_loaded": sum(
+                len(s.get("terms", [])) for s in user_sessions.values()
+            ),
+            "match_database_identifiers": len(db),
+            "match_database_aliases": sum(
+                len(entry.get("aliases", {})) for entry in db.values()
+            ),
+            "experiments_count": len(experiments),
+            "mappings_count": mappings_count,
+            "experiments": experiment_details,
+            "pipeline_version": pipeline_version,
+            "llm_provider": llm_providers.LLM_PROVIDER,
+            "llm_model": llm_providers.LLM_MODEL,
         }
     )
 

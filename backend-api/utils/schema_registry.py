@@ -163,58 +163,102 @@ def get_schema_registry() -> SchemaRegistry:
 
 def initialize_default_schemas():
     """
-    Initialize default schemas from existing JSON files.
+    Initialize default schemas in the registry.
 
-    This migrates the entity_profile_schema.json to the registry as v1.
+    Registers entity_profile and llm_ranking_output schemas as v1.
+    Skips families that already exist.
     """
     registry = get_schema_registry()
-
-    # Check if already initialized
-    if "entity_profile" in registry.list_families():
-        print("[SCHEMA_REGISTRY] entity_profile already exists, skipping initialization")
-        return
+    existing = set(registry.list_families())
+    registered = []
 
     # ========================================================================
     # ENTITY PROFILE SCHEMA - v1
     # ========================================================================
-    entity_profile_schema = {
-        "type": "object",
-        "properties": {
-            "entity_name": {"type": "string"},
-            "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
-            "distinguishing_features": {"type": "array", "items": {"type": "string"}},
-            "key_properties": {"type": "array", "items": {"type": "string"}},
-            "technical_specifications": {"type": "array", "items": {"type": "string"}, "description": "Explicit technical specs, dimensions, codes, ratings, tolerances"},
-            "alternative_names": {"type": "array", "items": {"type": "string"}},
-            "classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic"},
-            "constituent_materials": {"type": "array", "items": {"type": "string"}, "description": "All materials that make up this product, both explicit and standard/typical materials inferred from domain knowledge"},
-            "manufacturing_processes": {"type": "array", "items": {"type": "string"}, "description": "Both stated and inferred manufacturing processes based on product type, materials, and industry standards"},
-            "applications": {"type": "array", "items": {"type": "string"}, "description": "Direct and derived applications based on product characteristics"},
-            "notes": {"type": "array", "items": {"type": "string"}}
-        },
-        "required": [
-            "entity_name", "core_concept",
-            "distinguishing_features", "key_properties", "technical_specifications",
-            "alternative_names", "classification_aliases",
-            "constituent_materials", "manufacturing_processes",
-            "applications", "notes"
-        ]
-    }
-
-    registry.register_schema(
-        family="entity_profile",
-        version=1,
-        schema=entity_profile_schema,
-        description="Entity profile extraction schema for web research pipeline",
-        metadata={
-            "author": "system",
-            "use_case": "Structured entity extraction from web research",
-            "compatible_prompts": ["entity_profiling"]
+    if "entity_profile" not in existing:
+        entity_profile_schema = {
+            "type": "object",
+            "properties": {
+                "entity_name": {"type": "string"},
+                "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
+                "distinguishing_features": {"type": "array", "items": {"type": "string"}},
+                "key_properties": {"type": "array", "items": {"type": "string"}},
+                "technical_specifications": {"type": "array", "items": {"type": "string"}, "description": "Explicit technical specs, dimensions, codes, ratings, tolerances"},
+                "alternative_names": {"type": "array", "items": {"type": "string"}},
+                "classification_aliases": {"type": "array", "items": {"type": "string"}, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic"},
+                "constituent_materials": {"type": "array", "items": {"type": "string"}, "description": "All materials that make up this product, both explicit and standard/typical materials inferred from domain knowledge"},
+                "manufacturing_processes": {"type": "array", "items": {"type": "string"}, "description": "Both stated and inferred manufacturing processes based on product type, materials, and industry standards"},
+                "applications": {"type": "array", "items": {"type": "string"}, "description": "Direct and derived applications based on product characteristics"},
+                "notes": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": [
+                "entity_name", "core_concept",
+                "distinguishing_features", "key_properties", "technical_specifications",
+                "alternative_names", "classification_aliases",
+                "constituent_materials", "manufacturing_processes",
+                "applications", "notes"
+            ]
         }
-    )
+        registry.register_schema(
+            family="entity_profile",
+            version=1,
+            schema=entity_profile_schema,
+            description="Entity profile extraction schema for web research pipeline",
+            metadata={
+                "author": "system",
+                "use_case": "Structured entity extraction from web research",
+                "compatible_prompts": ["entity_profiling"]
+            }
+        )
+        registered.append("entity_profile v1")
 
-    print("\n[SCHEMA_REGISTRY] Initialized default schemas:")
-    print("  - entity_profile v1")
+    # ========================================================================
+    # LLM RANKING OUTPUT SCHEMA - v1
+    # ========================================================================
+    if "llm_ranking_output" not in existing:
+        llm_ranking_output_schema = {
+            "type": "object",
+            "properties": {
+                "profile_summary": {"type": "string", "description": "1-2 sentence summary of the entity profile"},
+                "core_concept_description": {"type": "string", "description": "Description of the core concept match"},
+                "ranked_candidates": {
+                    "type": "array",
+                    "description": "Candidates ranked by relevance score",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "candidate": {"type": "string"},
+                            "core_concept_score": {"type": "number"},
+                            "spec_score": {"type": "number"},
+                            "evaluation_reasoning": {"type": "string"},
+                            "key_match_factors": {"type": "array", "items": {"type": "string"}},
+                            "spec_gaps": {"type": "array", "items": {"type": "string"}}
+                        },
+                        "required": ["candidate", "core_concept_score", "spec_score",
+                                     "evaluation_reasoning", "key_match_factors"]
+                    }
+                }
+            },
+            "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
+        }
+        registry.register_schema(
+            family="llm_ranking_output",
+            version=1,
+            schema=llm_ranking_output_schema,
+            description="LLM ranking step output schema — structured candidate evaluation",
+            fields=["profile_summary", "core_concept_description", "ranked_candidates"],
+            metadata={
+                "author": "system",
+                "use_case": "Structured output from LLM candidate ranking",
+                "compatible_prompts": ["llm_ranking"]
+            }
+        )
+        registered.append("llm_ranking_output v1")
+
+    if registered:
+        print(f"\n[SCHEMA_REGISTRY] Initialized default schemas: {', '.join(registered)}")
+    else:
+        print("[SCHEMA_REGISTRY] All default schemas already exist, skipping")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "family": "llm_ranking_output",
+  "description": "LLM ranking step output schema \u2014 structured candidate evaluation",
+  "created_at": "2025-01-26T00:00:00Z",
+  "fields": [
+    "profile_summary",
+    "core_concept_description",
+    "ranked_candidates"
+  ],
+  "metadata": {
+    "author": "system",
+    "use_case": "Structured output from LLM candidate ranking",
+    "compatible_prompts": ["llm_ranking"]
+  }
+}

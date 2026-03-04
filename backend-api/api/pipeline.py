@@ -11,6 +11,8 @@ from utils.langfuse_logger import (
     create_trace, create_observation, create_score, update_trace,
     _log_event, get_or_create_item,
 )
+from utils.schema_registry import get_schema_registry
+from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["pipeline"])
@@ -22,10 +24,68 @@ PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
 # GET /pipeline — Pipeline config
 # =============================================================================
 
+def _enrich_with_registries(config: dict) -> None:
+    """Resolve schema and prompt registry references into top-level dicts.
+
+    Scans nodes for ``schema_family``/``schema_version`` and
+    ``prompt_family``/``prompt_version`` references, resolves them via
+    the registries, and adds ``resolved_schemas`` and ``resolved_prompts``
+    as top-level keys on ``config``.  Node configs are NOT modified.
+    """
+    schema_reg = get_schema_registry()
+    prompt_reg = get_prompt_registry()
+
+    resolved_schemas: dict[str, dict] = {}
+    resolved_prompts: dict[str, dict] = {}
+
+    for node in config.get("nodes", {}).values():
+        nc = node.get("config", {})
+
+        if sf := nc.get("schema_family"):
+            sv = nc.get("schema_version")
+            key = f"{sf}/{sv}" if sv is not None else sf
+            if key not in resolved_schemas:
+                try:
+                    json_schema = schema_reg.get_schema(sf, sv)
+                    meta = schema_reg.get_metadata(sf, sv)
+                    resolved_schemas[key] = {
+                        "family": sf,
+                        "version": meta.get("version", sv),
+                        "description": meta.get("description", ""),
+                        "fields": meta.get("fields", []),
+                        "json_schema": json_schema,
+                    }
+                except FileNotFoundError:
+                    logger.debug("Schema not found: %s v%s", sf, sv)
+
+        if pf := nc.get("prompt_family"):
+            pv = nc.get("prompt_version")
+            key = f"{pf}/{pv}" if pv is not None else pf
+            if key not in resolved_prompts:
+                try:
+                    template = prompt_reg.get_prompt(pf, pv)
+                    meta = prompt_reg.get_metadata(pf, pv)
+                    resolved_prompts[key] = {
+                        "family": pf,
+                        "version": meta.get("version", pv),
+                        "description": meta.get("description", ""),
+                        "template_variables": meta.get("template_variables", []),
+                        "template": template,
+                    }
+                except FileNotFoundError:
+                    logger.debug("Prompt not found: %s v%s", pf, pv)
+
+    if resolved_schemas:
+        config["resolved_schemas"] = resolved_schemas
+    if resolved_prompts:
+        config["resolved_prompts"] = resolved_prompts
+
+
 @router.get("/pipeline")
 async def get_pipeline():
-    """Return the complete pipeline configuration."""
+    """Return the complete pipeline configuration with resolved registry references."""
     config = json.loads(PIPELINE_CONFIG_PATH.read_text())
+    _enrich_with_registries(config)
     return success_response(
         message="Pipeline configuration",
         data=config,

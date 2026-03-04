@@ -8,8 +8,7 @@
       "config": {
         "threshold": 70,
         "scorer": "WRatio",
-        "limit": 5,
-        "_note": "0-100 scale (rapidfuzz). Frontend uses 0-1 scale with levenshtein_word."
+        "limit": 5
       }
     },
     "web_search": {
@@ -79,29 +78,8 @@
         "ranking_sample_size": 20,
         "prompt_family": "llm_ranking",
         "prompt_version": 1,
-        "ranking_schema": {
-          "type": "object",
-          "properties": {
-            "profile_summary": { "type": "string" },
-            "core_concept_description": { "type": "string" },
-            "ranked_candidates": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "candidate": { "type": "string" },
-                  "core_concept_score": { "type": "number" },
-                  "spec_score": { "type": "number" },
-                  "evaluation_reasoning": { "type": "string" },
-                  "key_match_factors": { "type": "array", "items": { "type": "string" } },
-                  "spec_gaps": { "type": "array", "items": { "type": "string" } }
-                },
-                "required": ["candidate", "core_concept_score", "spec_score", "evaluation_reasoning", "key_match_factors"]
-              }
-            }
-          },
-          "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
-        }
+        "schema_family": "llm_ranking_output",
+        "schema_version": 1
       }
     }
   },
