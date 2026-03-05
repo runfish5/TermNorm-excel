@@ -193,7 +193,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     )
 
 
-def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix=""):
+def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix="", skip_search=False):
     """Build debug information dictionary"""
     method_params = {
         "query": query,
@@ -210,6 +210,16 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
                 "scraped_sources": {
                     "sources_fetched": [{'title': item['title'], 'url': item['url']} for item in scraped_content],
                     "search_method": search_method,
+                    "method_parameters": method_params
+                }
+            }
+        }
+    elif skip_search:
+        return {
+            "inputs": {
+                "scraped_sources": {
+                    "status": "skipped",
+                    "note": "Web search disabled",
                     "method_parameters": method_params
                 }
             }
@@ -231,14 +241,16 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
-    start_time = time.time()
     search_log = []
 
     scraped_content = []
     scrape_errors = []
     search_method = "skipped"
 
+    # Web search phase timing
+    ws_start = time.time()
     if skip_search:
+        ws_elapsed = None
         print(f"{MAGENTA}[WEB_SCRAPE] Skipped (LLM knowledge only){RESET}")
         search_log.append("Web search skipped (skip_search=True)")
     else:
@@ -269,6 +281,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
                 print(f"{RED}[WEB_SCRAPE] ✗ All scraping failed ({len(scrape_errors)} attempts){RESET}")
         else:
             print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
+        ws_elapsed = round(time.time() - ws_start, 3)
 
     # Build research prompt (custom override or registry-based)
     if profiling_prompt:
@@ -331,9 +344,13 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         llm_kwargs["schema"] = profiling_schema
     if profiling_model:
         llm_kwargs["model"] = profiling_model
-    result = await llm_call(**llm_kwargs)
 
-    processing_time = time.time() - start_time
+    # LLM call phase timing
+    llm_start = time.time()
+    result = await llm_call(**llm_kwargs)
+    llm_elapsed = round(time.time() - llm_start, 3)
+
+    processing_time = (ws_elapsed or 0) + llm_elapsed
     result['_metadata'] = {
         'query': query,
         'sources_count': len(scraped_content),
@@ -347,5 +364,8 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     # Build debug info
     debug_info = _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
                                     query, max_sites, content_char_limit, raw_content_limit,
-                                    query_prefix=query_prefix, query_suffix=query_suffix)
+                                    query_prefix=query_prefix, query_suffix=query_suffix,
+                                    skip_search=skip_search)
+    debug_info["web_search_elapsed"] = ws_elapsed
+    debug_info["llm_elapsed"] = llm_elapsed
     return result, debug_info

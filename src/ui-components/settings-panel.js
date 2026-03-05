@@ -135,7 +135,7 @@ export function init(containerId = "settings-panel-content") {
     if (!(await confirmModal("Reset all settings to defaults?", "Reset", "Cancel"))) return;
     localStorage.removeItem("termnorm_settings");
     Object.entries(DEFAULTS).forEach(([k, v]) => saveSetting(k, v));
-    try { await Promise.all([updateBackendSettings({ brave_api: true }), updateBackendSettings({ web_search: true })]); } catch {}
+    try { await updateBackendSettings({ brave_api: true }); } catch {}
     $("set-require-server").checked = $("set-brave-api").checked = true;
     showMessage("Settings reset");
   });

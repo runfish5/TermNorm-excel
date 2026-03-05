@@ -343,6 +343,7 @@ def log_pipeline(
     metadata = {
         "method": method,
         "llm_provider": record.get("llm_provider"),
+        "step_timings": record.get("step_timings"),
     }
     if batch_id:
         metadata["batch_id"] = batch_id

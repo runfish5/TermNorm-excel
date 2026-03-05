@@ -141,38 +141,40 @@ def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
 
 
 async def _run_research_step(query: str, steps: List[str], params: Dict) -> tuple:
-    """Step 1: Web search + entity profiling. Returns (entity_profile, profile_debug, elapsed_time)."""
+    """Step 1: Web search + entity profiling.
+    Returns (entity_profile, profile_debug, ep_time, ws_time).
+    Times are None when the step was skipped."""
     run_web_search = "web_search" in steps
     run_entity_profiling = "entity_profiling" in steps
 
-    t0 = time.time()
-    if run_entity_profiling:
-        effective_max_tokens = params["profiling_max_tokens"] // 2 if not run_web_search else params["profiling_max_tokens"]
-        logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
-        entity_profile, profile_debug = await web_generate_entity_profile(
-            query,
-            max_sites=params["max_sites"],
-            schema=ENTITY_SCHEMA,
-            content_char_limit=params["content_char_limit"],
-            raw_content_limit=params["raw_content_limit"],
-            num_results=params["num_results"],
-            profiling_temperature=params["profiling_temperature"],
-            profiling_max_tokens=effective_max_tokens,
-            verbose=True,
-            skip_search=not run_web_search,
-            profiling_prompt=params.get("profiling_prompt"),
-            profiling_schema=params.get("profiling_schema"),
-            profiling_model=params.get("profiling_model"),
-            query_prefix=params.get("query_prefix", ""),
-            query_suffix=params.get("query_suffix", ""),
-        )
-        logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
-    else:
+    if not run_entity_profiling:
         logger.info(CYAN + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
-        entity_profile = []
-        profile_debug = {"inputs": {"scraped_sources": {"sources_fetched": [], "note": "Skipped by pipeline steps"}}}
+        profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
+        return [], profile_debug, None, None
 
-    return entity_profile, profile_debug, round(time.time() - t0, 3)
+    effective_max_tokens = params["profiling_max_tokens"] // 2 if not run_web_search else params["profiling_max_tokens"]
+    logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
+    entity_profile, profile_debug = await web_generate_entity_profile(
+        query,
+        max_sites=params["max_sites"],
+        schema=ENTITY_SCHEMA,
+        content_char_limit=params["content_char_limit"],
+        raw_content_limit=params["raw_content_limit"],
+        num_results=params["num_results"],
+        profiling_temperature=params["profiling_temperature"],
+        profiling_max_tokens=effective_max_tokens,
+        verbose=True,
+        skip_search=not run_web_search,
+        profiling_prompt=params.get("profiling_prompt"),
+        profiling_schema=params.get("profiling_schema"),
+        profiling_model=params.get("profiling_model"),
+        query_prefix=params.get("query_prefix", ""),
+        query_suffix=params.get("query_suffix", ""),
+    )
+    logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
+    ep_time = profile_debug.get("llm_elapsed")
+    ws_time = profile_debug.get("web_search_elapsed")
+    return entity_profile, profile_debug, ep_time, ws_time
 
 
 def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
@@ -225,27 +227,49 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
     return llm_response, ranking_debug, elapsed
 
 
+def _derive_executed_steps(step_timings: dict) -> list[str]:
+    """Derive which steps actually executed from step_timings.
+    Non-None timing = step ran. Order follows pipeline execution order."""
+    return [step for step, t in step_timings.items() if t is not None]
+
+
 def _build_pipeline_results(
     query: str, user_id: str, llm_response: dict, entity_profile: list,
     profile_debug: dict, ranking_debug: dict, candidates: list,
-    params: Dict, steps: List[str], step_timings: dict, total_time: float,
+    params: Dict, requested_steps: List[str], step_timings: dict, total_time: float,
 ) -> tuple:
     """Build training record and API response from pipeline results. Returns (training_record, api_response)."""
     ranked = llm_response.get("ranked_candidates", [])
     target = ranked[0].get("candidate") if ranked else "No matches found"
     confidence = ranked[0].get("relevance_score", 0) if ranked else 0
 
+    # Three-state web_search_status derived from execution results
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
-    web_search_failed = isinstance(scraped_sources, dict) and "error" in scraped_sources
-    web_status = "failed" if web_search_failed else "success"
-    web_error = scraped_sources.get("error") if web_search_failed else None
-    web_sources = scraped_sources.get("sources_fetched", []) if not web_search_failed else []
+    if scraped_sources.get("status") == "skipped":
+        web_status, web_error, web_sources = "skipped", None, []
+    elif "error" in scraped_sources:
+        web_status = "failed"
+        web_error = scraped_sources["error"]
+        web_sources = []
+    else:
+        web_status, web_error = "success", None
+        web_sources = scraped_sources.get("sources_fetched", [])
+
+    # Derive executed steps from actual timing results
+    executed_steps = _derive_executed_steps(step_timings)
+
+    pipeline_params = {
+        "steps": executed_steps,
+        "requested_steps": requested_steps,
+        **params,
+    }
 
     training_record = {
         "source": query, "target": target, "method": "ProfileRank", "confidence": confidence,
         "session_id": user_id, "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
-        "pipeline_params": {"steps": steps, **params}, "entity_profile": entity_profile,
+        "step_timings": step_timings, "pipeline_params": pipeline_params,
+        "entity_profile": entity_profile,
         "candidates": [
             {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
              "core_score": c.get("core_concept_score"), "spec_score": c.get("spec_score")}
@@ -262,7 +286,7 @@ def _build_pipeline_results(
             "token_matched_candidates": candidates[:params["max_token_candidates"]],
             "llm_provider": llm_response.get("llm_provider"), "total_time": total_time,
             "step_timings": step_timings, "web_search_status": web_status,
-            "web_search_error": web_error, "pipeline_params": {"steps": steps, **params},
+            "web_search_error": web_error, "pipeline_params": pipeline_params,
         }
     )
     logger.info(YELLOW + json.dumps(api_response, indent=2) + RESET)
@@ -276,9 +300,6 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     query = payload.get("query", "")
     steps = payload.get("steps") or _pipeline("default")
     trace_id = payload.get("trace_id")
-
-    if not settings.use_web_search:
-        steps = [s for s in steps if s != "web_search"]
 
     params = _resolve_pipeline_params(payload)
 
@@ -309,17 +330,24 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     token_matcher = TokenLookupMatcher(terms)
     logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
 
-    entity_profile, profile_debug, step1_time = await _run_research_step(query, steps, params)
+    entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)
     candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
     llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params)
 
     total_time = round(time.time() - start_time, 2)
-    step_timings = {"fuzzy_matching": fuzzy_time, "entity_profiling": step1_time, "token_matching": step2_time, "llm_ranking": step3_time}
+    step_timings = {
+        "fuzzy_matching": fuzzy_time,
+        "web_search": ws_time,
+        "entity_profiling": ep_time,
+        "token_matching": step2_time,
+        "llm_ranking": step3_time,
+    }
 
     # Log and persist
     training_record, api_response = _build_pipeline_results(
         query, user_id, llm_response, entity_profile, profile_debug,
-        ranking_debug, candidate_results, params, steps, step_timings, total_time,
+        ranking_debug, candidate_results, params,
+        requested_steps=steps, step_timings=step_timings, total_time=total_time,
     )
 
     try:

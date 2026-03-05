@@ -96,7 +96,6 @@ async def get_settings() -> Dict[str, Any]:
             "available_providers": llm_providers.get_available_providers(),
             "current_provider": llm_providers.LLM_PROVIDER,
             "current_model": llm_providers.LLM_MODEL,
-            "web_search_enabled": settings.use_web_search,
             "brave_api_enabled": settings.use_brave_api
         }
     )
@@ -115,11 +114,6 @@ async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]
         updated["provider"] = payload["provider"]
         updated["model"] = payload["model"]
         logger.info(f"LLM provider changed to {payload['provider']}/{payload['model']}")
-
-    if "web_search" in payload:
-        settings.use_web_search = payload["web_search"]
-        updated["web_search"] = payload["web_search"]
-        logger.info(f"Web search {'enabled' if payload['web_search'] else 'disabled'}")
 
     if "brave_api" in payload:
         settings.use_brave_api = payload["brave_api"]

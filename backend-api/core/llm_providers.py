@@ -128,6 +128,9 @@ async def llm_call(
                 raise HTTPException(503, "LLM request timeout")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
         except Exception as e:
+            status = getattr(e, "status_code", None)
+            if status and 400 <= status < 500:
+                raise HTTPException(status, f"LLM client error: {str(e)}")
             if attempt == _RETRY_ATTEMPTS - 1:
                 raise HTTPException(503, f"LLM error: {str(e)}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)

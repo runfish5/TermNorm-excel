@@ -1,6 +1,6 @@
 // Workflows - Async operations, multi-step workflows, and event coordination
 import { loadSettings } from "../utils/settings-manager.js";
-import { checkServerStatus, getHeaders, buildUrl, fireAndForget, apiPost } from "../utils/api-fetch.js";
+import { checkServerStatus, getHeaders, buildUrl, apiPost } from "../utils/api-fetch.js";
 import { SESSION_RETRY, ENDPOINTS } from "../config/config.js";
 import { eventBus } from "../core/event-bus.js";
 import { Events } from "../core/events.js";
@@ -81,14 +81,6 @@ export async function executeWithSessionRecovery(apiCallFn) {
 export async function initializeSettings() {
   const settings = loadSettings();
   setSettings(settings);
-
-  // Sync backend-relevant settings (fire-and-forget, don't block startup)
-  const { updateBackendSettings } = await import("../utils/settings-manager.js");
-  fireAndForget(updateBackendSettings({
-    web_search: settings.useWebSearch !== false,
-    brave_api: settings.useBraveApi !== false,
-  }));
-
   return settings;
 }
 
