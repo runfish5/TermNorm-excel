@@ -5,7 +5,6 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import quote_plus
 from core.llm_providers import llm_call
 from utils.utils import CYAN, MAGENTA, RED, RESET, YELLOW, GREEN, BOLD
 from config.settings import settings
@@ -36,11 +35,11 @@ def _generate_format_string_from_schema(schema):
     """Generate the JSON format string for LLM prompt from a JSON schema"""
     if 'properties' not in schema:
         raise ValueError("Schema must contain 'properties' field")
-    
+
     format_items = []
     for prop_name, prop_def in schema['properties'].items():
         prop_type = prop_def.get('type', 'string')
-        
+
         if prop_type == 'string':
             format_items.append(f'  "{prop_name}": "string"')
         elif prop_type == 'array':
@@ -54,7 +53,7 @@ def _generate_format_string_from_schema(schema):
             format_items.append(f'  "{prop_name}": true/false')
         else:
             format_items.append(f'  "{prop_name}": "{prop_type}"')
-    
+
     return "{\n" + ",\n".join(format_items) + "\n}"
 
 def scrape_url(url, char_limit):
@@ -89,55 +88,7 @@ def scrape_url(url, char_limit):
         logger.error(f"Scraping failed for {url}: {e}")
         return None
 
-def _search_engine(engine_name, search_url, headers, query, log):
-    """Helper: Try search engine and return URLs"""
-    try:
-        response = requests.get(search_url, headers=headers, timeout=_WS_CONFIG["search_engine_timeout"])
-        msg = f"{engine_name} status: {response.status_code}"
-        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
-        log.append(msg)
-
-        # Handle bot detection (202 = DuckDuckGo CAPTCHA)
-        if response.status_code == 202:
-            msg = f"{engine_name} bot detection (202), skipping..."
-            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
-            log.append(msg)
-            return []
-
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-
-            if 'duckduckgo' in search_url:
-                urls = [a.get('href') for a in soup.find_all('a', class_='result__a')
-                        if a.get('href') and a.get('href').startswith('http')]
-            else:  # Bing
-                # Bing uses redirect URLs in href, but real URLs are in <cite> tags
-                cite_tags = soup.select('li.b_algo cite')
-                urls = []
-                for cite in cite_tags:
-                    url_text = cite.get_text().strip()
-                    # Clean up cite text (remove separators like '›')
-                    url_text = url_text.replace(' › ', '/').replace(' � ', '/')
-                    # Ensure it starts with http
-                    if not url_text.startswith('http'):
-                        url_text = 'https://' + url_text
-                    urls.append(url_text)
-
-            msg = f"{engine_name} found {len(urls)} URLs"
-            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
-            log.append(msg)
-            return urls
-        else:
-            msg = f"{engine_name} failed, status: {response.status_code}"
-            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
-            log.append(msg)
-    except Exception as e:
-        msg = f"{engine_name} error: {str(e)}"
-        print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
-        log.append(msg)
-    return []
-
-def _brave_search(query, num_results=20, log=None):
+def _brave_search(query, num_results=20, log=None, query_prefix="", query_suffix=""):
     """
     Brave Search API - Primary search method (requires API key)
     Free tier: 2,000 queries/month, 1 query/second
@@ -145,10 +96,9 @@ def _brave_search(query, num_results=20, log=None):
     Set in .env: BRAVE_SEARCH_API_KEY=your_key
     Toggle with: USE_BRAVE_API=true/false (default: true)
     """
-    # Check if Brave API is disabled (for testing fallbacks)
     if not settings.use_brave_api:
         msg = "Brave Search disabled (USE_BRAVE_API=false)"
-        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        logger.warning(msg)
         if log:
             log.append(msg)
         return []
@@ -156,13 +106,15 @@ def _brave_search(query, num_results=20, log=None):
     api_key = settings.brave_search_api_key
     if not api_key:
         msg = "Brave Search API key not configured (set BRAVE_SEARCH_API_KEY in .env)"
-        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        logger.warning(msg)
         if log:
             log.append(msg)
         return []
 
+    effective_query = f"{query_prefix} {query} {query_suffix}".strip()
+
     try:
-        msg = f"Trying Brave Search API for: '{query}'"
+        msg = f"Trying Brave Search API for: '{effective_query}'"
         print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
         if log:
             log.append(msg)
@@ -176,7 +128,7 @@ def _brave_search(query, num_results=20, log=None):
         response = requests.get(
             'https://api.search.brave.com/res/v1/web/search',
             params={
-                'q': query,
+                'q': effective_query,
                 'count': num_results,
                 'search_lang': 'en',
                 'country': 'US'
@@ -215,77 +167,6 @@ def _brave_search(query, num_results=20, log=None):
 
     return []
 
-def _searxng_fallback(query, num_results=20, log=None):
-    """
-    SearXNG meta-search fallback - queries 70+ engines simultaneously
-    Rotates through multiple public instances for reliability
-    """
-    searx_instances = _WS_CONFIG["searxng_instances"]
-
-    for instance in searx_instances:
-        try:
-            response = requests.get(
-                f"{instance}/search",
-                params={'q': query, 'format': 'json', 'language': 'en', 'safesearch': 0},
-                headers={'User-Agent': random.choice(_USER_AGENTS)},
-                timeout=_WS_CONFIG["searxng_timeout"]
-            )
-
-            if response.status_code == 200:
-                results = response.json().get('results', [])
-                urls = [r['url'] for r in results[:num_results] if 'url' in r and r['url'].startswith('http')]
-
-                if urls:
-                    msg = f"SearXNG ({instance.split('//')[1].split('/')[0]}) found {len(urls)} URLs"
-                    print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
-                    if log:
-                        log.append(msg)
-                    return urls
-            elif response.status_code == 429:
-                # Rate limited - try next instance
-                continue
-
-        except Exception:
-            # Silently skip failed instances, try next
-            continue
-
-    msg = "All SearXNG instances unavailable (rate limited or offline)"
-    print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
-    if log:
-        log.append(msg)
-    return []
-
-
-def _execute_search_fallback_chain(query, headers, search_log, num_results=20):
-    """Execute 4-tier search fallback chain, return (urls, search_method)"""
-    # Gating is handled by the pipeline handler (research_pipeline.py).
-    # If this function is called, web search should proceed.
-
-    # 1. Brave Search API (if configured/enabled)
-    urls = _brave_search(query, num_results=num_results, log=search_log)
-    if urls:
-        return urls, "Brave Search API"
-
-    # 2. SearXNG meta-search
-    urls = _searxng_fallback(query, num_results=num_results, log=search_log)
-    if urls:
-        return urls, "SearXNG meta-search"
-
-    # 3. DuckDuckGo scraping
-    time.sleep(1)  # Brief delay for bot mitigation
-    ddg_url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=us-en"
-    urls = _search_engine("DuckDuckGo", ddg_url, headers, query, search_log)
-    if urls:
-        return urls, "DuckDuckGo scraping"
-
-    # 4. Bing scraping (final fallback)
-    bing_url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en"
-    urls = _search_engine("Bing", bing_url, headers, query, search_log)
-    if urls:
-        return urls, "Bing scraping"
-
-    return [], "All search methods failed"
-
 
 def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     """Build LLM prompt for entity profile extraction"""
@@ -312,13 +193,15 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     )
 
 
-def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit):
+def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix=""):
     """Build debug information dictionary"""
     method_params = {
         "query": query,
         "max_sites": max_sites,
         "content_char_limit": content_char_limit,
-        "raw_content_limit": raw_content_limit
+        "raw_content_limit": raw_content_limit,
+        "query_prefix": query_prefix,
+        "query_suffix": query_suffix,
     }
 
     if scraped_content:
@@ -344,7 +227,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             }
         }
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix=""):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
@@ -359,14 +242,10 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         print(f"{MAGENTA}[WEB_SCRAPE] Skipped (LLM knowledge only){RESET}")
         search_log.append("Web search skipped (skip_search=True)")
     else:
-        headers = {
-            'User-Agent': random.choice(_USER_AGENTS),
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        }
-
-        # Execute search fallback chain (Brave → SearXNG → DuckDuckGo → Bing)
-        urls, search_method = _execute_search_fallback_chain(query, headers, search_log, num_results=num_results)
+        # Direct Brave Search API call
+        urls = _brave_search(query, num_results=num_results, log=search_log,
+                             query_prefix=query_prefix, query_suffix=query_suffix)
+        search_method = "Brave Search API"
 
         # Parallel URL scraping with ThreadPoolExecutor
         if urls:
@@ -390,7 +269,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
                 print(f"{RED}[WEB_SCRAPE] ✗ All scraping failed ({len(scrape_errors)} attempts){RESET}")
         else:
             print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
-    
+
     # Build research prompt (custom override or registry-based)
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
@@ -453,7 +332,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     if profiling_model:
         llm_kwargs["model"] = profiling_model
     result = await llm_call(**llm_kwargs)
-    
+
     processing_time = time.time() - start_time
     result['_metadata'] = {
         'query': query,
@@ -467,5 +346,6 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
 
     # Build debug info
     debug_info = _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
-                                    query, max_sites, content_char_limit, raw_content_limit)
+                                    query, max_sites, content_char_limit, raw_content_limit,
+                                    query_prefix=query_prefix, query_suffix=query_suffix)
     return result, debug_info

@@ -107,6 +107,8 @@ def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
         "max_sites": _ws_ov.get("max_sites", _ws["max_sites"]),
         "num_results": _ws_ov.get("num_results", _ws["num_results"]),
         "content_char_limit": _ws_ov.get("content_char_limit", _ws["content_char_limit"]),
+        "query_prefix": _ws_ov.get("query_prefix", _ws.get("query_prefix", "")),
+        "query_suffix": _ws_ov.get("query_suffix", _ws.get("query_suffix", "")),
         "raw_content_limit": _ep_ov.get("raw_content_limit", _ws["raw_content_limit"]),
         "profiling_temperature": _ep_ov.get("temperature", _ep["temperature"]),
         "profiling_max_tokens": _ep_ov.get("max_tokens", _ep["max_tokens"]),
@@ -161,6 +163,8 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
             profiling_prompt=params.get("profiling_prompt"),
             profiling_schema=params.get("profiling_schema"),
             profiling_model=params.get("profiling_model"),
+            query_prefix=params.get("query_prefix", ""),
+            query_suffix=params.get("query_suffix", ""),
         )
         logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
     else:
