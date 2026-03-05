@@ -39,9 +39,16 @@ async def llm_call(
     stop_sequences: Optional[List[str]] = None,
     temperature: float = 0.7,
     output_format: Literal["text", "json", "schema"] = "text",
-    schema: Optional[Dict] = None
+    schema: Optional[Dict] = None,
+    model: Optional[str] = None,
 ) -> Union[str, Dict]:
-    """Universal LLM function - uses global provider config"""
+    """Universal LLM function - uses global provider config.
+
+    Args:
+        model: Override the global LLM_MODEL for this call. When None, uses
+            the globally configured model.
+    """
+    effective_model = model or LLM_MODEL
 
     # Request validation - prevent guaranteed failures
     total_tokens = sum(len(m.get('content', '').split()) for m in messages) * _TOKEN_ESTIMATION_MULTIPLIER
@@ -50,9 +57,9 @@ async def llm_call(
 
     if system:
         messages = [{"role": "system", "content": system}] + messages
-    
+
     params = {
-        "model": LLM_MODEL,
+        "model": effective_model,
         "messages": messages, 
         "max_tokens": max_tokens,
         "temperature": temperature
@@ -97,7 +104,7 @@ async def llm_call(
             # Anthropic uses different API structure
             if LLM_PROVIDER == "anthropic":
                 anthropic_params = {
-                    "model": LLM_MODEL,
+                    "model": effective_model,
                     "messages": [m for m in messages if m["role"] != "system"],
                     "max_tokens": max_tokens,
                     "temperature": temperature

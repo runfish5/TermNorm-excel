@@ -344,7 +344,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             }
         }
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False):
+async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None):
     if schema is None:
         raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
 
@@ -391,8 +391,23 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         else:
             print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
     
-    # Build research prompt
-    prompt = _build_research_prompt(query, scraped_content, schema, raw_content_limit)
+    # Build research prompt (custom override or registry-based)
+    if profiling_prompt:
+        # Custom prompt with {{variable}} substitution
+        if not scraped_content:
+            keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
+            fallback_context = f"Query contains terms: {', '.join(keywords[:8])}"
+            combined_text = f"Research about: {query}\n\n{fallback_context}"
+        else:
+            combined_text = f"Research about: {query}\n\n" + "\n\n".join(
+                [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
+            )[:raw_content_limit]
+        format_string = _generate_format_string_from_schema(profiling_schema or schema)
+        prompt = profiling_prompt.replace("{{query}}", query)
+        prompt = prompt.replace("{{format_string}}", format_string)
+        prompt = prompt.replace("{{combined_text}}", combined_text)
+    else:
+        prompt = _build_research_prompt(query, scraped_content, schema, raw_content_limit)
     print(CYAN)
     print(prompt)
     print(RESET)
@@ -427,7 +442,17 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     print()  # Blank line for readability
 
     messages = [{"role": "user", "content": prompt}]
-    result = await llm_call(messages=messages, temperature=profiling_temperature, max_tokens=profiling_max_tokens, output_format="json")
+    llm_kwargs = {
+        "messages": messages,
+        "temperature": profiling_temperature,
+        "max_tokens": profiling_max_tokens,
+        "output_format": "schema" if profiling_schema else "json",
+    }
+    if profiling_schema:
+        llm_kwargs["schema"] = profiling_schema
+    if profiling_model:
+        llm_kwargs["model"] = profiling_model
+    result = await llm_call(**llm_kwargs)
     
     processing_time = time.time() - start_time
     result['_metadata'] = {

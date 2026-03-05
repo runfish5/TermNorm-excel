@@ -33,6 +33,8 @@ async def call_llm_for_ranking(
     sample_size: int = 20,
     relevance_weight_core: float = 0.7,
     ranking_prompt: Optional[str] = None,
+    ranking_schema: Optional[dict] = None,
+    ranking_model: Optional[str] = None,
 ) -> tuple[dict, dict]:
     """Rank candidates using LLM and return (result, debug_info) tuple."""
     available_results = list(match_results[:sample_size])
@@ -80,12 +82,17 @@ IMPORTANT: Return a valid JSON response matching this exact structure:
 
 Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
 
-    ranking_result = await llm_call(
-        messages=[{"role": "user", "content": enhanced_prompt}],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        output_format="json"  # Use json mode instead of schema
-    )
+    llm_kwargs = {
+        "messages": [{"role": "user", "content": enhanced_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "output_format": "schema" if ranking_schema else "json",
+    }
+    if ranking_schema:
+        llm_kwargs["schema"] = ranking_schema
+    if ranking_model:
+        llm_kwargs["model"] = ranking_model
+    ranking_result = await llm_call(**llm_kwargs)
 
     print("\n[PIPELINE] Step 4: Correcting candidate strings")
     corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)

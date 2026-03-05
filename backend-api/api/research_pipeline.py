@@ -90,27 +90,39 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
 
 
 def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract pipeline parameters with defaults from pipeline.json, overridable per-request."""
+    """Extract pipeline parameters from node_overrides with defaults from pipeline.json."""
+    ov = payload.get("node_overrides", {})
+    _ws_ov = ov.get("web_search", {})
+    _ep_ov = ov.get("entity_profiling", {})
+    _tm_ov = ov.get("token_matching", {})
+    _lr_ov = ov.get("llm_ranking", {})
+    _fm_ov = ov.get("fuzzy_matching", {})
+
     _ws = _node("web_search")
     _ep = _node("entity_profiling")
     _tm = _node("token_matching")
     _lr = _node("llm_ranking")
     _fm = _node("fuzzy_matching")
     return {
-        "max_sites": payload.get("max_sites", _ws["max_sites"]),
-        "num_results": payload.get("num_results", _ws["num_results"]),
-        "content_char_limit": payload.get("content_char_limit", _ws["content_char_limit"]),
-        "raw_content_limit": payload.get("raw_content_limit", _ws["raw_content_limit"]),
-        "profiling_temperature": payload.get("profiling_temperature", _ep["temperature"]),
-        "profiling_max_tokens": payload.get("profiling_max_tokens", _ep["max_tokens"]),
-        "ranking_temperature": payload.get("ranking_temperature", _lr["temperature"]),
-        "ranking_max_tokens": payload.get("ranking_max_tokens", _lr["max_tokens"]),
-        "ranking_sample_size": payload.get("ranking_sample_size", _lr["ranking_sample_size"]),
-        "max_token_candidates": payload.get("max_token_candidates", _tm["max_token_candidates"]),
-        "relevance_weight_core": payload.get("relevance_weight_core", _tm["relevance_weight_core"]),
-        "ranking_prompt": payload.get("ranking_prompt", None),
-        "fuzzy_threshold": payload.get("fuzzy_threshold", _fm["threshold"]),
-        "fuzzy_scorer": payload.get("fuzzy_scorer", _fm["scorer"]),
+        "max_sites": _ws_ov.get("max_sites", _ws["max_sites"]),
+        "num_results": _ws_ov.get("num_results", _ws["num_results"]),
+        "content_char_limit": _ws_ov.get("content_char_limit", _ws["content_char_limit"]),
+        "raw_content_limit": _ep_ov.get("raw_content_limit", _ws["raw_content_limit"]),
+        "profiling_temperature": _ep_ov.get("temperature", _ep["temperature"]),
+        "profiling_max_tokens": _ep_ov.get("max_tokens", _ep["max_tokens"]),
+        "profiling_prompt": _ep_ov.get("prompt"),
+        "profiling_schema": _ep_ov.get("output_schema"),
+        "profiling_model": _ep_ov.get("model"),
+        "max_token_candidates": _tm_ov.get("max_token_candidates", _tm["max_token_candidates"]),
+        "relevance_weight_core": _tm_ov.get("relevance_weight_core", _tm["relevance_weight_core"]),
+        "ranking_temperature": _lr_ov.get("temperature", _lr["temperature"]),
+        "ranking_max_tokens": _lr_ov.get("max_tokens", _lr["max_tokens"]),
+        "ranking_sample_size": _lr_ov.get("sample_size", _lr["ranking_sample_size"]),
+        "ranking_prompt": _lr_ov.get("prompt"),
+        "ranking_schema": _lr_ov.get("output_schema"),
+        "ranking_model": _lr_ov.get("model"),
+        "fuzzy_threshold": _fm_ov.get("threshold", _fm["threshold"]),
+        "fuzzy_scorer": _fm_ov.get("scorer", _fm["scorer"]),
     }
 
 
@@ -146,6 +158,9 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
             profiling_max_tokens=effective_max_tokens,
             verbose=True,
             skip_search=not run_web_search,
+            profiling_prompt=params.get("profiling_prompt"),
+            profiling_schema=params.get("profiling_schema"),
+            profiling_model=params.get("profiling_model"),
         )
         logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
     else:
@@ -199,6 +214,8 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
             sample_size=params["ranking_sample_size"],
             relevance_weight_core=params["relevance_weight_core"],
             ranking_prompt=params["ranking_prompt"],
+            ranking_schema=params.get("ranking_schema"),
+            ranking_model=params.get("ranking_model"),
         )
     elapsed = round(time.time() - t0, 3) if run_llm_ranking else None
     return llm_response, ranking_debug, elapsed
