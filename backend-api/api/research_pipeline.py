@@ -90,8 +90,8 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
 
 
 def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract pipeline parameters from node_overrides with defaults from pipeline.json."""
-    ov = payload.get("node_overrides", {})
+    """Extract pipeline parameters from node_config with defaults from pipeline.json."""
+    ov = payload.get("node_config", {})
     _ws_ov = ov.get("web_search", {})
     _ep_ov = ov.get("entity_profiling", {})
     _tm_ov = ov.get("token_matching", {})
@@ -257,6 +257,7 @@ def _build_pipeline_results(
 
     # Derive executed steps from actual timing results
     executed_steps = _derive_executed_steps(step_timings)
+    terminated_at = executed_steps[-1] if executed_steps else None
 
     pipeline_params = {
         "steps": executed_steps,
@@ -287,6 +288,7 @@ def _build_pipeline_results(
             "llm_provider": llm_response.get("llm_provider"), "total_time": total_time,
             "step_timings": step_timings, "web_search_status": web_status,
             "web_search_error": web_error, "pipeline_params": pipeline_params,
+            "terminated_at": terminated_at,
         }
     )
     logger.info(YELLOW + json.dumps(api_response, indent=2) + RESET)
@@ -323,6 +325,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
                     "total_time": total_time,
                     "step_timings": {"fuzzy_matching": fuzzy_time},
                     "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_threshold": params["fuzzy_threshold"], "fuzzy_scorer": params["fuzzy_scorer"]},
+                    "terminated_at": "fuzzy_matching",
                 }
             )
 
