@@ -112,10 +112,6 @@ Each runtime (backend, frontend) gets its own config file with two sections:
     "token_estimation_multiplier": 1.3,
     "token_limit": 100000
   },
-  "batch_overrides": {
-    "max_sites": 5,
-    "verbose": false
-  }
 }
 ```
 
@@ -181,9 +177,6 @@ No `cache_lookup` — backend can't execute it. Fuzzy threshold is 70 (rapidfuzz
 | | `retry_backoff_base` | `2` | `llm_providers.py` |
 | | `token_estimation_multiplier` | `1.3` | `llm_providers.py` |
 | | `token_limit` | `100000` | `llm_providers.py` |
-| `batch_overrides` | `max_sites` | `5` | `research_pipeline.py` |
-| | `verbose` | `false` | `research_pipeline.py` |
-
 **Schema notes:**
 - Both `LLMGeneration` nodes (`entity_profiling`, `llm_ranking`) reference the schema registry via `schema_family`/`schema_version`. Schemas are committed to git at `logs/schemas/{family}/{version}/`.
 - `GET /pipeline` calls `_enrich_with_registries()` to resolve these references into top-level `resolved_schemas`/`resolved_prompts` dicts. Node configs are NOT modified — the resolved artifacts live in separate top-level sections.
@@ -242,11 +235,11 @@ Scores normalized from rapidfuzz's 0-100 to 0.0-1.0 to match existing confidence
 
 ### `backend-api/config/pipeline.json`
 
-Nodes+pipelines structure as shown above. 5 backend nodes, 3 named pipelines, plus `llm_defaults` and `batch_overrides` root sections for infrastructure parameters.
+Nodes+pipelines structure as shown above. 5 backend nodes, 3 named pipelines, plus `llm_defaults` for infrastructure parameters.
 
 ### `backend-api/api/pipeline.py`
 
-- `GET /pipeline` → returns full config (nodes + pipelines + llm_defaults + batch_overrides). `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references into top-level `resolved_schemas`/`resolved_prompts` dicts.
+- `GET /pipeline` → returns full config (nodes + pipelines + llm_defaults). `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references into top-level `resolved_schemas`/`resolved_prompts` dicts.
 - `POST /pipeline/trace` → creates trace with optional `pipeline_version` in metadata
 - `POST /pipeline/steps` → reports frontend step results as observations
 
@@ -301,7 +294,7 @@ POST /matches {"query": "...", "steps": ["fuzzy_matching", "web_search", "entity
 # Start backend
 cd backend-api && python -m uvicorn main:app --port 8000
 
-# Test pipeline endpoint — should return full config (5 nodes, 3 pipelines, llm_defaults, batch_overrides)
+# Test pipeline endpoint — should return full config (5 nodes, 3 pipelines, llm_defaults)
 curl http://localhost:8000/pipeline
 
 # Test fuzzy-only mode (requires active session)
