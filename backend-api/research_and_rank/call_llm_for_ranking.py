@@ -13,7 +13,7 @@ GREEN = '\033[92m'
 RESET = '\033[0m'
 
 
-def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int = 20) -> tuple[dict, dict]:
+def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int) -> tuple[dict, dict]:
     """Build standardized (result, debug_info) tuple for ranking responses."""
     result = {
         "query": query,
@@ -31,10 +31,10 @@ async def call_llm_for_ranking(
     entity_profile: dict,
     match_results: list[tuple[str, float]],
     query: str,
-    temperature: float = 0,
-    max_tokens: int = 4000,
-    sample_size: int = 20,
-    relevance_weight_core: float = 0.7,
+    temperature: float,
+    max_tokens: int,
+    sample_size: int,
+    relevance_weight_core: float,
     ranking_prompt: Optional[str] = None,
     ranking_schema: Optional[dict] = None,
     ranking_model: Optional[str] = None,

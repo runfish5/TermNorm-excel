@@ -24,12 +24,26 @@ SCRAPE_MAX_WORKERS = _WS_CONFIG["scrape_workers"]
 SCRAPE_TITLE_MAX_LENGTH = _WS_CONFIG["title_truncate_length"]
 SKIP_EXTENSIONS = _WS_CONFIG["skip_extensions"]
 SKIP_DOMAINS = _WS_CONFIG["skip_domains"]
+SEARCH_LANGUAGE = _WS_CONFIG["search_language"]
+SEARCH_COUNTRY = _WS_CONFIG["search_country"]
+ACCEPT_LANGUAGE = _WS_CONFIG["accept_language"]
+HTML_STRIP_TAGS = _WS_CONFIG["html_strip_tags"]
+MIN_KEYWORD_LENGTH = _WS_CONFIG["min_keyword_length"]
+KEYWORD_SPLIT_CHARS = _WS_CONFIG["keyword_split_chars"]
 
 _USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 ]
+
+
+def _split_keywords(query):
+    """Split query into keywords using configured split characters."""
+    text = query
+    for ch in KEYWORD_SPLIT_CHARS:
+        text = text.replace(ch, ' ')
+    return text.split()
 
 
 def _generate_format_string_from_schema(schema):
@@ -65,7 +79,7 @@ def scrape_url(url, char_limit):
     try:
         headers = {
             'User-Agent': random.choice(_USER_AGENTS),
-            'Accept-Language': 'en-US,en;q=0.9'
+            'Accept-Language': ACCEPT_LANGUAGE
         }
 
         response = requests.get(url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers)
@@ -73,7 +87,7 @@ def scrape_url(url, char_limit):
             return None
 
         soup = BeautifulSoup(response.content[:SCRAPE_MAX_RESPONSE_BYTES], 'html.parser')
-        for tag in soup(['script', 'style', 'nav', 'header', 'footer']):
+        for tag in soup(HTML_STRIP_TAGS):
             tag.decompose()
 
         text = re.sub(r'\s+', ' ', soup.get_text().strip())
@@ -89,7 +103,7 @@ def scrape_url(url, char_limit):
         logger.error(f"Scraping failed for {url}: {e}")
         return None
 
-def _brave_search(query, num_results=20, log=None, query_prefix="", query_suffix=""):
+def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""):
     """
     Brave Search API - Primary search method (requires API key)
     Free tier: 2,000 queries/month, 1 query/second
@@ -131,8 +145,9 @@ def _brave_search(query, num_results=20, log=None, query_prefix="", query_suffix
             params={
                 'q': effective_query,
                 'count': num_results,
-                'search_lang': 'en',
-                'country': 'US'
+                'search_lang': SEARCH_LANGUAGE,
+                'country': SEARCH_COUNTRY,
+                'spellcheck': _WS_CONFIG["spellcheck"],
             },
             headers=headers,
             timeout=_WS_CONFIG["brave_api_timeout"]
@@ -173,7 +188,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     """Build LLM prompt for entity profile extraction"""
     # Build combined text from scraped content or fallback
     if not scraped_content:
-        keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
+        keywords = [w.strip() for w in _split_keywords(query) if len(w.strip()) >= MIN_KEYWORD_LENGTH]
         fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
         combined_text = f"Research about: {query}\n\n{fallback_context}"
     else:
@@ -238,9 +253,9 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             }
         }
 
-async def web_generate_entity_profile(query, max_sites=6, schema=None, content_char_limit=800, raw_content_limit=5000, num_results=20, profiling_temperature=0.3, profiling_max_tokens=1800, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix=""):
-    if schema is None:
-        raise ValueError("Schema parameter is required. Please provide a valid schema dictionary.")
+async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix=""):
+    if not schema:
+        raise ValueError("Schema parameter is required.")
 
     search_log = []
 
@@ -289,7 +304,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
         if not scraped_content:
-            keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
+            keywords = [w.strip() for w in _split_keywords(query) if len(w.strip()) >= MIN_KEYWORD_LENGTH]
             fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
             combined_text = f"Research about: {query}\n\n{fallback_context}"
         else:
@@ -325,8 +340,7 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
     if scraped_content:
         print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET} Sites included: {len(scraped_content)}")
         for i, item in enumerate(scraped_content, 1):
-            # Content is truncated to 500 chars per site in _build_research_prompt
-            content_length = min(len(item['content']), 500)
+            content_length = min(len(item['content']), _EP_CONFIG['per_site_content_limit'])
             title_length = len(item['title'])
             total_site_length = content_length + title_length
             print(f"{YELLOW}{BOLD}[PROMPT_STATS]{RESET}   - Site {i} ({item['title'][:40]}...): {total_site_length:,} chars (title: {title_length}, content: {content_length})")

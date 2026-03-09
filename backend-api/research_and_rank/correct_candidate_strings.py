@@ -1,7 +1,7 @@
 from difflib import SequenceMatcher
 
 
-def find_top_matches(llm_string: str, candidates: list[str], n: int = 10) -> list[tuple[str, float]]:
+def find_top_matches(llm_string: str, candidates: list[str], n: int) -> list[tuple[str, float]]:
     """Find top N matching candidates using fuzzy matching.
 
     Args:
@@ -30,7 +30,7 @@ def find_top_matches(llm_string: str, candidates: list[str], n: int = 10) -> lis
 def correct_candidate_strings(
     ranking_result: dict,
     match_results: list[tuple[str, float]],
-    relevance_weight_core: float = 0.7,
+    relevance_weight_core: float,
 ) -> dict:
     """
     Corrects LLM-altered candidate strings by finding best matches from original results.

@@ -112,6 +112,8 @@ async def llm_call(
                 }
                 if system:
                     anthropic_params["system"] = system
+                if stop_sequences:
+                    anthropic_params["stop_sequences"] = stop_sequences
                 response = await asyncio.wait_for(client.messages.create(**anthropic_params), timeout=_TIMEOUT)
                 content = response.content[0].text if response.content else ""
             else:

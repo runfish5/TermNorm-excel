@@ -27,9 +27,9 @@ SCORERS = {
 def fuzzy_match_terms(
     query: str,
     candidates: List[str],
-    threshold: int = 70,
-    scorer: str = "WRatio",
-    limit: int = 5,
+    threshold: int,
+    scorer: str,
+    limit: int,
 ) -> List[Tuple[str, float]]:
     """
     Match query against candidate terms using rapidfuzz.

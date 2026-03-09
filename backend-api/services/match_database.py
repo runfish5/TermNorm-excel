@@ -23,7 +23,7 @@ _cache_metadata = CacheMetadata()
 # Shared thresholds
 _cache_config = get_cache_config()
 HIGH_CONFIDENCE_THRESHOLD = _cache_config["high_confidence_threshold"]
-VERIFIED_METHODS = {"UserChoice", "DirectEdit", "cached", "fuzzy"}
+VERIFIED_METHODS = set(_cache_config["verified_methods"])
 
 
 def get_db() -> Dict[str, Any]:

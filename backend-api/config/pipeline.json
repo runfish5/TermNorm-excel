@@ -33,7 +33,14 @@
         "title_truncate_length": 100,
         "scrape_workers": 10,
         "skip_extensions": [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"],
-        "skip_domains": ["academia.edu", "researchgate.net", "arxiv.org", "ieee.org"]
+        "skip_domains": ["academia.edu", "researchgate.net", "arxiv.org", "ieee.org"],
+        "search_language": "en",
+        "search_country": "US",
+        "accept_language": "en-US,en;q=0.9",
+        "html_strip_tags": ["script", "style", "nav", "header", "footer"],
+        "min_keyword_length": 3,
+        "keyword_split_chars": ["/", "-"],
+        "spellcheck": true
       }
     },
     "entity_profiling": {
@@ -88,7 +95,8 @@
     "default": ["web_search", "entity_profiling", "token_matching", "llm_ranking"]
   },
   "cache": {
-    "high_confidence_threshold": 0.8
+    "high_confidence_threshold": 0.8,
+    "verified_methods": ["UserChoice", "DirectEdit", "cached", "fuzzy"]
   },
   "llm_defaults": {
     "provider": "groq",
