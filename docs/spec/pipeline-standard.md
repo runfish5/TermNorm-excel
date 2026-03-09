@@ -83,6 +83,7 @@ The canonical JSON served by a producer (e.g., `GET /pipeline`).
 ```jsonc
 {
   // --- Required ---
+  "name": "TermNorm",                   // Human-readable identifier for this pipeline descriptor
   "version": "v1.1",                    // Descriptor format version
   "nodes": { ... },                     // Node definitions (see §2.2)
   "pipelines": { ... },                 // Named pipelines (see §2.3)
@@ -95,6 +96,8 @@ The canonical JSON served by a producer (e.g., `GET /pipeline`).
   "resolved_prompts": { ... }           // Resolved prompt templates (see §2.7)
 }
 ```
+
+**`name`** — A stable, human-readable identifier for the pipeline descriptor file. Consumers use this to distinguish between multiple pipeline sources (e.g., when a consumer connects to more than one producer). The name should be unique across producers in a given deployment.
 
 ### 2.2 Node Definition
 
