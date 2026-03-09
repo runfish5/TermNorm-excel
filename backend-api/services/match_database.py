@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 from utils.cache_metadata import CacheMetadata
-from config.pipeline_config import get_node_config
+from config.pipeline_config import get_cache_config
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ _db: Dict[str, Any] = {}
 _cache_metadata = CacheMetadata()
 
 # Shared thresholds
-_tm_config = get_node_config("token_matching")
-HIGH_CONFIDENCE_THRESHOLD = _tm_config["high_confidence_threshold"]
+_cache_config = get_cache_config()
+HIGH_CONFIDENCE_THRESHOLD = _cache_config["high_confidence_threshold"]
 VERIFIED_METHODS = {"UserChoice", "DirectEdit", "cached", "fuzzy"}
 
 

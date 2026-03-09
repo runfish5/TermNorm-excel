@@ -10,9 +10,10 @@ from config.pipeline_config import get_llm_defaults
 
 _llm_cfg = get_llm_defaults()
 
-# Global configuration - env vars override pipeline.json defaults
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", _llm_cfg.get("provider", "groq"))
-LLM_MODEL = os.getenv("LLM_MODEL", _llm_cfg.get("model", "meta-llama/llama-4-maverick-17b-128e-instruct"))
+# Global configuration - pipeline.json is the source, env vars override
+# Pipeline nodes own their own model config; these globals are a safety net only
+LLM_PROVIDER = os.getenv("LLM_PROVIDER") or _llm_cfg["provider"]
+LLM_MODEL = os.getenv("LLM_MODEL") or _llm_cfg["model"]
 _TIMEOUT = _llm_cfg.get("timeout", 60)
 _RETRY_ATTEMPTS = _llm_cfg.get("retry_attempts", 3)
 _RETRY_BACKOFF_BASE = _llm_cfg.get("retry_backoff_base", 2)

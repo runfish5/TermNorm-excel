@@ -14,7 +14,7 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 from research_and_rank.correct_candidate_strings import find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
-from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
+from core.llm_providers import llm_call, LLM_PROVIDER
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
@@ -31,9 +31,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Load entity schema from registry (versioned)
+# Load entity schema from registry (versioned, pinned to pipeline.json config)
 _schema_registry = get_schema_registry()
-ENTITY_SCHEMA = _schema_registry.get_schema("entity_profile")  # latest version by default
+_ep_schema_cfg = get_node_config("entity_profiling")
+ENTITY_SCHEMA = _schema_registry.get_schema(
+    _ep_schema_cfg["schema_family"],
+    _ep_schema_cfg.get("schema_version"),
+)
 
 # Module-level aliases for match database (used by callers that import from this module)
 match_database = get_match_database()
@@ -43,7 +47,7 @@ _node = get_node_config
 _pipeline = get_pipeline_steps
 
 # Threshold for accepting fuzzy corrections in direct prompt
-ACCEPT_THRESHOLD = _node("token_matching")["accept_threshold"]
+ACCEPT_THRESHOLD = _node("direct_prompt")["accept_threshold"]
 
 
 def _update_session_usage(user_id, target=None):
@@ -109,22 +113,24 @@ def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
         "content_char_limit": _ws_ov.get("content_char_limit", _ws["content_char_limit"]),
         "query_prefix": _ws_ov.get("query_prefix", _ws.get("query_prefix", "")),
         "query_suffix": _ws_ov.get("query_suffix", _ws.get("query_suffix", "")),
-        "raw_content_limit": _ep_ov.get("raw_content_limit", _ws["raw_content_limit"]),
+        "raw_content_limit": _ep_ov.get("raw_content_limit", _ep["raw_content_limit"]),
         "profiling_temperature": _ep_ov.get("temperature", _ep["temperature"]),
         "profiling_max_tokens": _ep_ov.get("max_tokens", _ep["max_tokens"]),
         "profiling_prompt": _ep_ov.get("prompt"),
         "profiling_schema": _ep_ov.get("output_schema"),
-        "profiling_model": _ep_ov.get("model"),
+        "profiling_model": _ep_ov.get("model", _ep["model"]),
         "max_token_candidates": _tm_ov.get("max_token_candidates", _tm["max_token_candidates"]),
-        "relevance_weight_core": _tm_ov.get("relevance_weight_core", _tm["relevance_weight_core"]),
+        "relevance_weight_core": _lr_ov.get("relevance_weight_core", _lr["relevance_weight_core"]),
         "ranking_temperature": _lr_ov.get("temperature", _lr["temperature"]),
         "ranking_max_tokens": _lr_ov.get("max_tokens", _lr["max_tokens"]),
-        "ranking_sample_size": _lr_ov.get("sample_size", _lr["ranking_sample_size"]),
+        "ranking_sample_size": _lr_ov.get("sample_size", _lr["sample_size"]),
+        "debug_output_limit": _lr_ov.get("debug_output_limit", _lr["debug_output_limit"]),
         "ranking_prompt": _lr_ov.get("prompt"),
         "ranking_schema": _lr_ov.get("output_schema"),
-        "ranking_model": _lr_ov.get("model"),
+        "ranking_model": _lr_ov.get("model", _lr["model"]),
         "fuzzy_threshold": _fm_ov.get("threshold", _fm["threshold"]),
         "fuzzy_scorer": _fm_ov.get("scorer", _fm["scorer"]),
+        "fuzzy_limit": _fm_ov.get("limit", _fm["limit"]),
     }
 
 
@@ -133,7 +139,7 @@ def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
     logger.info(CYAN + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
     t0 = time.time()
     results = fuzzy_match_terms(
-        query, terms, threshold=params["fuzzy_threshold"], scorer=params["fuzzy_scorer"], limit=5
+        query, terms, threshold=params["fuzzy_threshold"], scorer=params["fuzzy_scorer"], limit=params["fuzzy_limit"]
     )
     elapsed = round(time.time() - t0, 3)
     logger.info(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
@@ -152,7 +158,7 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
-    effective_max_tokens = params["profiling_max_tokens"] // 2 if not run_web_search else params["profiling_max_tokens"]
+    effective_max_tokens = int(params["profiling_max_tokens"] * _node("entity_profiling")["no_web_token_multiplier"]) if not run_web_search else params["profiling_max_tokens"]
     logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
@@ -222,6 +228,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
             ranking_prompt=params["ranking_prompt"],
             ranking_schema=params.get("ranking_schema"),
             ranking_model=params.get("ranking_model"),
+            debug_output_limit=params["debug_output_limit"],
         )
     elapsed = round(time.time() - t0, 3) if run_llm_ranking else None
     return llm_response, ranking_debug, elapsed
@@ -267,7 +274,8 @@ def _build_pipeline_results(
 
     training_record = {
         "source": query, "target": target, "method": "ProfileRank", "confidence": confidence,
-        "session_id": user_id, "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "session_id": user_id, "llm_provider": LLM_PROVIDER,
+        "profiling_model": params["profiling_model"], "ranking_model": params["ranking_model"],
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
         "step_timings": step_timings, "pipeline_params": pipeline_params,
         "entity_profile": entity_profile,
@@ -285,7 +293,9 @@ def _build_pipeline_results(
         data={
             "ranked_candidates": ranked, "entity_profile": entity_profile,
             "token_matched_candidates": candidates[:params["max_token_candidates"]],
-            "llm_provider": llm_response.get("llm_provider"), "total_time": total_time,
+            "llm_provider": LLM_PROVIDER,
+            "profiling_model": params["profiling_model"], "ranking_model": params["ranking_model"],
+            "total_time": total_time,
             "step_timings": step_timings, "web_search_status": web_status,
             "web_search_error": web_error, "pipeline_params": pipeline_params,
             "terminated_at": terminated_at,
@@ -483,6 +493,13 @@ async def direct_prompt(
     terms = user_sessions[user_id]["terms"]
     start_time = time.time()
 
+    # Resolve direct_prompt node config (pipeline.json base + request overrides)
+    _dp = _node("direct_prompt")
+    _dp_ov = payload.get("node_config", {}).get("direct_prompt", {})
+    dp_model = _dp_ov.get("model", _dp["model"])
+    dp_temperature = _dp_ov.get("temperature", _dp["temperature"])
+    dp_max_tokens = _dp_ov.get("max_tokens", _dp["max_tokens"])
+
     # Build system prompt for general LLM inference
     context_sections = []
     if project_context:
@@ -515,8 +532,9 @@ Return ONLY valid JSON."""
             messages=[{"role": "user", "content": user_content}],
             system=system_prompt,
             output_format="json",
-            temperature=0.0,
-            max_tokens=300,
+            temperature=dp_temperature,
+            max_tokens=dp_max_tokens,
+            model=dp_model,
         )
 
         target = response.get("output", query)  # Default to original if no output
@@ -537,7 +555,7 @@ Return ONLY valid JSON."""
     fuzzy_score = 0.0
     original_target = None
 
-    top_matches = find_top_matches(target, terms, n=10)
+    top_matches = find_top_matches(target, terms, n=_dp["correction_top_n"])
     best_match, best_score = top_matches[0] if top_matches else (None, 0)
     fuzzy_score = best_score
 
@@ -555,7 +573,8 @@ Return ONLY valid JSON."""
     training_record = {
         "source": query, "target": target, "method": "DirectPrompt",
         "confidence": confidence, "reasoning": reasoning,
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}", "total_time": total_time,
+        "llm_provider": LLM_PROVIDER, "direct_prompt_model": dp_model,
+        "total_time": total_time,
         "fuzzy_score": fuzzy_score, "fuzzy_corrected": fuzzy_corrected,
         "original_target": original_target, "needs_user_selection": needs_user_selection,
         "candidates": candidates,

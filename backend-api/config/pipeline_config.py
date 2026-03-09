@@ -21,6 +21,11 @@ def get_pipeline_steps(name):
     return _config["pipelines"][name]
 
 
+def get_cache_config():
+    """Return cache section."""
+    return _config.get("cache", {})
+
+
 def get_llm_defaults():
     """Return llm_defaults section."""
     return _config.get("llm_defaults", {})

@@ -14,6 +14,7 @@ from utils.prompt_registry import get_prompt_registry
 logger = logging.getLogger(__name__)
 
 _WS_CONFIG = get_node_config("web_search")
+_EP_CONFIG = get_node_config("entity_profiling")
 
 SCRAPE_TIMEOUT_SECONDS = _WS_CONFIG["scrape_timeout"]
 SCRAPE_MAX_RESPONSE_BYTES = _WS_CONFIG["http_content_limit"]
@@ -173,11 +174,11 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     # Build combined text from scraped content or fallback
     if not scraped_content:
         keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
-        fallback_context = f"Query contains terms: {', '.join(keywords[:8])}"
+        fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
         combined_text = f"Research about: {query}\n\n{fallback_context}"
     else:
         combined_text = f"Research about: {query}\n\n" + "\n\n".join(
-            [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
+            [f"{i}. {item['title']}\n{item['content'][:_EP_CONFIG['per_site_content_limit']]}" for i, item in enumerate(scraped_content, 1)]
         )[:raw_content_limit]
 
     format_string = _generate_format_string_from_schema(schema)
@@ -185,8 +186,8 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     # Get prompt from registry (versioned)
     registry = get_prompt_registry()
     return registry.render_prompt(
-        family="entity_profiling",
-        version=1,  # Explicit version for reproducibility
+        family=_EP_CONFIG["prompt_family"],
+        version=_EP_CONFIG["prompt_version"],
         query=query,
         format_string=format_string,
         combined_text=combined_text
@@ -261,10 +262,11 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
 
         # Parallel URL scraping with ThreadPoolExecutor
         if urls:
-            print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), max_sites * 2)} URLs in parallel...{RESET}")
+            fetch_limit = max_sites * _WS_CONFIG["url_fetch_multiplier"]
+            print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), fetch_limit)} URLs in parallel...{RESET}")
 
             with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
-                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:max_sites * 2]))
+                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:fetch_limit]))
 
                 for i, result in enumerate(results):
                     if result:
@@ -288,11 +290,11 @@ async def web_generate_entity_profile(query, max_sites=6, schema=None, content_c
         # Custom prompt with {{variable}} substitution
         if not scraped_content:
             keywords = [w.strip() for w in query.replace('/', ' ').replace('-', ' ').split() if len(w.strip()) > 2]
-            fallback_context = f"Query contains terms: {', '.join(keywords[:8])}"
+            fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
             combined_text = f"Research about: {query}\n\n{fallback_context}"
         else:
             combined_text = f"Research about: {query}\n\n" + "\n\n".join(
-                [f"{i}. {item['title']}\n{item['content'][:500]}" for i, item in enumerate(scraped_content, 1)]
+                [f"{i}. {item['title']}\n{item['content'][:_EP_CONFIG['per_site_content_limit']]}" for i, item in enumerate(scraped_content, 1)]
             )[:raw_content_limit]
         format_string = _generate_format_string_from_schema(profiling_schema or schema)
         prompt = profiling_prompt.replace("{{query}}", query)

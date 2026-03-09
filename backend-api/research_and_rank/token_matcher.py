@@ -3,6 +3,10 @@ import re
 from collections import defaultdict
 from typing import List, Tuple
 
+from config.pipeline_config import get_node_config
+
+_TM_CONFIG = get_node_config("token_matching")
+
 
 class TokenLookupMatcher:
     """Token-based matcher that builds an inverted index for fast candidate lookup."""
@@ -12,7 +16,7 @@ class TokenLookupMatcher:
         self.token_term_lookup = self._build_index()
 
     def _tokenize(self, text):
-        return set(re.findall(r'[a-zA-Z0-9]+', str(text).lower()))
+        return set(re.findall(_TM_CONFIG["tokenization_regex"], str(text).lower()))
 
     def _build_index(self):
         index = defaultdict(set)

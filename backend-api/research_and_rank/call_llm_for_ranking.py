@@ -5,12 +5,15 @@ from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
 from utils.prompt_registry import get_prompt_registry
+from config.pipeline_config import get_node_config
+
+_LR_CONFIG = get_node_config("llm_ranking")
 
 GREEN = '\033[92m'
 RESET = '\033[0m'
 
 
-def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]]) -> tuple[dict, dict]:
+def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int = 20) -> tuple[dict, dict]:
     """Build standardized (result, debug_info) tuple for ranking responses."""
     result = {
         "query": query,
@@ -19,7 +22,7 @@ def _build_result(query: str, candidates: list, match_results: list[tuple[str, f
         "ranked_candidates": candidates,
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
     }
-    debug_info = {"inputs": {"token_matched_candidates": match_results[:20]}}
+    debug_info = {"inputs": {"token_matched_candidates": match_results[:debug_output_limit]}}
     return result, debug_info
 
 
@@ -35,6 +38,7 @@ async def call_llm_for_ranking(
     ranking_prompt: Optional[str] = None,
     ranking_schema: Optional[dict] = None,
     ranking_model: Optional[str] = None,
+    debug_output_limit: int = 20,
 ) -> tuple[dict, dict]:
     """Rank candidates using LLM and return (result, debug_info) tuple."""
     available_results = list(match_results[:sample_size])
@@ -54,8 +58,8 @@ async def call_llm_for_ranking(
         # Get prompt from registry
         registry = get_prompt_registry()
         prompt = registry.render_prompt(
-            family="llm_ranking",
-            version=1,  # Explicit version for reproducibility
+            family=_LR_CONFIG["prompt_family"],
+            version=_LR_CONFIG["prompt_version"],
             query=query,
             core_concept=core_concept,
             entity_profile_json=entity_profile_json,
@@ -106,7 +110,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
             spec_score = c.get('spec_score', 0.0)
             print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (core: {core_score:.1f}, spec: {spec_score:.1f})")
 
-        return _build_result(query, candidates, match_results)
+        return _build_result(query, candidates, match_results, debug_output_limit)
 
     print(f"[WARNING] Unexpected results format: {type(corrected)}")
-    return _build_result(query, [], match_results)
+    return _build_result(query, [], match_results, debug_output_limit)

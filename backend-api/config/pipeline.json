@@ -1,5 +1,4 @@
 {
-  "name": "TermNorm",
   "version": "v1.1",
   "available_models": [
     "meta-llama/llama-4-maverick-17b-128e-instruct",
@@ -10,7 +9,6 @@
   "nodes": {
     "fuzzy_matching": {
       "type": "DeterministicFunction",
-      "short_circuit": true,
       "config": {
         "threshold": 70,
         "scorer": "WRatio",
@@ -23,7 +21,8 @@
         "max_sites": 7,
         "num_results": 20,
         "content_char_limit": 800,
-        "raw_content_limit": 5000,
+        "url_fetch_multiplier": 2,
+        "fallback_keywords_limit": 8,
         "query_prefix": "",
         "query_suffix": "",
         "brave_api_timeout": 10,
@@ -43,7 +42,9 @@
         "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
         "temperature": 0.3,
         "max_tokens": 1800,
-        "output_format": "json",
+        "no_web_token_multiplier": 0.5,
+        "raw_content_limit": 5000,
+        "per_site_content_limit": 500,
         "prompt_family": "entity_profiling",
         "prompt_version": 1,
         "schema_family": "entity_profile",
@@ -54,11 +55,7 @@
       "type": "DeterministicFunction",
       "config": {
         "max_token_candidates": 20,
-        "relevance_weight_core": 0.7,
-        "tokenization_regex": "[a-zA-Z0-9]+",
-        "high_confidence_threshold": 0.8,
-        "accept_threshold": 0.75,
-        "correction_top_n": 10
+        "tokenization_regex": "[a-zA-Z0-9]+"
       }
     },
     "llm_ranking": {
@@ -67,19 +64,31 @@
         "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
         "temperature": 0.0,
         "max_tokens": 4000,
-        "output_format": "json",
-        "ranking_sample_size": 20,
+        "sample_size": 20,
+        "debug_output_limit": 20,
+        "relevance_weight_core": 0.7,
         "prompt_family": "llm_ranking",
         "prompt_version": 1,
         "schema_family": "llm_ranking_output",
         "schema_version": 1
       }
+    },
+    "direct_prompt": {
+      "type": "LLMGeneration",
+      "config": {
+        "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "temperature": 0.0,
+        "max_tokens": 300,
+        "accept_threshold": 0.75,
+        "correction_top_n": 10
+      }
     }
   },
   "pipelines": {
-    "default": ["web_search", "entity_profiling", "token_matching", "llm_ranking"],
-    "with_fuzzy": ["fuzzy_matching", "web_search", "entity_profiling", "token_matching", "llm_ranking"],
-    "fuzzy_only": ["fuzzy_matching"]
+    "default": ["web_search", "entity_profiling", "token_matching", "llm_ranking"]
+  },
+  "cache": {
+    "high_confidence_threshold": 0.8
   },
   "llm_defaults": {
     "provider": "groq",

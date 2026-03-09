@@ -113,6 +113,10 @@ Phase 1 (fuzzy simplification)
           +---> Phase 4A (frontend reads config) + Phase 4B (PromptPotter)  [parallel]
 ```
 
+## Pipeline Standard Specification
+
+See **[pipeline-standard.md](pipeline-standard.md)** — the format specification for the nodes + pipelines JSON format, the discovery protocol, override mechanism, registry resolution, observability model, and optimization surface. Documents the interop contract between TermNorm (producer) and PromptPotter (consumer).
+
 ## Key Decisions
 
 | Decision | Rationale |
