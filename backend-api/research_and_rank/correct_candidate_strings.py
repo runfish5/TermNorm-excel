@@ -1,30 +1,12 @@
-from difflib import SequenceMatcher
+from rapidfuzz import fuzz, process
 
 
 def find_top_matches(llm_string: str, candidates: list[str], n: int) -> list[tuple[str, float]]:
-    """Find top N matching candidates using fuzzy matching.
-
-    Args:
-        llm_string: The LLM output string to match
-        candidates: List of valid candidate strings
-        n: Number of top matches to return (default: 10)
-
-    Returns:
-        List of (candidate, similarity_ratio) tuples, sorted by ratio descending
-    """
+    """Find top N matching candidates using rapidfuzz ratio."""
     if not llm_string or not candidates:
         return []
-
-    scores = []
-    llm_lower = llm_string.lower()
-
-    for candidate in candidates:
-        ratio = SequenceMatcher(None, llm_lower, candidate.lower()).ratio()
-        scores.append((candidate, ratio))
-
-    # Sort by similarity descending, return top N
-    scores.sort(key=lambda x: x[1], reverse=True)
-    return scores[:n]
+    results = process.extract(llm_string, candidates, scorer=fuzz.ratio, limit=n)
+    return [(match, round(score / 100.0, 4)) for match, score, _ in results]
 
 
 def correct_candidate_strings(

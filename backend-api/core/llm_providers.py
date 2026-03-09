@@ -19,6 +19,8 @@ _RETRY_ATTEMPTS = _llm_cfg.get("retry_attempts", 3)
 _RETRY_BACKOFF_BASE = _llm_cfg.get("retry_backoff_base", 2)
 _TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg.get("token_estimation_multiplier", 1.3)
 _TOKEN_LIMIT = _llm_cfg.get("token_limit", 100000)
+_SEED = _llm_cfg.get("seed")
+_LOGPROBS = _llm_cfg.get("logprobs")
 
 
 def get_available_providers() -> List[str]:
@@ -42,6 +44,8 @@ async def llm_call(
     output_format: Literal["text", "json", "schema"] = "text",
     schema: Optional[Dict] = None,
     model: Optional[str] = None,
+    seed: Optional[int] = None,
+    logprobs: Optional[int] = None,
 ) -> Union[str, Dict]:
     """Universal LLM function - uses global provider config.
 
@@ -67,6 +71,15 @@ async def llm_call(
     }
     if tools: params["tools"] = tools
     if stop_sequences: params["stop"] = stop_sequences
+
+    # Reproducibility and diagnostics (OpenAI/Groq only)
+    effective_seed = seed if seed is not None else _SEED
+    if effective_seed is not None and LLM_PROVIDER in ["openai", "groq"]:
+        params["seed"] = effective_seed
+    effective_logprobs = logprobs if logprobs is not None else _LOGPROBS
+    if effective_logprobs is not None and LLM_PROVIDER in ["openai", "groq"]:
+        params["logprobs"] = True
+        params["top_logprobs"] = effective_logprobs
     
     # Handle structured output
     if output_format == "json" and LLM_PROVIDER in ["openai", "groq"]:

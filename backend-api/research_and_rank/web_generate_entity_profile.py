@@ -140,15 +140,23 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
             'Accept-Encoding': 'gzip'
         }
 
+        brave_params = {
+            'q': effective_query,
+            'count': num_results,
+            'search_lang': SEARCH_LANGUAGE,
+            'country': SEARCH_COUNTRY,
+            'spellcheck': _WS_CONFIG["spellcheck"],
+        }
+        if _WS_CONFIG["result_filter"]:
+            brave_params['result_filter'] = _WS_CONFIG["result_filter"]
+        if _WS_CONFIG["extra_snippets"]:
+            brave_params['extra_snippets'] = True
+        if _WS_CONFIG["freshness"]:
+            brave_params['freshness'] = _WS_CONFIG["freshness"]
+
         response = requests.get(
             'https://api.search.brave.com/res/v1/web/search',
-            params={
-                'q': effective_query,
-                'count': num_results,
-                'search_lang': SEARCH_LANGUAGE,
-                'country': SEARCH_COUNTRY,
-                'spellcheck': _WS_CONFIG["spellcheck"],
-            },
+            params=brave_params,
             headers=headers,
             timeout=_WS_CONFIG["brave_api_timeout"]
         )
