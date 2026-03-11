@@ -2,7 +2,7 @@
   "name": "TermNorm",
   "version": "v1.1",
   "available_models": [
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "moonshotai/kimi-k2-instruct-0905",
     "meta-llama/llama-4-scout-17b-16e-instruct",
     "moonshotai/kimi-k2-instruct",
     "openai/gpt-oss-120b"
@@ -50,7 +50,7 @@
     "entity_profiling": {
       "type": "LLMGeneration",
       "config": {
-        "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.3,
         "max_tokens": 1800,
         "no_web_token_multiplier": 0.5,
@@ -72,7 +72,7 @@
     "llm_ranking": {
       "type": "LLMGeneration",
       "config": {
-        "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.0,
         "max_tokens": 4000,
         "sample_size": 20,
@@ -87,7 +87,7 @@
     "direct_prompt": {
       "type": "LLMGeneration",
       "config": {
-        "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.0,
         "max_tokens": 300,
         "accept_threshold": 0.75,
@@ -104,7 +104,7 @@
   },
   "llm_defaults": {
     "provider": "groq",
-    "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "model": "moonshotai/kimi-k2-instruct-0905",
     "timeout": 60,
     "retry_attempts": 3,
     "retry_backoff_base": 2,

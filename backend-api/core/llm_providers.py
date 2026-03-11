@@ -1,10 +1,13 @@
 """Simple global LLM provider - one config for entire app"""
 
 import json
+import logging
 import os
 import asyncio
 from typing import List, Dict, Optional, Literal, Union
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 from config.pipeline_config import get_llm_defaults
 
@@ -145,8 +148,20 @@ async def llm_call(
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
         except Exception as e:
             status = getattr(e, "status_code", None)
+            if status == 429:
+                if attempt == _RETRY_ATTEMPTS - 1:
+                    raise HTTPException(429, f"LLM rate limited: {str(e)}")
+                await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
+                continue
             if status and 400 <= status < 500:
-                raise HTTPException(status, f"LLM client error: {str(e)}")
+                if status == 404:
+                    detail = f"LLM model not found or decommissioned: {str(e)}"
+                elif status == 401:
+                    detail = f"LLM authentication failed: {str(e)}"
+                else:
+                    detail = f"LLM upstream client error ({status}): {str(e)}"
+                logger.error("[LLM] Permanent provider error (no retry): %s", detail)
+                raise HTTPException(502, detail)
             if attempt == _RETRY_ATTEMPTS - 1:
                 raise HTTPException(503, f"LLM error: {str(e)}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)

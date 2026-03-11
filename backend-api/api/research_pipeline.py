@@ -340,12 +340,46 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             )
 
     # Steps 1-3: Research → Token matching → LLM ranking
+    # Each LLM step is wrapped for graceful degradation — if the LLM provider
+    # is down (e.g. model decommissioned → 404 → 502), the pipeline continues
+    # with whatever data is available rather than crashing the entire request.
     token_matcher = TokenLookupMatcher(terms)
     logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
 
-    entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)
+    try:
+        entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)
+    except HTTPException as e:
+        logger.error(
+            "[PIPELINE] Entity profiling failed (%d: %s) — "
+            "continuing with token matching only (no entity enrichment)",
+            e.status_code, e.detail,
+        )
+        entity_profile = []
+        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}}
+        ep_time, ws_time = None, None
+
     candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
-    llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params)
+
+    try:
+        llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params)
+    except HTTPException as e:
+        logger.error(
+            "[PIPELINE] LLM ranking failed (%d: %s) — "
+            "falling back to token match scores (%d candidates)",
+            e.status_code, e.detail, len(candidate_results[:params["max_token_candidates"]]),
+        )
+        max_cands = params["max_token_candidates"]
+        llm_response = {
+            "ranked_candidates": [
+                {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
+                for term, score in candidate_results[:max_cands]
+            ]
+        }
+        ranking_debug = {
+            "inputs": {"token_matched_candidates": candidate_results[:max_cands]},
+            "error": e.detail,
+        }
+        step3_time = None
 
     total_time = round(time.time() - start_time, 2)
     step_timings = {
