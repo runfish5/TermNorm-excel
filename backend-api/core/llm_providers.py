@@ -37,9 +37,23 @@ def get_available_providers() -> List[str]:
         providers.append("anthropic")
     return providers
 
+
+def _is_token_limit_error(e: Exception) -> bool:
+    """Detect errors caused by structured output exceeding max_tokens."""
+    body = getattr(e, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error", {})
+        if isinstance(error, dict):
+            if error.get("code") == "json_validate_failed":
+                return True
+            if "max completion tokens" in str(error.get("message", "")):
+                return True
+    return "json_validate_failed" in str(e) or "max completion tokens" in str(e)
+
+
 async def llm_call(
     messages: List[Dict[str, str]],
-    max_tokens: int = 1000,
+    max_tokens: int | None = 1000,
     system: Optional[str] = None,
     tools: Optional[List[Dict]] = None,
     stop_sequences: Optional[List[str]] = None,
@@ -68,10 +82,11 @@ async def llm_call(
 
     params = {
         "model": effective_model,
-        "messages": messages, 
-        "max_tokens": max_tokens,
+        "messages": messages,
         "temperature": temperature
     }
+    if max_tokens is not None:
+        params["max_tokens"] = max_tokens
     if tools: params["tools"] = tools
     if stop_sequences: params["stop"] = stop_sequences
 
@@ -123,7 +138,7 @@ async def llm_call(
                 anthropic_params = {
                     "model": effective_model,
                     "messages": [m for m in messages if m["role"] != "system"],
-                    "max_tokens": max_tokens,
+                    "max_tokens": max_tokens if max_tokens is not None else 8192,
                     "temperature": temperature
                 }
                 if system:
@@ -136,6 +151,22 @@ async def llm_call(
                 # OpenAI/Groq use same API
                 response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=_TIMEOUT)
                 content = response.choices[0].message.content if response.choices else ""
+
+            # Detect output truncation by max_tokens
+            if LLM_PROVIDER == "anthropic":
+                truncated = getattr(response, "stop_reason", None) == "max_tokens"
+            else:
+                _fr = response.choices[0].finish_reason if response.choices else None
+                truncated = _fr == "length"
+
+            if truncated and output_format in ("json", "schema") and max_tokens is not None:
+                logger.warning(
+                    "[LLM] Structured output truncated (max_tokens=%s) — retrying without limit",
+                    params.get("max_tokens", max_tokens),
+                )
+                params.pop("max_tokens", None)
+                max_tokens = None
+                continue
 
             # Parse JSON if needed
             if output_format in ["json", "schema"]:
@@ -154,6 +185,14 @@ async def llm_call(
                 await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
                 continue
             if status and 400 <= status < 500:
+                if _is_token_limit_error(e) and max_tokens is not None:
+                    logger.warning(
+                        "[LLM] Token limit error (max_tokens=%s) — retrying without limit",
+                        params.get("max_tokens", max_tokens),
+                    )
+                    params.pop("max_tokens", None)
+                    max_tokens = None
+                    continue
                 if status == 404:
                     detail = f"LLM model not found or decommissioned: {str(e)}"
                 elif status == 401:

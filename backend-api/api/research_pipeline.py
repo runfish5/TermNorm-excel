@@ -158,7 +158,7 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
-    effective_max_tokens = int(params["profiling_max_tokens"] * _node("entity_profiling")["no_web_token_multiplier"]) if not run_web_search else params["profiling_max_tokens"]
+    effective_max_tokens = params["profiling_max_tokens"]
     logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
