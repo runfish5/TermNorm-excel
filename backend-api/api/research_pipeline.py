@@ -15,6 +15,7 @@ from research_and_rank.correct_candidate_strings import find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER
+from core.pipeline_context import PipelineContext, StepStatus, StepWarning
 import utils.utils as utils
 from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
 from utils.responses import success_response
@@ -196,8 +197,19 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
     candidate_results = token_matcher.match(unique_search_terms)
     elapsed = round(time.time() - t0, 3)
 
-    logger.info(f"{RED}{chr(10).join([str(item) for item in candidate_results])}{RESET}")
-    logger.info(f"Match completed in {elapsed:.2f}s")
+    n = len(candidate_results)
+    if n:
+        top_score = candidate_results[0][1]
+        bot_score = candidate_results[-1][1]
+        summary = f"[PIPELINE] Token matches: {n} candidates in {elapsed:.2f}s (scores {top_score:.3f}–{bot_score:.3f})"
+        examples = []
+        for i, (name, score) in enumerate(candidate_results[:3]):
+            examples.append(f"  {i+1}. {name[:55]:<55s} {score:.3f}")
+        if n > 3:
+            examples.append(f"  ... and {n - 3} more")
+        logger.info(f"{RED}{summary}\n{chr(10).join(examples)}{RESET}")
+    else:
+        logger.info(f"{RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
     return candidate_results, elapsed
 
 
@@ -240,17 +252,78 @@ def _derive_executed_steps(step_timings: dict) -> list[str]:
     return [step for step, t in step_timings.items() if t is not None]
 
 
+def _summarize_response(resp: dict) -> str:
+    """Build a structural meta-summary of the API response for logging.
+
+    Shows every key with counts/types instead of raw data so the operator
+    can verify the response shape at a glance.
+    """
+    lines = [f"[RESPONSE] {resp.get('status', '?')} — {resp.get('message', '')}"]
+    data = resp.get("data", {})
+    for key, val in data.items():
+        if key == "ranked_candidates" and isinstance(val, list):
+            top = val[0] if val else None
+            top_str = ""
+            if top:
+                name = top.get("candidate", "")[:50]
+                score = top.get("relevance_score", 0)
+                top_str = f"  top: {name}... ({score:.3f})"
+            lines.append(f"  {key:<26s} [{len(val)} items]{top_str}")
+        elif key == "token_matched_candidates" and isinstance(val, list):
+            if val:
+                scores = [c[1] for c in val if isinstance(c, (list, tuple)) and len(c) > 1]
+                rng = f"  scores: {max(scores):.3f}–{min(scores):.3f}" if scores else ""
+            else:
+                rng = ""
+            lines.append(f"  {key:<26s} [{len(val)} items]{rng}")
+        elif key == "entity_profile" and isinstance(val, dict):
+            n_fields = len([k for k in val if not k.startswith("_")])
+            entity = val.get("entity_name", "?")[:40]
+            src_count = val.get("_metadata", {}).get("sources_count", "?")
+            lines.append(f"  {key:<26s} {{{n_fields} fields}}  entity: {entity}, {src_count} sources")
+        elif key == "step_timings" and isinstance(val, dict):
+            parts = []
+            for step, t in val.items():
+                short = step.split("_")[0][:8]
+                parts.append(f"{short}={'skip' if t is None else f'{t:.3f}s'}")
+            lines.append(f"  {key:<26s} {' '.join(parts)}")
+        elif key == "pipeline_params" and isinstance(val, dict):
+            executed = val.get("steps", [])
+            requested = val.get("requested_steps", [])
+            lines.append(f"  {key:<26s} {len(executed)} executed / {len(requested)} requested")
+        elif key == "diagnostics" and isinstance(val, dict):
+            warnings = val.get("warnings", [])
+            statuses = val.get("step_statuses", {})
+            non_success = [f"{s}={st}" for s, st in statuses.items() if st != "success"]
+            status_str = ", ".join(non_success) if non_success else "all success"
+            w_str = f"{len(warnings)} warnings"
+            if warnings:
+                first = warnings[0]
+                w_str += f" ({first['step']}: {first['code']})"
+            lines.append(f"  {key:<26s} {w_str} | steps: {status_str}")
+        elif isinstance(val, list):
+            lines.append(f"  {key:<26s} [{len(val)} items]")
+        elif isinstance(val, dict):
+            lines.append(f"  {key:<26s} {{{len(val)} keys}}")
+        else:
+            lines.append(f"  {key:<26s} {val}")
+    return "\n".join(lines)
+
+
 def _build_pipeline_results(
-    query: str, user_id: str, llm_response: dict, entity_profile: list,
-    profile_debug: dict, ranking_debug: dict, candidates: list,
-    params: Dict, requested_steps: List[str], step_timings: dict, total_time: float,
+    ctx: PipelineContext,
+    llm_response: dict,
+    entity_profile: list,
+    profile_debug: dict,
+    ranking_debug: dict,
+    candidates: list,
 ) -> tuple:
     """Build training record and API response from pipeline results. Returns (training_record, api_response)."""
     ranked = llm_response.get("ranked_candidates", [])
     target = ranked[0].get("candidate") if ranked else "No matches found"
     confidence = ranked[0].get("relevance_score", 0) if ranked else 0
 
-    # Three-state web_search_status derived from execution results
+    # Three-state web_search_status derived from execution results (backward compat)
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     if scraped_sources.get("status") == "skipped":
         web_status, web_error, web_sources = "skipped", None, []
@@ -262,20 +335,20 @@ def _build_pipeline_results(
         web_status, web_error = "success", None
         web_sources = scraped_sources.get("sources_fetched", [])
 
-    # Derive executed steps from actual timing results
-    executed_steps = _derive_executed_steps(step_timings)
-    terminated_at = executed_steps[-1] if executed_steps else None
-
+    step_timings = ctx.step_timings
+    total_time = ctx.total_time
     pipeline_params = {
-        "steps": executed_steps,
-        "requested_steps": requested_steps,
-        **params,
+        "steps": ctx.executed_steps,
+        "requested_steps": ctx.requested_steps,
+        **ctx.params,
     }
 
     training_record = {
-        "source": query, "target": target, "method": "ProfileRank", "confidence": confidence,
-        "session_id": user_id, "llm_provider": LLM_PROVIDER,
-        "profiling_model": params["profiling_model"], "ranking_model": params["ranking_model"],
+        "source": ctx.query, "target": target, "method": "ProfileRank",
+        "confidence": confidence, "session_id": ctx.user_id,
+        "llm_provider": LLM_PROVIDER,
+        "profiling_model": ctx.params["profiling_model"],
+        "ranking_model": ctx.params["ranking_model"],
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
         "step_timings": step_timings, "pipeline_params": pipeline_params,
         "entity_profile": entity_profile,
@@ -292,16 +365,18 @@ def _build_pipeline_results(
         message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
         data={
             "ranked_candidates": ranked, "entity_profile": entity_profile,
-            "token_matched_candidates": candidates[:params["max_token_candidates"]],
+            "token_matched_candidates": candidates[:ctx.params["max_token_candidates"]],
             "llm_provider": LLM_PROVIDER,
-            "profiling_model": params["profiling_model"], "ranking_model": params["ranking_model"],
+            "profiling_model": ctx.params["profiling_model"],
+            "ranking_model": ctx.params["ranking_model"],
             "total_time": total_time,
             "step_timings": step_timings, "web_search_status": web_status,
             "web_search_error": web_error, "pipeline_params": pipeline_params,
-            "terminated_at": terminated_at,
+            "terminated_at": ctx.terminated_at,
+            "diagnostics": ctx.build_diagnostics(),
         }
     )
-    logger.info(YELLOW + json.dumps(api_response, indent=2) + RESET)
+    logger.info(YELLOW + _summarize_response(api_response) + RESET)
     return training_record, api_response
 
 
@@ -320,22 +395,34 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     terms = user_sessions[user_id]["terms"]
     logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms from session")
-    start_time = time.time()
+
+    ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
+
+    # Record cache_lookup (handled externally by match_database, not in this pipeline)
+    if steps is not None and "cache_lookup" in steps:
+        ctx.record_step("cache_lookup", StepStatus.SKIPPED)
 
     # Step 0: Fuzzy matching (optional, short-circuits if fuzzy-only)
-    fuzzy_time = None
+    fuzzy_results = []
     if steps is not None and "fuzzy_matching" in steps:
-        fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params)
+        try:
+            fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params)
+            ctx.record_step("fuzzy_matching", StepStatus.SUCCESS, elapsed=fuzzy_time)
+        except Exception as e:
+            logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
+            fuzzy_time = None
+            ctx.record_step("fuzzy_matching", StepStatus.FAILED)
+            ctx.add_warning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}")
         if steps == ["fuzzy_matching"]:
-            total_time = round(time.time() - start_time, 2)
             return success_response(
-                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {total_time}s",
+                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {ctx.total_time}s",
                 data={
                     "ranked_candidates": [{"candidate": t, "relevance_score": s} for t, s in fuzzy_results],
-                    "total_time": total_time,
-                    "step_timings": {"fuzzy_matching": fuzzy_time},
+                    "total_time": ctx.total_time,
+                    "step_timings": ctx.step_timings,
                     "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_threshold": params["fuzzy_threshold"], "fuzzy_scorer": params["fuzzy_scorer"]},
                     "terminated_at": "fuzzy_matching",
+                    "diagnostics": ctx.build_diagnostics(),
                 }
             )
 
@@ -348,6 +435,20 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 
     try:
         entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)
+        # Surface warnings from web scraping into PipelineContext
+        for w in profile_debug.get("warnings", []):
+            ctx.add_warning(w["step"], w["code"], w["message"])
+        # Determine web_search step status
+        scraped = profile_debug["inputs"]["scraped_sources"]
+        if scraped.get("status") == "skipped":
+            ctx.record_step("web_search", StepStatus.SKIPPED)
+            ctx.record_step("entity_profiling", StepStatus.SKIPPED)
+        elif "error" in scraped:
+            ctx.record_step("web_search", StepStatus.FAILED, elapsed=ws_time)
+            ctx.record_step("entity_profiling", StepStatus.DEGRADED, elapsed=ep_time)
+        else:
+            ctx.record_step("web_search", StepStatus.SUCCESS, elapsed=ws_time)
+            ctx.record_step("entity_profiling", StepStatus.SUCCESS, elapsed=ep_time)
     except HTTPException as e:
         logger.error(
             "[PIPELINE] Entity profiling failed (%d: %s) — "
@@ -355,13 +456,26 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             e.status_code, e.detail,
         )
         entity_profile = []
-        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}}
+        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": []}
+        ctx.record_step("entity_profiling", StepStatus.FAILED)
+        ctx.add_warning("entity_profiling", "llm_error", f"Entity profiling failed: {e.detail}")
         ep_time, ws_time = None, None
 
-    candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
+    try:
+        candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
+        ctx.record_step("token_matching", StepStatus.SUCCESS, elapsed=step2_time)
+    except Exception as e:
+        logger.error("[PIPELINE] Token matching failed: %s — continuing with empty candidates", e)
+        candidate_results = []
+        ctx.record_step("token_matching", StepStatus.FAILED)
+        ctx.add_warning("token_matching", "step_error", f"Token matching failed: {e}")
 
     try:
         llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params)
+        if "llm_ranking" not in steps:
+            ctx.record_step("llm_ranking", StepStatus.SKIPPED)
+        else:
+            ctx.record_step("llm_ranking", StepStatus.SUCCESS, elapsed=step3_time)
     except HTTPException as e:
         logger.error(
             "[PIPELINE] LLM ranking failed (%d: %s) — "
@@ -379,22 +493,13 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             "inputs": {"token_matched_candidates": candidate_results[:max_cands]},
             "error": e.detail,
         }
-        step3_time = None
-
-    total_time = round(time.time() - start_time, 2)
-    step_timings = {
-        "fuzzy_matching": fuzzy_time,
-        "web_search": ws_time,
-        "entity_profiling": ep_time,
-        "token_matching": step2_time,
-        "llm_ranking": step3_time,
-    }
+        ctx.record_step("llm_ranking", StepStatus.FAILED)
+        ctx.add_warning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}")
 
     # Log and persist
     training_record, api_response = _build_pipeline_results(
-        query, user_id, llm_response, entity_profile, profile_debug,
-        ranking_debug, candidate_results, params,
-        requested_steps=steps, step_timings=step_timings, total_time=total_time,
+        ctx, llm_response, entity_profile, profile_debug,
+        ranking_debug, candidate_results,
     )
 
     try:

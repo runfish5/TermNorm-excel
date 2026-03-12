@@ -228,38 +228,66 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         "query_suffix": query_suffix,
     }
 
+    warnings: list[dict] = []
+
     if scraped_content:
-        return {
-            "inputs": {
-                "scraped_sources": {
-                    "sources_fetched": [{'title': item['title'], 'url': item['url']} for item in scraped_content],
-                    "search_method": search_method,
-                    "method_parameters": method_params
-                }
-            }
+        sources_info = {
+            "sources_fetched": [
+                {'title': item['title'], 'url': item['url']} for item in scraped_content
+            ],
+            "search_method": search_method,
+            "method_parameters": method_params,
         }
+        # Partial scraping failure (some URLs failed but we got results)
+        if scrape_errors:
+            warnings.append({
+                "step": "web_search",
+                "code": "partial_scrape",
+                "message": (
+                    f"{len(scraped_content)} of {len(scraped_content) + len(scrape_errors)}"
+                    f" URLs scraped successfully"
+                ),
+            })
     elif skip_search:
-        return {
-            "inputs": {
-                "scraped_sources": {
-                    "status": "skipped",
-                    "note": "Web search disabled",
-                    "method_parameters": method_params
-                }
-            }
+        sources_info = {
+            "status": "skipped",
+            "note": "Web search disabled",
+            "method_parameters": method_params,
         }
     else:
-        return {
-            "inputs": {
-                "scraped_sources": {
-                    "error": "web_scraping_failed",
-                    "search_attempts": search_log,
-                    "scrape_failures": len(scrape_errors),
-                    "fallback": "LLM knowledge only",
-                    "method_parameters": method_params
-                }
-            }
+        sources_info = {
+            "error": "web_scraping_failed",
+            "search_attempts": search_log,
+            "scrape_failures": len(scrape_errors),
+            "fallback": "LLM knowledge only",
+            "method_parameters": method_params,
         }
+        # Build a human-readable warning message
+        if scrape_errors:
+            warnings.append({
+                "step": "web_search",
+                "code": "scrape_failed",
+                "message": f"All scraping failed ({len(scrape_errors)} attempts)",
+            })
+        elif search_log:
+            # Brave Search itself failed (no URLs returned)
+            last_log = search_log[-1] if search_log else "unknown"
+            warnings.append({
+                "step": "web_search",
+                "code": "search_failed",
+                "message": f"No URLs found — {last_log}",
+            })
+        else:
+            warnings.append({
+                "step": "web_search",
+                "code": "no_results",
+                "message": "Web search returned no results",
+            })
+
+    return {
+        "inputs": {"scraped_sources": sources_info},
+        "warnings": warnings,
+    }
 
 async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, verbose=False, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix=""):
     if not schema:
