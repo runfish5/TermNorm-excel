@@ -34,6 +34,7 @@ class StepWarning:
     step: str       # pipeline step name (e.g. "web_search")
     code: str       # machine-readable code (e.g. "scrape_failed")
     message: str    # human-readable detail
+    details: tuple = ()  # optional structured data (e.g. failed URLs + reasons)
 
 
 @dataclass
@@ -69,15 +70,19 @@ class PipelineContext:
         elapsed: float | None = None,
         warnings: list[StepWarning] | None = None,
     ) -> None:
+        # Preserve warnings from prior add_warning() calls
+        merged = list(self._steps[name].warnings) if name in self._steps else []
+        merged.extend(warnings or [])
         self._steps[name] = _StepRecord(
             status=status,
             elapsed=elapsed,
-            warnings=warnings or [],
+            warnings=merged,
         )
 
-    def add_warning(self, step: str, code: str, message: str) -> None:
+    def add_warning(self, step: str, code: str, message: str,
+                    details: list | None = None) -> None:
         """Append a warning to an already-recorded step, or create a stub."""
-        w = StepWarning(step, code, message)
+        w = StepWarning(step, code, message, details=tuple(details) if details else ())
         if step in self._steps:
             self._steps[step].warnings.append(w)
         else:
@@ -117,10 +122,12 @@ class PipelineContext:
 
     def build_diagnostics(self) -> dict:
         """Structured diagnostics payload for the API response."""
-        warnings_list = [
-            {"step": w.step, "code": w.code, "message": w.message}
-            for w in self.warnings
-        ]
+        warnings_list = []
+        for w in self.warnings:
+            d = {"step": w.step, "code": w.code, "message": w.message}
+            if w.details:
+                d["details"] = list(w.details)
+            warnings_list.append(d)
         return {
             "step_statuses": {
                 name: rec.status.value for name, rec in self._steps.items()

@@ -170,7 +170,6 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
         num_results=params["num_results"],
         profiling_temperature=params["profiling_temperature"],
         profiling_max_tokens=effective_max_tokens,
-        verbose=True,
         skip_search=not run_web_search,
         profiling_prompt=params.get("profiling_prompt"),
         profiling_schema=params.get("profiling_schema"),
@@ -186,7 +185,7 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
 
 def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
     """Step 2: Token matching. Returns (candidate_results, elapsed_time)."""
-    logger.info("\n[PIPELINE] Step 2: Matching candidates")
+    logger.info("[PIPELINE] Step 2: Matching candidates")
     search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
     unique_search_terms = list(set(search_terms))
 
@@ -220,7 +219,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
 
     t0 = time.time()
     if not run_llm_ranking:
-        logger.info(CYAN + "\n[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
+        logger.info(CYAN + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
@@ -229,7 +228,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         }
         ranking_debug = {"inputs": {"token_matched_candidates": candidates[:max_token_candidates]}}
     else:
-        logger.info(CYAN + "\n[PIPELINE] Step 3: Ranking with LLM" + RESET)
+        logger.info(CYAN + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
             profile_info, entity_profile, candidates, query,
@@ -437,7 +436,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)
         # Surface warnings from web scraping into PipelineContext
         for w in profile_debug.get("warnings", []):
-            ctx.add_warning(w["step"], w["code"], w["message"])
+            ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"))
         # Determine web_search step status
         scraped = profile_debug["inputs"]["scraped_sources"]
         if scraped.get("status") == "skipped":
@@ -447,7 +446,11 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             ctx.record_step("web_search", StepStatus.FAILED, elapsed=ws_time)
             ctx.record_step("entity_profiling", StepStatus.DEGRADED, elapsed=ep_time)
         else:
-            ctx.record_step("web_search", StepStatus.SUCCESS, elapsed=ws_time)
+            has_ws_warnings = any(
+                w.get("step") == "web_search" for w in profile_debug.get("warnings", [])
+            )
+            ws_status = StepStatus.DEGRADED if has_ws_warnings else StepStatus.SUCCESS
+            ctx.record_step("web_search", ws_status, elapsed=ws_time)
             ctx.record_step("entity_profiling", StepStatus.SUCCESS, elapsed=ep_time)
     except HTTPException as e:
         logger.error(
