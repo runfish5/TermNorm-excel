@@ -9,8 +9,7 @@ from config.pipeline_config import get_node_config
 
 _LR_CONFIG = get_node_config("llm_ranking")
 
-GREEN = '\033[92m'
-RESET = '\033[0m'
+from utils.utils import GREEN, YELLOW, BRIGHT_RED, RESET
 
 
 def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int) -> tuple[dict, dict]:
@@ -98,19 +97,16 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         llm_kwargs["model"] = ranking_model
     ranking_result = await llm_call(**llm_kwargs)
 
-    print("\n[PIPELINE] Step 4: Correcting candidate strings")
+    print(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
     corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)
 
     if corrected and 'ranked_candidates' in corrected:
         candidates = corrected['ranked_candidates']
-        print(f"\n[PIPELINE] Success! Found {len(candidates)} matches.")
-
-        for i, c in enumerate(candidates[:3]):
-            core_score = c.get('core_concept_score', 0.0)
-            spec_score = c.get('spec_score', 0.0)
-            print(f"  {i+1}. '{c.get('candidate', 'Unknown')}' (core: {core_score:.1f}, spec: {spec_score:.1f})")
+        top = candidates[0].get("candidate", "?")[:60]
+        top_score = candidates[0].get("relevance_score", 0)
+        print(f"\n{GREEN}[PIPELINE] Success! {len(candidates)} matches — top: {top}... ({top_score:.3f}){RESET}")
 
         return _build_result(query, candidates, match_results, debug_output_limit)
 
-    print(f"[WARNING] Unexpected results format: {type(corrected)}")
+    print(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
     return _build_result(query, [], match_results, debug_output_limit)

@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from core.llm_providers import llm_call
-from utils.utils import MAGENTA, RED, RESET, YELLOW
+from utils.utils import YELLOW, BRIGHT_RED, RESET
 from config.settings import settings
 from config.pipeline_config import get_node_config
 from utils.prompt_registry import get_prompt_registry
@@ -30,12 +30,15 @@ ACCEPT_LANGUAGE = _WS_CONFIG["accept_language"]
 HTML_STRIP_TAGS = _WS_CONFIG["html_strip_tags"]
 MIN_KEYWORD_LENGTH = _WS_CONFIG["min_keyword_length"]
 KEYWORD_SPLIT_CHARS = _WS_CONFIG["keyword_split_chars"]
+SCRAPE_MAX_RETRIES = _WS_CONFIG.get("scrape_max_retries", 1)
+SCRAPE_RETRY_DELAY = _WS_CONFIG.get("scrape_retry_delay", 1.0)
+SCRAPE_RETRY_STATUS_CODES = set(_WS_CONFIG.get("scrape_retry_status_codes", [429, 500, 502, 503, 504]))
+SCRAPE_JITTER = _WS_CONFIG.get("scrape_jitter", 0.5)
+SCRAPE_EXTRA_HEADERS = _WS_CONFIG.get("scrape_headers", {})
 
-_USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-]
+_USER_AGENTS = _WS_CONFIG.get("user_agents", [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+])
 
 
 def _split_keywords(query):
@@ -72,27 +75,43 @@ def _generate_format_string_from_schema(schema):
     return "{\n" + ",\n".join(format_items) + "\n}"
 
 def scrape_url(url, char_limit):
-    """Simple URL scraping with requests"""
-    if any(ext in url.lower() for ext in SKIP_EXTENSIONS) or any(domain in url.lower() for domain in SKIP_DOMAINS):
-        return None
+    """Scrape a URL with typed rejection reasons and configurable retry."""
+    url_lower = url.lower()
+    if any(ext in url_lower for ext in SKIP_EXTENSIONS):
+        return {"_filtered": "skip_extension", "url": url}
+    if any(domain in url_lower for domain in SKIP_DOMAINS):
+        return {"_filtered": "skip_domain", "url": url}
 
     try:
+        if SCRAPE_JITTER > 0:
+            time.sleep(random.uniform(0, SCRAPE_JITTER))
+
         headers = {
             'User-Agent': random.choice(_USER_AGENTS),
-            'Accept-Language': ACCEPT_LANGUAGE
+            'Accept-Language': ACCEPT_LANGUAGE,
+            **SCRAPE_EXTRA_HEADERS,
         }
 
-        response = requests.get(url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers)
+        response = None
+        for attempt in range(1 + SCRAPE_MAX_RETRIES):
+            response = requests.get(url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers)
+            if response.status_code in SCRAPE_RETRY_STATUS_CODES and attempt < SCRAPE_MAX_RETRIES:
+                time.sleep(SCRAPE_RETRY_DELAY)
+                continue
+            break
+
         if response.status_code != 200:
-            return None
+            return {"_filtered": f"http_{response.status_code}", "url": url}
 
         soup = BeautifulSoup(response.content[:SCRAPE_MAX_RESPONSE_BYTES], 'html.parser')
         for tag in soup(HTML_STRIP_TAGS):
             tag.decompose()
 
         text = re.sub(r'\s+', ' ', soup.get_text().strip())
-        if len(text) < SCRAPE_MIN_TEXT_LENGTH or len(text) > SCRAPE_MAX_TEXT_LENGTH:
-            return None
+        if len(text) < SCRAPE_MIN_TEXT_LENGTH:
+            return {"_filtered": "too_short", "url": url}
+        if len(text) > SCRAPE_MAX_TEXT_LENGTH:
+            text = text[:SCRAPE_MAX_TEXT_LENGTH]
 
         title = soup.find('title')
         title = title.get_text().strip()[:SCRAPE_TITLE_MAX_LENGTH] if title else url.split('/')[-1]
@@ -130,7 +149,7 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
 
     try:
         msg = f"Trying Brave Search API for: '{effective_query}'"
-        print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+        print(f"[WEB_SCRAPE] {msg}")
         if log:
             log.append(msg)
 
@@ -167,25 +186,25 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
             urls = [r['url'] for r in results if 'url' in r and r['url'].startswith('http')]
 
             msg = f"Brave Search found {len(urls)} URLs"
-            print(f"{MAGENTA}[WEB_SCRAPE] {msg}{RESET}")
+            print(f"[WEB_SCRAPE] {msg}")
             if log:
                 log.append(msg)
 
             return urls
         elif response.status_code == 429:
             msg = f"Brave Search rate limit exceeded (free tier: 2000/month, 1/sec)"
-            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+            print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
             if log:
                 log.append(msg)
         else:
             msg = f"Brave Search failed with status {response.status_code}"
-            print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+            print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
             if log:
                 log.append(msg)
 
     except Exception as e:
         msg = f"Brave Search failed: {str(e)}"
-        print(f"{RED}[WEB_SCRAPE] {msg}{RESET}")
+        print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
         if log:
             log.append(msg)
 
@@ -217,7 +236,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     )
 
 
-def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix="", skip_search=False, fetched_count=0):
+def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix="", skip_search=False, fetched_count=0, filter_reasons=None):
     """Build debug information dictionary"""
     method_params = {
         "query": query,
@@ -238,14 +257,24 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             "search_method": search_method,
             "method_parameters": method_params,
         }
-        # Partial scraping failure (some URLs failed but we got results)
-        if scrape_errors:
-            total = fetched_count or (len(scraped_content) + len(scrape_errors))
+        # Partial scraping failure (some URLs failed/filtered but we got results)
+        _fr = filter_reasons or {}
+        _n_filtered = sum(_fr.values())
+        if scrape_errors or _n_filtered:
+            total = fetched_count or (len(scraped_content) + len(scrape_errors) + _n_filtered)
+            detail_parts = []
+            if _n_filtered:
+                reason_strs = [f"{n}\u00d7{r}" for r, n in _fr.items()]
+                detail_parts.append(f"{_n_filtered} filtered: {', '.join(reason_strs)}")
+            if scrape_errors:
+                detail_parts.append(f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}")
+            detail = f" ({'; '.join(detail_parts)})" if detail_parts else ""
             warnings.append({
                 "step": "web_search",
                 "code": "partial_scrape",
-                "message": f"{len(scraped_content)} of {total} fetched URLs returned content",
+                "message": f"{len(scraped_content)} of {total} fetched URLs returned content{detail}",
                 "details": scrape_errors,
+                "filter_reasons": _fr,
             })
     elif skip_search:
         sources_info = {
@@ -262,17 +291,22 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             "method_parameters": method_params,
         }
         # Build a human-readable warning message
-        if scrape_errors:
-            total = fetched_count or len(scrape_errors)
-            filtered = total - len(scrape_errors)
-            parts = [f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}"]
-            if filtered:
-                parts.append(f"{filtered} filtered")
+        _fr = filter_reasons or {}
+        _n_filtered = sum(_fr.values())
+        if scrape_errors or _n_filtered:
+            total = fetched_count or (len(scrape_errors) + _n_filtered)
+            parts = []
+            if scrape_errors:
+                parts.append(f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}")
+            if _n_filtered:
+                reason_strs = [f"{n}\u00d7{r}" for r, n in _fr.items()]
+                parts.append(f"{_n_filtered} filtered: {', '.join(reason_strs)}")
             warnings.append({
                 "step": "web_search",
                 "code": "scrape_failed",
-                "message": f"0 of {total} fetched URLs returned content ({', '.join(parts)})",
+                "message": f"0 of {total} fetched URLs returned content ({'; '.join(parts)})",
                 "details": scrape_errors,
+                "filter_reasons": _fr,
             })
         elif search_log:
             # Brave Search itself failed (no URLs returned)
@@ -303,13 +337,14 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
     scraped_content = []
     scrape_errors = []
     fetched = 0
+    filter_reasons = {}
     search_method = "skipped"
 
     # Web search phase timing
     ws_start = time.time()
     if skip_search:
         ws_elapsed = None
-        print(f"{MAGENTA}[WEB_SCRAPE] Skipped (LLM knowledge only){RESET}")
+        print(f"[WEB_SCRAPE] Skipped (LLM knowledge only)")
         search_log.append("Web search skipped (skip_search=True)")
     else:
         # Direct Brave Search API call
@@ -320,20 +355,24 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
         # Parallel URL scraping with ThreadPoolExecutor
         if urls:
             fetch_limit = max_sites * _WS_CONFIG["url_fetch_multiplier"]
-            print(f"{MAGENTA}[WEB_SCRAPE] Scraping {min(len(urls), fetch_limit)} URLs in parallel...{RESET}")
+            print(f"[WEB_SCRAPE] Scraping {min(len(urls), fetch_limit)} URLs in parallel...")
 
             with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
                 results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:fetch_limit]))
 
                 filtered = 0
-                for i, result in enumerate(results):
+                filter_reasons = {}
+                for result in results:
                     if result is None:
                         filtered += 1
+                    elif "_filtered" in result:
+                        filtered += 1
+                        reason = result["_filtered"]
+                        filter_reasons[reason] = filter_reasons.get(reason, 0) + 1
                     elif "_scrape_error" in result:
                         scrape_errors.append({"url": result["url"], "reason": result["_scrape_error"]})
                     else:
                         scraped_content.append(result)
-                        print(f"{MAGENTA}[WEB_SCRAPE] ✓ {len(scraped_content)}/{max_sites}: {result['title'][:50]}{RESET}")
                         if len(scraped_content) >= max_sites:
                             break
 
@@ -345,7 +384,8 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
                 if n_err:
                     detail_parts.append(f"{n_err} error{'s' if n_err != 1 else ''}")
                 detail = f"  ({', '.join(detail_parts)})" if n_err else ""
-                print(f"{MAGENTA}[WEB_SCRAPE] ✓ {n_ok}/{max_sites} sources{detail}{RESET}")
+                titles = " | ".join(s["title"][:40] for s in scraped_content)
+                print(f"{YELLOW}[WEB_SCRAPE] ✓ {n_ok}/{max_sites} sources{detail}{RESET}: {titles}")
             else:
                 parts = []
                 if n_err:
@@ -353,9 +393,9 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
                 if filtered:
                     parts.append(f"{filtered} filtered")
                 detail = f"  ({fetched} fetched, {', '.join(parts)})" if parts else ""
-                print(f"{RED}[WEB_SCRAPE] ✗ 0/{max_sites} sources{detail}{RESET}")
+                print(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ 0/{max_sites} sources{detail}{RESET}")
         else:
-            print(f"{RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
+            print(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
         ws_elapsed = round(time.time() - ws_start, 3)
 
     # Build research prompt (custom override or registry-based)
@@ -419,7 +459,8 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
     debug_info = _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
                                     query, max_sites, content_char_limit, raw_content_limit,
                                     query_prefix=query_prefix, query_suffix=query_suffix,
-                                    skip_search=skip_search, fetched_count=fetched)
+                                    skip_search=skip_search, fetched_count=fetched,
+                                    filter_reasons=filter_reasons)
     debug_info["web_search_elapsed"] = ws_elapsed
     debug_info["llm_elapsed"] = llm_elapsed
     return result, debug_info

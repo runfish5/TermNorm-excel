@@ -59,9 +59,7 @@ app.include_router(pipeline_router)    # Pipeline config + trace lifecycle
 @app.on_event("startup")
 async def startup_event():
     """Log startup information"""
-    logger.info("Starting TermNorm Backend API")
-    logger.info(f"Environment: {settings.environment_type}")
-    logger.info(f"LLM Provider: {LLM_PROVIDER}/{LLM_MODEL}")
+    print(f"[STARTUP] {settings.environment_type} | LLM: {LLM_PROVIDER}/{LLM_MODEL}")
 
     # INTENDED BEHAVIOR - NO auto-initialization of prompts:
     # - Default prompts (v1) are committed to git in logs/prompts/
@@ -79,12 +77,8 @@ async def startup_event():
     # Verify LLM API key is configured
     import os
     api_key = os.getenv(f"{LLM_PROVIDER.upper()}_API_KEY")
-    if api_key:
-        logger.info(f"{LLM_PROVIDER.upper()} API key configured")
-    else:
+    if not api_key:
         logger.warning(f"{LLM_PROVIDER.upper()}_API_KEY not found - LLM features will be disabled")
-
-    logger.info("TermNorm Backend API startup complete")
 
 
 @app.on_event("shutdown")

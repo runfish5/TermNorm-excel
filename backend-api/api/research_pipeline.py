@@ -17,7 +17,7 @@ from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER
 from core.pipeline_context import PipelineContext, StepStatus, StepWarning
 import utils.utils as utils
-from utils.utils import CYAN, MAGENTA, RED, YELLOW, RESET
+from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from utils.responses import success_response
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
 from utils.langfuse_logger import (
@@ -137,13 +137,13 @@ def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
     """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
-    logger.info(CYAN + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+    print(RED + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
     t0 = time.time()
     results = fuzzy_match_terms(
         query, terms, threshold=params["fuzzy_threshold"], scorer=params["fuzzy_scorer"], limit=params["fuzzy_limit"]
     )
     elapsed = round(time.time() - t0, 3)
-    logger.info(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
+    print(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
     return results, elapsed
 
 
@@ -155,12 +155,12 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
     run_entity_profiling = "entity_profiling" in steps
 
     if not run_entity_profiling:
-        logger.info(CYAN + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
+        print(WHITE + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
     effective_max_tokens = params["profiling_max_tokens"]
-    logger.info("[PIPELINE] Step 1: Researching%s", "" if run_web_search else " (LLM knowledge only)")
+    print(RED + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         max_sites=params["max_sites"],
@@ -185,12 +185,11 @@ async def _run_research_step(query: str, steps: List[str], params: Dict) -> tupl
 
 def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
     """Step 2: Token matching. Returns (candidate_results, elapsed_time)."""
-    logger.info("[PIPELINE] Step 2: Matching candidates")
+    print(YELLOW + "[PIPELINE] Step 2: Matching candidates" + RESET)
     search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
     unique_search_terms = list(set(search_terms))
 
-    logger.info(f"Search terms: {len(search_terms)} total → {len(unique_search_terms)} unique")
-    logger.info(f"Unique terms: {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
+    print(f"[PIPELINE] {len(unique_search_terms)} profile terms (from {len(search_terms)}): {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
     t0 = time.time()
     candidate_results = token_matcher.match(unique_search_terms)
@@ -198,17 +197,11 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
 
     n = len(candidate_results)
     if n:
-        top_score = candidate_results[0][1]
+        top_name, top_score = candidate_results[0]
         bot_score = candidate_results[-1][1]
-        summary = f"[PIPELINE] Token matches: {n} candidates in {elapsed:.2f}s (scores {top_score:.3f}–{bot_score:.3f})"
-        examples = []
-        for i, (name, score) in enumerate(candidate_results[:3]):
-            examples.append(f"  {i+1}. {name[:55]:<55s} {score:.3f}")
-        if n > 3:
-            examples.append(f"  ... and {n - 3} more")
-        logger.info(f"{RED}{summary}\n{chr(10).join(examples)}{RESET}")
+        print(f"[PIPELINE] Token matches: {n} in {elapsed:.2f}s ({top_score:.3f}–{bot_score:.3f})  top: {top_name[:60]}... ({top_score:.3f})")
     else:
-        logger.info(f"{RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
+        print(f"{BRIGHT_RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
     return candidate_results, elapsed
 
 
@@ -219,7 +212,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
 
     t0 = time.time()
     if not run_llm_ranking:
-        logger.info(CYAN + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
+        print(WHITE + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
@@ -228,7 +221,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         }
         ranking_debug = {"inputs": {"token_matched_candidates": candidates[:max_token_candidates]}}
     else:
-        logger.info(CYAN + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
+        print(YELLOW + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
             profile_info, entity_profile, candidates, query,
@@ -252,60 +245,70 @@ def _derive_executed_steps(step_timings: dict) -> list[str]:
 
 
 def _summarize_response(resp: dict) -> str:
-    """Build a structural meta-summary of the API response for logging.
-
-    Shows every key with counts/types instead of raw data so the operator
-    can verify the response shape at a glance.
-    """
-    lines = [f"[RESPONSE] {resp.get('status', '?')} — {resp.get('message', '')}"]
+    """Build a condensed structural summary of the API response for logging."""
+    G, R = GREEN, RESET
+    lines = [f"{G}[RESPONSE] {resp.get('status', '?')} — {resp.get('message', '')}{R}"]
     data = resp.get("data", {})
-    for key, val in data.items():
-        if key == "ranked_candidates" and isinstance(val, list):
-            top = val[0] if val else None
-            top_str = ""
-            if top:
-                name = top.get("candidate", "")[:50]
-                score = top.get("relevance_score", 0)
-                top_str = f"  top: {name}... ({score:.3f})"
-            lines.append(f"  {key:<26s} [{len(val)} items]{top_str}")
-        elif key == "token_matched_candidates" and isinstance(val, list):
-            if val:
-                scores = [c[1] for c in val if isinstance(c, (list, tuple)) and len(c) > 1]
-                rng = f"  scores: {max(scores):.3f}–{min(scores):.3f}" if scores else ""
-            else:
-                rng = ""
-            lines.append(f"  {key:<26s} [{len(val)} items]{rng}")
-        elif key == "entity_profile" and isinstance(val, dict):
-            n_fields = len([k for k in val if not k.startswith("_")])
-            entity = val.get("entity_name", "?")[:40]
-            src_count = val.get("_metadata", {}).get("sources_count", "?")
-            lines.append(f"  {key:<26s} {{{n_fields} fields}}  entity: {entity}, {src_count} sources")
-        elif key == "step_timings" and isinstance(val, dict):
-            parts = []
-            for step, t in val.items():
-                short = step.split("_")[0][:8]
-                parts.append(f"{short}={'skip' if t is None else f'{t:.3f}s'}")
-            lines.append(f"  {key:<26s} {' '.join(parts)}")
-        elif key == "pipeline_params" and isinstance(val, dict):
-            executed = val.get("steps", [])
-            requested = val.get("requested_steps", [])
-            lines.append(f"  {key:<26s} {len(executed)} executed / {len(requested)} requested")
-        elif key == "diagnostics" and isinstance(val, dict):
-            warnings = val.get("warnings", [])
-            statuses = val.get("step_statuses", {})
-            non_success = [f"{s}={st}" for s, st in statuses.items() if st != "success"]
-            status_str = ", ".join(non_success) if non_success else "all success"
-            w_str = f"{len(warnings)} warnings"
-            if warnings:
-                first = warnings[0]
-                w_str += f" ({first['step']}: {first['code']})"
-            lines.append(f"  {key:<26s} {w_str} | steps: {status_str}")
-        elif isinstance(val, list):
-            lines.append(f"  {key:<26s} [{len(val)} items]")
-        elif isinstance(val, dict):
-            lines.append(f"  {key:<26s} {{{len(val)} keys}}")
-        else:
-            lines.append(f"  {key:<26s} {val}")
+
+    # ranked_candidates
+    ranked = data.get("ranked_candidates", [])
+    if ranked:
+        top = ranked[0]
+        name = top.get("candidate", "")[:50]
+        score = top.get("relevance_score", 0)
+        lines.append(f"  {G}ranked_candidates{R}  [{len(ranked)} items]  top: {name}... ({score:.3f})")
+
+    # entity_profile
+    ep = data.get("entity_profile")
+    if isinstance(ep, dict):
+        n_fields = len([k for k in ep if not k.startswith("_")])
+        entity = ep.get("entity_name", "?")[:40]
+        src_count = ep.get("_metadata", {}).get("sources_count", "?")
+        lines.append(f"  {G}entity_profile{R}      {{{n_fields} fields}}  entity: {entity}, {src_count} sources")
+
+    # token_matched_candidates
+    tokens = data.get("token_matched_candidates", [])
+    if tokens:
+        scores = [c[1] for c in tokens if isinstance(c, (list, tuple)) and len(c) > 1]
+        rng = f"  scores: {max(scores):.3f}–{min(scores):.3f}" if scores else ""
+        lines.append(f"  {G}token_candidates{R}   [{len(tokens)} items]{rng}")
+
+    # timings (merged total_time + step_timings)
+    step_timings = data.get("step_timings", {})
+    total_time = data.get("total_time")
+    if step_timings:
+        parts = []
+        for step, t in step_timings.items():
+            short = step.split("_")[0][:8]
+            parts.append(f"{short}={'skip' if t is None else f'{t:.1f}s'}")
+        total_str = f"{total_time}s total | " if total_time else ""
+        lines.append(f"  {G}timings{R}            {total_str}{' '.join(parts)}")
+
+    # pipeline (merged pipeline_params + terminated_at + models)
+    pp = data.get("pipeline_params", {})
+    terminated = data.get("terminated_at")
+    model = data.get("profiling_model") or data.get("ranking_model") or ""
+    provider = data.get("llm_provider", "")
+    if pp:
+        n_exec = len(pp.get("steps", []))
+        n_req = len(pp.get("requested_steps", []))
+        term_str = f" → {terminated}" if terminated else ""
+        model_str = f" | {provider}/{model.split('/')[-1]}" if model else ""
+        lines.append(f"  {G}pipeline{R}           {n_exec}/{n_req} steps{term_str}{model_str}")
+
+    # diagnostics
+    diag = data.get("diagnostics")
+    if isinstance(diag, dict):
+        warnings = diag.get("warnings", [])
+        statuses = diag.get("step_statuses", {})
+        non_success = [f"{s}={st}" for s, st in statuses.items() if st != "success"]
+        status_str = ", ".join(non_success) if non_success else "all success"
+        w_str = f"{len(warnings)} warnings"
+        if warnings:
+            first = warnings[0]
+            w_str += f" ({first['step']}: {first['code']})"
+        lines.append(f"  {G}diagnostics{R}        {w_str} | {status_str}")
+
     return "\n".join(lines)
 
 
@@ -375,7 +378,7 @@ def _build_pipeline_results(
             "diagnostics": ctx.build_diagnostics(),
         }
     )
-    logger.info(YELLOW + _summarize_response(api_response) + RESET)
+    print(_summarize_response(api_response))
     return training_record, api_response
 
 
@@ -393,7 +396,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")
 
     terms = user_sessions[user_id]["terms"]
-    logger.info(f"[PIPELINE] User {user_id}: Started for query: '{query}' with {len(terms)} terms from session")
+    print(f"{RED}[PIPELINE] {user_id}: '{query}' ({len(terms)} terms){RESET}")
 
     ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
 
@@ -430,7 +433,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # is down (e.g. model decommissioned → 404 → 502), the pipeline continues
     # with whatever data is available rather than crashing the entire request.
     token_matcher = TokenLookupMatcher(terms)
-    logger.info(f"[PIPELINE] TokenLookupMatcher created with {len(token_matcher.deduplicated_terms)} unique terms")
+    print(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
 
     try:
         entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params)

@@ -53,8 +53,11 @@ def setup_logging(
     # Set specific loggers to appropriate levels
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("fastapi").setLevel(logging.INFO)
+    logging.getLogger("bs4.dammit").setLevel(logging.ERROR)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("config.middleware").setLevel(logging.WARNING)
 
-    logging.info("Logging configuration completed")
+    logging.debug("Logging configuration completed")
 
 
 def get_logger(name: str) -> logging.Logger:

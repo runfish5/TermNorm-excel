@@ -57,31 +57,19 @@ cd /d "!backend_path!" || (
     exit /b 1
 )
 
-:: Virtual environment setup
-echo.
-echo ===============================================
-echo        Virtual Environment Setup
-echo ===============================================
-echo.
-
-:: Check/create virtual environment
+:: Virtual environment + requirements (condensed)
 if not exist "!VENV_PATH!" (
-    echo %BLUE%^>%RESET% Creating virtual environment at: %BOLD%%CYAN%!VENV_PATH!%RESET%
+    echo %BLUE%^>%RESET% Creating virtual environment...
     !PYTHON_CMD! -m venv "!VENV_PATH!"
     if errorlevel 1 (
         echo %RED%[ERROR]%RESET% Failed to create virtual environment
         exit /b 1
     )
-    echo %GREEN%[OK]%RESET% Virtual environment created
-) else (
-    echo %GREEN%[OK]%RESET% Virtual environment found
+    echo %GREEN%[OK]%RESET% venv created
 )
 
-:: Install requirements (only if needed)
-echo.
 set "INSTALL_MARKER=!VENV_PATH!\installed.txt"
 set "NEEDS_INSTALL=0"
-
 if not exist "!INSTALL_MARKER!" set "NEEDS_INSTALL=1"
 if exist "requirements.txt" (
     for %%F in ("requirements.txt") do set "REQ_TIME=%%~tF"
@@ -90,7 +78,7 @@ if exist "requirements.txt" (
 )
 
 if "!NEEDS_INSTALL!"=="1" (
-    echo %BLUE%^>%RESET% Installing/updating requirements...
+    echo %BLUE%^>%RESET% Installing requirements...
     if not exist "!VENV_PATH!\Scripts\pip.exe" (
         echo %RED%[ERROR]%RESET% pip.exe not found at: !VENV_PATH!\Scripts\pip.exe
         exit /b 1
@@ -104,40 +92,18 @@ if "!NEEDS_INSTALL!"=="1" (
         echo %YELLOW%[WARNING]%RESET% Some requirements may have failed to install
     ) else (
         echo. > "!INSTALL_MARKER!"
-        echo %GREEN%[OK]%RESET% Requirements installed
+        echo %GREEN%[OK]%RESET% requirements installed
     )
 ) else (
-    echo %GREEN%[OK]%RESET% Requirements up to date
+    echo %GREEN%[OK]%RESET% venv ^| requirements up to date
 )
-
-:: Quick validation
-echo %GREEN%[OK]%RESET% Environment ready
-
-:: Server startup
-echo.
-echo ===============================================
-echo              Server Launch
-echo ===============================================
-echo.
-echo +-- CONFIGURATION SUMMARY -----------------+
-echo ^| Directory:   %BOLD%%CYAN%!backend_path!%RESET%
-echo ^| Virtual Env: %BOLD%%CYAN%!VENV_PATH!%RESET%
-echo ^| Auth:        IP-based (config/users.json)
-echo +-------------------------------------------+
 echo.
 
 :server_loop
-echo.
-echo ===============================================
-echo             Starting Server...
-echo ===============================================
-echo.
 echo [%date% %time%] Server starting >> "!LOG_FILE!"
-echo %BLUE%^>%RESET% Command: %BOLD%%GREEN%uvicorn main:app --host 0.0.0.0 --port 8000 --reload%RESET%
-echo %BLUE%^>%RESET% Server accessible at: %BOLD%%CYAN%http://your-ip:8000%RESET%
-echo %BLUE%^>%RESET% Press %YELLOW%Ctrl+C%RESET% to stop the server
-echo.
-echo %CYAN%===========================================%RESET%
+echo %BLUE%^>%RESET% %GREEN%uvicorn main:app --host 0.0.0.0 --port 8000 --reload%RESET%
+echo %BLUE%^>%RESET% %CYAN%http://your-ip:8000%RESET% ^| Press %YELLOW%Ctrl+C%RESET% to stop
+echo %CYAN%-------------------------------------------%RESET%
 "!VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 echo.
