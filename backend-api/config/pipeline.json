@@ -1,6 +1,10 @@
 {
   "name": "TermNorm",
   "version": "v1.1",
+  "description": "TermNorm AI terminology normalization pipeline",
+  "required_step": "entity_profile",
+  "template_variables": ["{{core_concept}}", "{{entity_profile_json}}", "{{matches}}"],
+  "dataset_name": "termnorm_ground_truth",
   "available_models": [
     "moonshotai/kimi-k2-instruct-0905",
     "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -8,21 +12,47 @@
     "openai/gpt-oss-120b"
   ],
   "nodes": {
+    "cache_lookup": {
+      "type": "cache",
+      "runtime": "frontend",
+      "short_circuit": true,
+      "node_role": "cache",
+      "description": "Checks the cache for previously resolved queries. Short-circuits the pipeline on hit.",
+      "config": {},
+      "optimizer": {
+        "langfuse_type": "span"
+      }
+    },
     "fuzzy_matching": {
-      "type": "DeterministicFunction",
+      "type": "retriever",
+      "runtime": "frontend",
+      "short_circuit": true,
+      "node_role": "candidate_source",
+      "description": "Fuzzy string matching against the database index. Short-circuits on high-confidence matches, bypassing web search and LLM profiling entirely.",
       "config": {
         "threshold": 70,
         "scorer": "WRatio",
         "limit": 5
+      },
+      "optimizer": {
+        "param_keys": ["fuzzy_threshold", "fuzzy_scorer"],
+        "param_descriptions": {
+          "fuzzy_threshold": "Minimum similarity score (0-100) to accept a fuzzy match",
+          "fuzzy_scorer": "Scoring algorithm for fuzzy string comparison"
+        },
+        "override_map": { "fuzzy_threshold": "threshold", "fuzzy_scorer": "scorer" },
+        "langfuse_type": "span"
       }
     },
     "web_search": {
-      "type": "ExternalService",
+      "type": "tool",
+      "runtime": "backend",
+      "node_role": "enricher",
+      "description": "Searches the web for contextual information about the input query. Retrieved content provides the primary raw context that entity_profiling uses to generate structured profiles — the quality of web results directly determines profiling quality.",
       "config": {
         "max_sites": 7,
         "num_results": 20,
         "content_char_limit": 800,
-        "url_fetch_multiplier": 4,
         "fallback_keywords_limit": 8,
         "query_prefix": "",
         "query_suffix": "",
@@ -70,32 +100,100 @@
         "result_filter": "",
         "extra_snippets": true,
         "freshness": ""
+      },
+      "optimizer": {
+        "param_keys": ["max_sites", "num_results", "content_char_limit", "query_prefix", "query_suffix"],
+        "param_descriptions": {
+          "query_prefix": "Text prepended to the input query before web search — controls search focus, domain targeting, and terminology framing (e.g. 'LCA database' narrows to domain)",
+          "query_suffix": "Text appended to the input query before web search — adds qualifiers, constraints, or context keywords (e.g. 'material composition' adds specificity)",
+          "num_results": "Number of search engine results to request",
+          "max_sites": "Maximum number of web pages to fetch and extract content from",
+          "content_char_limit": "Maximum characters of content to extract per web page"
+        },
+        "override_map": {
+          "max_sites": "max_sites",
+          "num_results": "num_results",
+          "content_char_limit": "content_char_limit",
+          "query_prefix": "query_prefix",
+          "query_suffix": "query_suffix"
+        },
+        "observation_name": "web_search",
+        "observation_mappings": [
+          {"pipeline_key": "web_sources", "output_field": "sources"},
+          {"pipeline_key": "web_search_status", "output_field": "status"}
+        ],
+        "langfuse_type": "tool"
       }
     },
     "entity_profiling": {
-      "type": "LLMGeneration",
+      "type": "generation",
+      "runtime": "backend",
+      "node_role": "enricher",
+      "description": "LLM-driven step that generates a structured entity profile from the input query and web-sourced raw content. Produces the required pipeline output (entity_profile). Profile quality depends on both the LLM configuration and the quality of upstream web_search results.",
       "config": {
         "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.3,
         "max_tokens": 1800,
-
         "raw_content_limit": 5000,
         "per_site_content_limit": 500,
         "prompt_family": "entity_profiling",
         "prompt_version": 1,
         "schema_family": "entity_profile",
         "schema_version": 1
+      },
+      "optimizer": {
+        "param_keys": ["raw_content_limit", "profiling_temperature", "profiling_max_tokens", "profiling_prompt", "profiling_schema", "profiling_model"],
+        "param_descriptions": {
+          "raw_content_limit": "Maximum characters of web-sourced raw content passed as context to the profiling LLM — bounds how much of web_search output is visible to the model",
+          "profiling_temperature": "LLM sampling temperature for profile generation",
+          "profiling_max_tokens": "Maximum tokens in the LLM profile generation response"
+        },
+        "override_map": {
+          "raw_content_limit": "raw_content_limit",
+          "profiling_temperature": "temperature",
+          "profiling_max_tokens": "max_tokens",
+          "profiling_prompt": "prompt",
+          "profiling_schema": "output_schema",
+          "profiling_model": "model"
+        },
+        "input_keys": ["web_sources"],
+        "observation_name": "entity_profiling",
+        "observation_mappings": [
+          {"pipeline_key": "entity_profile", "output_field": null, "is_llm": true}
+        ],
+        "langfuse_type": "generation"
       }
     },
     "token_matching": {
-      "type": "DeterministicFunction",
+      "type": "retriever",
+      "runtime": "backend",
+      "node_role": "candidate_source",
+      "description": "Token-level retrieval matching entity profile fields against database entries. Candidate pool quality depends on the entity profile generated upstream.",
       "config": {
         "max_token_candidates": 20,
         "tokenization_regex": "[a-zA-Z0-9]+"
+      },
+      "optimizer": {
+        "param_keys": ["max_token_candidates"],
+        "param_descriptions": {
+          "max_token_candidates": "Maximum number of candidates to return from token matching"
+        },
+        "override_map": {
+          "max_token_candidates": "max_token_candidates"
+        },
+        "input_keys": ["entity_profile"],
+        "observation_name": "token_matching",
+        "observation_mappings": [
+          {"pipeline_key": "token_matched_candidates", "output_field": "candidates"}
+        ],
+        "langfuse_type": "retriever"
       }
     },
     "llm_ranking": {
-      "type": "LLMGeneration",
+      "type": "generation",
+      "runtime": "backend",
+      "node_role": "ranker",
+      "description": "LLM-driven re-ranking of token-matched candidates using a ranking prompt. Selects the best match from the candidate pool.",
       "config": {
         "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.0,
@@ -107,21 +205,51 @@
         "prompt_version": 1,
         "schema_family": "llm_ranking_output",
         "schema_version": 1
+      },
+      "optimizer": {
+        "param_keys": ["ranking_temperature", "ranking_max_tokens", "ranking_sample_size", "ranking_prompt", "ranking_schema", "ranking_model", "relevance_weight_core"],
+        "param_descriptions": {
+          "ranking_temperature": "LLM sampling temperature for ranking",
+          "ranking_max_tokens": "Maximum tokens in the LLM ranking response",
+          "ranking_sample_size": "Number of candidates sampled from the pool for LLM ranking",
+          "relevance_weight_core": "Weight given to core-concept relevance in ranking score"
+        },
+        "override_map": {
+          "ranking_temperature": "temperature",
+          "ranking_max_tokens": "max_tokens",
+          "ranking_sample_size": "sample_size",
+          "ranking_prompt": "prompt",
+          "ranking_schema": "output_schema",
+          "ranking_model": "model",
+          "relevance_weight_core": "relevance_weight_core"
+        },
+        "input_keys": ["token_matched_candidates", "entity_profile"],
+        "observation_name": "llm_ranking",
+        "observation_mappings": [
+          {"pipeline_key": "ranked_candidates", "output_field": "ranked_candidates", "is_llm": true}
+        ],
+        "langfuse_type": "generation"
       }
     },
     "direct_prompt": {
-      "type": "LLMGeneration",
+      "type": "generation",
+      "runtime": "backend",
+      "node_role": "",
+      "description": "Direct LLM prompt for simple queries — bypasses the full pipeline.",
       "config": {
         "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.0,
         "max_tokens": 300,
         "accept_threshold": 0.75,
         "correction_top_n": 10
+      },
+      "optimizer": {
+        "langfuse_type": "generation"
       }
     }
   },
   "pipelines": {
-    "default": ["web_search", "entity_profiling", "token_matching", "llm_ranking"]
+    "default": ["cache_lookup", "fuzzy_matching", "web_search", "entity_profiling", "token_matching", "llm_ranking"]
   },
   "cache": {
     "high_confidence_threshold": 0.8,

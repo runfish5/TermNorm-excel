@@ -257,10 +257,10 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             "search_method": search_method,
             "method_parameters": method_params,
         }
-        # Partial scraping failure (some URLs failed/filtered but we got results)
+        # Partial scraping failure (didn't reach max_sites good pages)
         _fr = filter_reasons or {}
         _n_filtered = sum(_fr.values())
-        if scrape_errors or _n_filtered:
+        if len(scraped_content) < max_sites:
             total = fetched_count or (len(scraped_content) + len(scrape_errors) + _n_filtered)
             detail_parts = []
             if _n_filtered:
@@ -354,11 +354,10 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
 
         # Parallel URL scraping with ThreadPoolExecutor
         if urls:
-            fetch_limit = max_sites * _WS_CONFIG["url_fetch_multiplier"]
-            print(f"[WEB_SCRAPE] Scraping {min(len(urls), fetch_limit)} URLs in parallel...")
+            print(f"[WEB_SCRAPE] Scraping {len(urls)} URLs in parallel...")
 
             with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
-                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls[:fetch_limit]))
+                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls))
 
                 filtered = 0
                 filter_reasons = {}

@@ -518,7 +518,7 @@ The response format (§4.3) exposes intermediates to enable this.
 | Node | Type | Key params |
 |------|------|-----------|
 | `fuzzy_matching` | DeterministicFunction | `threshold` (70), `scorer` (WRatio), `limit` (5) |
-| `web_search` | ExternalService | `max_sites` (7), `num_results` (20), `url_fetch_multiplier` (2), `fallback_keywords_limit` (8), `scrape_timeout` (5), `content_char_limit` (800) |
+| `web_search` | ExternalService | `max_sites` (7), `num_results` (20), `fallback_keywords_limit` (8), `scrape_timeout` (5), `content_char_limit` (800) |
 | `entity_profiling` | LLMGeneration | `model`, `temperature` (0.3), `max_tokens` (1800), `no_web_token_multiplier` (0.5), `prompt_family`/`schema_family` refs |
 | `token_matching` | DeterministicFunction | `max_token_candidates` (20), `tokenization_regex` |
 | `llm_ranking` | LLMGeneration | `model`, `temperature` (0.0), `max_tokens` (4000), `sample_size` (20), `debug_output_limit` (20), `relevance_weight_core` (0.7), `prompt_family`/`schema_family` refs |
