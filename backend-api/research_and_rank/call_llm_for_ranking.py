@@ -38,6 +38,7 @@ async def call_llm_for_ranking(
     ranking_schema: Optional[dict] = None,
     ranking_model: Optional[str] = None,
     debug_output_limit: int = 20,
+    warnings: list[str] | None = None,
 ) -> tuple[dict, dict]:
     """Rank candidates using LLM and return (result, debug_info) tuple."""
     available_results = list(match_results[:sample_size])
@@ -95,7 +96,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         llm_kwargs["schema"] = ranking_schema
     if ranking_model:
         llm_kwargs["model"] = ranking_model
-    ranking_result = await llm_call(**llm_kwargs)
+    ranking_result = await llm_call(**llm_kwargs, warnings=warnings)
 
     print(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
     corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)

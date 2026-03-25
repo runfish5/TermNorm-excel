@@ -328,7 +328,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         "warnings": warnings,
     }
 
-async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix=""):
+async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix="", warnings=None):
     if not schema:
         raise ValueError("Schema parameter is required.")
 
@@ -443,7 +443,7 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
 
     # LLM call phase timing
     llm_start = time.time()
-    result = await llm_call(**llm_kwargs)
+    result = await llm_call(**llm_kwargs, warnings=warnings)
     llm_elapsed = round(time.time() - llm_start, 3)
 
     processing_time = (ws_elapsed or 0) + llm_elapsed

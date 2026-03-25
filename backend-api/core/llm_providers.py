@@ -51,6 +51,21 @@ def _is_token_limit_error(e: Exception) -> bool:
     return "json_validate_failed" in str(e) or "max completion tokens" in str(e)
 
 
+def _format_api_error(e: Exception) -> str:
+    """Extract concise error summary from LLM provider exceptions."""
+    body = getattr(e, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error", {})
+        if isinstance(error, dict):
+            code = error.get("code", "")
+            msg = error.get("message", str(e))
+            if len(msg) > 120:
+                msg = msg[:120] + "…"
+            return f"{code}: {msg}" if code else msg
+    raw = str(e)
+    return raw if len(raw) <= 150 else raw[:150] + "…"
+
+
 async def llm_call(
     messages: List[Dict[str, str]],
     max_tokens: int | None = 1000,
@@ -63,6 +78,7 @@ async def llm_call(
     model: Optional[str] = None,
     seed: Optional[int] = None,
     logprobs: Optional[int] = None,
+    warnings: list[str] | None = None,
 ) -> Union[str, Dict]:
     """Universal LLM function - uses global provider config.
 
@@ -160,10 +176,12 @@ async def llm_call(
                 truncated = _fr == "length"
 
             if truncated and output_format in ("json", "schema") and max_tokens is not None:
+                _mt = params.get("max_tokens", max_tokens)
                 logger.warning(
-                    "[LLM] Structured output truncated (max_tokens=%s) — retrying without limit",
-                    params.get("max_tokens", max_tokens),
+                    "[LLM] Structured output truncated (max_tokens=%s) — retrying without limit", _mt,
                 )
+                if warnings is not None:
+                    warnings.append(f"Structured output truncated (max_tokens={_mt}) — retried without limit")
                 params.pop("max_tokens", None)
                 max_tokens = None
                 continue
@@ -181,26 +199,28 @@ async def llm_call(
             status = getattr(e, "status_code", None)
             if status == 429:
                 if attempt == _RETRY_ATTEMPTS - 1:
-                    raise HTTPException(429, f"LLM rate limited: {str(e)}")
+                    raise HTTPException(429, f"LLM rate limited: {_format_api_error(e)}")
                 await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
                 continue
             if status and 400 <= status < 500:
                 if _is_token_limit_error(e) and max_tokens is not None:
+                    _mt = params.get("max_tokens", max_tokens)
                     logger.warning(
-                        "[LLM] Token limit error (max_tokens=%s) — retrying without limit",
-                        params.get("max_tokens", max_tokens),
+                        "[LLM] Token limit error (max_tokens=%s) — retrying without limit", _mt,
                     )
+                    if warnings is not None:
+                        warnings.append(f"Token limit error (max_tokens={_mt}) — retried without limit")
                     params.pop("max_tokens", None)
                     max_tokens = None
                     continue
                 if status == 404:
-                    detail = f"LLM model not found or decommissioned: {str(e)}"
+                    detail = f"Model not found: {_format_api_error(e)}"
                 elif status == 401:
-                    detail = f"LLM authentication failed: {str(e)}"
+                    detail = f"Auth failed: {_format_api_error(e)}"
                 else:
-                    detail = f"LLM upstream client error ({status}): {str(e)}"
-                logger.error("[LLM] Permanent provider error (no retry): %s", detail)
+                    detail = f"{status}: {_format_api_error(e)}"
+                logger.error("[LLM] %s", detail)
                 raise HTTPException(502, detail)
             if attempt == _RETRY_ATTEMPTS - 1:
-                raise HTTPException(503, f"LLM error: {str(e)}")
+                raise HTTPException(503, f"LLM error: {_format_api_error(e)}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
