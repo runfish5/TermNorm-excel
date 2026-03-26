@@ -94,45 +94,82 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
     )
 
 
-def _resolve_pipeline_params(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract pipeline parameters from node_config with defaults from pipeline.json."""
-    ov = payload.get("node_config", {})
-    _ws_ov = ov.get("web_search", {})
-    _ep_ov = ov.get("entity_profiling", {})
-    _tm_ov = ov.get("token_matching", {})
-    _lr_ov = ov.get("llm_ranking", {})
-    _fm_ov = ov.get("fuzzy_matching", {})
+def _resolve_pipeline_params(
+    payload: Dict[str, Any],
+    steps: List[str] | None = None,
+) -> Dict[str, Any]:
+    """Extract pipeline parameters from node_config — no hidden defaults for LLM nodes.
 
-    _ws = _node("web_search")
-    _ep = _node("entity_profiling")
-    _tm = _node("token_matching")
-    _lr = _node("llm_ranking")
-    _fm = _node("fuzzy_matching")
-    return {
-        "max_sites": _ws_ov.get("max_sites", _ws["max_sites"]),
-        "num_results": _ws_ov.get("num_results", _ws["num_results"]),
-        "content_char_limit": _ws_ov.get("content_char_limit", _ws["content_char_limit"]),
-        "query_prefix": _ws_ov.get("query_prefix", _ws["query_prefix"]),
-        "query_suffix": _ws_ov.get("query_suffix", _ws["query_suffix"]),
-        "raw_content_limit": _ep_ov.get("raw_content_limit", _ep["raw_content_limit"]),
-        "profiling_temperature": _ep_ov.get("temperature", _ep["temperature"]),
-        "profiling_max_tokens": _ep_ov.get("max_tokens", _ep["max_tokens"]),
-        "profiling_prompt": _ep_ov.get("prompt"),
-        "profiling_schema": _ep_ov.get("output_schema"),
-        "profiling_model": _ep_ov.get("model", _ep["model"]),
-        "max_token_candidates": _tm_ov.get("max_token_candidates", _tm["max_token_candidates"]),
-        "relevance_weight_core": _lr_ov.get("relevance_weight_core", _lr["relevance_weight_core"]),
-        "ranking_temperature": _lr_ov.get("temperature", _lr["temperature"]),
-        "ranking_max_tokens": _lr_ov.get("max_tokens", _lr["max_tokens"]),
-        "ranking_sample_size": _lr_ov.get("sample_size", _lr["sample_size"]),
-        "debug_output_limit": _lr_ov.get("debug_output_limit", _lr["debug_output_limit"]),
-        "ranking_prompt": _lr_ov.get("prompt"),
-        "ranking_schema": _lr_ov.get("output_schema"),
-        "ranking_model": _lr_ov.get("model", _lr["model"]),
-        "fuzzy_threshold": _fm_ov.get("threshold", _fm["threshold"]),
-        "fuzzy_scorer": _fm_ov.get("scorer", _fm["scorer"]),
-        "fuzzy_limit": _fm_ov.get("limit", _fm["limit"]),
-    }
+    LLM nodes (entity_profiling, llm_ranking) require explicit config in
+    node_config.  Returns 422 if required params (model, temperature,
+    max_tokens) are missing for an active LLM node.  Non-LLM nodes fall
+    back to pipeline.json defaults for non-critical params.
+    """
+    ov = payload.get("node_config", {})
+    active = set(steps or _pipeline("default"))
+
+    # -- LLM nodes: require explicit config, no silent fallbacks ----------
+    _LLM_REQUIRED = ("model", "temperature", "max_tokens")
+
+    params: Dict[str, Any] = {}
+
+    if "entity_profiling" in active:
+        ep = ov.get("entity_profiling", {})
+        missing = [k for k in _LLM_REQUIRED if k not in ep]
+        if missing:
+            raise HTTPException(
+                422,
+                f"entity_profiling missing required params: {missing}. "
+                "Send full node_config from GET /pipeline.",
+            )
+        params["profiling_model"] = ep["model"]
+        params["profiling_temperature"] = ep["temperature"]
+        params["profiling_max_tokens"] = ep["max_tokens"]
+        params["raw_content_limit"] = ep.get("raw_content_limit", 5000)
+        params["profiling_prompt"] = ep.get("prompt")
+        params["profiling_schema"] = ep.get("output_schema")
+
+    if "llm_ranking" in active:
+        lr = ov.get("llm_ranking", {})
+        missing = [k for k in _LLM_REQUIRED if k not in lr]
+        if missing:
+            raise HTTPException(
+                422,
+                f"llm_ranking missing required params: {missing}. "
+                "Send full node_config from GET /pipeline.",
+            )
+        params["ranking_model"] = lr["model"]
+        params["ranking_temperature"] = lr["temperature"]
+        params["ranking_max_tokens"] = lr["max_tokens"]
+        params["ranking_sample_size"] = lr.get("sample_size", 20)
+        params["ranking_prompt"] = lr.get("prompt")
+        params["ranking_schema"] = lr.get("output_schema")
+        params["relevance_weight_core"] = lr.get("relevance_weight_core", 0.7)
+        params["debug_output_limit"] = lr.get("debug_output_limit", 20)
+
+    # -- Non-LLM nodes: pipeline.json defaults for non-critical params ----
+    if "web_search" in active:
+        ws = ov.get("web_search", {})
+        _ws = _node("web_search")
+        params["max_sites"] = ws.get("max_sites", _ws["max_sites"])
+        params["num_results"] = ws.get("num_results", _ws["num_results"])
+        params["content_char_limit"] = ws.get("content_char_limit", _ws["content_char_limit"])
+        params["query_prefix"] = ws.get("query_prefix", _ws.get("query_prefix", ""))
+        params["query_suffix"] = ws.get("query_suffix", _ws.get("query_suffix", ""))
+
+    if "token_matching" in active:
+        tm = ov.get("token_matching", {})
+        _tm = _node("token_matching")
+        params["max_token_candidates"] = tm.get("max_token_candidates", _tm["max_token_candidates"])
+
+    if "fuzzy_matching" in active:
+        fm = ov.get("fuzzy_matching", {})
+        _fm = _node("fuzzy_matching")
+        params["fuzzy_threshold"] = fm.get("threshold", _fm["threshold"])
+        params["fuzzy_scorer"] = fm.get("scorer", _fm["scorer"])
+        params["fuzzy_limit"] = fm.get("limit", _fm["limit"])
+
+    return params
 
 
 def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
@@ -351,8 +388,8 @@ def _build_pipeline_results(
         "source": ctx.query, "target": target, "method": "ProfileRank",
         "confidence": confidence, "session_id": ctx.user_id,
         "llm_provider": LLM_PROVIDER,
-        "profiling_model": ctx.params["profiling_model"],
-        "ranking_model": ctx.params["ranking_model"],
+        "profiling_model": ctx.params.get("profiling_model"),
+        "ranking_model": ctx.params.get("ranking_model"),
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
         "step_timings": step_timings, "pipeline_params": pipeline_params,
         "entity_profile": entity_profile,
@@ -371,8 +408,8 @@ def _build_pipeline_results(
             "ranked_candidates": ranked, "entity_profile": entity_profile,
             "token_matched_candidates": candidates[:ctx.params["max_token_candidates"]],
             "llm_provider": LLM_PROVIDER,
-            "profiling_model": ctx.params["profiling_model"],
-            "ranking_model": ctx.params["ranking_model"],
+            "profiling_model": ctx.params.get("profiling_model"),
+            "ranking_model": ctx.params.get("ranking_model"),
             "total_time": total_time,
             "step_timings": step_timings, "web_search_status": web_status,
             "web_search_error": web_error, "pipeline_params": pipeline_params,
@@ -392,7 +429,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     steps = payload.get("steps") or _pipeline("default")
     trace_id = payload.get("trace_id")
 
-    params = _resolve_pipeline_params(payload)
+    params = _resolve_pipeline_params(payload, steps=steps)
 
     if user_id not in user_sessions:
         raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")

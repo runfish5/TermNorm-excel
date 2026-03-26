@@ -34,7 +34,7 @@
     "py_fuzzy":          { "label": "fuzzy", "settingKey": "usePyFuzzy",    "defaultOn": false, "params": { "threshold": 70, "scorer": "WRatio", "limit": 5 } },
     "js_fuzzy":          { "label": "fuzzy", "settingKey": "useJsFuzzy",    "defaultOn": true, "color": "yellow", "params": { "algorithm": "levenshtein_word", "threshold": 0.7 } },
     "web_search":        { "label": "webS",  "settingKey": "useWebSearch",  "defaultOn": true,  "params": { "max_sites": 7, "num_results": 20, "scrape_timeout": 5 } },
-    "entity_profiling":  { "label": "LLM",   "settingKey": null,            "defaultOn": true,  "params": { "model": "llama-4-maverick-17b", "temperature": 0.3, "max_tokens": 1800 } },
+    "entity_profiling":  { "label": "LLM",   "settingKey": null,            "defaultOn": true,  "params": { "model": "llama-4-maverick-17b", "temperature": 0.3, "max_tokens": null } },
     "token_matching":    { "label": "score",  "settingKey": null,            "defaultOn": true,  "params": { "max_candidates": 20, "accept_threshold": 0.75, "high_confidence": 0.8 } },
     "llm_ranking":       { "label": "LLM₂",  "settingKey": "useLlmRanking", "defaultOn": true,  "params": { "model": "llama-4-maverick-17b", "temperature": 0.0, "sample_size": 20 } }
   }

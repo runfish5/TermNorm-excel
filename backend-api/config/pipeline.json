@@ -133,7 +133,7 @@
       "config": {
         "model": "moonshotai/kimi-k2-instruct-0905",
         "temperature": 0.3,
-        "max_tokens": 1800,
+        "max_tokens": null,
         "raw_content_limit": 5000,
         "per_site_content_limit": 500,
         "prompt_family": "entity_profiling",
