@@ -24,9 +24,10 @@ from enum import Enum
 
 class StepStatus(str, Enum):
     SUCCESS = "success"
-    DEGRADED = "degraded"  # ran but with reduced quality (e.g. no web content)
-    FAILED = "failed"      # caught exception, used fallback
-    SKIPPED = "skipped"    # step not in requested pipeline
+    DEGRADED = "degraded"      # ran but with reduced quality (e.g. no web content)
+    FAILED = "failed"          # caught exception, used fallback
+    SKIPPED = "skipped"        # step not in requested pipeline
+    PRECOMPUTED = "precomputed"  # output supplied by caller (partial caching)
 
 
 @dataclass(frozen=True)

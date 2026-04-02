@@ -248,6 +248,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
     }
 
     warnings: list[dict] = []
+    info: list[dict] = []
 
     if scraped_content:
         sources_info = {
@@ -257,11 +258,17 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             "search_method": search_method,
             "method_parameters": method_params,
         }
-        # Partial scraping failure (didn't reach max_sites good pages)
         _fr = filter_reasons or {}
         _n_filtered = sum(_fr.values())
-        if len(scraped_content) < max_sites:
-            total = fetched_count or (len(scraped_content) + len(scrape_errors) + _n_filtered)
+        total = fetched_count or (len(scraped_content) + len(scrape_errors) + _n_filtered)
+        # Always record fetch stats as info (non-degradation observability)
+        info.append({
+            "step": "web_search",
+            "code": "fetch_stats",
+            "message": f"{len(scraped_content)} of {total} fetched URLs returned content",
+        })
+        # Only warn when below threshold AND actual losses occurred
+        if len(scraped_content) < max_sites and (scrape_errors or _fr):
             detail_parts = []
             if _n_filtered:
                 reason_strs = [f"{n}\u00d7{r}" for r, n in _fr.items()]
@@ -271,8 +278,8 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             detail = f" ({'; '.join(detail_parts)})" if detail_parts else ""
             warnings.append({
                 "step": "web_search",
-                "code": "partial_scrape",
-                "message": f"{len(scraped_content)} of {total} fetched URLs returned content{detail}",
+                "code": "low_document_count",
+                "message": f"{len(scraped_content)} of {total} fetched URLs returned content (min: {max_sites}){detail}",
                 "details": scrape_errors,
                 "filter_reasons": _fr,
             })
@@ -326,15 +333,15 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
     return {
         "inputs": {"scraped_sources": sources_info},
         "warnings": warnings,
+        "info": info,
     }
 
-async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix="", warnings=None):
+async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix="", warnings=None, scraped_content=None):
     if not schema:
         raise ValueError("Schema parameter is required.")
 
     search_log = []
 
-    scraped_content = []
     scrape_errors = []
     fetched = 0
     filter_reasons = {}
@@ -342,11 +349,20 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
 
     # Web search phase timing
     ws_start = time.time()
-    if skip_search:
+    if scraped_content is not None:
+        # Precomputed web content — skip scraping entirely
+        ws_elapsed = 0.0
+        search_method = "precomputed"
+        fetched = len(scraped_content)
+        print(f"[WEB_SCRAPE] Using {len(scraped_content)} precomputed sources")
+        search_log.append(f"Web search precomputed ({len(scraped_content)} sources)")
+    elif skip_search:
+        scraped_content = []
         ws_elapsed = None
         print(f"[WEB_SCRAPE] Skipped (LLM knowledge only)")
         search_log.append("Web search skipped (skip_search=True)")
     else:
+        scraped_content = []
         # Direct Brave Search API call
         urls = _brave_search(query, num_results=num_results, log=search_log,
                              query_prefix=query_prefix, query_suffix=query_suffix)
@@ -462,4 +478,6 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
                                     filter_reasons=filter_reasons)
     debug_info["web_search_elapsed"] = ws_elapsed
     debug_info["llm_elapsed"] = llm_elapsed
+    # Full scraped content for intermediate caching (Wave 4)
+    debug_info["scraped_content"] = scraped_content
     return result, debug_info
