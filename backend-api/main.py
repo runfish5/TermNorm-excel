@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import logging
 
-from config import settings
+from config.settings import settings
 from config.middleware import setup_middleware
 from core.logging import setup_logging
 from api import (

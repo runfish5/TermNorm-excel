@@ -1,14 +1,50 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
 import json
-from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
-from .correct_candidate_strings import correct_candidate_strings
 import random
+from rapidfuzz import fuzz, process
+from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from utils.prompt_registry import get_prompt_registry
 from config.pipeline_config import get_node_config
 
 _LR_CONFIG = get_node_config("llm_ranking")
 
 from utils.utils import GREEN, YELLOW, BRIGHT_RED, RESET
+
+
+def find_top_matches(llm_string: str, candidates: list[str], n: int) -> list[tuple[str, float]]:
+    """Find top N matching candidates using rapidfuzz ratio."""
+    if not llm_string or not candidates:
+        return []
+    results = process.extract(llm_string, candidates, scorer=fuzz.ratio, limit=n)
+    return [(match, round(score / 100.0, 4)) for match, score, _ in results]
+
+
+def _correct_candidate_strings(ranking_result, match_results, relevance_weight_core):
+    """Correct LLM-altered candidate strings by fuzzy-matching against originals."""
+    original_candidates = [result[0] for result in match_results]
+    corrected_candidates = []
+
+    for candidate_info in ranking_result['ranked_candidates']:
+        llm_candidate = candidate_info['candidate']
+        top = find_top_matches(llm_candidate, original_candidates, n=1)
+        best_match, similarity = top[0] if top else (None, 0)
+
+        corrected_info = candidate_info.copy()
+        if best_match != llm_candidate:
+            corrected_info['_original_llm_string'] = llm_candidate
+            corrected_info['candidate'] = best_match
+            corrected_info['_correction_confidence'] = similarity
+        else:
+            corrected_info['_correction_confidence'] = 1.0
+
+        core_score = corrected_info.get('core_concept_score', 0.0)
+        spec_score = corrected_info.get('spec_score', 0.0)
+        corrected_info['relevance_score'] = round(
+            core_score * relevance_weight_core + spec_score * (1 - relevance_weight_core), 4)
+        corrected_candidates.append(corrected_info)
+
+    ranking_result['ranked_candidates'] = corrected_candidates
+    return ranking_result
 
 
 def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int) -> tuple[dict, dict]:
@@ -25,7 +61,6 @@ def _build_result(query: str, candidates: list, match_results: list[tuple[str, f
 
 
 async def call_llm_for_ranking(
-    profile_info: str,
     entity_profile: dict,
     match_results: list[tuple[str, float]],
     query: str,
@@ -100,7 +135,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
     ranking_result = await llm_call(**llm_kwargs, warnings=warnings)
 
     print(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
-    corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])
+    corrected = _correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])
 
     debug_output_limit = lr_cfg["debug_output_limit"]
     if corrected and 'ranked_candidates' in corrected:

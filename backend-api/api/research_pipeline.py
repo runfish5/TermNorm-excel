@@ -9,8 +9,7 @@ from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request, Body
 
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
-from research_and_rank.display_profile import display_profile
-from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
+from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER
@@ -199,9 +198,8 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         ranking_debug = {"inputs": {"token_matched_candidates": candidates[:max_token_candidates]}}
     else:
         print(YELLOW + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
-        profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
-            profile_info, entity_profile, candidates, query,
+            entity_profile, candidates, query,
             lr_cfg=lr_cfg,
             warnings=llm_warnings,
         )
