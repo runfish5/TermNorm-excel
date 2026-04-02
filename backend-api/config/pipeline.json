@@ -35,12 +35,11 @@
         "limit": 5
       },
       "optimizer": {
-        "param_keys": ["fuzzy_threshold", "fuzzy_scorer"],
+        "param_keys": ["threshold", "scorer"],
         "param_descriptions": {
-          "fuzzy_threshold": "Minimum similarity score (0-100) to accept a fuzzy match",
-          "fuzzy_scorer": "Scoring algorithm for fuzzy string comparison"
+          "threshold": "Minimum similarity score (0-100) to accept a fuzzy match",
+          "scorer": "Scoring algorithm for fuzzy string comparison"
         },
-        "override_map": { "fuzzy_threshold": "threshold", "fuzzy_scorer": "scorer" },
         "langfuse_type": "span"
       }
     },
@@ -110,13 +109,6 @@
           "max_sites": "Maximum number of web pages to fetch and extract content from",
           "content_char_limit": "Maximum characters of content to extract per web page"
         },
-        "override_map": {
-          "max_sites": "max_sites",
-          "num_results": "num_results",
-          "content_char_limit": "content_char_limit",
-          "query_prefix": "query_prefix",
-          "query_suffix": "query_suffix"
-        },
         "observation_name": "web_search",
         "observation_mappings": [
           {"pipeline_key": "web_sources", "output_field": "sources"},
@@ -142,19 +134,11 @@
         "schema_version": 1
       },
       "optimizer": {
-        "param_keys": ["raw_content_limit", "profiling_temperature", "profiling_max_tokens", "profiling_prompt", "profiling_schema", "profiling_model"],
+        "param_keys": ["raw_content_limit", "temperature", "max_tokens", "prompt", "output_schema", "model"],
         "param_descriptions": {
           "raw_content_limit": "Maximum characters of web-sourced raw content passed as context to the profiling LLM — bounds how much of web_search output is visible to the model",
-          "profiling_temperature": "LLM sampling temperature for profile generation",
-          "profiling_max_tokens": "Maximum tokens in the LLM profile generation response"
-        },
-        "override_map": {
-          "raw_content_limit": "raw_content_limit",
-          "profiling_temperature": "temperature",
-          "profiling_max_tokens": "max_tokens",
-          "profiling_prompt": "prompt",
-          "profiling_schema": "output_schema",
-          "profiling_model": "model"
+          "temperature": "LLM sampling temperature for profile generation",
+          "max_tokens": "Maximum tokens in the LLM profile generation response"
         },
         "input_keys": ["web_sources"],
         "observation_name": "entity_profiling",
@@ -177,9 +161,6 @@
         "param_keys": ["max_token_candidates"],
         "param_descriptions": {
           "max_token_candidates": "Maximum number of candidates to return from token matching"
-        },
-        "override_map": {
-          "max_token_candidates": "max_token_candidates"
         },
         "input_keys": ["entity_profile"],
         "observation_name": "token_matching",
@@ -207,21 +188,12 @@
         "schema_version": 1
       },
       "optimizer": {
-        "param_keys": ["ranking_temperature", "ranking_max_tokens", "ranking_sample_size", "ranking_prompt", "ranking_schema", "ranking_model", "relevance_weight_core"],
+        "param_keys": ["temperature", "max_tokens", "sample_size", "prompt", "output_schema", "model", "relevance_weight_core"],
         "param_descriptions": {
-          "ranking_temperature": "LLM sampling temperature for ranking",
-          "ranking_max_tokens": "Maximum tokens in the LLM ranking response",
-          "ranking_sample_size": "Number of candidates sampled from the pool for LLM ranking",
+          "temperature": "LLM sampling temperature for ranking",
+          "max_tokens": "Maximum tokens in the LLM ranking response",
+          "sample_size": "Number of candidates sampled from the pool for LLM ranking",
           "relevance_weight_core": "Weight given to core-concept relevance in ranking score"
-        },
-        "override_map": {
-          "ranking_temperature": "temperature",
-          "ranking_max_tokens": "max_tokens",
-          "ranking_sample_size": "sample_size",
-          "ranking_prompt": "prompt",
-          "ranking_schema": "output_schema",
-          "ranking_model": "model",
-          "relevance_weight_core": "relevance_weight_core"
         },
         "input_keys": ["token_matched_candidates", "entity_profile"],
         "observation_name": "llm_ranking",

@@ -1,6 +1,5 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
 import json
-from typing import Optional
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from .correct_candidate_strings import correct_candidate_strings
 import random
@@ -30,17 +29,16 @@ async def call_llm_for_ranking(
     entity_profile: dict,
     match_results: list[tuple[str, float]],
     query: str,
-    temperature: float,
-    max_tokens: int,
-    sample_size: int,
-    relevance_weight_core: float,
-    ranking_prompt: Optional[str] = None,
-    ranking_schema: Optional[dict] = None,
-    ranking_model: Optional[str] = None,
-    debug_output_limit: int = 20,
+    lr_cfg: dict,
     warnings: list[str] | None = None,
 ) -> tuple[dict, dict]:
-    """Rank candidates using LLM and return (result, debug_info) tuple."""
+    """Rank candidates using LLM and return (result, debug_info) tuple.
+
+    Args:
+        lr_cfg: LLM ranking node config dict (temperature, max_tokens, sample_size,
+                relevance_weight_core, prompt, output_schema, model, debug_output_limit).
+    """
+    sample_size = lr_cfg["sample_size"]
     available_results = list(match_results[:sample_size])
     effective_sample = min(len(available_results), sample_size)
     random_20 = random.sample(available_results, effective_sample) if available_results else []
@@ -49,6 +47,7 @@ async def call_llm_for_ranking(
 
     entity_profile_json = json.dumps(entity_profile, indent=2)
 
+    ranking_prompt = lr_cfg.get("prompt")
     if ranking_prompt:
         # Use custom prompt with {{variable}} substitution
         prompt = ranking_prompt.replace("{{core_concept}}", core_concept)
@@ -86,10 +85,12 @@ IMPORTANT: Return a valid JSON response matching this exact structure:
 
 Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
 
+    ranking_schema = lr_cfg.get("output_schema")
+    ranking_model = lr_cfg.get("model")
     llm_kwargs = {
         "messages": [{"role": "user", "content": enhanced_prompt}],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
+        "temperature": lr_cfg["temperature"],
+        "max_tokens": lr_cfg.get("max_tokens"),
         "output_format": "schema" if ranking_schema else "json",
     }
     if ranking_schema:
@@ -99,8 +100,9 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
     ranking_result = await llm_call(**llm_kwargs, warnings=warnings)
 
     print(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
-    corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=relevance_weight_core)
+    corrected = correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])
 
+    debug_output_limit = lr_cfg["debug_output_limit"]
     if corrected and 'ranked_candidates' in corrected:
         candidates = corrected['ranked_candidates']
         top = candidates[0].get("candidate", "?")[:60]

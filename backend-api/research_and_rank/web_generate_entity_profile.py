@@ -332,12 +332,29 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         "info": info,
     }
 
-async def web_generate_entity_profile(query, max_sites, schema, content_char_limit, raw_content_limit, num_results, profiling_temperature, profiling_max_tokens, skip_search=False, profiling_prompt=None, profiling_schema=None, profiling_model=None, query_prefix="", query_suffix="", warnings=None, scraped_content=None):
+async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search=False, warnings=None, scraped_content=None):
+    """Web search + entity profiling.
+
+    Args:
+        query: Input query string.
+        ws_cfg: Web search node config dict (max_sites, num_results, content_char_limit, ...).
+        ep_cfg: Entity profiling node config dict (temperature, max_tokens, model, prompt, ...).
+        schema: Entity profile JSON schema.
+        skip_search: If True, skip web search (LLM knowledge only).
+        warnings: Mutable list to collect LLM retry warnings.
+        scraped_content: Precomputed web content (skips scraping when provided).
+    """
     if not schema:
         raise ValueError("Schema parameter is required.")
 
-    search_log = []
+    max_sites = ws_cfg["max_sites"]
+    num_results = ws_cfg["num_results"]
+    content_char_limit = ws_cfg["content_char_limit"]
+    query_prefix = ws_cfg.get("query_prefix", "")
+    query_suffix = ws_cfg.get("query_suffix", "")
+    raw_content_limit = ep_cfg["raw_content_limit"]
 
+    search_log = []
     scrape_errors = []
     fetched = 0
     filter_reasons = {}
@@ -410,6 +427,9 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
         ws_elapsed = round(time.time() - ws_start, 3)
 
     # Build research prompt (custom override or registry-based)
+    profiling_prompt = ep_cfg.get("prompt")
+    profiling_schema = ep_cfg.get("output_schema")
+    profiling_model = ep_cfg.get("model")
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
         if not scraped_content:
@@ -444,8 +464,8 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
     messages = [{"role": "user", "content": prompt}]
     llm_kwargs = {
         "messages": messages,
-        "temperature": profiling_temperature,
-        "max_tokens": profiling_max_tokens,
+        "temperature": ep_cfg["temperature"],
+        "max_tokens": ep_cfg.get("max_tokens"),
         "output_format": "schema" if profiling_schema else "json",
     }
     if profiling_schema:

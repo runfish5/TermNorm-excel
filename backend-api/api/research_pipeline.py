@@ -11,11 +11,10 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
 from research_and_rank.display_profile import display_profile
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
-from research_and_rank.correct_candidate_strings import find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER
-from core.pipeline_context import PipelineContext, StepStatus, StepWarning
+from core.pipeline_context import PipelineContext, StepStatus
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from utils.responses import success_response
@@ -97,78 +96,36 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
 def _resolve_pipeline_params(
     payload: Dict[str, Any],
     steps: List[str] | None = None,
-) -> Dict[str, Any]:
-    """Extract pipeline parameters from node_config, merging with pipeline.json defaults.
+) -> Dict[str, Dict[str, Any]]:
+    """Merge node_config overrides with pipeline.json defaults per node.
 
-    All nodes (LLM and non-LLM) merge incoming overrides with defaults from
-    pipeline.json so callers can send partial config (e.g. just a prompt
-    override) without providing every param.
+    Returns nested dict: ``{node_name: {param: value, ...}, ...}``.
+    Only active nodes (in *steps*) are included.  Callers receive their
+    node's native config keys — no prefixing.
     """
     ov = payload.get("node_config", {})
     active = set(steps or _pipeline("default"))
-
-    params: Dict[str, Any] = {}
-
-    if "entity_profiling" in active:
-        ep = ov.get("entity_profiling", {})
-        _ep = _node("entity_profiling")
-        params["profiling_model"] = ep.get("model", _ep["model"])
-        params["profiling_temperature"] = ep.get("temperature", _ep["temperature"])
-        params["profiling_max_tokens"] = ep.get("max_tokens", _ep.get("max_tokens"))
-        params["raw_content_limit"] = ep.get("raw_content_limit", _ep.get("raw_content_limit", 5000))
-        params["profiling_prompt"] = ep.get("prompt")
-        params["profiling_schema"] = ep.get("output_schema")
-
-    if "llm_ranking" in active:
-        lr = ov.get("llm_ranking", {})
-        _lr = _node("llm_ranking")
-        params["ranking_model"] = lr.get("model", _lr["model"])
-        params["ranking_temperature"] = lr.get("temperature", _lr["temperature"])
-        params["ranking_max_tokens"] = lr.get("max_tokens", _lr.get("max_tokens"))
-        params["ranking_sample_size"] = lr.get("sample_size", _lr.get("sample_size", 20))
-        params["ranking_prompt"] = lr.get("prompt")
-        params["ranking_schema"] = lr.get("output_schema")
-        params["relevance_weight_core"] = lr.get("relevance_weight_core", _lr.get("relevance_weight_core", 0.7))
-        params["debug_output_limit"] = lr.get("debug_output_limit", _lr.get("debug_output_limit", 20))
-
-    # -- Non-LLM nodes: pipeline.json defaults for non-critical params ----
-    if "web_search" in active:
-        ws = ov.get("web_search", {})
-        _ws = _node("web_search")
-        params["max_sites"] = ws.get("max_sites", _ws["max_sites"])
-        params["num_results"] = ws.get("num_results", _ws["num_results"])
-        params["content_char_limit"] = ws.get("content_char_limit", _ws["content_char_limit"])
-        params["query_prefix"] = ws.get("query_prefix", _ws.get("query_prefix", ""))
-        params["query_suffix"] = ws.get("query_suffix", _ws.get("query_suffix", ""))
-
-    if "token_matching" in active:
-        tm = ov.get("token_matching", {})
-        _tm = _node("token_matching")
-        params["max_token_candidates"] = tm.get("max_token_candidates", _tm["max_token_candidates"])
-
-    if "fuzzy_matching" in active:
-        fm = ov.get("fuzzy_matching", {})
-        _fm = _node("fuzzy_matching")
-        params["fuzzy_threshold"] = fm.get("threshold", _fm["threshold"])
-        params["fuzzy_scorer"] = fm.get("scorer", _fm["scorer"])
-        params["fuzzy_limit"] = fm.get("limit", _fm["limit"])
-
-    return params
+    resolved: Dict[str, Dict[str, Any]] = {}
+    for node_name in active:
+        defaults = _node(node_name)
+        overrides = ov.get(node_name, {})
+        resolved[node_name] = {**defaults, **overrides}
+    return resolved
 
 
-def _run_fuzzy_step(query: str, terms: List[str], params: Dict) -> tuple:
+def _run_fuzzy_step(query: str, terms: List[str], fm_cfg: Dict) -> tuple:
     """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
     print(RED + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
     t0 = time.time()
     results = fuzzy_match_terms(
-        query, terms, threshold=params["fuzzy_threshold"], scorer=params["fuzzy_scorer"], limit=params["fuzzy_limit"]
+        query, terms, threshold=fm_cfg["threshold"], scorer=fm_cfg["scorer"], limit=fm_cfg["limit"]
     )
     elapsed = round(time.time() - t0, 3)
     print(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
     return results, elapsed
 
 
-async def _run_research_step(query: str, steps: List[str], params: Dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None) -> tuple:
+async def _run_research_step(query: str, steps: List[str], ws_cfg: Dict, ep_cfg: Dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None) -> tuple:
     """Step 1: Web search + entity profiling.
     Returns (entity_profile, profile_debug, ep_time, ws_time).
     Times are None when the step was skipped.
@@ -184,26 +141,16 @@ async def _run_research_step(query: str, steps: List[str], params: Dict, llm_war
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
-    effective_max_tokens = params["profiling_max_tokens"]
     if scraped_content is not None:
         print(RED + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
     else:
         print(RED + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
-        max_sites=params["max_sites"],
+        ws_cfg=ws_cfg,
+        ep_cfg=ep_cfg,
         schema=ENTITY_SCHEMA,
-        content_char_limit=params["content_char_limit"],
-        raw_content_limit=params["raw_content_limit"],
-        num_results=params["num_results"],
-        profiling_temperature=params["profiling_temperature"],
-        profiling_max_tokens=effective_max_tokens,
         skip_search=not run_web_search,
-        profiling_prompt=params.get("profiling_prompt"),
-        profiling_schema=params.get("profiling_schema"),
-        profiling_model=params.get("profiling_model"),
-        query_prefix=params.get("query_prefix", ""),
-        query_suffix=params.get("query_suffix", ""),
         warnings=llm_warnings,
         scraped_content=scraped_content,
     )
@@ -235,10 +182,10 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
     return candidate_results, elapsed
 
 
-async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: List[str], params: Dict, llm_warnings: list[str] | None = None) -> tuple:
+async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: List[str], lr_cfg: Dict, tm_cfg: Dict, llm_warnings: list[str] | None = None) -> tuple:
     """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time)."""
     run_llm_ranking = "llm_ranking" in steps
-    max_token_candidates = params["max_token_candidates"]
+    max_token_candidates = tm_cfg["max_token_candidates"]
 
     t0 = time.time()
     if not run_llm_ranking:
@@ -255,14 +202,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         profile_info = display_profile(entity_profile, "RESEARCH PROFILE")
         llm_response, ranking_debug = await call_llm_for_ranking(
             profile_info, entity_profile, candidates, query,
-            temperature=params["ranking_temperature"],
-            max_tokens=params["ranking_max_tokens"],
-            sample_size=params["ranking_sample_size"],
-            relevance_weight_core=params["relevance_weight_core"],
-            ranking_prompt=params["ranking_prompt"],
-            ranking_schema=params.get("ranking_schema"),
-            ranking_model=params.get("ranking_model"),
-            debug_output_limit=params["debug_output_limit"],
+            lr_cfg=lr_cfg,
             warnings=llm_warnings,
         )
     elapsed = round(time.time() - t0, 3) if run_llm_ranking else None
@@ -410,12 +350,14 @@ def _build_pipeline_results(
         **ctx.params,
     }
 
+    ep_cfg = ctx.params.get("entity_profiling", {})
+    lr_cfg = ctx.params.get("llm_ranking", {})
     training_record = {
         "source": ctx.query, "target": target, "method": "ProfileRank",
         "confidence": confidence, "session_id": ctx.user_id,
         "llm_provider": LLM_PROVIDER,
-        "profiling_model": ctx.params.get("profiling_model"),
-        "ranking_model": ctx.params.get("ranking_model"),
+        "profiling_model": ep_cfg.get("model"),
+        "ranking_model": lr_cfg.get("model"),
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
         "step_timings": step_timings, "pipeline_params": pipeline_params,
         "entity_profile": entity_profile,
@@ -430,10 +372,10 @@ def _build_pipeline_results(
 
     data = {
         "ranked_candidates": ranked, "entity_profile": entity_profile,
-        "token_matched_candidates": candidates[:ctx.params["max_token_candidates"]],
+        "token_matched_candidates": candidates[:ctx.params.get("token_matching", {})["max_token_candidates"]],
         "llm_provider": LLM_PROVIDER,
-        "profiling_model": ctx.params.get("profiling_model"),
-        "ranking_model": ctx.params.get("ranking_model"),
+        "profiling_model": ep_cfg.get("model"),
+        "ranking_model": lr_cfg.get("model"),
         "total_time": total_time,
         "step_timings": step_timings, "web_search_status": web_status,
         "web_search_error": web_error, "pipeline_params": pipeline_params,
@@ -486,7 +428,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             ctx.record_step("fuzzy_matching", StepStatus.PRECOMPUTED, elapsed=0.0)
         else:
             try:
-                fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params)
+                fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params.get("fuzzy_matching", {}))
                 ctx.record_step("fuzzy_matching", StepStatus.SUCCESS, elapsed=fuzzy_time)
             except Exception as e:
                 logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
@@ -500,7 +442,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
                     "ranked_candidates": [{"candidate": t, "relevance_score": s} for t, s in fuzzy_results],
                     "total_time": ctx.total_time,
                     "step_timings": ctx.step_timings,
-                    "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_threshold": params["fuzzy_threshold"], "fuzzy_scorer": params["fuzzy_scorer"]},
+                    "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_matching": params.get("fuzzy_matching", {})},
                     "terminated_at": "fuzzy_matching",
                     "diagnostics": ctx.build_diagnostics(),
                 }
@@ -525,7 +467,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         try:
             ep_llm_warnings = []
             entity_profile, profile_debug, ep_time, _ws_time = await _run_research_step(
-                query, steps, params, llm_warnings=ep_llm_warnings,
+                query, steps, params.get("web_search", {}), params.get("entity_profiling", {}),
+                llm_warnings=ep_llm_warnings,
                 scraped_content=precomputed["web_search"],
             )
             for w in profile_debug.get("warnings", []):
@@ -543,7 +486,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     else:
         try:
             ep_llm_warnings = []
-            entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params, llm_warnings=ep_llm_warnings)
+            entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params.get("web_search", {}), params.get("entity_profiling", {}), llm_warnings=ep_llm_warnings)
             # Surface warnings from web scraping into PipelineContext
             for w in profile_debug.get("warnings", []):
                 ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
@@ -596,7 +539,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # Step 3: LLM ranking
     try:
         ranking_llm_warnings = []
-        llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params, llm_warnings=ranking_llm_warnings)
+        llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params.get("llm_ranking", {}), params.get("token_matching", {}), llm_warnings=ranking_llm_warnings)
         if "llm_ranking" not in steps:
             ctx.record_step("llm_ranking", StepStatus.SKIPPED)
         else:
@@ -608,9 +551,9 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         logger.error(
             "[PIPELINE] LLM ranking failed (%d: %s) — "
             "falling back to token match scores (%d candidates)",
-            e.status_code, e.detail, len(candidate_results[:params["max_token_candidates"]]),
+            e.status_code, e.detail, len(candidate_results[:params.get("token_matching", {})["max_token_candidates"]]),
         )
-        max_cands = params["max_token_candidates"]
+        max_cands = params.get("token_matching", {})["max_token_candidates"]
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
