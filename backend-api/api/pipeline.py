@@ -6,7 +6,6 @@ from typing import Dict, Any, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from utils.responses import success_response
 from utils.langfuse_logger import (
     create_trace, create_observation, create_score, update_trace,
     _log_event, get_or_create_item,
@@ -16,6 +15,13 @@ from utils.prompt_registry import get_prompt_registry
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["pipeline"])
+
+
+def _ok(message, data=None):
+    r = {"status": "success", "message": message}
+    if data is not None:
+        r["data"] = data
+    return r
 
 PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
 
@@ -86,7 +92,7 @@ async def get_pipeline():
     """Return the complete pipeline configuration with resolved registry references."""
     config = json.loads(PIPELINE_CONFIG_PATH.read_text())
     _enrich_with_registries(config)
-    return success_response(
+    return _ok(
         message="Pipeline configuration",
         data=config,
     )
@@ -117,7 +123,7 @@ async def create_pipeline_trace(req: TraceRequest):
         metadata=metadata,
         tags=["production"],
     )
-    return success_response(
+    return _ok(
         message="Trace created",
         data={"trace_id": trace_id},
     )
@@ -170,4 +176,4 @@ async def report_pipeline_step(report: StepReport):
             "latency_ms": report.latency_ms,
         })
 
-    return success_response(message="Step reported")
+    return _ok(message="Step reported")

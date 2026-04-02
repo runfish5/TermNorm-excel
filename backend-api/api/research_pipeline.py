@@ -16,7 +16,6 @@ from core.llm_providers import llm_call, LLM_PROVIDER
 from core.pipeline_context import PipelineContext, StepStatus
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
-from utils.responses import success_response
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
 from utils.langfuse_logger import (
     log_batch_start, log_batch_complete, log_pipeline,
@@ -29,6 +28,13 @@ from config.pipeline_config import get_node_config, get_pipeline_steps
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _ok(message, data=None):
+    r = {"status": "success", "message": message}
+    if data is not None:
+        r["data"] = data
+    return r
 
 # Load entity schema from registry (versioned, pinned to pipeline.json config)
 _schema_registry = get_schema_registry()
@@ -86,7 +92,7 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
 
     logger.info(f"[SESSION] User {user_id}: Initialized session with {len(terms)} terms")
 
-    return success_response(
+    return _ok(
         message=f"Session initialized with {len(terms)} terms",
         data={"term_count": len(terms)}
     )
@@ -382,7 +388,7 @@ def _build_pipeline_results(
     }
     if node_outputs:
         data["node_outputs"] = node_outputs
-    api_response = success_response(
+    api_response = _ok(
         message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
         data=data,
     )
@@ -434,7 +440,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
                 ctx.record_step("fuzzy_matching", StepStatus.FAILED)
                 ctx.add_warning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}")
         if steps == ["fuzzy_matching"]:
-            return success_response(
+            return _ok(
                 message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {ctx.total_time}s",
                 data={
                     "ranked_candidates": [{"candidate": t, "relevance_score": s} for t, s in fuzzy_results],
@@ -618,7 +624,7 @@ async def batch_start(
 
     logger.info(f"[BATCH] Started batch {batch_id}: {method}, {item_count} items")
 
-    return success_response(
+    return _ok(
         message=f"Batch started: {item_count} items",
         data={"batch_id": batch_id}
     )
@@ -653,7 +659,7 @@ async def batch_complete(
 
     logger.info(f"[BATCH] Completed batch {batch_id}: {success_count} success, {error_count} errors")
 
-    return success_response(
+    return _ok(
         message=f"Batch completed: {success_count}/{success_count + error_count} successful",
         data={"batch_id": batch_id, "success_count": success_count, "error_count": error_count}
     )
@@ -803,7 +809,7 @@ Return ONLY valid JSON."""
 
     logger.info(f"[DIRECT_PROMPT] {query[:30]}... -> {target[:30]} ({confidence:.0%}) in {total_time}s")
 
-    return success_response(
+    return _ok(
         message="Direct prompt completed",
         data={
             "target": target, "confidence": confidence, "reasoning": reasoning,
@@ -878,7 +884,7 @@ async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any
 
         logger.info(f"[LOG_MATCH] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}... ({trace_id})")
 
-        return success_response(
+        return _ok(
             message=f"{payload.method} match logged",
             data={"trace_id": trace_id}
         )
@@ -905,7 +911,7 @@ async def log_activity(request: Request, payload: LogActivityRequest) -> Dict[st
 
         logger.info(f"[LOG_ACTIVITY] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}...")
 
-        return success_response(
+        return _ok(
             message=f"{payload.method} logged",
             data={"success": success}
         )

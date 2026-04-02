@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from .standards_logger import generate_dated_id
+from .id_gen import generate_dated_id
 
 BASE_PATH = Path("logs/langfuse")
 DEFAULT_DATASET = "termnorm_ground_truth"
