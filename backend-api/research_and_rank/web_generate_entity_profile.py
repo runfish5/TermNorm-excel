@@ -236,7 +236,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     )
 
 
-def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix="", skip_search=False, fetched_count=0, filter_reasons=None):
+def _build_debug_info(scraped_content, search_method, search_log, scrape_errors, query, max_sites, content_char_limit, raw_content_limit, query_prefix="", query_suffix="", skip_search=False, fetched_count=0, filter_reasons=None, num_results=0):
     """Build debug information dictionary"""
     method_params = {
         "query": query,
@@ -250,6 +250,21 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
     warnings: list[dict] = []
     info: list[dict] = []
 
+    def _web_stats(usable: int, fetched: int) -> dict:
+        return {"min": max_sites, "usable": usable, "fetched": fetched, "requested": num_results}
+
+    def _web_msg(stats: dict, detail: str = "") -> str:
+        msg = f"{stats['min']} min, {stats['usable']} usable, {stats['fetched']} fetched, {stats['requested']} requested"
+        return f"{msg} — {detail}" if detail else msg
+
+    def _loss_detail(scrape_errors, _fr, _n_filtered) -> str:
+        parts = []
+        if _n_filtered:
+            parts.append(f"{_n_filtered} filtered: {', '.join(f'{n}\u00d7{r}' for r, n in _fr.items())}")
+        if scrape_errors:
+            parts.append(f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}")
+        return "; ".join(parts)
+
     if scraped_content:
         sources_info = {
             "sources_fetched": [
@@ -261,27 +276,18 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         _fr = filter_reasons or {}
         _n_filtered = sum(_fr.values())
         total = fetched_count or (len(scraped_content) + len(scrape_errors) + _n_filtered)
-        # Always record fetch stats as info (non-degradation observability)
-        info.append({
-            "step": "web_search",
-            "code": "fetch_stats",
-            "message": f"{len(scraped_content)} of {total} fetched URLs returned content",
-        })
+        stats = _web_stats(len(scraped_content), total)
+        detail = _loss_detail(scrape_errors, _fr, _n_filtered)
+
+        info.append({"step": "web_search", "code": "fetch_stats",
+                     "message": _web_msg(stats, detail), "stats": stats})
+
         # Only warn when below threshold AND actual losses occurred
         if len(scraped_content) < max_sites and (scrape_errors or _fr):
-            detail_parts = []
-            if _n_filtered:
-                reason_strs = [f"{n}\u00d7{r}" for r, n in _fr.items()]
-                detail_parts.append(f"{_n_filtered} filtered: {', '.join(reason_strs)}")
-            if scrape_errors:
-                detail_parts.append(f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}")
-            detail = f" ({'; '.join(detail_parts)})" if detail_parts else ""
             warnings.append({
-                "step": "web_search",
-                "code": "low_document_count",
-                "message": f"{len(scraped_content)} of {total} fetched URLs returned content (min: {max_sites}){detail}",
-                "details": scrape_errors,
-                "filter_reasons": _fr,
+                "step": "web_search", "code": "low_document_count",
+                "message": _web_msg(stats, detail), "stats": stats,
+                "details": scrape_errors, "filter_reasons": _fr,
             })
     elif skip_search:
         sources_info = {
@@ -297,36 +303,26 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             "fallback": "LLM knowledge only",
             "method_parameters": method_params,
         }
-        # Build a human-readable warning message
         _fr = filter_reasons or {}
         _n_filtered = sum(_fr.values())
         if scrape_errors or _n_filtered:
             total = fetched_count or (len(scrape_errors) + _n_filtered)
-            parts = []
-            if scrape_errors:
-                parts.append(f"{len(scrape_errors)} error{'s' if len(scrape_errors) != 1 else ''}")
-            if _n_filtered:
-                reason_strs = [f"{n}\u00d7{r}" for r, n in _fr.items()]
-                parts.append(f"{_n_filtered} filtered: {', '.join(reason_strs)}")
+            stats = _web_stats(0, total)
+            detail = _loss_detail(scrape_errors, _fr, _n_filtered)
             warnings.append({
-                "step": "web_search",
-                "code": "scrape_failed",
-                "message": f"0 of {total} fetched URLs returned content ({'; '.join(parts)})",
-                "details": scrape_errors,
-                "filter_reasons": _fr,
+                "step": "web_search", "code": "scrape_failed",
+                "message": _web_msg(stats, detail), "stats": stats,
+                "details": scrape_errors, "filter_reasons": _fr,
             })
         elif search_log:
-            # Brave Search itself failed (no URLs returned)
             last_log = search_log[-1] if search_log else "unknown"
             warnings.append({
-                "step": "web_search",
-                "code": "search_failed",
+                "step": "web_search", "code": "search_failed",
                 "message": f"No URLs found — {last_log}",
             })
         else:
             warnings.append({
-                "step": "web_search",
-                "code": "no_results",
+                "step": "web_search", "code": "no_results",
                 "message": "Web search returned no results",
             })
 
@@ -475,7 +471,7 @@ async def web_generate_entity_profile(query, max_sites, schema, content_char_lim
                                     query, max_sites, content_char_limit, raw_content_limit,
                                     query_prefix=query_prefix, query_suffix=query_suffix,
                                     skip_search=skip_search, fetched_count=fetched,
-                                    filter_reasons=filter_reasons)
+                                    filter_reasons=filter_reasons, num_results=num_results)
     debug_info["web_search_elapsed"] = ws_elapsed
     debug_info["llm_elapsed"] = llm_elapsed
     # Full scraped content for intermediate caching (Wave 4)

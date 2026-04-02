@@ -36,6 +36,7 @@ class StepWarning:
     code: str       # machine-readable code (e.g. "scrape_failed")
     message: str    # human-readable detail
     details: tuple = ()  # optional structured data (e.g. failed URLs + reasons)
+    stats: tuple = ()    # frozen key-value pairs for structured numerics (e.g. min/usable/fetched/requested)
 
 
 @dataclass
@@ -81,9 +82,12 @@ class PipelineContext:
         )
 
     def add_warning(self, step: str, code: str, message: str,
-                    details: list | None = None) -> None:
+                    details: list | None = None,
+                    stats: dict | None = None) -> None:
         """Append a warning to an already-recorded step, or create a stub."""
-        w = StepWarning(step, code, message, details=tuple(details) if details else ())
+        w = StepWarning(step, code, message,
+                        details=tuple(details) if details else (),
+                        stats=tuple(stats.items()) if stats else ())
         if step in self._steps:
             self._steps[step].warnings.append(w)
         else:
@@ -128,6 +132,8 @@ class PipelineContext:
             d = {"step": w.step, "code": w.code, "message": w.message}
             if w.details:
                 d["details"] = list(w.details)
+            if w.stats:
+                d["stats"] = dict(w.stats)
             warnings_list.append(d)
         return {
             "step_statuses": {

@@ -529,7 +529,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
                 scraped_content=precomputed["web_search"],
             )
             for w in profile_debug.get("warnings", []):
-                ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"))
+                ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
             for msg in ep_llm_warnings:
                 ctx.add_warning("entity_profiling", "llm_retry", msg)
             ep_status = StepStatus.DEGRADED if ep_llm_warnings else StepStatus.SUCCESS
@@ -546,7 +546,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
             entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params, llm_warnings=ep_llm_warnings)
             # Surface warnings from web scraping into PipelineContext
             for w in profile_debug.get("warnings", []):
-                ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"))
+                ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
             # Surface LLM retry warnings
             for msg in ep_llm_warnings:
                 ctx.add_warning("entity_profiling", "llm_retry", msg)
