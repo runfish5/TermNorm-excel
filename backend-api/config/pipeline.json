@@ -6,10 +6,8 @@
   "template_variables": ["{{core_concept}}", "{{entity_profile_json}}", "{{matches}}"],
   "dataset_name": "termnorm_ground_truth",
   "available_models": [
-    "moonshotai/kimi-k2-instruct-0905",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "moonshotai/kimi-k2-instruct",
-    "openai/gpt-oss-120b"
+    "openai/gpt-oss-120b",
+    "meta-llama/llama-4-scout-17b-16e-instruct"
   ],
   "nodes": {
     "cache_lookup": {
@@ -35,6 +33,7 @@
         "limit": 5
       },
       "optimizer": {
+        "display_tag": "fuzz",
         "param_keys": ["threshold", "scorer"],
         "param_descriptions": {
           "threshold": "Minimum similarity score (0-100) to accept a fuzzy match",
@@ -101,6 +100,7 @@
         "freshness": ""
       },
       "optimizer": {
+        "display_tag": "webS",
         "param_keys": ["max_sites", "num_results", "content_char_limit", "query_prefix", "query_suffix"],
         "param_descriptions": {
           "query_prefix": "Text prepended to the input query before web search — controls search focus, domain targeting, and terminology framing (e.g. 'LCA database' narrows to domain)",
@@ -123,7 +123,7 @@
       "node_role": "enricher",
       "description": "LLM-driven step that generates a structured entity profile from the input query and web-sourced raw content. Produces the required pipeline output (entity_profile). Profile quality depends on both the LLM configuration and the quality of upstream web_search results.",
       "config": {
-        "model": "moonshotai/kimi-k2-instruct-0905",
+        "model": "openai/gpt-oss-120b",
         "temperature": 0.3,
         "max_tokens": null,
         "raw_content_limit": 5000,
@@ -158,6 +158,7 @@
         "tokenization_regex": "[a-zA-Z0-9]+"
       },
       "optimizer": {
+        "display_tag": "rank",
         "param_keys": ["max_token_candidates"],
         "param_descriptions": {
           "max_token_candidates": "Maximum number of candidates to return from token matching"
@@ -165,7 +166,7 @@
         "input_keys": ["entity_profile"],
         "observation_name": "token_matching",
         "observation_mappings": [
-          {"pipeline_key": "token_matched_candidates", "output_field": "candidates"}
+          {"pipeline_key": "candidate_ranking", "output_field": "candidates"}
         ],
         "langfuse_type": "retriever"
       }
@@ -176,7 +177,7 @@
       "node_role": "ranker",
       "description": "LLM-driven re-ranking of token-matched candidates using a ranking prompt. Selects the best match from the candidate pool.",
       "config": {
-        "model": "moonshotai/kimi-k2-instruct-0905",
+        "model": "openai/gpt-oss-120b",
         "temperature": 0.0,
         "max_tokens": 4000,
         "sample_size": 20,
@@ -195,10 +196,10 @@
           "sample_size": "Number of candidates sampled from the pool for LLM ranking",
           "relevance_weight_core": "Weight given to core-concept relevance in ranking score"
         },
-        "input_keys": ["token_matched_candidates", "entity_profile"],
+        "input_keys": ["candidate_ranking", "entity_profile"],
         "observation_name": "llm_ranking",
         "observation_mappings": [
-          {"pipeline_key": "ranked_candidates", "output_field": "ranked_candidates", "is_llm": true}
+          {"pipeline_key": "final_ranking", "output_field": "ranked_candidates", "is_llm": true}
         ],
         "langfuse_type": "generation"
       }
@@ -209,7 +210,7 @@
       "node_role": "",
       "description": "Direct LLM prompt for simple queries — bypasses the full pipeline.",
       "config": {
-        "model": "moonshotai/kimi-k2-instruct-0905",
+        "model": "openai/gpt-oss-120b",
         "temperature": 0.0,
         "max_tokens": 300,
         "accept_threshold": 0.75,
@@ -229,7 +230,7 @@
   },
   "llm_defaults": {
     "provider": "groq",
-    "model": "moonshotai/kimi-k2-instruct-0905",
+    "model": "openai/gpt-oss-120b",
     "timeout": 60,
     "retry_attempts": 3,
     "retry_backoff_base": 2,

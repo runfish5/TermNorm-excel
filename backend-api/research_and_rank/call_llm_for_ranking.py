@@ -56,7 +56,7 @@ def _build_result(query: str, candidates: list, match_results: list[tuple[str, f
         "ranked_candidates": candidates,
         "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
     }
-    debug_info = {"inputs": {"token_matched_candidates": match_results[:debug_output_limit]}}
+    debug_info = {"inputs": {"candidate_ranking": match_results[:debug_output_limit]}}
     return result, debug_info
 
 
