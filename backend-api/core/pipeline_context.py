@@ -20,6 +20,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class StepStatus(str, Enum):
@@ -46,6 +47,16 @@ class _StepRecord:
     warnings: list[StepWarning] = field(default_factory=list)
 
 
+@dataclass
+class StepResult:
+    """Uniform return type for all pipeline step functions."""
+    output: Any                    # step-specific data (fuzzy matches, entity profile, LLM answer, etc.)
+    elapsed: float                 # seconds
+    terminates: bool = False       # if True, pipeline stops after this step
+    status: StepStatus = StepStatus.SUCCESS
+    warnings: list[StepWarning] = field(default_factory=list)
+
+
 class PipelineContext:
     """Accumulates step execution results throughout a /matches request."""
 
@@ -62,6 +73,7 @@ class PipelineContext:
         self.params = params
         self._start = time.time()
         self._steps: dict[str, _StepRecord] = {}
+        self._outputs: dict[str, Any] = {}
 
     # -- recording ----------------------------------------------------------
 
@@ -95,6 +107,21 @@ class PipelineContext:
             self._steps[step] = _StepRecord(
                 status=StepStatus.DEGRADED, elapsed=None, warnings=[w],
             )
+
+    # -- output storage -----------------------------------------------------
+
+    def set_output(self, name: str, value: Any) -> None:
+        """Store step output for downstream steps and response building."""
+        self._outputs[name] = value
+
+    def get_output(self, name: str, default: Any = None) -> Any:
+        """Retrieve output from a previously executed step."""
+        return self._outputs.get(name, default)
+
+    def record_precomputed(self, name: str, value: Any) -> None:
+        """Record a precomputed step and store its output."""
+        self.set_output(name, value)
+        self.record_step(name, StepStatus.PRECOMPUTED, elapsed=0.0)
 
     # -- queries ------------------------------------------------------------
 

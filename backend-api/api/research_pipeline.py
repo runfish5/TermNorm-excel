@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Callable, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request, Body
 
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
@@ -13,7 +13,7 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_to
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call, LLM_PROVIDER
-from core.pipeline_context import PipelineContext, StepStatus
+from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
@@ -213,10 +213,361 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
     return llm_response, ranking_debug, elapsed
 
 
-def _derive_executed_steps(step_timings: dict) -> list[str]:
-    """Derive which steps actually executed from step_timings.
-    Non-None timing = step ran. Order follows pipeline execution order."""
-    return [step for step, t in step_timings.items() if t is not None]
+# ---------------------------------------------------------------------------
+# Step wrapper functions — uniform signature for the dispatch loop
+# ---------------------------------------------------------------------------
+
+async def _step_cache_lookup(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Cache lookup is handled externally by the frontend — always SKIPPED here."""
+    return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
+
+
+async def _step_fuzzy(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Fuzzy matching against session terms."""
+    terms = ctx.get_output("_session_terms", [])
+    try:
+        results, elapsed = _run_fuzzy_step(query, terms, cfg)
+    except Exception as e:
+        logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
+        return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
+                          warnings=[StepWarning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}")])
+
+    # Determine if fuzzy is the last step — if so, terminate the pipeline
+    req = ctx.requested_steps
+    fuzzy_idx = req.index("fuzzy_matching") if "fuzzy_matching" in req else -1
+    is_last = fuzzy_idx == len(req) - 1
+
+    if is_last:
+        # Build early-exit response and store it
+        fuzzy_ranking = [{"candidate": t, "relevance_score": s} for t, s in results]
+        ctx.set_output("_early_response", _ok(
+            message=f"Fuzzy matching completed - {len(results)} matches in {ctx.total_time}s",
+            data={
+                "final_ranking": fuzzy_ranking,
+                "total_time": ctx.total_time,
+                "step_timings": ctx.step_timings,
+                "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_matching": cfg},
+                "terminated_at": "fuzzy_matching",
+                "diagnostics": ctx.build_diagnostics(),
+            },
+        ))
+
+    return StepResult(output=results, elapsed=elapsed, terminates=is_last)
+
+
+async def _step_web_search(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Sentinel — actual web search runs inside _step_entity_profiling (coupled function)."""
+    if "entity_profiling" in ctx.requested_steps:
+        # Will be handled by _step_entity_profiling
+        return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
+    # web_search without entity_profiling is not a supported configuration
+    return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
+
+
+async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Combined web search + entity profiling (coupled underlying function).
+
+    Records both web_search and entity_profiling statuses in ctx.
+    """
+    steps = ctx.requested_steps
+    ws_cfg = ctx.params.get("web_search", {})
+    ep_cfg = ctx.params.get("entity_profiling", {})
+
+    # Branch 1: entity_profiling precomputed — both steps done
+    if ctx.get_output("entity_profiling") is not None:
+        profile_debug = {"inputs": {"scraped_sources": {"status": "precomputed"}}, "warnings": [], "scraped_content": []}
+        ctx.set_output("_profile_debug", profile_debug)
+        ctx.record_step("web_search", StepStatus.PRECOMPUTED, elapsed=0.0)
+        return StepResult(
+            output=ctx.get_output("entity_profiling"),
+            elapsed=0.0,
+            status=StepStatus.PRECOMPUTED,
+        )
+
+    # Branch 2: web_search precomputed — re-run entity profiling with cached web content
+    precomputed_web = ctx.get_output("web_search")
+    scraped_content = precomputed_web if precomputed_web is not None else None
+
+    if precomputed_web is not None:
+        ctx.record_step("web_search", StepStatus.PRECOMPUTED, elapsed=0.0)
+
+    try:
+        ep_llm_warnings = []
+        entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(
+            query, steps, ws_cfg, ep_cfg,
+            llm_warnings=ep_llm_warnings,
+            scraped_content=scraped_content,
+        )
+        # Surface warnings
+        for w in profile_debug.get("warnings", []):
+            ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
+        for msg in ep_llm_warnings:
+            ctx.add_warning("entity_profiling", "llm_retry", msg)
+
+        # Store scraped content for node_outputs
+        ctx.set_output("_profile_debug", profile_debug)
+        if profile_debug.get("scraped_content"):
+            ctx.set_output("_scraped_content", profile_debug["scraped_content"])
+
+        # Determine statuses
+        scraped = profile_debug["inputs"]["scraped_sources"]
+        if scraped.get("status") == "skipped":
+            if precomputed_web is None:
+                ctx.record_step("web_search", StepStatus.SKIPPED)
+            ep_status = StepStatus.SKIPPED
+        elif "error" in scraped:
+            if precomputed_web is None:
+                ctx.record_step("web_search", StepStatus.FAILED, elapsed=ws_time)
+            ep_status = StepStatus.DEGRADED
+        else:
+            if precomputed_web is None:
+                has_ws_warnings = any(w.get("step") == "web_search" for w in profile_debug.get("warnings", []))
+                ws_status = StepStatus.DEGRADED if has_ws_warnings else StepStatus.SUCCESS
+                ctx.record_step("web_search", ws_status, elapsed=ws_time)
+            ep_status = StepStatus.DEGRADED if ep_llm_warnings else StepStatus.SUCCESS
+
+        return StepResult(output=entity_profile, elapsed=ep_time or 0.0, status=ep_status)
+
+    except HTTPException as e:
+        logger.warning("[PIPELINE] Entity profiling failed — continuing with token matching only")
+        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": []}
+        if scraped_content is not None:
+            profile_debug["scraped_content"] = scraped_content
+        ctx.set_output("_profile_debug", profile_debug)
+        if precomputed_web is None:
+            ctx.record_step("web_search", StepStatus.FAILED)
+        return StepResult(
+            output=[],
+            elapsed=0.0,
+            status=StepStatus.FAILED,
+            warnings=[StepWarning("entity_profiling", "llm_error", f"Entity profiling failed: {e.detail}")],
+        )
+
+
+async def _step_token(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Token matching — find candidates using tokenized entity profile."""
+    entity_profile = ctx.get_output("entity_profiling", [])
+    token_matcher = ctx.get_output("_token_matcher")
+    if token_matcher is None:
+        return StepResult(output=[], elapsed=0.0, status=StepStatus.SKIPPED)
+
+    try:
+        results, elapsed = _run_token_step(query, entity_profile, token_matcher)
+        return StepResult(output=results, elapsed=elapsed)
+    except Exception as e:
+        logger.error("[PIPELINE] Token matching failed: %s — continuing with empty candidates", e)
+        return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
+                          warnings=[StepWarning("token_matching", "step_error", f"Token matching failed: {e}")])
+
+
+async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """LLM ranking — rank candidates using entity profile context."""
+    entity_profile = ctx.get_output("entity_profiling", [])
+    candidates = ctx.get_output("token_matching", [])
+    lr_cfg = ctx.params.get("llm_ranking", {})
+    tm_cfg = ctx.params.get("token_matching", {})
+
+    try:
+        ranking_llm_warnings = []
+        llm_response, ranking_debug, elapsed = await _run_ranking_step(
+            entity_profile, candidates, query,
+            ctx.requested_steps, lr_cfg, tm_cfg,
+            llm_warnings=ranking_llm_warnings,
+        )
+        ctx.set_output("_ranking_debug", ranking_debug)
+
+        if "llm_ranking" not in ctx.requested_steps:
+            return StepResult(output=llm_response, elapsed=0.0, status=StepStatus.SKIPPED)
+
+        warnings = [StepWarning("llm_ranking", "llm_retry", msg) for msg in ranking_llm_warnings]
+        status = StepStatus.DEGRADED if ranking_llm_warnings else StepStatus.SUCCESS
+        return StepResult(output=llm_response, elapsed=elapsed or 0.0, status=status, warnings=warnings)
+
+    except HTTPException as e:
+        max_cands = tm_cfg.get("max_token_candidates", 20)
+        logger.error(
+            "[PIPELINE] LLM ranking failed (%d: %s) — falling back to token match scores (%d candidates)",
+            e.status_code, e.detail, len(candidates[:max_cands]),
+        )
+        llm_response = {
+            "ranked_candidates": [
+                {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
+                for term, score in candidates[:max_cands]
+            ]
+        }
+        ranking_debug = {
+            "inputs": {"candidate_ranking": candidates[:max_cands]},
+            "error": e.detail,
+        }
+        ctx.set_output("_ranking_debug", ranking_debug)
+        return StepResult(
+            output=llm_response, elapsed=0.0, status=StepStatus.FAILED,
+            warnings=[StepWarning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}")],
+        )
+
+
+async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
+    """Generic LLM call — send prompt + query, get text response."""
+    print(RED + "[PIPELINE] llm_only" + RESET)
+    t0 = time.time()
+
+    system = cfg.get("prompt", "")
+    model = cfg.get("model")
+    temperature = cfg.get("temperature", 0.0)
+    max_tokens = cfg.get("max_tokens", 2000)
+    response_format = cfg.get("response_format", "text")
+
+    messages = [{"role": "user", "content": query}]
+    kwargs: Dict[str, Any] = {
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "model": model,
+    }
+    if system:
+        kwargs["system"] = system
+    if response_format == "json":
+        kwargs["output_format"] = "json"
+
+    response = await llm_call(**kwargs)
+    answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
+    elapsed = round(time.time() - t0, 3)
+
+    print(f"[PIPELINE] llm_only: {len(answer)} chars in {elapsed}s")
+
+    # Build early-exit response
+    final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
+    ctx.set_output("_early_response", _ok(
+        message=f"LLM-only completed in {elapsed}s",
+        data={
+            "final_ranking": final_ranking,
+            "node_outputs": {},
+            "step_timings": {"llm_only": elapsed},
+            "total_time": elapsed,
+            "terminated_at": "llm_only",
+            "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
+            "llm_provider": LLM_PROVIDER,
+            "diagnostics": {"warnings": [], "step_statuses": {"llm_only": "success"}},
+        },
+    ))
+
+    return StepResult(
+        output={"final_ranking": final_ranking},
+        elapsed=elapsed,
+        terminates=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step registry + session requirements
+# ---------------------------------------------------------------------------
+
+STEP_REGISTRY: dict[str, Callable] = {
+    "cache_lookup":      _step_cache_lookup,
+    "fuzzy_matching":    _step_fuzzy,
+    "web_search":        _step_web_search,
+    "entity_profiling":  _step_entity_profiling,
+    "token_matching":    _step_token,
+    "llm_ranking":       _step_ranking,
+    "llm_only":          _step_llm_only,
+}
+
+REQUIRES_SESSION = {"fuzzy_matching", "token_matching", "llm_ranking", "web_search", "entity_profiling"}
+
+
+# ---------------------------------------------------------------------------
+# Response building
+# ---------------------------------------------------------------------------
+
+def _build_response(ctx: PipelineContext) -> tuple:
+    """Build training_record and api_response from PipelineContext outputs.
+
+    Returns (training_record, api_response).
+    """
+    entity_profile = ctx.get_output("entity_profiling", [])
+    llm_response = ctx.get_output("llm_ranking", {})
+    candidates = ctx.get_output("token_matching", [])
+    profile_debug = ctx.get_output("_profile_debug", {"inputs": {"scraped_sources": {"status": "skipped"}}})
+    ranking_debug = ctx.get_output("_ranking_debug")
+
+    ranked = llm_response.get("ranked_candidates", [])
+    target = ranked[0].get("candidate") if ranked else "No matches found"
+    confidence = ranked[0].get("relevance_score", 0) if ranked else 0
+
+    # Three-state web_search_status (backward compat)
+    scraped_sources = profile_debug["inputs"]["scraped_sources"]
+    if scraped_sources.get("status") in ("skipped", "precomputed"):
+        web_status, web_error, web_sources = scraped_sources["status"], None, []
+    elif "error" in scraped_sources:
+        web_status, web_error, web_sources = "failed", scraped_sources["error"], []
+    else:
+        web_status, web_error = "success", None
+        web_sources = scraped_sources.get("sources_fetched", [])
+
+    step_timings = ctx.step_timings
+    total_time = ctx.total_time
+    pipeline_params = {
+        "steps": ctx.executed_steps,
+        "requested_steps": ctx.requested_steps,
+        **ctx.params,
+    }
+
+    ep_cfg = ctx.params.get("entity_profiling", {})
+    lr_cfg = ctx.params.get("llm_ranking", {})
+    training_record = {
+        "source": ctx.query, "target": target, "method": "ProfileRank",
+        "confidence": confidence, "session_id": ctx.user_id,
+        "llm_provider": LLM_PROVIDER,
+        "profiling_model": ep_cfg.get("model"),
+        "ranking_model": lr_cfg.get("model"),
+        "total_time": total_time, "web_search_status": web_status, "error": web_error,
+        "step_timings": step_timings, "pipeline_params": pipeline_params,
+        "entity_profile": entity_profile,
+        "candidates": [
+            {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
+             "core_score": c.get("core_concept_score"), "spec_score": c.get("spec_score")}
+            for i, c in enumerate(ranked)
+        ] if ranked else [],
+        "token_matches": ranking_debug["inputs"]["candidate_ranking"] if ranking_debug else [],
+        "web_sources": web_sources,
+    }
+
+    # Node outputs for partial pipeline caching
+    _ran = {StepStatus.SUCCESS, StepStatus.DEGRADED}
+    statuses = {name: rec.status for name, rec in ctx._steps.items()}
+    node_outputs: dict = {}
+
+    fuzzy_results = ctx.get_output("fuzzy_matching", [])
+    if statuses.get("fuzzy_matching") in _ran:
+        node_outputs["fuzzy_matching"] = [{"term": t, "score": s} for t, s in fuzzy_results]
+    scraped = ctx.get_output("_scraped_content")
+    if statuses.get("web_search") in _ran and scraped:
+        node_outputs["web_search"] = scraped
+    if statuses.get("entity_profiling") in _ran:
+        node_outputs["entity_profiling"] = entity_profile
+    if statuses.get("token_matching") in _ran:
+        node_outputs["token_matching"] = [{"term": t, "score": s} for t, s in candidates]
+
+    data = {
+        "final_ranking": ranked, "entity_profile": entity_profile,
+        "candidate_ranking": candidates[:ctx.params.get("token_matching", {}).get("max_token_candidates", 20)],
+        "llm_provider": LLM_PROVIDER,
+        "profiling_model": ep_cfg.get("model"),
+        "ranking_model": lr_cfg.get("model"),
+        "total_time": total_time,
+        "step_timings": step_timings, "web_search_status": web_status,
+        "web_search_error": web_error, "pipeline_params": pipeline_params,
+        "terminated_at": ctx.terminated_at,
+        "diagnostics": ctx.build_diagnostics(),
+    }
+    if node_outputs:
+        data["node_outputs"] = node_outputs
+    api_response = _ok(
+        message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
+        data=data,
+    )
+    print(_summarize_response(api_response))
+    return training_record, api_response
 
 
 def _summarize_response(resp: dict) -> str:
@@ -287,118 +638,9 @@ def _summarize_response(resp: dict) -> str:
     return "\n".join(lines)
 
 
-def _build_node_outputs(
-    ctx: PipelineContext,
-    fuzzy_results: list,
-    entity_profile: list,
-    candidates: list,
-    profile_debug: dict | None = None,
-) -> dict:
-    """Collect node outputs for partial pipeline caching (Wave 4).
-
-    Only includes outputs from nodes that actually ran (not skipped).
-    Precomputed nodes are excluded — the caller already has those.
-    """
-    _ran = {StepStatus.SUCCESS, StepStatus.DEGRADED}
-    statuses = {name: rec.status for name, rec in ctx._steps.items()}
-    outputs: dict = {}
-    if statuses.get("fuzzy_matching") in _ran:
-        outputs["fuzzy_matching"] = [
-            {"term": t, "score": s} for t, s in fuzzy_results
-        ]
-    if statuses.get("web_search") in _ran and profile_debug:
-        scraped = profile_debug.get("scraped_content", [])
-        if scraped:
-            outputs["web_search"] = scraped
-    if statuses.get("entity_profiling") in _ran:
-        outputs["entity_profiling"] = entity_profile
-    if statuses.get("token_matching") in _ran:
-        outputs["token_matching"] = [
-            {"term": t, "score": s} for t, s in candidates
-        ]
-    return outputs
-
-
-def _build_pipeline_results(
-    ctx: PipelineContext,
-    llm_response: dict,
-    entity_profile: list,
-    profile_debug: dict,
-    ranking_debug: dict,
-    candidates: list,
-    *,
-    node_outputs: dict | None = None,
-) -> tuple:
-    """Build training record and API response from pipeline results. Returns (training_record, api_response)."""
-    ranked = llm_response.get("ranked_candidates", [])
-    target = ranked[0].get("candidate") if ranked else "No matches found"
-    confidence = ranked[0].get("relevance_score", 0) if ranked else 0
-
-    # Three-state web_search_status derived from execution results (backward compat)
-    scraped_sources = profile_debug["inputs"]["scraped_sources"]
-    if scraped_sources.get("status") == "skipped":
-        web_status, web_error, web_sources = "skipped", None, []
-    elif "error" in scraped_sources:
-        web_status = "failed"
-        web_error = scraped_sources["error"]
-        web_sources = []
-    else:
-        web_status, web_error = "success", None
-        web_sources = scraped_sources.get("sources_fetched", [])
-
-    step_timings = ctx.step_timings
-    total_time = ctx.total_time
-    pipeline_params = {
-        "steps": ctx.executed_steps,
-        "requested_steps": ctx.requested_steps,
-        **ctx.params,
-    }
-
-    ep_cfg = ctx.params.get("entity_profiling", {})
-    lr_cfg = ctx.params.get("llm_ranking", {})
-    training_record = {
-        "source": ctx.query, "target": target, "method": "ProfileRank",
-        "confidence": confidence, "session_id": ctx.user_id,
-        "llm_provider": LLM_PROVIDER,
-        "profiling_model": ep_cfg.get("model"),
-        "ranking_model": lr_cfg.get("model"),
-        "total_time": total_time, "web_search_status": web_status, "error": web_error,
-        "step_timings": step_timings, "pipeline_params": pipeline_params,
-        "entity_profile": entity_profile,
-        "candidates": [
-            {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
-             "core_score": c.get("core_concept_score"), "spec_score": c.get("spec_score")}
-            for i, c in enumerate(ranked)
-        ] if ranked else [],
-        "token_matches": ranking_debug["inputs"]["candidate_ranking"] if ranking_debug else [],
-        "web_sources": web_sources,
-    }
-
-    data = {
-        "final_ranking": ranked, "entity_profile": entity_profile,
-        "candidate_ranking": candidates[:ctx.params.get("token_matching", {})["max_token_candidates"]],
-        "llm_provider": LLM_PROVIDER,
-        "profiling_model": ep_cfg.get("model"),
-        "ranking_model": lr_cfg.get("model"),
-        "total_time": total_time,
-        "step_timings": step_timings, "web_search_status": web_status,
-        "web_search_error": web_error, "pipeline_params": pipeline_params,
-        "terminated_at": ctx.terminated_at,
-        "diagnostics": ctx.build_diagnostics(),
-    }
-    if node_outputs:
-        data["node_outputs"] = node_outputs
-    api_response = _ok(
-        message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
-        data=data,
-    )
-    print(_summarize_response(api_response))
-    return training_record, api_response
-
-
 @router.post("/matches")
 async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Normalize a term - research and rank candidates using LLM + token matching"""
+    """Normalize a term — dispatch through the step registry."""
     user_id = request.state.user_id
     query = payload.get("query", "")
     steps = payload.get("steps") or _pipeline("default")
@@ -407,188 +649,80 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     params = _resolve_pipeline_params(payload, steps=steps)
     precomputed = payload.get("precomputed") or {}
 
-    if user_id not in user_sessions:
-        raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")
-
-    terms = user_sessions[user_id]["terms"]
-    if precomputed:
-        print(f"{RED}[PIPELINE] {user_id}: '{query}' ({len(terms)} terms) [precomputed: {', '.join(precomputed)}]{RESET}")
+    # Session relaxation — only require a session for steps that need terms
+    requires_session = bool(set(steps) & REQUIRES_SESSION)
+    if requires_session:
+        if user_id not in user_sessions:
+            raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")
+        terms = user_sessions[user_id]["terms"]
     else:
-        print(f"{RED}[PIPELINE] {user_id}: '{query}' ({len(terms)} terms){RESET}")
+        terms = []
+
+    # Entry log
+    term_info = f" ({len(terms)} terms)" if terms else ""
+    precomp_info = f" [precomputed: {', '.join(precomputed)}]" if precomputed else ""
+    print(f"{RED}[PIPELINE] {user_id}: '{query}'{term_info}{precomp_info}{RESET}")
 
     ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
 
-    # Record cache_lookup (handled externally by match_database, not in this pipeline)
-    if steps is not None and "cache_lookup" in steps:
-        ctx.record_step("cache_lookup", StepStatus.SKIPPED)
+    # Seed session data into context
+    if terms:
+        ctx.set_output("_session_terms", terms)
+        token_matcher = TokenLookupMatcher(terms)
+        ctx.set_output("_token_matcher", token_matcher)
+        print(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
 
-    # Step 0: Fuzzy matching (optional, short-circuits if fuzzy-only)
-    fuzzy_results = []
-    if steps is not None and "fuzzy_matching" in steps:
-        if "fuzzy_matching" in precomputed:
-            fuzzy_results = [
-                (r["term"], r["score"]) for r in precomputed["fuzzy_matching"]
-            ]
-            ctx.record_step("fuzzy_matching", StepStatus.PRECOMPUTED, elapsed=0.0)
+    # Pre-register precomputed outputs
+    for step_name, precomp_data in precomputed.items():
+        # Convert serialized precomputed data to internal tuple format
+        if step_name == "fuzzy_matching":
+            ctx.record_precomputed(step_name, [(r["term"], r["score"]) for r in precomp_data])
+        elif step_name == "token_matching":
+            ctx.record_precomputed(step_name, [(c["term"], c["score"]) for c in precomp_data])
         else:
-            try:
-                fuzzy_results, fuzzy_time = _run_fuzzy_step(query, terms, params.get("fuzzy_matching", {}))
-                ctx.record_step("fuzzy_matching", StepStatus.SUCCESS, elapsed=fuzzy_time)
-            except Exception as e:
-                logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
-                fuzzy_time = None
-                ctx.record_step("fuzzy_matching", StepStatus.FAILED)
-                ctx.add_warning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}")
-        if steps == ["fuzzy_matching"]:
-            return _ok(
-                message=f"Fuzzy matching completed - {len(fuzzy_results)} matches in {ctx.total_time}s",
-                data={
-                    "final_ranking": [{"candidate": t, "relevance_score": s} for t, s in fuzzy_results],
-                    "total_time": ctx.total_time,
-                    "step_timings": ctx.step_timings,
-                    "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_matching": params.get("fuzzy_matching", {})},
-                    "terminated_at": "fuzzy_matching",
-                    "diagnostics": ctx.build_diagnostics(),
-                }
-            )
+            ctx.record_precomputed(step_name, precomp_data)
 
-    # Steps 1-3: Research → Token matching → LLM ranking
-    # Each LLM step is wrapped for graceful degradation — if the LLM provider
-    # is down (e.g. model decommissioned → 404 → 502), the pipeline continues
-    # with whatever data is available rather than crashing the entire request.
-    token_matcher = TokenLookupMatcher(terms)
-    print(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
+    # Dispatch loop
+    for step_name in steps:
+        if step_name not in STEP_REGISTRY:
+            logger.warning("Unknown step %r — skipping", step_name)
+            ctx.record_step(step_name, StepStatus.SKIPPED)
+            continue
 
-    # Step 1: Research (web_search + entity_profiling)
-    if "entity_profiling" in precomputed:
-        entity_profile = precomputed["entity_profiling"]
-        profile_debug = {"inputs": {"scraped_sources": {"status": "precomputed"}}, "warnings": [], "scraped_content": []}
-        ctx.record_step("web_search", StepStatus.PRECOMPUTED, elapsed=0.0)
-        ctx.record_step("entity_profiling", StepStatus.PRECOMPUTED, elapsed=0.0)
-    elif "web_search" in precomputed:
-        # Web results cached — skip scraping, optionally re-run entity profiling
-        ctx.record_step("web_search", StepStatus.PRECOMPUTED, elapsed=0.0)
-        if "entity_profiling" not in steps:
-            # Entity profiling excluded from active steps — skip entirely
-            entity_profile = []
-            profile_debug = {"inputs": {"scraped_sources": {"status": "precomputed"}}, "warnings": []}
-            ctx.record_step("entity_profiling", StepStatus.SKIPPED)
-        else:
-            try:
-                ep_llm_warnings = []
-                entity_profile, profile_debug, ep_time, _ws_time = await _run_research_step(
-                    query, steps, params.get("web_search", {}), params.get("entity_profiling", {}),
-                    llm_warnings=ep_llm_warnings,
-                    scraped_content=precomputed["web_search"],
-                )
-                for w in profile_debug.get("warnings", []):
-                    ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
-                for msg in ep_llm_warnings:
-                    ctx.add_warning("entity_profiling", "llm_retry", msg)
-                ep_status = StepStatus.DEGRADED if ep_llm_warnings else StepStatus.SUCCESS
-                ctx.record_step("entity_profiling", ep_status, elapsed=ep_time)
-            except HTTPException as e:
-                logger.warning("[PIPELINE] Entity profiling failed (precomputed web) — continuing with token matching only")
-                entity_profile = []
-                profile_debug = {"inputs": {"scraped_sources": {"status": "precomputed"}}, "warnings": [], "scraped_content": precomputed["web_search"]}
-                ctx.record_step("entity_profiling", StepStatus.FAILED)
-                ctx.add_warning("entity_profiling", "llm_error", f"Entity profiling failed: {e.detail}")
-    else:
+        # Skip if already precomputed
+        if step_name in precomputed:
+            continue
+
+        cfg = params.get(step_name, {})
         try:
-            ep_llm_warnings = []
-            entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(query, steps, params.get("web_search", {}), params.get("entity_profiling", {}), llm_warnings=ep_llm_warnings)
-            # Surface warnings from web scraping into PipelineContext
-            for w in profile_debug.get("warnings", []):
-                ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
-            # Surface LLM retry warnings
-            for msg in ep_llm_warnings:
-                ctx.add_warning("entity_profiling", "llm_retry", msg)
-            # Determine web_search step status
-            scraped = profile_debug["inputs"]["scraped_sources"]
-            if scraped.get("status") == "skipped":
-                ctx.record_step("web_search", StepStatus.SKIPPED)
-                ctx.record_step("entity_profiling", StepStatus.SKIPPED)
-            elif "error" in scraped:
-                ctx.record_step("web_search", StepStatus.FAILED, elapsed=ws_time)
-                ctx.record_step("entity_profiling", StepStatus.DEGRADED, elapsed=ep_time)
-            else:
-                has_ws_warnings = any(
-                    w.get("step") == "web_search" for w in profile_debug.get("warnings", [])
-                )
-                has_llm_warnings = len(ep_llm_warnings) > 0
-                ws_status = StepStatus.DEGRADED if has_ws_warnings else StepStatus.SUCCESS
-                ep_status = StepStatus.DEGRADED if has_llm_warnings else StepStatus.SUCCESS
-                ctx.record_step("web_search", ws_status, elapsed=ws_time)
-                ctx.record_step("entity_profiling", ep_status, elapsed=ep_time)
-        except HTTPException as e:
-            logger.warning(
-                "[PIPELINE] Entity profiling failed — continuing with token matching only",
-            )
-            entity_profile = []
-            profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": []}
-            ctx.record_step("entity_profiling", StepStatus.FAILED)
-            ctx.add_warning("entity_profiling", "llm_error", f"Entity profiling failed: {e.detail}")
-            ep_time, ws_time = None, None
+            result = await STEP_REGISTRY[step_name](query, cfg, ctx)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("[PIPELINE] %s failed: %s", step_name, exc)
+            ctx.record_step(step_name, StepStatus.FAILED)
+            ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}")
+            result = StepResult(output=None, elapsed=0.0, status=StepStatus.FAILED)
 
-    # Step 2: Token matching
-    if "token_matching" not in steps:
-        candidate_results = []
-        ctx.record_step("token_matching", StepStatus.SKIPPED)
-    elif "token_matching" in precomputed:
-        candidate_results = [
-            (c["term"], c["score"]) for c in precomputed["token_matching"]
-        ]
-        ctx.record_step("token_matching", StepStatus.PRECOMPUTED, elapsed=0.0)
-    else:
-        try:
-            candidate_results, step2_time = _run_token_step(query, entity_profile, token_matcher)
-            ctx.record_step("token_matching", StepStatus.SUCCESS, elapsed=step2_time)
-        except Exception as e:
-            logger.error("[PIPELINE] Token matching failed: %s — continuing with empty candidates", e)
-            candidate_results = []
-            ctx.record_step("token_matching", StepStatus.FAILED)
-            ctx.add_warning("token_matching", "step_error", f"Token matching failed: {e}")
+        # Record step (step functions may also record internally for coupled steps)
+        ctx.record_step(step_name, result.status, elapsed=result.elapsed)
+        ctx.set_output(step_name, result.output)
+        for w in result.warnings:
+            ctx.add_warning(step_name, w.code, w.message,
+                            details=list(w.details) if w.details else None,
+                            stats=dict(w.stats) if w.stats else None)
 
-    # Step 3: LLM ranking
-    try:
-        ranking_llm_warnings = []
-        llm_response, ranking_debug, step3_time = await _run_ranking_step(entity_profile, candidate_results, query, steps, params.get("llm_ranking", {}), params.get("token_matching", {}), llm_warnings=ranking_llm_warnings)
-        if "llm_ranking" not in steps:
-            ctx.record_step("llm_ranking", StepStatus.SKIPPED)
-        else:
-            for msg in ranking_llm_warnings:
-                ctx.add_warning("llm_ranking", "llm_retry", msg)
-            status = StepStatus.DEGRADED if ranking_llm_warnings else StepStatus.SUCCESS
-            ctx.record_step("llm_ranking", status, elapsed=step3_time)
-    except HTTPException as e:
-        logger.error(
-            "[PIPELINE] LLM ranking failed (%d: %s) — "
-            "falling back to token match scores (%d candidates)",
-            e.status_code, e.detail, len(candidate_results[:params.get("token_matching", {})["max_token_candidates"]]),
-        )
-        max_cands = params.get("token_matching", {})["max_token_candidates"]
-        llm_response = {
-            "ranked_candidates": [
-                {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
-                for term, score in candidate_results[:max_cands]
-            ]
-        }
-        ranking_debug = {
-            "inputs": {"candidate_ranking": candidate_results[:max_cands]},
-            "error": e.detail,
-        }
-        ctx.record_step("llm_ranking", StepStatus.FAILED)
-        ctx.add_warning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}")
+        if result.terminates:
+            break
 
-    # Collect node outputs for partial pipeline caching
-    _node_outputs = _build_node_outputs(ctx, fuzzy_results, entity_profile, candidate_results, profile_debug=profile_debug)
+    # Check for early-exit response (fuzzy-only, llm_only, etc.)
+    early = ctx.get_output("_early_response")
+    if early is not None:
+        print(_summarize_response(early))
+        return early
 
-    # Log and persist
-    training_record, api_response = _build_pipeline_results(
-        ctx, llm_response, entity_profile, profile_debug,
-        ranking_debug, candidate_results,
-        node_outputs=_node_outputs,
-    )
+    # Full pipeline — build response from collected outputs
+    training_record, api_response = _build_response(ctx)
 
     try:
         log_pipeline(training_record, session_id=user_id, trace_id=trace_id)

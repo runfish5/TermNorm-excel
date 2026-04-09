@@ -207,16 +207,48 @@
     "direct_prompt": {
       "type": "generation",
       "runtime": "backend",
-      "node_role": "",
-      "description": "Direct LLM prompt for simple queries — bypasses the full pipeline.",
+      "node_role": "ranker",
+      "description": "Direct LLM prompt — generic 'run this prompt' step. Accepts custom system prompt via node_config. No session or terms required when used standalone.",
       "config": {
         "model": "openai/gpt-oss-120b",
         "temperature": 0.0,
-        "max_tokens": 300,
+        "max_tokens": 2000,
+        "response_format": "text",
         "accept_threshold": 0.75,
         "correction_top_n": 10
       },
       "optimizer": {
+        "param_keys": ["prompt", "model", "temperature", "max_tokens", "response_format"],
+        "param_descriptions": {
+          "prompt": "System prompt sent to the LLM — the main optimization target",
+          "model": "LLM model identifier",
+          "temperature": "LLM sampling temperature",
+          "max_tokens": "Maximum tokens in LLM response",
+          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)"
+        },
+        "langfuse_type": "generation"
+      }
+    },
+    "llm_only": {
+      "type": "generation",
+      "runtime": "backend",
+      "node_role": "ranker",
+      "description": "Generic LLM call — send a system prompt + user query, get a text response. Bypasses all enrichment. No session or terms required.",
+      "config": {
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.0,
+        "max_tokens": 2000,
+        "response_format": "text"
+      },
+      "optimizer": {
+        "param_keys": ["prompt", "model", "temperature", "max_tokens", "response_format"],
+        "param_descriptions": {
+          "prompt": "System prompt sent to the LLM — the main optimization target",
+          "model": "LLM model identifier",
+          "temperature": "LLM sampling temperature",
+          "max_tokens": "Maximum tokens in LLM response",
+          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)"
+        },
         "langfuse_type": "generation"
       }
     }
