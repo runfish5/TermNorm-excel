@@ -472,7 +472,7 @@ STEP_REGISTRY: dict[str, Callable] = {
     "llm_only":          _step_llm_only,
 }
 
-REQUIRES_SESSION = {"fuzzy_matching", "token_matching", "llm_ranking", "web_search", "entity_profiling"}
+REQUIRES_SESSION = {"fuzzy_matching", "token_matching"}
 
 
 # ---------------------------------------------------------------------------

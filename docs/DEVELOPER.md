@@ -250,6 +250,22 @@ curl http://127.0.0.1:8000/health
 - Go to **Settings** tab
 - Server URL should show green status indicator
 
+### Pipeline Node Session Requirements
+
+Only `fuzzy_matching` and `token_matching` require a session (indexed terms). All other nodes work session-free:
+
+| Node | Session | Notes |
+|------|:---:|-------|
+| `fuzzy_matching` | Yes | Matches against indexed terms |
+| `token_matching` | Yes | Token-level lookup against terms |
+| `web_search` | No | Web research on query alone |
+| `entity_profiling` | No | LLM profile from web content |
+| `llm_ranking` | No | Ranks candidates via LLM |
+| `llm_only` | No | Direct LLM prompt |
+| `cache_lookup` | No | Cached results |
+
+Pipelines without fuzzy/token nodes skip `POST /sessions` entirely.
+
 ---
 
 ## 📦 Deployment

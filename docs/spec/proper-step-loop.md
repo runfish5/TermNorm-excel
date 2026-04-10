@@ -234,18 +234,19 @@ Steps not in the registry are silently skipped (logged as warning).
 
 ### Session Relaxation
 
-Derived from step metadata, not hardcoded per step name:
+Only term-matching nodes need a session. Research/ranking nodes operate on the query alone.
 
 ```python
-# Steps that need session terms loaded
-REQUIRES_SESSION = {"fuzzy_matching", "token_matching", "llm_ranking", "web_search", "entity_profiling"}
+# Only term-matching nodes need session terms loaded
+REQUIRES_SESSION = {"fuzzy_matching", "token_matching"}
 
 requires_session = bool(set(steps) & REQUIRES_SESSION)
 if requires_session:
     # existing session/terms validation
 ```
 
-`llm_only` and `cache_lookup` don't need sessions. No special casing — just not in the set.
+Session-free nodes: `web_search`, `entity_profiling`, `llm_ranking`, `llm_only`, `cache_lookup`.
+No special casing — just not in the set.
 
 ### Dispatch Loop
 

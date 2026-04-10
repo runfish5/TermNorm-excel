@@ -1,6 +1,6 @@
-**Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Vector Mapping, Database Normalization.
+**Keywords:** Python, FastAPI, LLM, Entity Resolution, Excel Automation, Composable Pipeline, Database Normalization.
 
-# TermNorm - AI-Powered Database Identifier Assignment for Excel
+# TermNorm - Composable AI Pipeline Engine with Excel Frontend
 
 <p align="center">
   <img src="https://img.shields.io/badge/Office%20Add--in-Excel-217346?logo=microsoft-excel" alt="Office Add-in">
@@ -8,11 +8,11 @@
 </p>
 
 <p align="center">
-  <em>Match free-form text to standardized database identifiers using web research, LLM reasoning, and intelligent ranking</em>
+  <em>Composable pipeline engine: web research, LLM reasoning, and intelligent ranking — with or without a term database</em>
 </p>
 
 <p align="center">
-  Type in Excel, get results in real-time. Three-tier matching: Cache → Fuzzy → AI research.
+  Type in Excel, get results in real-time. Works standalone or with a term database.
 </p>
 
 <p align="center">
@@ -33,15 +33,15 @@
 
 ### Pipeline Composability
 
-TermNorm's backend exposes its processing steps as a JSON contract (`GET /pipeline`) — nodes with typed configs, named pipelines, and tunable parameters. This interface is already consumed by multiple codebases: the frontend reads it to declare which backend pipeline to invoke, and [PromptPotter](https://github.com/runfish5/PromptPotter) discovers it to sweep parameters and run evaluations automatically.
+The backend exposes processing steps as a JSON contract (`GET /pipeline`) — nodes with typed configs, named pipelines, and tunable parameters. Already consumed by the frontend and by [PromptPotter](https://github.com/runfish5/PromptPotter) for automated parameter sweeps.
 
-Why this matters: domain-specific processes (like matching LCA terminology against 11,750+ database identifiers) have parameters that shouldn't be guessed. With a small, representative dataset and this discoverable pipeline schema, an optimizer can find good configurations for pennies in LLM token cost — no manual tuning required.
+Only `fuzzy_matching` and `token_matching` require a session (indexed terms). Research nodes (`web_search`, `entity_profiling`, `llm_ranking`, `llm_only`) work session-free — compose any query-in, structured-answer-out pipeline from available nodes.
 
 ## 📋 Use Cases
 
-- **Database Identifier Assignment** - Match free-form names to standardized database identifiers
-- **Classification & Terminology Management** - Assign categories to unstructured text
-- **Data Normalization & Entity Linking** - Standardize product names, material codes, process terms
+- **Session-free research** - Web search + entity profiling + LLM ranking on any query
+- **Database identifier assignment** - Match free-form names to standardized identifiers (requires session)
+- **Classification & entity linking** - Assign categories, normalize product names, material codes
 
 > **Built for scale:** Tested against 11,750+ database identifiers with expert-level disambiguation for Life Cycle Assessment (LCA) workflows.
 
@@ -116,7 +116,7 @@ Desktop Excel cannot use the simple cloud upload method. Instead, it requires ho
 
 ## 👨‍💻 For Developers
 
-This project demonstrates a reusable architecture for building Excel add-ins with Python backend servers. This implementation specifically tackles **database identifier assignment**: Matching free-form text entries to standardized terminology using web research, LLM reasoning, and intelligent ranking algorithms.
+Composable pipeline engine with an Excel frontend. Nodes compose into named pipelines — see [Pipeline Composability](#pipeline-composability) for session requirements.
 
 <p align="center">
   <img src="assets/FastAPI-LLM-Entity-Mapper.png" alt="System Architecture" width="600">
