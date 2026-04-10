@@ -26,17 +26,17 @@ Or with dry-run to see what would be migrated:
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 
-def write_yaml(file_path: Path, data: Dict):
+def write_yaml(file_path: Path, data: dict):
     """Write proper YAML format (matches MLflow FileStore)."""
     import yaml
     with open(file_path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
-def convert_langfuse_to_mlflow_trace(langfuse_trace: Dict[str, Any]) -> Dict[str, Any]:
+def convert_langfuse_to_mlflow_trace(langfuse_trace: dict[str, Any]) -> dict[str, Any]:
     """
     Convert a Langfuse-style trace to MLflow native format.
 
@@ -145,7 +145,7 @@ def convert_langfuse_to_mlflow_trace(langfuse_trace: Dict[str, Any]) -> Dict[str
     return mlflow_trace
 
 
-def find_trace_files(experiments_path: Path) -> Dict[Path, List[Path]]:
+def find_trace_files(experiments_path: Path) -> dict[Path, list[Path]]:
     """
     Find all trace files organized by run artifacts directory.
 
@@ -188,7 +188,7 @@ def find_trace_files(experiments_path: Path) -> Dict[Path, List[Path]]:
 
 
 def save_mlflow_filestore_trace(experiments_path: Path, experiment_id: str,
-                                  langfuse_trace: Dict, dry_run: bool = False) -> bool:
+                                  langfuse_trace: dict, dry_run: bool = False) -> bool:
     """
     Save a single trace in MLflow FileStore format.
 

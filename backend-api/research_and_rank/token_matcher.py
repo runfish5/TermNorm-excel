@@ -1,7 +1,6 @@
 """Token-based matcher for candidate filtering using inverted index lookup."""
 import re
 from collections import defaultdict
-from typing import List, Tuple
 
 from config.pipeline_config import get_node_config
 
@@ -11,7 +10,7 @@ _TM_CONFIG = get_node_config("token_matching")
 class TokenLookupMatcher:
     """Token-based matcher that builds an inverted index for fast candidate lookup."""
 
-    def __init__(self, terms: List[str]):
+    def __init__(self, terms: list[str]):
         self.deduplicated_terms = list(set(terms))
         self.token_term_lookup = self._build_index()
 
@@ -25,7 +24,7 @@ class TokenLookupMatcher:
                 index[token].add(i)
         return index
 
-    def match(self, query) -> List[Tuple[str, float]]:
+    def match(self, query) -> list[tuple[str, float]]:
         query_tokens = self._tokenize(query)
         if not query_tokens:
             return []

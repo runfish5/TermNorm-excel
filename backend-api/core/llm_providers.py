@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import asyncio
-from typing import List, Dict, Optional, Literal, Union
+from typing import Literal
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ _SEED = _llm_cfg.get("seed")
 _LOGPROBS = _llm_cfg.get("logprobs")
 
 
-def get_available_providers() -> List[str]:
+def get_available_providers() -> list[str]:
     """Return list of providers with configured API keys"""
     providers = []
     if os.getenv("GROQ_API_KEY"):
@@ -67,19 +67,19 @@ def _format_api_error(e: Exception) -> str:
 
 
 async def llm_call(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     max_tokens: int | None = 1000,
-    system: Optional[str] = None,
-    tools: Optional[List[Dict]] = None,
-    stop_sequences: Optional[List[str]] = None,
+    system: str | None = None,
+    tools: list[dict] | None = None,
+    stop_sequences: list[str] | None = None,
     temperature: float = 0.7,
     output_format: Literal["text", "json", "schema"] = "text",
-    schema: Optional[Dict] = None,
-    model: Optional[str] = None,
-    seed: Optional[int] = None,
-    logprobs: Optional[int] = None,
+    schema: dict | None = None,
+    model: str | None = None,
+    seed: int | None = None,
+    logprobs: int | None = None,
     warnings: list[str] | None = None,
-) -> Union[str, Dict]:
+) -> str | dict:
     """Universal LLM function - uses global provider config.
 
     Args:

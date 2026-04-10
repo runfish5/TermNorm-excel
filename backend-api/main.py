@@ -59,7 +59,7 @@ app.include_router(pipeline_router)    # Pipeline config + trace lifecycle
 @app.on_event("startup")
 async def startup_event():
     """Log startup information"""
-    print(f"[STARTUP] {settings.environment_type} | LLM: {LLM_PROVIDER}/{LLM_MODEL}")
+    logger.info(f"[STARTUP] {settings.environment_type} | LLM: {LLM_PROVIDER}/{LLM_MODEL}")
 
     # INTENDED BEHAVIOR - NO auto-initialization of prompts:
     # - Default prompts (v1) are committed to git in logs/prompts/

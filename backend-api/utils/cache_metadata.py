@@ -7,7 +7,6 @@ Tracks when cache was last updated and provides staleness detection.
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
 
 
 class CacheMetadata:
@@ -27,7 +26,7 @@ class CacheMetadata:
         self.metadata_path = metadata_path
         self.metadata = self._load_metadata()
 
-    def _load_metadata(self) -> Dict:
+    def _load_metadata(self) -> dict:
         """Load metadata from disk or create new."""
         if self.metadata_path.exists():
             with open(self.metadata_path, 'r', encoding='utf-8') as f:
@@ -70,7 +69,7 @@ class CacheMetadata:
         records_processed: int,
         identifiers_count: int,
         aliases_count: int,
-        data_sources: List[Dict] = None,
+        data_sources: list[dict] = None,
     ):
         """Mark completion of cache rebuild and record statistics."""
         now = datetime.utcnow().isoformat() + "Z"
@@ -120,7 +119,7 @@ class CacheMetadata:
 
         self.save()
 
-    def get_cache_age_seconds(self) -> Optional[float]:
+    def get_cache_age_seconds(self) -> float | None:
         """Get age of cache in seconds since last update."""
         if not self.metadata.get("last_updated"):
             return None
@@ -136,7 +135,7 @@ class CacheMetadata:
             return True
         return age > max_age_seconds
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get human-readable summary of cache status."""
         age = self.get_cache_age_seconds()
         age_str = f"{age:.0f} seconds ago" if age else "never"

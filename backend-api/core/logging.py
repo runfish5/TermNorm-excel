@@ -4,12 +4,11 @@ Centralized logging configuration for TermNorm Backend API
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 
 def setup_logging(
     level: str = "INFO",
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     include_console: bool = True
 ) -> None:
     """

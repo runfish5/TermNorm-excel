@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Callable, Dict, Any, List
+from typing import Callable, Any
 from fastapi import APIRouter, HTTPException, Request, Body
 
 from research_and_rank.web_generate_entity_profile import web_generate_entity_profile
@@ -27,14 +27,9 @@ from config.pipeline_config import get_node_config, get_pipeline_steps
 
 logger = logging.getLogger(__name__)
 
+from api.responses import _ok
+
 router = APIRouter()
-
-
-def _ok(message, data=None):
-    r = {"status": "success", "message": message}
-    if data is not None:
-        r["data"] = data
-    return r
 
 # Load entity schema from registry (versioned, pinned to pipeline.json config)
 _schema_registry = get_schema_registry()
@@ -71,7 +66,7 @@ user_sessions = {}
 
 
 @router.post("/sessions")
-async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def init_terms(request: Request, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Create session with terms array and tracking"""
     user_id = request.state.user_id
     terms = payload.get("terms", [])
@@ -99,9 +94,9 @@ async def init_terms(request: Request, payload: Dict[str, Any] = Body(...)) -> D
 
 
 def _resolve_pipeline_params(
-    payload: Dict[str, Any],
-    steps: List[str] | None = None,
-) -> Dict[str, Dict[str, Any]]:
+    payload: dict[str, Any],
+    steps: list[str] | None = None,
+) -> dict[str, dict[str, Any]]:
     """Merge node_config overrides with pipeline.json defaults per node.
 
     Returns nested dict: ``{node_name: {param: value, ...}, ...}``.
@@ -110,7 +105,7 @@ def _resolve_pipeline_params(
     """
     ov = payload.get("node_config", {})
     active = set(steps or _pipeline("default"))
-    resolved: Dict[str, Dict[str, Any]] = {}
+    resolved: dict[str, dict[str, Any]] = {}
     for node_name in active:
         defaults = _node(node_name)
         overrides = ov.get(node_name, {})
@@ -118,19 +113,19 @@ def _resolve_pipeline_params(
     return resolved
 
 
-def _run_fuzzy_step(query: str, terms: List[str], fm_cfg: Dict) -> tuple:
+def _run_fuzzy_step(query: str, terms: list[str], fm_cfg: dict) -> tuple:
     """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
-    print(RED + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+    logger.info(RED + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
     t0 = time.time()
     results = fuzzy_match_terms(
         query, terms, threshold=fm_cfg["threshold"], scorer=fm_cfg["scorer"], limit=fm_cfg["limit"]
     )
     elapsed = round(time.time() - t0, 3)
-    print(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
+    logger.info(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
     return results, elapsed
 
 
-async def _run_research_step(query: str, steps: List[str], ws_cfg: Dict, ep_cfg: Dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None) -> tuple:
+async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg: dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None) -> tuple:
     """Step 1: Web search + entity profiling.
     Returns (entity_profile, profile_debug, ep_time, ws_time).
     Times are None when the step was skipped.
@@ -142,14 +137,14 @@ async def _run_research_step(query: str, steps: List[str], ws_cfg: Dict, ep_cfg:
     run_entity_profiling = "entity_profiling" in steps
 
     if not run_entity_profiling:
-        print(WHITE + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
+        logger.info(WHITE + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
     if scraped_content is not None:
-        print(RED + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
+        logger.info(RED + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
     else:
-        print(RED + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
+        logger.info(RED + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         ws_cfg=ws_cfg,
@@ -167,11 +162,11 @@ async def _run_research_step(query: str, steps: List[str], ws_cfg: Dict, ep_cfg:
 
 def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
     """Step 2: Token matching. Returns (candidate_results, elapsed_time)."""
-    print(YELLOW + "[PIPELINE] Step 2: Matching candidates" + RESET)
+    logger.info(YELLOW + "[PIPELINE] Step 2: Matching candidates" + RESET)
     search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
     unique_search_terms = list(set(search_terms))
 
-    print(f"[PIPELINE] {len(unique_search_terms)} profile terms (from {len(search_terms)}): {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
+    logger.debug(f"[PIPELINE] {len(unique_search_terms)} profile terms (from {len(search_terms)}): {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
     t0 = time.time()
     candidate_results = token_matcher.match(unique_search_terms)
@@ -181,20 +176,20 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
     if n:
         top_name, top_score = candidate_results[0]
         bot_score = candidate_results[-1][1]
-        print(f"[PIPELINE] Token matches: {n} in {elapsed:.2f}s ({top_score:.3f}–{bot_score:.3f})  top: {top_name[:60]}... ({top_score:.3f})")
+        logger.info(f"[PIPELINE] Token matches: {n} in {elapsed:.2f}s ({top_score:.3f}–{bot_score:.3f})  top: {top_name[:60]}... ({top_score:.3f})")
     else:
-        print(f"{BRIGHT_RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
+        logger.warning(f"{BRIGHT_RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
     return candidate_results, elapsed
 
 
-async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: List[str], lr_cfg: Dict, tm_cfg: Dict, llm_warnings: list[str] | None = None) -> tuple:
+async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: list[str], lr_cfg: dict, tm_cfg: dict, llm_warnings: list[str] | None = None) -> tuple:
     """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time)."""
     run_llm_ranking = "llm_ranking" in steps
     max_token_candidates = tm_cfg["max_token_candidates"]
 
     t0 = time.time()
     if not run_llm_ranking:
-        print(WHITE + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
+        logger.info(WHITE + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
@@ -203,7 +198,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         }
         ranking_debug = {"inputs": {"candidate_ranking": candidates[:max_token_candidates]}}
     else:
-        print(YELLOW + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
+        logger.info(YELLOW + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
         llm_response, ranking_debug = await call_llm_for_ranking(
             entity_profile, candidates, query,
             lr_cfg=lr_cfg,
@@ -408,7 +403,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
 
 async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
     """Generic LLM call — send prompt + query, get text response."""
-    print(RED + "[PIPELINE] llm_only" + RESET)
+    logger.info(RED + "[PIPELINE] llm_only" + RESET)
     t0 = time.time()
 
     system = cfg.get("prompt", "")
@@ -418,7 +413,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     response_format = cfg.get("response_format", "text")
 
     messages = [{"role": "user", "content": query}]
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -433,7 +428,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
 
-    print(f"[PIPELINE] llm_only: {len(answer)} chars in {elapsed}s")
+    logger.info(f"[PIPELINE] llm_only: {len(answer)} chars in {elapsed}s")
 
     # Build early-exit response
     final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
@@ -566,7 +561,7 @@ def _build_response(ctx: PipelineContext) -> tuple:
         message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
         data=data,
     )
-    print(_summarize_response(api_response))
+    logger.info(_summarize_response(api_response))
     return training_record, api_response
 
 
@@ -639,7 +634,7 @@ def _summarize_response(resp: dict) -> str:
 
 
 @router.post("/matches")
-async def research_and_match(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def research_and_match(request: Request, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Normalize a term — dispatch through the step registry."""
     user_id = request.state.user_id
     query = payload.get("query", "")
@@ -661,16 +656,16 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # Entry log
     term_info = f" ({len(terms)} terms)" if terms else ""
     precomp_info = f" [precomputed: {', '.join(precomputed)}]" if precomputed else ""
-    print(f"{RED}[PIPELINE] {user_id}: '{query}'{term_info}{precomp_info}{RESET}")
+    logger.info(f"{RED}[PIPELINE] {user_id}: '{query}'{term_info}{precomp_info}{RESET}")
 
     ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
 
-    # Seed session data into context
-    if terms:
+    # Seed session data into context — only when pipeline needs term matching
+    if requires_session and terms:
         ctx.set_output("_session_terms", terms)
         token_matcher = TokenLookupMatcher(terms)
         ctx.set_output("_token_matcher", token_matcher)
-        print(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
+        logger.debug(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
 
     # Pre-register precomputed outputs
     for step_name, precomp_data in precomputed.items():
@@ -718,7 +713,7 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
     # Check for early-exit response (fuzzy-only, llm_only, etc.)
     early = ctx.get_output("_early_response")
     if early is not None:
-        print(_summarize_response(early))
+        logger.info(_summarize_response(early))
         return early
 
     # Full pipeline — build response from collected outputs
@@ -730,7 +725,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
     update_match_database(training_record)
-    _update_session_usage(user_id, training_record["target"])
+    if requires_session:
+        _update_session_usage(user_id, training_record["target"])
 
     return api_response
 
@@ -738,8 +734,8 @@ async def research_and_match(request: Request, payload: Dict[str, Any] = Body(..
 @router.post("/batches")
 async def batch_start(
     request: Request,
-    payload: Dict[str, Any] = Body(...)
-) -> Dict[str, Any]:
+    payload: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """
     Create a batch operation. Returns batch_id for linking items.
 
@@ -777,8 +773,8 @@ async def batch_start(
 async def batch_complete(
     request: Request,
     batch_id: str,
-    payload: Dict[str, Any] = Body(...)
-) -> Dict[str, Any]:
+    payload: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """
     Complete a batch operation.
 
@@ -811,8 +807,8 @@ async def batch_complete(
 @router.post("/prompts")
 async def direct_prompt(
     request: Request,
-    payload: Dict[str, Any] = Body(...)
-) -> Dict[str, Any]:
+    payload: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     """
     Execute a direct LLM prompt with validation against session terms.
 
@@ -968,7 +964,6 @@ Return ONLY valid JSON."""
 # =============================================================================
 
 from pydantic import BaseModel
-from typing import Optional
 
 
 class LogMatchRequest(BaseModel):
@@ -977,10 +972,10 @@ class LogMatchRequest(BaseModel):
     target: str                    # Matched result
     method: str                    # "cached" | "fuzzy"
     confidence: float              # 1.0 for cache, similarity score for fuzzy
-    workbook_id: Optional[str] = None
-    latency_ms: Optional[float] = None
-    matched_key: Optional[str] = None      # Key that matched (fuzzy only)
-    direction: Optional[str] = None        # "forward" | "reverse"
+    workbook_id: str | None = None
+    latency_ms: float | None = None
+    matched_key: str | None = None      # Key that matched (fuzzy only)
+    direction: str | None = None        # "forward" | "reverse"
 
 
 class LogActivityRequest(BaseModel):
@@ -989,11 +984,11 @@ class LogActivityRequest(BaseModel):
     target: str
     method: str                    # "UserChoice" | "DirectEdit"
     confidence: float
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
 
 
 @router.post("/activities/matches")
-async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any]:
+async def log_match(request: Request, payload: LogMatchRequest) -> dict[str, Any]:
     """
     Log cache/fuzzy match events from frontend to Langfuse.
 
@@ -1038,7 +1033,7 @@ async def log_match(request: Request, payload: LogMatchRequest) -> Dict[str, Any
 
 
 @router.post("/activities")
-async def log_activity(request: Request, payload: LogActivityRequest) -> Dict[str, Any]:
+async def log_activity(request: Request, payload: LogActivityRequest) -> dict[str, Any]:
     """
     Log user corrections (UserChoice, DirectEdit) from frontend to Langfuse.
 

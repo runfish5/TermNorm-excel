@@ -9,7 +9,6 @@ Scores normalized from rapidfuzz's 0-100 to 0.0-1.0.
 """
 
 import logging
-from typing import List, Tuple
 from rapidfuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
@@ -26,11 +25,11 @@ SCORERS = {
 
 def fuzzy_match_terms(
     query: str,
-    candidates: List[str],
+    candidates: list[str],
     threshold: int,
     scorer: str,
     limit: int,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """
     Match query against candidate terms using rapidfuzz.
 

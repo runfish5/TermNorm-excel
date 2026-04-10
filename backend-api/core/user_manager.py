@@ -5,7 +5,6 @@ import json
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +14,8 @@ class UserManager:
 
     def __init__(self, users_file="config/users.json"):
         self.users_file = Path(users_file)
-        self.users: Dict[str, dict] = {}
-        self._last_hash: Optional[str] = None
+        self.users: dict[str, dict] = {}
+        self._last_hash: str | None = None
         self.load_users()
 
     def load_users(self) -> bool:
@@ -41,7 +40,7 @@ class UserManager:
             logger.error(f"Failed to load users: {e}")
             return False
 
-    def authenticate(self, ip: str) -> Optional[str]:
+    def authenticate(self, ip: str) -> str | None:
         """Return user_id if IP is allowed, else None"""
         self.load_users()  # Hot-reload check
 

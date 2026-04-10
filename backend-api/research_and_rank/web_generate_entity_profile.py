@@ -149,7 +149,7 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
 
     try:
         msg = f"Trying Brave Search API for: '{effective_query}'"
-        print(f"[WEB_SCRAPE] {msg}")
+        logger.info(f"[WEB_SCRAPE] {msg}")
         if log:
             log.append(msg)
 
@@ -186,25 +186,25 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
             urls = [r['url'] for r in results if 'url' in r and r['url'].startswith('http')]
 
             msg = f"Brave Search found {len(urls)} URLs"
-            print(f"[WEB_SCRAPE] {msg}")
+            logger.info(f"[WEB_SCRAPE] {msg}")
             if log:
                 log.append(msg)
 
             return urls
         elif response.status_code == 429:
             msg = f"Brave Search rate limit exceeded (free tier: 2000/month, 1/sec)"
-            print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
             if log:
                 log.append(msg)
         else:
             msg = f"Brave Search failed with status {response.status_code}"
-            print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
             if log:
                 log.append(msg)
 
     except Exception as e:
         msg = f"Brave Search failed: {str(e)}"
-        print(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+        logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
         if log:
             log.append(msg)
 
@@ -367,12 +367,12 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         ws_elapsed = 0.0
         search_method = "precomputed"
         fetched = len(scraped_content)
-        print(f"[WEB_SCRAPE] Using {len(scraped_content)} precomputed sources")
+        logger.info(f"[WEB_SCRAPE] Using {len(scraped_content)} precomputed sources")
         search_log.append(f"Web search precomputed ({len(scraped_content)} sources)")
     elif skip_search:
         scraped_content = []
         ws_elapsed = None
-        print(f"[WEB_SCRAPE] Skipped (LLM knowledge only)")
+        logger.info("[WEB_SCRAPE] Skipped (LLM knowledge only)")
         search_log.append("Web search skipped (skip_search=True)")
     else:
         scraped_content = []
@@ -383,7 +383,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
 
         # Parallel URL scraping with ThreadPoolExecutor
         if urls:
-            print(f"[WEB_SCRAPE] Scraping {len(urls)} URLs in parallel...")
+            logger.info(f"[WEB_SCRAPE] Scraping {len(urls)} URLs in parallel...")
 
             with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
                 results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls))
@@ -413,7 +413,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
                     detail_parts.append(f"{n_err} error{'s' if n_err != 1 else ''}")
                 detail = f"  ({', '.join(detail_parts)})" if n_err else ""
                 titles = " | ".join(s["title"][:40] for s in scraped_content)
-                print(f"{YELLOW}[WEB_SCRAPE] ✓ {n_ok}/{max_sites} sources{detail}{RESET}: {titles}")
+                logger.info(f"{YELLOW}[WEB_SCRAPE] ✓ {n_ok}/{max_sites} sources{detail}{RESET}: {titles}")
             else:
                 parts = []
                 if n_err:
@@ -421,9 +421,9 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
                 if filtered:
                     parts.append(f"{filtered} filtered")
                 detail = f"  ({fetched} fetched, {', '.join(parts)})" if parts else ""
-                print(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ 0/{max_sites} sources{detail}{RESET}")
+                logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ 0/{max_sites} sources{detail}{RESET}")
         else:
-            print(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
+            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ No URLs found{RESET}")
         ws_elapsed = round(time.time() - ws_start, 3)
 
     # Build research prompt (custom override or registry-based)
@@ -459,7 +459,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     else:
         has_data = "RESEARCH DATA:" in prompt or any(item['title'] in prompt for item in scraped_content[:1])
         checks.append(f"research_data: {'✓' if has_data else '✗ MISSING'}")
-    print(f"{YELLOW}[PROMPT] {' | '.join(checks)}{RESET}")
+    logger.debug(f"{YELLOW}[PROMPT] {' | '.join(checks)}{RESET}")
 
     messages = [{"role": "user", "content": prompt}]
     llm_kwargs = {

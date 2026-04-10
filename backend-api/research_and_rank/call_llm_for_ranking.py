@@ -1,10 +1,13 @@
 # ./backend-api/research_and_rank/call_llm_for_ranking.py
 import json
+import logging
 import random
 from rapidfuzz import fuzz, process
 from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
 from utils.prompt_registry import get_prompt_registry
 from config.pipeline_config import get_node_config
+
+logger = logging.getLogger(__name__)
 
 _LR_CONFIG = get_node_config("llm_ranking")
 
@@ -134,7 +137,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         llm_kwargs["model"] = ranking_model
     ranking_result = await llm_call(**llm_kwargs, warnings=warnings)
 
-    print(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
+    logger.info(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
     corrected = _correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])
 
     debug_output_limit = lr_cfg["debug_output_limit"]
@@ -142,9 +145,9 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         candidates = corrected['ranked_candidates']
         top = candidates[0].get("candidate", "?")[:60]
         top_score = candidates[0].get("relevance_score", 0)
-        print(f"\n{GREEN}[PIPELINE] Success! {len(candidates)} matches — top: {top}... ({top_score:.3f}){RESET}")
+        logger.info(f"\n{GREEN}[PIPELINE] Success! {len(candidates)} matches — top: {top}... ({top_score:.3f}){RESET}")
 
         return _build_result(query, candidates, match_results, debug_output_limit)
 
-    print(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
+    logger.warning(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
     return _build_result(query, [], match_results, debug_output_limit)

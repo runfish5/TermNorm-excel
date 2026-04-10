@@ -3,7 +3,6 @@ Centralized configuration management for TermNorm Backend API
 """
 import os
 import sys
-from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
 
@@ -16,13 +15,13 @@ class Settings(BaseSettings):
     api_description: str = "TermNorm Excel Add-in Backend API"
 
     # LLM Configuration (allow extra fields from .env)
-    llm_provider: Optional[str] = Field(None, alias="LLM_PROVIDER")
-    llm_model: Optional[str] = Field(None, alias="LLM_MODEL")
-    groq_api_key: Optional[str] = Field(None, alias="GROQ_API_KEY")
-    openai_api_key: Optional[str] = Field(None, alias="OPENAI_API_KEY")
+    llm_provider: str | None = Field(None, alias="LLM_PROVIDER")
+    llm_model: str | None = Field(None, alias="LLM_MODEL")
+    groq_api_key: str | None = Field(None, alias="GROQ_API_KEY")
+    openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
 
     # Search API Configuration
-    brave_search_api_key: Optional[str] = Field(None, alias="BRAVE_SEARCH_API_KEY")
+    brave_search_api_key: str | None = Field(None, alias="BRAVE_SEARCH_API_KEY")
     use_brave_api: bool = Field(True, alias="USE_BRAVE_API")  # Toggle for testing fallbacks
 
     # Server Configuration
@@ -31,7 +30,7 @@ class Settings(BaseSettings):
     reload: bool = False
 
     # CORS Configuration
-    cors_origins: List[str] = [
+    cors_origins: list[str] = [
         "https://localhost:3000",
         "http://127.0.0.1:8000",
         "*"
@@ -39,7 +38,7 @@ class Settings(BaseSettings):
 
     # Protected Endpoints (require user authentication)
     # Note: /health is intentionally public
-    protected_paths: List[str] = [
+    protected_paths: list[str] = [
         "/sessions",
         "/matches",
         "/activities",
@@ -51,12 +50,12 @@ class Settings(BaseSettings):
     ]
 
     # Cloud Environment Detection (one sentinel per major provider)
-    azure_site_name: Optional[str] = Field(None, alias="WEBSITE_SITE_NAME")
-    aws_lambda_function: Optional[str] = Field(None, alias="AWS_LAMBDA_FUNCTION_NAME")
-    google_cloud_project: Optional[str] = Field(None, alias="GOOGLE_CLOUD_PROJECT")
+    azure_site_name: str | None = Field(None, alias="WEBSITE_SITE_NAME")
+    aws_lambda_function: str | None = Field(None, alias="AWS_LAMBDA_FUNCTION_NAME")
+    google_cloud_project: str | None = Field(None, alias="GOOGLE_CLOUD_PROJECT")
 
     # Network Configuration
-    uvicorn_host: Optional[str] = Field(None, alias="UVICORN_HOST")
+    uvicorn_host: str | None = Field(None, alias="UVICORN_HOST")
 
     class Config:
         env_file = ".env"
@@ -87,14 +86,7 @@ class Settings(BaseSettings):
             return "network"
         return "local"
 
-    def validate_required_settings(self) -> None:
-        """Validate that required settings are present"""
-        # API key is now optional - will be validated at runtime when needed
-        pass
 
 
 # Global settings instance
 settings = Settings()
-
-# Validate on import
-settings.validate_required_settings()

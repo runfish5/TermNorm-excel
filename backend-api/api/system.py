@@ -4,33 +4,20 @@ System API - Health checks, connection testing, and activity logging
 import logging
 import os
 import socket
-from typing import Dict, Any, List
+from typing import Any
 from fastapi import APIRouter, Body
 
 from config.pipeline_config import get_pipeline_config
 from config.settings import settings
 from core import llm_providers
 from services import match_database as match_db
+from api.responses import _ok, _err
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 EXPERIMENTS_PATH = __import__("pathlib").Path("logs/experiments")
-
-
-def _ok(message, data=None):
-    r = {"status": "success", "message": message}
-    if data is not None:
-        r["data"] = data
-    return r
-
-
-def _err(message, data=None):
-    r = {"status": "error", "message": message}
-    if data is not None:
-        r["data"] = data
-    return r
 
 
 def _get_local_ip() -> str:
@@ -70,7 +57,7 @@ def _read_yaml(file_path) -> dict:
 
 
 @router.get("/health")
-async def health() -> Dict[str, Any]:
+async def health() -> dict[str, Any]:
     """Health check endpoint - returns server status and environment info"""
     connection_type, connection_url, environment = _get_connection_info()
     return _ok("Server online", data={
@@ -82,10 +69,8 @@ async def health() -> Dict[str, Any]:
 
 
 @router.get("/status")
-async def status() -> Dict[str, Any]:
+async def status() -> dict[str, Any]:
     """Status endpoint — returns current server state for external tools."""
-    from api.research_pipeline import user_sessions
-
     db = match_db.get_db()
 
     # Scan experiments on disk
@@ -109,9 +94,6 @@ async def status() -> Dict[str, Any]:
     pipeline_cfg = get_pipeline_config()
 
     return _ok("Server status", data={
-        "session_active": len(user_sessions) > 0,
-        "active_sessions": len(user_sessions),
-        "terms_loaded": sum(len(s.get("terms", [])) for s in user_sessions.values()),
         "match_database_identifiers": len(db),
         "match_database_aliases": sum(len(entry.get("aliases", {})) for entry in db.values()),
         "experiments_count": len(experiments),
@@ -124,7 +106,7 @@ async def status() -> Dict[str, Any]:
 
 
 @router.get("/settings")
-async def get_settings() -> Dict[str, Any]:
+async def get_settings() -> dict[str, Any]:
     return _ok("Settings retrieved", data={
         "available_providers": llm_providers.get_available_providers(),
         "current_provider": llm_providers.LLM_PROVIDER,
@@ -134,7 +116,7 @@ async def get_settings() -> Dict[str, Any]:
 
 
 @router.put("/settings")
-async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def update_settings(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     updated = {}
     if "provider" in payload and "model" in payload:
         os.environ["LLM_PROVIDER"] = payload["provider"]
@@ -154,7 +136,7 @@ async def update_settings(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]
 
 
 @router.get("/matches/{identifier}")
-async def get_match_details(identifier: str) -> Dict[str, Any]:
+async def get_match_details(identifier: str) -> dict[str, Any]:
     db = match_db.get_db()
     if not db:
         return _err("Match database not loaded")
@@ -171,13 +153,13 @@ async def get_match_details(identifier: str) -> Dict[str, Any]:
 
 
 @router.get("/history")
-async def get_processed_entries() -> Dict[str, Any]:
+async def get_processed_entries() -> dict[str, Any]:
     db = match_db.get_db()
     return _ok(f"Retrieved {len(db)} processed entries", data={"entries": db})
 
 
 @router.get("/cache")
-async def get_cache_status() -> Dict[str, Any]:
+async def get_cache_status() -> dict[str, Any]:
     db = match_db.get_db()
     return _ok("Cache status retrieved", data={
         "match_database": {
@@ -189,6 +171,6 @@ async def get_cache_status() -> Dict[str, Any]:
 
 
 @router.post("/cache/rebuild")
-async def rebuild_cache() -> Dict[str, Any]:
+async def rebuild_cache() -> dict[str, Any]:
     identifiers_count = match_db.rebuild()
     return _ok(f"Cache rebuilt with {identifiers_count} identifiers", data={"identifiers": identifiers_count})

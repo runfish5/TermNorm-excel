@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 
 from utils.prompt_registry import get_prompt_registry
+from api.responses import _ok
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
@@ -18,13 +19,6 @@ DATASETS_PATH = Path("logs/langfuse/datasets")
 TRACES_PATH = Path("logs/langfuse/traces")
 OBSERVATIONS_PATH = Path("logs/langfuse/observations")
 SCORES_PATH = Path("logs/langfuse/scores")
-
-
-def _ok(message, data=None):
-    r = {"status": "success", "message": message}
-    if data is not None:
-        r["data"] = data
-    return r
 
 
 # ---------------------------------------------------------------------------

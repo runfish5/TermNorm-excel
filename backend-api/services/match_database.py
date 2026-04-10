@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 
 from utils.cache_metadata import CacheMetadata
 from config.pipeline_config import get_cache_config
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 MATCH_DB_PATH = Path(__file__).parent.parent / "logs" / "match_database.json"
 
-_db: Dict[str, Any] = {}
+_db: dict[str, Any] = {}
 _cache_metadata = CacheMetadata()
 
 # Shared thresholds
@@ -26,7 +26,7 @@ HIGH_CONFIDENCE_THRESHOLD = _cache_config["high_confidence_threshold"]
 VERIFIED_METHODS = set(_cache_config["verified_methods"])
 
 
-def get_db() -> Dict[str, Any]:
+def get_db() -> dict[str, Any]:
     """Return the match database dict (mutable reference)."""
     return _db
 
@@ -53,7 +53,7 @@ def _ensure_db_entry(target, web_sources=None, timestamp=None):
     return _db[target]
 
 
-def _update_db_entry(record: Dict[str, Any]):
+def _update_db_entry(record: dict[str, Any]):
     """Internal: Update database entry without saving (for batch rebuild)."""
     target = record.get("target")
     source = record.get("source")
@@ -131,7 +131,7 @@ def save():
         json.dump(_db, f, indent=2, ensure_ascii=False)
 
 
-def update(record: Dict[str, Any]):
+def update(record: dict[str, Any]):
     """Live mode: Update database from single log record."""
     target = record.get("target")
     source = record.get("source")

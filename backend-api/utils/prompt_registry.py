@@ -10,9 +10,12 @@ Structure:
 """
 
 import json
+import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class PromptRegistry:
@@ -33,7 +36,7 @@ class PromptRegistry:
         template: str,
         description: str = "",
         template_variables: list = None,
-        metadata: Dict[str, Any] = None
+        metadata: dict[str, Any] = None
     ):
         """
         Register a new prompt version.
@@ -66,9 +69,9 @@ class PromptRegistry:
         with open(prompt_dir / "metadata.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
 
-        print(f"[PROMPT_REGISTRY] Registered {family} v{version}")
+        logger.info(f"[PROMPT_REGISTRY] Registered {family} v{version}")
 
-    def get_prompt(self, family: str, version: Optional[int] = None) -> str:
+    def get_prompt(self, family: str, version: int | None = None) -> str:
         """
         Get prompt template.
 
@@ -89,7 +92,7 @@ class PromptRegistry:
 
         return prompt_file.read_text(encoding="utf-8")
 
-    def get_metadata(self, family: str, version: Optional[int] = None) -> Dict:
+    def get_metadata(self, family: str, version: int | None = None) -> dict:
         """Get prompt metadata."""
         if version is None:
             version = self.get_latest_version(family)
@@ -146,7 +149,7 @@ class PromptRegistry:
     def render_prompt(
         self,
         family: str,
-        version: Optional[int] = None,
+        version: int | None = None,
         **kwargs
     ) -> str:
         """
@@ -170,7 +173,7 @@ class PromptRegistry:
 
 
 # Singleton instance
-_registry: Optional[PromptRegistry] = None
+_registry: PromptRegistry | None = None
 
 
 def get_prompt_registry() -> PromptRegistry:
@@ -293,9 +296,7 @@ Rules:
         }
     )
 
-    print("\n[PROMPT_REGISTRY] Initialized default prompts:")
-    print("  - entity_profiling v1")
-    print("  - llm_ranking v1")
+    logger.info("[PROMPT_REGISTRY] Initialized default prompts: entity_profiling v1, llm_ranking v1")
 
 
 if __name__ == "__main__":
@@ -305,13 +306,13 @@ if __name__ == "__main__":
     # Test retrieval
     registry = get_prompt_registry()
 
-    print("\n\nPrompt families:", registry.list_families())
+    logger.info("Prompt families: %s", registry.list_families())
 
     for family in registry.list_families():
         versions = registry.list_versions(family)
-        print(f"\n{family}: versions {versions}")
+        logger.info("%s: versions %s", family, versions)
 
         latest = registry.get_latest_version(family)
         meta = registry.get_metadata(family, latest)
-        print(f"  Latest (v{latest}): {meta['description']}")
-        print(f"  Variables: {meta['template_variables']}")
+        logger.info("  Latest (v%d): %s", latest, meta['description'])
+        logger.info("  Variables: %s", meta['template_variables'])

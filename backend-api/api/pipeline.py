@@ -2,7 +2,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -12,16 +12,10 @@ from utils.langfuse_logger import (
 )
 from utils.schema_registry import get_schema_registry
 from utils.prompt_registry import get_prompt_registry
+from api.responses import _ok
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["pipeline"])
-
-
-def _ok(message, data=None):
-    r = {"status": "success", "message": message}
-    if data is not None:
-        r["data"] = data
-    return r
 
 PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
 
@@ -104,9 +98,9 @@ async def get_pipeline():
 
 class TraceRequest(BaseModel):
     query: str
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    pipeline_version: Optional[str] = None  # e.g. "v1.0" from frontend config
+    session_id: str | None = None
+    user_id: str | None = None
+    pipeline_version: str | None = None  # e.g. "v1.0" from frontend config
 
 
 @router.post("/pipeline/trace")
@@ -136,7 +130,7 @@ async def create_pipeline_trace(req: TraceRequest):
 class StepReport(BaseModel):
     trace_id: str
     step_name: str  # "cache_lookup" | "fuzzy_matching"
-    result: Dict[str, Any]
+    result: dict[str, Any]
     latency_ms: float = 0
 
 

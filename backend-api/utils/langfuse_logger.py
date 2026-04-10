@@ -12,7 +12,7 @@ Directory structure:
 import json
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any
 from datetime import datetime
 
 from .id_gen import generate_dated_id
@@ -22,11 +22,11 @@ DEFAULT_DATASET = "termnorm_ground_truth"
 EVENTS_FILE = BASE_PATH / "events.jsonl"
 
 # In-memory index for fast query->item_id lookups
-_query_index: Dict[str, str] = {}
+_query_index: dict[str, str] = {}
 _index_loaded = False
 
 
-def _log_event(event: Dict):
+def _log_event(event: dict):
     """Append event to events.jsonl (simple flat log of all actions)."""
     _ensure_dirs()
     event["timestamp"] = datetime.utcnow().isoformat() + "Z"
@@ -53,11 +53,11 @@ def _ensure_dirs():
 
 def create_trace(
     name: str,
-    input: Dict,
+    input: dict,
     user_id: str = None,
     session_id: str = None,
-    metadata: Dict = None,
-    tags: List[str] = None,
+    metadata: dict = None,
+    tags: list[str] = None,
 ) -> str:
     """Create a new trace. Returns trace_id."""
     _ensure_dirs()
@@ -80,7 +80,7 @@ def create_trace(
     return trace_id
 
 
-def update_trace(trace_id: str, output: Dict = None, metadata: Dict = None):
+def update_trace(trace_id: str, output: dict = None, metadata: dict = None):
     """Update trace with output and/or metadata."""
     path = BASE_PATH / "traces" / f"{trace_id}.json"
     if not path.exists():
@@ -95,7 +95,7 @@ def update_trace(trace_id: str, output: Dict = None, metadata: Dict = None):
     path.write_text(json.dumps(trace, indent=2))
 
 
-def get_trace(trace_id: str) -> Optional[Dict]:
+def get_trace(trace_id: str) -> dict | None:
     """Get trace by ID."""
     path = BASE_PATH / "traces" / f"{trace_id}.json"
     if not path.exists():
@@ -114,7 +114,7 @@ def create_observation(
     input: Any = None,
     output: Any = None,
     model: str = None,
-    metadata: Dict = None,
+    metadata: dict = None,
 ) -> str:
     """Create observation linked to trace. Returns obs_id."""
     obs_id = f"obs-{uuid.uuid4().hex[:12]}"
@@ -241,7 +241,7 @@ def set_ground_truth(item_id: str, target: str) -> bool:
     return True
 
 
-def get_item_by_query(query: str) -> Optional[Dict]:
+def get_item_by_query(query: str) -> dict | None:
     """Get dataset item by query string."""
     _load_query_index()
     item_id = _query_index.get(query)
@@ -316,7 +316,7 @@ def log_batch_complete(
 # =============================================================================
 
 def log_pipeline(
-    record: Dict[str, Any],
+    record: dict[str, Any],
     session_id: str = None,
     batch_id: str = None,
     user_prompt: str = None,
@@ -639,7 +639,7 @@ def log_user_correction(source: str, target: str, method: str = "UserChoice") ->
     return True
 
 
-def _profile_summary(profile: Optional[Dict]) -> Optional[Dict]:
+def _profile_summary(profile: dict | None) -> dict | None:
     """Extract lean summary from entity profile."""
     if not profile:
         return None

@@ -10,9 +10,12 @@ Structure:
 """
 
 import json
+import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class SchemaRegistry:
@@ -30,10 +33,10 @@ class SchemaRegistry:
         self,
         family: str,
         version: int,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         description: str = "",
-        fields: List[str] = None,
-        metadata: Dict[str, Any] = None
+        fields: list[str] = None,
+        metadata: dict[str, Any] = None
     ):
         """
         Register a new schema version.
@@ -70,9 +73,9 @@ class SchemaRegistry:
         with open(schema_dir / "metadata.json", "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
 
-        print(f"[SCHEMA_REGISTRY] Registered {family} v{version}")
+        logger.info(f"[SCHEMA_REGISTRY] Registered {family} v{version}")
 
-    def get_schema(self, family: str, version: Optional[int] = None) -> Dict[str, Any]:
+    def get_schema(self, family: str, version: int | None = None) -> dict[str, Any]:
         """
         Get JSON schema.
 
@@ -94,7 +97,7 @@ class SchemaRegistry:
         with open(schema_file, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def get_metadata(self, family: str, version: Optional[int] = None) -> Dict:
+    def get_metadata(self, family: str, version: int | None = None) -> dict:
         """Get schema metadata."""
         if version is None:
             version = self.get_latest_version(family)
@@ -124,7 +127,7 @@ class SchemaRegistry:
 
         return max(versions)
 
-    def list_families(self) -> List[str]:
+    def list_families(self) -> list[str]:
         """List all schema families."""
         if not self.base_path.exists():
             return []
@@ -134,7 +137,7 @@ class SchemaRegistry:
             if d.is_dir()
         ]
 
-    def list_versions(self, family: str) -> List[int]:
+    def list_versions(self, family: str) -> list[int]:
         """List all versions for a schema family."""
         family_dir = self.base_path / family
 
@@ -150,7 +153,7 @@ class SchemaRegistry:
 
 
 # Singleton instance
-_registry: Optional[SchemaRegistry] = None
+_registry: SchemaRegistry | None = None
 
 
 def get_schema_registry() -> SchemaRegistry:
@@ -256,9 +259,9 @@ def initialize_default_schemas():
         registered.append("llm_ranking_output v1")
 
     if registered:
-        print(f"\n[SCHEMA_REGISTRY] Initialized default schemas: {', '.join(registered)}")
+        logger.info(f"[SCHEMA_REGISTRY] Initialized default schemas: {', '.join(registered)}")
     else:
-        print("[SCHEMA_REGISTRY] All default schemas already exist, skipping")
+        logger.debug("[SCHEMA_REGISTRY] All default schemas already exist, skipping")
 
 
 if __name__ == "__main__":
@@ -268,13 +271,13 @@ if __name__ == "__main__":
     # Test retrieval
     registry = get_schema_registry()
 
-    print("\n\nSchema families:", registry.list_families())
+    logger.info("Schema families: %s", registry.list_families())
 
     for family in registry.list_families():
         versions = registry.list_versions(family)
-        print(f"\n{family}: versions {versions}")
+        logger.info("%s: versions %s", family, versions)
 
         latest = registry.get_latest_version(family)
         meta = registry.get_metadata(family, latest)
-        print(f"  Latest (v{latest}): {meta['description']}")
-        print(f"  Fields: {meta['fields']}")
+        logger.info("  Latest (v%d): %s", latest, meta['description'])
+        logger.info("  Fields: %s", meta['fields'])
