@@ -23,7 +23,12 @@ from utils.langfuse_logger import (
 )
 from utils.schema_registry import get_schema_registry
 from config.settings import settings
-from config.pipeline_config import get_node_config, get_pipeline_steps
+from config.pipeline_config import (
+    get_node_config,
+    get_pipeline_steps,
+    get_session_required_steps,
+    validate_step_dependencies,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -467,7 +472,37 @@ STEP_REGISTRY: dict[str, Callable] = {
     "llm_only":          _step_llm_only,
 }
 
-REQUIRES_SESSION = {"fuzzy_matching", "token_matching"}
+REQUIRES_SESSION = get_session_required_steps()
+
+
+def _deserialize_scored_tuples(data: list[dict]) -> list[tuple[str, float]]:
+    """Deserialize ``[{term, score}, ...]`` dicts back to internal tuple format."""
+    return [(r["term"], r["score"]) for r in data]
+
+
+PRECOMPUTED_DESERIALIZERS: dict[str, Callable] = {
+    "fuzzy_matching": _deserialize_scored_tuples,
+    "token_matching": _deserialize_scored_tuples,
+}
+
+
+def _serialize_scored_tuples(data: list[tuple[str, float]]) -> list[dict]:
+    """Serialize internal ``[(term, score), ...]`` tuples to wire format."""
+    return [{"term": t, "score": s} for t, s in data]
+
+
+def _identity(data: Any) -> Any:
+    return data
+
+
+# (context_key, serializer) — context_key is the output name to read from ctx.
+# Nodes not listed here are excluded from node_outputs.
+NODE_OUTPUT_SERIALIZERS: dict[str, tuple[str, Callable]] = {
+    "fuzzy_matching":    ("fuzzy_matching", _serialize_scored_tuples),
+    "web_search":        ("_scraped_content", _identity),
+    "entity_profiling":  ("entity_profiling", _identity),
+    "token_matching":    ("token_matching", _serialize_scored_tuples),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -527,21 +562,15 @@ def _build_response(ctx: PipelineContext) -> tuple:
         "web_sources": web_sources,
     }
 
-    # Node outputs for partial pipeline caching
+    # Node outputs for partial pipeline caching (registry-driven)
     _ran = {StepStatus.SUCCESS, StepStatus.DEGRADED}
     statuses = {name: rec.status for name, rec in ctx._steps.items()}
     node_outputs: dict = {}
-
-    fuzzy_results = ctx.get_output("fuzzy_matching", [])
-    if statuses.get("fuzzy_matching") in _ran:
-        node_outputs["fuzzy_matching"] = [{"term": t, "score": s} for t, s in fuzzy_results]
-    scraped = ctx.get_output("_scraped_content")
-    if statuses.get("web_search") in _ran and scraped:
-        node_outputs["web_search"] = scraped
-    if statuses.get("entity_profiling") in _ran:
-        node_outputs["entity_profiling"] = entity_profile
-    if statuses.get("token_matching") in _ran:
-        node_outputs["token_matching"] = [{"term": t, "score": s} for t, s in candidates]
+    for node_name, (ctx_key, serializer) in NODE_OUTPUT_SERIALIZERS.items():
+        if statuses.get(node_name) in _ran:
+            raw = ctx.get_output(ctx_key)
+            if raw is not None:
+                node_outputs[node_name] = serializer(raw)
 
     data = {
         "final_ranking": ranked, "entity_profile": entity_profile,
@@ -644,6 +673,12 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     params = _resolve_pipeline_params(payload, steps=steps)
     precomputed = payload.get("precomputed") or {}
 
+    # Validate step dependencies — warn if input_keys aren't satisfied
+    # (precomputed outputs count as available upstream)
+    _dep_violations = validate_step_dependencies(steps, pre_available=set(precomputed))
+    if _dep_violations:
+        logger.warning("[PIPELINE] Steps with unsatisfied dependencies: %s", _dep_violations)
+
     # Session relaxation — only require a session for steps that need terms
     requires_session = bool(set(steps) & REQUIRES_SESSION)
     if requires_session:
@@ -667,15 +702,10 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         ctx.set_output("_token_matcher", token_matcher)
         logger.debug(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
 
-    # Pre-register precomputed outputs
+    # Pre-register precomputed outputs (per-node deserializers in PRECOMPUTED_DESERIALIZERS)
     for step_name, precomp_data in precomputed.items():
-        # Convert serialized precomputed data to internal tuple format
-        if step_name == "fuzzy_matching":
-            ctx.record_precomputed(step_name, [(r["term"], r["score"]) for r in precomp_data])
-        elif step_name == "token_matching":
-            ctx.record_precomputed(step_name, [(c["term"], c["score"]) for c in precomp_data])
-        else:
-            ctx.record_precomputed(step_name, precomp_data)
+        deser = PRECOMPUTED_DESERIALIZERS.get(step_name)
+        ctx.record_precomputed(step_name, deser(precomp_data) if deser else precomp_data)
 
     # Dispatch loop
     for step_name in steps:

@@ -25,6 +25,7 @@
       "type": "retriever",
       "runtime": "frontend",
       "short_circuit": true,
+      "requires_session": true,
       "node_role": "candidate_source",
       "description": "Fuzzy string matching against the database index. Short-circuits on high-confidence matches, bypassing web search and LLM profiling entirely.",
       "config": {
@@ -151,6 +152,7 @@
     "token_matching": {
       "type": "retriever",
       "runtime": "backend",
+      "requires_session": true,
       "node_role": "candidate_source",
       "description": "Token-level retrieval matching entity profile fields against database entries. Candidate pool quality depends on the entity profile generated upstream.",
       "config": {
