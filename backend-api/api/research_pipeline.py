@@ -362,10 +362,18 @@ async def _step_token(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
 
 async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
     """LLM ranking — rank candidates using entity profile context."""
-    entity_profile = ctx.get_output("entity_profiling", [])
-    candidates = ctx.get_output("token_matching", [])
+    entity_profile = ctx.get_output("entity_profiling") or []
+    candidates = ctx.get_output("token_matching") or []
     lr_cfg = ctx.params.get("llm_ranking", {})
     tm_cfg = ctx.params.get("token_matching", {})
+
+    if not candidates:
+        logger.info("[PIPELINE] llm_ranking: no candidates — skipping")
+        return StepResult(
+            output={"ranked_candidates": []},
+            elapsed=0.0,
+            status=StepStatus.SKIPPED,
+        )
 
     try:
         ranking_llm_warnings = []
@@ -514,9 +522,9 @@ def _build_response(ctx: PipelineContext) -> tuple:
 
     Returns (training_record, api_response).
     """
-    entity_profile = ctx.get_output("entity_profiling", [])
-    llm_response = ctx.get_output("llm_ranking", {})
-    candidates = ctx.get_output("token_matching", [])
+    entity_profile = ctx.get_output("entity_profiling") or []
+    llm_response = ctx.get_output("llm_ranking") or {}
+    candidates = ctx.get_output("token_matching") or []
     profile_debug = ctx.get_output("_profile_debug", {"inputs": {"scraped_sources": {"status": "skipped"}}})
     ranking_debug = ctx.get_output("_ranking_debug")
 
@@ -669,6 +677,12 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     query = payload.get("query", "")
     steps = payload.get("steps") or _pipeline("default")
     trace_id = payload.get("trace_id")
+    logger.info(
+        "[PIPELINE] /matches incoming: payload_steps=%s resolved_steps=%s node_config_keys=%s",
+        payload.get("steps"),
+        steps,
+        list((payload.get("node_config") or {}).keys()),
+    )
 
     params = _resolve_pipeline_params(payload, steps=steps)
     precomputed = payload.get("precomputed") or {}
