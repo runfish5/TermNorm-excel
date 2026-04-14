@@ -33,6 +33,7 @@ from config.pipeline_config import (
 logger = logging.getLogger(__name__)
 
 from api.responses import _ok
+from api._step_logging import STEP_NODE_TYPE, log_run_summary, log_step_short
 
 router = APIRouter()
 
@@ -455,8 +456,6 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
             StepWarning("llm_only", "empty_output", "LLM returned empty content")
         )
 
-    logger.info(f"[PIPELINE] llm_only: {len(answer)} chars in {elapsed}s")
-
     # Build early-exit response
     final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
     warning_dicts = [
@@ -617,76 +616,7 @@ def _build_response(ctx: PipelineContext) -> tuple:
         message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
         data=data,
     )
-    logger.info(_summarize_response(api_response))
     return training_record, api_response
-
-
-def _summarize_response(resp: dict) -> str:
-    """Build a condensed structural summary of the API response for logging."""
-    G, R = GREEN, RESET
-    lines = [f"{G}[RESPONSE] {resp.get('status', '?')} — {resp.get('message', '')}{R}"]
-    data = resp.get("data", {})
-
-    # final_ranking
-    ranked = data.get("final_ranking", [])
-    if ranked:
-        top = ranked[0]
-        name = top.get("candidate", "")[:50]
-        score = top.get("relevance_score", 0)
-        lines.append(f"  {G}final_ranking{R}      [{len(ranked)} items]  top: {name}... ({score:.3f})")
-
-    # entity_profile
-    ep = data.get("entity_profile")
-    if isinstance(ep, dict):
-        n_fields = len([k for k in ep if not k.startswith("_")])
-        entity = ep.get("entity_name", "?")[:40]
-        src_count = ep.get("_metadata", {}).get("sources_count", "?")
-        lines.append(f"  {G}entity_profile{R}      {{{n_fields} fields}}  entity: {entity}, {src_count} sources")
-
-    # candidate_ranking
-    tokens = data.get("candidate_ranking", [])
-    if tokens:
-        scores = [c[1] for c in tokens if isinstance(c, (list, tuple)) and len(c) > 1]
-        rng = f"  scores: {max(scores):.3f}–{min(scores):.3f}" if scores else ""
-        lines.append(f"  {G}candidate_ranking{R}     [{len(tokens)} items]{rng}")
-
-    # timings (merged total_time + step_timings)
-    step_timings = data.get("step_timings", {})
-    total_time = data.get("total_time")
-    if step_timings:
-        parts = []
-        for step, t in step_timings.items():
-            short = step.split("_")[0][:8]
-            parts.append(f"{short}={'skip' if t is None else f'{t:.1f}s'}")
-        total_str = f"{total_time}s total | " if total_time else ""
-        lines.append(f"  {G}timings{R}            {total_str}{' '.join(parts)}")
-
-    # pipeline (merged pipeline_params + terminated_at + models)
-    pp = data.get("pipeline_params", {})
-    terminated = data.get("terminated_at")
-    model = data.get("profiling_model") or data.get("ranking_model") or ""
-    provider = data.get("llm_provider", "")
-    if pp:
-        n_exec = len(pp.get("steps", []))
-        n_req = len(pp.get("requested_steps", []))
-        term_str = f" → {terminated}" if terminated else ""
-        model_str = f" | {provider}/{model.split('/')[-1]}" if model else ""
-        lines.append(f"  {G}pipeline{R}           {n_exec}/{n_req} steps{term_str}{model_str}")
-
-    # diagnostics
-    diag = data.get("diagnostics")
-    if isinstance(diag, dict):
-        warnings = diag.get("warnings", [])
-        statuses = diag.get("step_statuses", {})
-        non_success = [f"{s}={st}" for s, st in statuses.items() if st != "success"]
-        status_str = ", ".join(non_success) if non_success else "all success"
-        w_str = f"{len(warnings)} warnings"
-        if warnings:
-            first = warnings[0]
-            w_str += f" ({first['step']}: {first['code']})"
-        lines.append(f"  {G}diagnostics{R}        {w_str} | {status_str}")
-
-    return "\n".join(lines)
 
 
 @router.post("/matches")
@@ -770,17 +700,27 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
                             details=list(w.details) if w.details else None,
                             stats=dict(w.stats) if w.stats else None)
 
+        # Short-form per-step log: only for non-terminal, non-skipped steps.
+        # Terminal steps (llm_only, fuzzy-as-last) flow through log_run_summary instead.
+        if (
+            not result.terminates
+            and result.status != StepStatus.SKIPPED
+            and step_name in STEP_NODE_TYPE
+        ):
+            log_step_short(ctx, step_name, STEP_NODE_TYPE[step_name], result)
+
         if result.terminates:
             break
 
     # Check for early-exit response (fuzzy-only, llm_only, etc.)
     early = ctx.get_output("_early_response")
     if early is not None:
-        logger.info(_summarize_response(early))
+        log_run_summary(ctx, early)
         return early
 
     # Full pipeline — build response from collected outputs
     training_record, api_response = _build_response(ctx)
+    log_run_summary(ctx, api_response)
 
     try:
         log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
