@@ -424,27 +424,45 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     temperature = cfg.get("temperature", 0.0)
     max_tokens = cfg.get("max_tokens", 2000)
     response_format = cfg.get("response_format", "text")
+    reasoning_effort = cfg.get("reasoning_effort")
 
     messages = [{"role": "user", "content": query}]
+    call_warnings: list[str] = []
     kwargs: dict[str, Any] = {
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "model": model,
+        "warnings": call_warnings,
     }
     if system:
         kwargs["system"] = system
     if response_format == "json":
         kwargs["output_format"] = "json"
+    if reasoning_effort is not None:
+        kwargs["reasoning_effort"] = reasoning_effort
 
     response = await llm_call(**kwargs)
     answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
 
+    step_warnings: list[StepWarning] = [
+        StepWarning("llm_only", w, w) for w in call_warnings
+    ]
+    if not answer.strip():
+        logger.warning("[PIPELINE] llm_only: empty output after %ss", elapsed)
+        step_warnings.append(
+            StepWarning("llm_only", "empty_output", "LLM returned empty content")
+        )
+
     logger.info(f"[PIPELINE] llm_only: {len(answer)} chars in {elapsed}s")
 
     # Build early-exit response
     final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
+    warning_dicts = [
+        {"step": w.step, "code": w.code, "message": w.message} for w in step_warnings
+    ]
+    step_status = "success" if answer.strip() else "empty_output"
     ctx.set_output("_early_response", _ok(
         message=f"LLM-only completed in {elapsed}s",
         data={
@@ -455,7 +473,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
             "terminated_at": "llm_only",
             "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
             "llm_provider": LLM_PROVIDER,
-            "diagnostics": {"warnings": [], "step_statuses": {"llm_only": "success"}},
+            "diagnostics": {"warnings": warning_dicts, "step_statuses": {"llm_only": step_status}},
         },
     ))
 
@@ -463,6 +481,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         output={"final_ranking": final_ranking},
         elapsed=elapsed,
         terminates=True,
+        warnings=step_warnings,
     )
 
 

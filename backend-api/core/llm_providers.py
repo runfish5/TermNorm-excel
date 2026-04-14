@@ -78,6 +78,7 @@ async def llm_call(
     model: str | None = None,
     seed: int | None = None,
     logprobs: int | None = None,
+    reasoning_effort: Literal["low", "medium", "high"] | None = None,
     warnings: list[str] | None = None,
 ) -> str | dict:
     """Universal LLM function - uses global provider config.
@@ -114,6 +115,8 @@ async def llm_call(
     if effective_logprobs is not None and LLM_PROVIDER in ["openai", "groq"]:
         params["logprobs"] = True
         params["top_logprobs"] = effective_logprobs
+    if reasoning_effort is not None and LLM_PROVIDER in ["openai", "groq"]:
+        params["reasoning_effort"] = reasoning_effort
     
     # Handle structured output
     if output_format == "json" and LLM_PROVIDER in ["openai", "groq"]:
@@ -167,6 +170,17 @@ async def llm_call(
                 # OpenAI/Groq use same API
                 response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=_TIMEOUT)
                 content = response.choices[0].message.content if response.choices else ""
+                if not content and response.choices:
+                    msg = response.choices[0].message
+                    reasoning = getattr(msg, "reasoning", None) or ""
+                    if reasoning:
+                        logger.warning(
+                            "[LLM] Empty content, falling back to reasoning field (%d chars)",
+                            len(reasoning),
+                        )
+                        if warnings is not None:
+                            warnings.append("empty_content_reasoning_fallback")
+                        content = reasoning
 
             # Detect output truncation by max_tokens
             if LLM_PROVIDER == "anthropic":
