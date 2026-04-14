@@ -85,8 +85,24 @@ class PromptRegistry:
         if version is None:
             version = self.get_latest_version(family)
 
-        prompt_file = self.base_path / family / str(version) / "prompt.txt"
+        version_dir = self.base_path / family / str(version)
+        canonical_file = version_dir / "canonical.json"
+        if canonical_file.exists():
+            with open(canonical_file, "r", encoding="utf-8") as f:
+                template = json.load(f)
+            # Match PromptPotter's PromptTemplate.render(): join the 6 canonical
+            # string fields with blank lines, skipping empty ones.
+            six_fields = (
+                "persona",
+                "task_intent",
+                "problem_description",
+                "instruction",
+                "thinking_style",
+                "answer_format",
+            )
+            return "\n\n".join(v for f in six_fields if (v := template.get(f)))
 
+        prompt_file = version_dir / "prompt.txt"
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt not found: {family} v{version}")
 

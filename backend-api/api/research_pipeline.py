@@ -654,7 +654,8 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     # Entry log
     term_info = f" ({len(terms)} terms)" if terms else ""
     precomp_info = f" [precomputed: {', '.join(precomputed)}]" if precomputed else ""
-    logger.info(f"{RED}[PIPELINE] {user_id}: '{query}'{term_info}{precomp_info}{RESET}")
+    query_display = query if len(query) <= 300 else f"{query[:300]}… ({len(query)} chars)"
+    logger.info(f"{RED}[PIPELINE] {user_id}: '{query_display}'{term_info}{precomp_info}{RESET}")
 
     ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
 

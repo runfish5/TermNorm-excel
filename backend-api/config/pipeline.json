@@ -135,11 +135,17 @@
         "schema_version": 1
       },
       "optimizer": {
-        "param_keys": ["raw_content_limit", "temperature", "max_tokens", "prompt", "output_schema", "model"],
+        "param_keys": ["raw_content_limit", "temperature", "max_tokens", "output_schema", "model", "persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
         "param_descriptions": {
           "raw_content_limit": "Maximum characters of web-sourced raw content passed as context to the profiling LLM — bounds how much of web_search output is visible to the model",
           "temperature": "LLM sampling temperature for profile generation",
-          "max_tokens": "Maximum tokens in the LLM profile generation response"
+          "max_tokens": "Maximum tokens in the LLM profile generation response",
+          "persona": "Role framing — who the LLM is",
+          "task_intent": "What the LLM should accomplish",
+          "problem_description": "Domain context, evidence, and input data",
+          "instruction": "Core task directives",
+          "thinking_style": "Reasoning strategy guidance",
+          "answer_format": "Output structure and format constraints"
         },
         "input_keys": ["web_sources"],
         "observation_name": "entity_profiling",
@@ -191,12 +197,18 @@
         "schema_version": 1
       },
       "optimizer": {
-        "param_keys": ["temperature", "max_tokens", "sample_size", "prompt", "output_schema", "model", "relevance_weight_core"],
+        "param_keys": ["temperature", "max_tokens", "sample_size", "output_schema", "model", "relevance_weight_core", "persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
         "param_descriptions": {
           "temperature": "LLM sampling temperature for ranking",
           "max_tokens": "Maximum tokens in the LLM ranking response",
           "sample_size": "Number of candidates sampled from the pool for LLM ranking",
-          "relevance_weight_core": "Weight given to core-concept relevance in ranking score"
+          "relevance_weight_core": "Weight given to core-concept relevance in ranking score",
+          "persona": "Role framing — who the LLM is",
+          "task_intent": "What the LLM should accomplish",
+          "problem_description": "Domain context, evidence, and input data",
+          "instruction": "Core task directives",
+          "thinking_style": "Reasoning strategy guidance",
+          "answer_format": "Output structure and format constraints"
         },
         "input_keys": ["candidate_ranking", "entity_profile"],
         "observation_name": "llm_ranking",
@@ -220,13 +232,18 @@
         "correction_top_n": 10
       },
       "optimizer": {
-        "param_keys": ["prompt", "model", "temperature", "max_tokens", "response_format"],
+        "param_keys": ["model", "temperature", "max_tokens", "response_format", "persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
         "param_descriptions": {
-          "prompt": "System prompt sent to the LLM — the main optimization target",
           "model": "LLM model identifier",
           "temperature": "LLM sampling temperature",
           "max_tokens": "Maximum tokens in LLM response",
-          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)"
+          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)",
+          "persona": "Role framing — who the LLM is",
+          "task_intent": "What the LLM should accomplish",
+          "problem_description": "Domain context, evidence, and input data",
+          "instruction": "Core task directives",
+          "thinking_style": "Reasoning strategy guidance",
+          "answer_format": "Output structure and format constraints"
         },
         "langfuse_type": "generation"
       }
@@ -244,14 +261,19 @@
         "response_format": "text"
       },
       "optimizer": {
-        "param_keys": ["prompt", "model", "temperature", "max_tokens", "reasoning_effort", "response_format"],
+        "param_keys": ["model", "temperature", "max_tokens", "reasoning_effort", "response_format", "persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
         "param_descriptions": {
-          "prompt": "System prompt sent to the LLM — the main optimization target",
           "model": "LLM model identifier",
           "temperature": "LLM sampling temperature",
           "max_tokens": "Maximum tokens in LLM response",
           "reasoning_effort": "Hidden reasoning budget: low/medium/high. Trades reasoning depth against output token budget.",
-          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)"
+          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)",
+          "persona": "Role framing — who the LLM is",
+          "task_intent": "What the LLM should accomplish",
+          "problem_description": "Domain context, evidence, and input data",
+          "instruction": "Core task directives",
+          "thinking_style": "Reasoning strategy guidance",
+          "answer_format": "Output structure and format constraints"
         },
         "langfuse_type": "generation"
       }
