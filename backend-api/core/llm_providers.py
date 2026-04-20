@@ -234,7 +234,21 @@ async def llm_call(
                 else:
                     detail = f"{status}: {_format_api_error(e)}"
                 logger.error("[LLM] %s", detail)
-                raise HTTPException(502, detail)
+                # Param-validation errors ("not one of the allowed values",
+                # "invalid_request_error") are the caller's fault — surface
+                # as 4xx, not 502. 502 Bad Gateway implies the upstream is
+                # broken, which is misleading when the client sent a bad
+                # enum value. Optimizers watching for CLIENT vs SERVER
+                # (see PromptPotter's ErrorCategory) can then short-circuit
+                # on the offending candidate instead of retrying.
+                raw_detail = detail.lower()
+                is_param_validation = (
+                    "not one of the allowed values" in raw_detail
+                    or "invalid_request_error" in raw_detail
+                    or "invalid_enum" in raw_detail
+                    or "is not a valid" in raw_detail
+                )
+                raise HTTPException(400 if is_param_validation else 502, detail)
             if attempt == _RETRY_ATTEMPTS - 1:
                 raise HTTPException(503, f"LLM error: {_format_api_error(e)}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)

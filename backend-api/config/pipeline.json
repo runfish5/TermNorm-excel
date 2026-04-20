@@ -233,6 +233,9 @@
       },
       "optimizer": {
         "param_keys": ["model", "temperature", "max_tokens", "response_format", "persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
+        "param_allowed_values": {
+          "response_format": ["text", "json"]
+        },
         "param_descriptions": {
           "model": "LLM model identifier",
           "temperature": "LLM sampling temperature",
@@ -266,14 +269,18 @@
           "model": "LLM model identifier",
           "temperature": "LLM sampling temperature",
           "max_tokens": "Maximum tokens in LLM response",
-          "reasoning_effort": "Hidden reasoning budget: low/medium/high. Trades reasoning depth against output token budget.",
-          "response_format": "Response mode: 'text' (raw LLM output) or 'json' (structured)",
+          "reasoning_effort": "Hidden reasoning budget. Trades reasoning depth against output token budget.",
+          "response_format": "Response mode",
           "persona": "Role framing — who the LLM is",
           "task_intent": "What the LLM should accomplish",
           "problem_description": "Domain context, evidence, and input data",
           "instruction": "Core task directives",
           "thinking_style": "Reasoning strategy guidance",
           "answer_format": "Output structure and format constraints"
+        },
+        "param_allowed_values": {
+          "reasoning_effort": ["none", "default", "low", "medium", "high"],
+          "response_format": ["text", "json"]
         },
         "langfuse_type": "generation"
       }
