@@ -116,9 +116,9 @@ def load():
     try:
         with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
             _db = json.load(f)
-        logger.info(f"[MATCH_DB] Loaded {len(_db)} identifiers from cache")
+        logger.debug(f"[MATCH_DB] Loaded {len(_db)} identifiers from cache")
         summary = _cache_metadata.get_summary()
-        logger.info(f"[MATCH_DB] Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
+        logger.debug(f"[MATCH_DB] Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
     except (json.JSONDecodeError, IOError) as e:
         logger.warning(f"[MATCH_DB] Failed to load cache: {e}, rebuilding...")
         rebuild()

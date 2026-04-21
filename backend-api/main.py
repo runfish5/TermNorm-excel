@@ -58,26 +58,18 @@ app.include_router(pipeline_router)    # Pipeline config + trace lifecycle
 
 @app.on_event("startup")
 async def startup_event():
-    """Log startup information"""
-    logger.info(f"[STARTUP] {settings.environment_type} | LLM: {LLM_PROVIDER}/{LLM_MODEL}")
+    """Load cache, print the boot banner, warn on missing active-provider key."""
+    # Default prompts (v1) live in logs/prompts/ — no runtime init needed.
+    # Manual reinit: python -m utils.prompt_registry
 
-    # INTENDED BEHAVIOR - NO auto-initialization of prompts:
-    # - Default prompts (v1) are committed to git in logs/prompts/
-    # - No runtime initialization needed (prompts loaded on-demand by PromptRegistry)
-    # - To manually reinitialize: python -m utils.prompt_registry
-
-    # Load match database with smart cache logic:
-    # - If cache exists and fresh → load from cache (fast path)
-    # - If experiments dir newer than cache → rebuild from experiments
-    # - If no cache and no experiments → starts empty (fresh install)
-    # This ensures dev data (experiments) stays local while cache is gitignored
     from services.match_database import load
     load()
 
-    # Verify LLM API key is configured
+    from core.banner import print_startup_banner
+    print_startup_banner()
+
     import os
-    api_key = os.getenv(f"{LLM_PROVIDER.upper()}_API_KEY")
-    if not api_key:
+    if not os.getenv(f"{LLM_PROVIDER.upper()}_API_KEY"):
         logger.warning(f"{LLM_PROVIDER.upper()}_API_KEY not found - LLM features will be disabled")
 
 
