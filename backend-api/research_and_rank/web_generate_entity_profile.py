@@ -332,7 +332,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         "info": info,
     }
 
-async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search=False, warnings=None, scraped_content=None):
+async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search=False, warnings=None, scraped_content=None, usage_out=None):
     """Web search + entity profiling.
 
     Args:
@@ -343,6 +343,10 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         skip_search: If True, skip web search (LLM knowledge only).
         warnings: Mutable list to collect LLM retry warnings.
         scraped_content: Precomputed web content (skips scraping when provided).
+        usage_out: Optional dict to receive the provider's token usage
+            (``{"input": int, "output": int}``). Also mirrored into
+            ``debug_info["llm_usage"]`` for callers that only read the debug
+            dict.
     """
     if not schema:
         raise ValueError("Schema parameter is required.")
@@ -475,8 +479,11 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
 
     # LLM call phase timing
     llm_start = time.time()
-    result = await llm_call(**llm_kwargs, warnings=warnings)
+    _usage: dict = {}
+    result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage)
     llm_elapsed = round(time.time() - llm_start, 3)
+    if usage_out is not None and _usage:
+        usage_out.update(_usage)
 
     processing_time = (ws_elapsed or 0) + llm_elapsed
     result['_metadata'] = {
@@ -494,6 +501,8 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
                                     filter_reasons=filter_reasons, num_results=num_results)
     debug_info["web_search_elapsed"] = ws_elapsed
     debug_info["llm_elapsed"] = llm_elapsed
+    if _usage:
+        debug_info["llm_usage"] = dict(_usage)
     # Full scraped content for intermediate caching (Wave 4)
     debug_info["scraped_content"] = scraped_content
     return result, debug_info

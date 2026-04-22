@@ -80,12 +80,18 @@ async def llm_call(
     logprobs: int | None = None,
     reasoning_effort: Literal["low", "medium", "high"] | None = None,
     warnings: list[str] | None = None,
+    usage_out: dict | None = None,
 ) -> str | dict:
     """Universal LLM function - uses global provider config.
 
     Args:
         model: Override the global LLM_MODEL for this call. When None, uses
             the globally configured model.
+        usage_out: Optional dict the caller supplies to receive per-call
+            token usage. When provided and the provider returns a usage
+            object, populated with ``{"input": prompt_tokens, "output":
+            completion_tokens}`` before return. Left untouched on timeout /
+            retry paths where no single call succeeded.
     """
     effective_model = model or LLM_MODEL
 
@@ -199,6 +205,20 @@ async def llm_call(
                 params.pop("max_tokens", None)
                 max_tokens = None
                 continue
+
+            # Capture provider-reported token usage when the caller asked for it.
+            # OpenAI/Groq expose prompt_tokens/completion_tokens on response.usage;
+            # Anthropic exposes input_tokens/output_tokens. Missing fields default
+            # to 0 so the dict shape is always stable for downstream aggregation.
+            if usage_out is not None:
+                u = getattr(response, "usage", None)
+                if u is not None:
+                    if LLM_PROVIDER == "anthropic":
+                        usage_out["input"] = int(getattr(u, "input_tokens", 0) or 0)
+                        usage_out["output"] = int(getattr(u, "output_tokens", 0) or 0)
+                    else:
+                        usage_out["input"] = int(getattr(u, "prompt_tokens", 0) or 0)
+                        usage_out["output"] = int(getattr(u, "completion_tokens", 0) or 0)
 
             # Parse JSON if needed
             if output_format in ["json", "schema"]:

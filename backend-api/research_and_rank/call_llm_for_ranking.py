@@ -69,12 +69,16 @@ async def call_llm_for_ranking(
     query: str,
     lr_cfg: dict,
     warnings: list[str] | None = None,
+    usage_out: dict | None = None,
 ) -> tuple[dict, dict]:
     """Rank candidates using LLM and return (result, debug_info) tuple.
 
     Args:
         lr_cfg: LLM ranking node config dict (temperature, max_tokens, sample_size,
                 relevance_weight_core, prompt, output_schema, model, debug_output_limit).
+        usage_out: Optional dict to receive the provider's token usage
+            (``{"input": int, "output": int}``). Also mirrored into
+            ``debug_info["llm_usage"]``.
     """
     sample_size = lr_cfg["sample_size"]
     available_results = list(match_results[:sample_size])
@@ -135,7 +139,10 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         llm_kwargs["schema"] = ranking_schema
     if ranking_model:
         llm_kwargs["model"] = ranking_model
-    ranking_result = await llm_call(**llm_kwargs, warnings=warnings)
+    _usage: dict = {}
+    ranking_result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage)
+    if usage_out is not None and _usage:
+        usage_out.update(_usage)
 
     logger.info(f"\n{YELLOW}[PIPELINE] Step 4: Correcting candidate strings{RESET}")
     corrected = _correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])
@@ -147,7 +154,11 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         top_score = candidates[0].get("relevance_score", 0)
         logger.info(f"\n{GREEN}[PIPELINE] Success! {len(candidates)} matches — top: {top}... ({top_score:.3f}){RESET}")
 
-        return _build_result(query, candidates, match_results, debug_output_limit)
+        result, debug_info = _build_result(query, candidates, match_results, debug_output_limit)
+    else:
+        logger.warning(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
+        result, debug_info = _build_result(query, [], match_results, debug_output_limit)
 
-    logger.warning(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
-    return _build_result(query, [], match_results, debug_output_limit)
+    if _usage:
+        debug_info["llm_usage"] = dict(_usage)
+    return result, debug_info

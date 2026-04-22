@@ -74,6 +74,9 @@ class PipelineContext:
         self._start = time.time()
         self._steps: dict[str, _StepRecord] = {}
         self._outputs: dict[str, Any] = {}
+        # Per-LLM-node token counts, populated by record_step_tokens().
+        # Shape: {node_name: {"input": int, "output": int}}.
+        self._step_tokens: dict[str, dict[str, int]] = {}
 
     # -- recording ----------------------------------------------------------
 
@@ -92,6 +95,20 @@ class PipelineContext:
             elapsed=elapsed,
             warnings=merged,
         )
+
+    def record_step_tokens(self, name: str, usage: dict | None) -> None:
+        """Record provider-reported token usage for an LLM node.
+
+        ``usage`` should be ``{"input": int, "output": int}``. ``None`` or
+        empty is a no-op so callers can always invoke this even when the
+        provider didn't surface a usage object (e.g. timeout path).
+        """
+        if not usage:
+            return
+        self._step_tokens[name] = {
+            "input": int(usage.get("input", 0) or 0),
+            "output": int(usage.get("output", 0) or 0),
+        }
 
     def add_warning(self, step: str, code: str, message: str,
                     details: list | None = None,
@@ -133,6 +150,11 @@ class PipelineContext:
     def step_timings(self) -> dict[str, float | None]:
         """Backward-compatible {step_name: elapsed_or_None} dict."""
         return {name: rec.elapsed for name, rec in self._steps.items()}
+
+    @property
+    def step_tokens(self) -> dict[str, dict[str, int]]:
+        """Per-LLM-node token counts: ``{node_name: {"input", "output"}}``."""
+        return dict(self._step_tokens)
 
     @property
     def warnings(self) -> list[StepWarning]:

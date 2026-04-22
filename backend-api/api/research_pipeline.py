@@ -131,13 +131,15 @@ def _run_fuzzy_step(query: str, terms: list[str], fm_cfg: dict) -> tuple:
     return results, elapsed
 
 
-async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg: dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None) -> tuple:
+async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg: dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None, usage_out: dict | None = None) -> tuple:
     """Step 1: Web search + entity profiling.
     Returns (entity_profile, profile_debug, ep_time, ws_time).
     Times are None when the step was skipped.
 
     When *scraped_content* is provided, web scraping is skipped and the
-    precomputed content is passed directly to entity profiling.
+    precomputed content is passed directly to entity profiling. When
+    *usage_out* is provided, it is populated with the LLM call's token
+    usage (``{"input", "output"}``).
     """
     run_web_search = "web_search" in steps
     run_entity_profiling = "entity_profiling" in steps
@@ -159,6 +161,7 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
         skip_search=not run_web_search,
         warnings=llm_warnings,
         scraped_content=scraped_content,
+        usage_out=usage_out,
     )
     logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
     ep_time = profile_debug.get("llm_elapsed")
@@ -188,8 +191,12 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
     return candidate_results, elapsed
 
 
-async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: list[str], lr_cfg: dict, tm_cfg: dict, llm_warnings: list[str] | None = None) -> tuple:
-    """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time)."""
+async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: list[str], lr_cfg: dict, tm_cfg: dict, llm_warnings: list[str] | None = None, usage_out: dict | None = None) -> tuple:
+    """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time).
+
+    When *usage_out* is provided, it is populated with the LLM call's token
+    usage (``{"input", "output"}``).
+    """
     run_llm_ranking = "llm_ranking" in steps
     max_token_candidates = tm_cfg["max_token_candidates"]
 
@@ -209,6 +216,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
             entity_profile, candidates, query,
             lr_cfg=lr_cfg,
             warnings=llm_warnings,
+            usage_out=usage_out,
         )
     elapsed = round(time.time() - t0, 3) if run_llm_ranking else None
     return llm_response, ranking_debug, elapsed
@@ -294,11 +302,14 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
 
     try:
         ep_llm_warnings = []
+        ep_usage: dict = {}
         entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(
             query, steps, ws_cfg, ep_cfg,
             llm_warnings=ep_llm_warnings,
             scraped_content=scraped_content,
+            usage_out=ep_usage,
         )
+        ctx.record_step_tokens("entity_profiling", ep_usage)
         # Surface warnings
         for w in profile_debug.get("warnings", []):
             ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
@@ -378,11 +389,14 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
 
     try:
         ranking_llm_warnings = []
+        lr_usage: dict = {}
         llm_response, ranking_debug, elapsed = await _run_ranking_step(
             entity_profile, candidates, query,
             ctx.requested_steps, lr_cfg, tm_cfg,
             llm_warnings=ranking_llm_warnings,
+            usage_out=lr_usage,
         )
+        ctx.record_step_tokens("llm_ranking", lr_usage)
         ctx.set_output("_ranking_debug", ranking_debug)
 
         if "llm_ranking" not in ctx.requested_steps:
@@ -443,9 +457,11 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     if reasoning_effort is not None:
         kwargs["reasoning_effort"] = reasoning_effort
 
-    response = await llm_call(**kwargs)
+    llm_only_usage: dict = {}
+    response = await llm_call(**kwargs, usage_out=llm_only_usage)
     answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
+    ctx.record_step_tokens("llm_only", llm_only_usage)
 
     step_warnings: list[StepWarning] = [
         StepWarning("llm_only", w, w) for w in call_warnings
@@ -462,18 +478,21 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         {"step": w.step, "code": w.code, "message": w.message} for w in step_warnings
     ]
     step_status = "success" if answer.strip() else "empty_output"
+    early_data: dict = {
+        "final_ranking": final_ranking,
+        "node_outputs": {},
+        "step_timings": {"llm_only": elapsed},
+        "total_time": elapsed,
+        "terminated_at": "llm_only",
+        "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
+        "llm_provider": LLM_PROVIDER,
+        "diagnostics": {"warnings": warning_dicts, "step_statuses": {"llm_only": step_status}},
+    }
+    if llm_only_usage:
+        early_data["step_tokens"] = {"llm_only": dict(llm_only_usage)}
     ctx.set_output("_early_response", _ok(
         message=f"LLM-only completed in {elapsed}s",
-        data={
-            "final_ranking": final_ranking,
-            "node_outputs": {},
-            "step_timings": {"llm_only": elapsed},
-            "total_time": elapsed,
-            "terminated_at": "llm_only",
-            "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
-            "llm_provider": LLM_PROVIDER,
-            "diagnostics": {"warnings": warning_dicts, "step_statuses": {"llm_only": step_status}},
-        },
+        data=early_data,
     ))
 
     return StepResult(
@@ -561,6 +580,7 @@ def _build_response(ctx: PipelineContext) -> tuple:
         web_sources = scraped_sources.get("sources_fetched", [])
 
     step_timings = ctx.step_timings
+    step_tokens = ctx.step_tokens
     total_time = ctx.total_time
     pipeline_params = {
         "steps": ctx.executed_steps,
@@ -577,7 +597,9 @@ def _build_response(ctx: PipelineContext) -> tuple:
         "profiling_model": ep_cfg.get("model"),
         "ranking_model": lr_cfg.get("model"),
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
-        "step_timings": step_timings, "pipeline_params": pipeline_params,
+        "step_timings": step_timings,
+        "step_tokens": step_tokens,
+        "pipeline_params": pipeline_params,
         "entity_profile": entity_profile,
         "candidates": [
             {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
@@ -605,11 +627,14 @@ def _build_response(ctx: PipelineContext) -> tuple:
         "profiling_model": ep_cfg.get("model"),
         "ranking_model": lr_cfg.get("model"),
         "total_time": total_time,
-        "step_timings": step_timings, "web_search_status": web_status,
+        "step_timings": step_timings,
+        "web_search_status": web_status,
         "web_search_error": web_error, "pipeline_params": pipeline_params,
         "terminated_at": ctx.terminated_at,
         "diagnostics": ctx.build_diagnostics(),
     }
+    if step_tokens:
+        data["step_tokens"] = step_tokens
     if node_outputs:
         data["node_outputs"] = node_outputs
     api_response = _ok(
