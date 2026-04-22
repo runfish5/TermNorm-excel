@@ -68,7 +68,7 @@ def _format_api_error(e: Exception) -> str:
 
 async def llm_call(
     messages: list[dict[str, str]],
-    max_tokens: int | None = 1000,
+    max_tokens: int | None = None,
     system: str | None = None,
     tools: list[dict] | None = None,
     stop_sequences: list[str] | None = None,
@@ -160,10 +160,20 @@ async def llm_call(
         try:
             # Anthropic uses different API structure
             if LLM_PROVIDER == "anthropic":
+                # Anthropic's API requires max_tokens. No hidden default — the
+                # caller must pass one explicitly. Injecting a silent fallback
+                # hides output truncation and defeats the "let real failures
+                # surface to self-healing" policy.
+                if max_tokens is None:
+                    raise HTTPException(
+                        400,
+                        "Anthropic provider requires max_tokens on the call site. "
+                        "Pass it from the node config — no silent default.",
+                    )
                 anthropic_params = {
                     "model": effective_model,
                     "messages": [m for m in messages if m["role"] != "system"],
-                    "max_tokens": max_tokens if max_tokens is not None else 8192,
+                    "max_tokens": max_tokens,
                     "temperature": temperature
                 }
                 if system:

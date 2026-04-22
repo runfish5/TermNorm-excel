@@ -437,7 +437,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     system = cfg.get("prompt", "")
     model = cfg.get("model")
     temperature = cfg.get("temperature", 0.0)
-    max_tokens = cfg.get("max_tokens", 2000)
+    max_tokens = cfg.get("max_tokens")
     response_format = cfg.get("response_format", "text")
     reasoning_effort = cfg.get("reasoning_effort")
 

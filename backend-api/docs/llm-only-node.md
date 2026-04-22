@@ -34,7 +34,7 @@ of the pipeline.
 | `prompt` | `""` | System prompt — the main optimization target |
 | `model` | `openai/gpt-oss-120b` | Any provider-backed model |
 | `temperature` | `0.0` | |
-| `max_tokens` | `16000` | Big default — reasoning models need headroom |
+| `max_tokens` | `null` | No default — provider's own output ceiling applies. Set explicitly only when you want to cap output; leaving it null stops TPM reservations from blowing the per-minute bucket on reasoning-heavy models. |
 | `reasoning_effort` | `"medium"` | `low` / `medium` / `high` — only honored by OpenAI/Groq reasoning models |
 | `response_format` | `"text"` | Or `"json"` for structured output |
 
@@ -44,7 +44,7 @@ via `GET /pipeline`.
 
 ## Reasoning-model handling
 
-Groq `gpt-oss-120b`-family models can consume the entire `max_tokens`
+Groq `gpt-oss-120b`-family models can consume their available output
 budget on hidden reasoning and return an empty `message.content`. This
 node and the shared `llm_call` primitive handle that explicitly — never
 silently:
@@ -82,7 +82,7 @@ curl -s -X POST http://127.0.0.1:8000/matches \
   -H 'Content-Type: application/json' \
   -d '{"query":"What is 2+2? Answer with a single integer.",
        "steps":["llm_only"],
-       "node_config":{"llm_only":{"max_tokens":16000,"reasoning_effort":"low"}}}'
+       "node_config":{"llm_only":{"reasoning_effort":"low"}}}'
 ```
 
 Response contains `final_ranking[0].candidate` as a non-empty string.
