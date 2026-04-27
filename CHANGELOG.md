@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Registry-driven `GET /pipeline`**: `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references from on-disk registries into top-level `resolved_schemas`/`resolved_prompts` dicts. External consumers get full field metadata without hardcoded knowledge.
 - **`/status` endpoint**: Aggregates session, match DB, experiment, and pipeline info into a single snapshot for external tools (PromptPotter).
 - **`llm_ranking_output` schema**: Committed to `logs/schemas/llm_ranking_output/1/`. Both LLMGeneration nodes (`entity_profiling`, `llm_ranking`) now use registry references.
+- **Raw LLM-call response shape on `step_tokens`**: `usage_out` from `llm_call` now includes (Groq/OpenAI only) `reasoning` token count when the provider exposes it, normalized `finish_reason` (`length` / `stop` / `content_filter` / `tool_use` regardless of provider), and `max_tokens_requested`. Flows through `step_tokens.{node}` so external consumers can classify failure modes from the raw signal.
 
 ### Changed
 - `llm_ranking` node config: replaced inline `ranking_schema` with `schema_family: "llm_ranking_output"` + `schema_version: 1`
 - PromptPotter integration: dynamic metadata discovery from live `GET /pipeline` response — no hardcoded schemas or prompts on the optimizer side
+- **BREAKING (consumer-visible): `llm_only` no longer substitutes reasoning trace as content** when a Groq/OpenAI reasoning model returns empty `message.content`. Returns `content=""` and emits a single neutral advisory of the form `content_empty: finish_reason={fr} reasoning_chars={N}` in `diagnostics.warnings`. The classifier on the consumer side derives fatality from advisory + raw shape (`step_tokens.llm_only.finish_reason` + `reasoning`), not by string-matching the warning code. Replaces the previous `empty_content_reasoning_fallback` warning that doubled as a substitution marker. Wire-format break is the substitution removal; the rename is additive.
 
 ## [1.0.5] - 2026-01-27
 

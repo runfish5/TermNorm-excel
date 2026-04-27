@@ -46,26 +46,41 @@ via `GET /pipeline`.
 
 Groq `gpt-oss-120b`-family models can consume their available output
 budget on hidden reasoning and return an empty `message.content`. This
-node and the shared `llm_call` primitive handle that explicitly — never
-silently:
+node and the shared `llm_call` primitive surface the raw signal —
+**they do not classify or substitute**. Classification (whether this is
+fatal, and which fatal code applies) is PromptPotter's policy, derived
+from the advisory + raw response shape we expose here.
 
-1. **Empty-content fallback in `core/llm_providers.py`.** When the
-   OpenAI/Groq path returns empty `content`, the client reads
-   `message.reasoning` and uses it as the answer if present. The event
-   logs a warning and — if a `warnings` list was passed in — appends
-   `"empty_content_reasoning_fallback"`. Anthropic's path is unchanged
-   (different failure mode).
-2. **`reasoning_effort` plumbing.** The `llm_call` signature accepts a
+1. **Empty-content advisory in `core/llm_providers.py`.** When the
+   OpenAI/Groq path returns empty `content`, the client returns the
+   empty string unchanged (no substitution from `message.reasoning` —
+   the reasoning trace is internal monologue, not an answer). The
+   event logs a warning and — if a `warnings` list was passed in —
+   appends a single advisory of the form
+   `"content_empty: finish_reason={fr} reasoning_chars={N}"`.
+   Anthropic's path is unchanged (different failure mode).
+2. **Raw response shape via `usage_out`.** Every `llm_call` populates
+   the caller's `usage_out` dict with `input` / `output` token counts,
+   plus (Groq/OpenAI only) `reasoning` token count when the provider
+   exposes `usage.completion_tokens_details.reasoning_tokens`,
+   normalized `finish_reason` (`length` / `stop` / `content_filter` /
+   `tool_use` regardless of provider), and `max_tokens_requested`.
+   These flow through `step_tokens.llm_only` on the wire so
+   PromptPotter's `classify_result()` can derive fatal codes
+   (`reasoning_budget_exhausted`, `output_truncated`, `empty_response`,
+   `content_filtered`) without string-matching backend warnings.
+3. **`reasoning_effort` plumbing.** The `llm_call` signature accepts a
    `Literal["low","medium","high"] | None` argument and forwards it as
    `params["reasoning_effort"]` on OpenAI/Groq. `_step_llm_only` reads
    it from `cfg` and passes it through.
-3. **Empty-output guard in `_step_llm_only`.** If the final answer is
-   still empty after the fallback, the step attaches a
+4. **Empty-output guard in `_step_llm_only`.** If the final answer is
+   empty, the step also attaches a
    `StepWarning("llm_only", "empty_output", ...)` and sets its
-   `diagnostics.step_statuses.llm_only = "empty_output"` so
-   PromptPotter's `EmptyOutputCheck` escalation path can fire and feed
-   the failure to L2 as a self-healing signal. The empty candidate is
-   still returned — swallowing it would hide the failure mode.
+   `diagnostics.step_statuses.llm_only = "empty_output"`. This is
+   independent of the `content_empty` advisory above — it is the
+   step-level view, useful when classifiers want a coarser signal.
+   The empty candidate is still returned — swallowing it would hide
+   the failure mode.
 
 ## Langfuse
 

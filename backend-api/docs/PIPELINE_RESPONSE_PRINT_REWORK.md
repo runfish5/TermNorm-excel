@@ -17,7 +17,7 @@ two problems:
      final_ranking      [1 items]  top: We need to determine if "the wolf calls the chihua... (0.000)
      timings            2.605s total | llm=2.6s
      pipeline           1/0 steps → llm_only
-     diagnostics        1 warnings (llm_only: empty_content_reasoning_fallback) | all success
+     diagnostics        1 warnings (llm_only: content_empty) | all success
    ```
 
    That block is fine as a **summary of the whole run at the very end**,

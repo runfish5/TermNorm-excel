@@ -75,8 +75,9 @@ class PipelineContext:
         self._steps: dict[str, _StepRecord] = {}
         self._outputs: dict[str, Any] = {}
         # Per-LLM-node token counts, populated by record_step_tokens().
-        # Shape: {node_name: {"input": int, "output": int}}.
-        self._step_tokens: dict[str, dict[str, int]] = {}
+        # Shape: {node_name: {"input": int, "output": int, optionally
+        # "reasoning": int, "finish_reason": str, "max_tokens_requested": int}}.
+        self._step_tokens: dict[str, dict[str, Any]] = {}
 
     # -- recording ----------------------------------------------------------
 
@@ -99,16 +100,27 @@ class PipelineContext:
     def record_step_tokens(self, name: str, usage: dict | None) -> None:
         """Record provider-reported token usage for an LLM node.
 
-        ``usage`` should be ``{"input": int, "output": int}``. ``None`` or
-        empty is a no-op so callers can always invoke this even when the
-        provider didn't surface a usage object (e.g. timeout path).
+        ``usage`` should be ``{"input": int, "output": int}``; it may also
+        carry ``reasoning`` (Groq/OpenAI reasoning models), normalized
+        ``finish_reason`` (length / stop / content_filter / tool_use), and
+        ``max_tokens_requested``. Those extra fields are forwarded so
+        PromptPotter's classifier can read raw response shape per LLM call.
+        ``None`` or empty is a no-op so callers can always invoke this even
+        when the provider didn't surface a usage object (e.g. timeout path).
         """
         if not usage:
             return
-        self._step_tokens[name] = {
+        record: dict[str, Any] = {
             "input": int(usage.get("input", 0) or 0),
             "output": int(usage.get("output", 0) or 0),
         }
+        if "reasoning" in usage and usage["reasoning"] is not None:
+            record["reasoning"] = int(usage["reasoning"])
+        if "finish_reason" in usage and usage["finish_reason"]:
+            record["finish_reason"] = str(usage["finish_reason"])
+        if "max_tokens_requested" in usage and usage["max_tokens_requested"] is not None:
+            record["max_tokens_requested"] = int(usage["max_tokens_requested"])
+        self._step_tokens[name] = record
 
     def add_warning(self, step: str, code: str, message: str,
                     details: list | None = None,
@@ -152,8 +164,10 @@ class PipelineContext:
         return {name: rec.elapsed for name, rec in self._steps.items()}
 
     @property
-    def step_tokens(self) -> dict[str, dict[str, int]]:
-        """Per-LLM-node token counts: ``{node_name: {"input", "output"}}``."""
+    def step_tokens(self) -> dict[str, dict[str, Any]]:
+        """Per-LLM-node token counts and raw response shape:
+        ``{node_name: {"input", "output", optionally "reasoning",
+        "finish_reason", "max_tokens_requested"}}``."""
         return dict(self._step_tokens)
 
     @property
