@@ -19,7 +19,7 @@ from api import (
     experiments_router,
     pipeline_router,
 )
-from core.llm_providers import LLM_PROVIDER, LLM_MODEL
+from core.llm_providers import get_available_providers
 
 # Setup logging
 setup_logging(level="INFO", log_file="logs/app.log")
@@ -27,10 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Create FastAPI application
-app = FastAPI(
-    title=settings.api_title,
-    description=f"{settings.api_description} - Uses {LLM_PROVIDER.upper()} ({LLM_MODEL})"
-)
+app = FastAPI(title=settings.api_title, description=settings.api_description)
 
 # Custom HTTPException handler - standardize error format
 @app.exception_handler(HTTPException)
@@ -73,9 +70,14 @@ async def startup_event():
     from core.banner import print_startup_banner
     print_startup_banner()
 
-    import os
-    if not os.getenv(f"{LLM_PROVIDER.upper()}_API_KEY"):
-        logger.warning(f"{LLM_PROVIDER.upper()}_API_KEY not found - LLM features will be disabled")
+    available = get_available_providers()
+    if not available:
+        logger.warning(
+            "No LLM provider API keys detected — LLM features will fail at first call. "
+            "Set one of: GROQ_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY."
+        )
+    else:
+        logger.info("LLM providers available: %s", ", ".join(available))
 
 
 @app.on_event("shutdown")

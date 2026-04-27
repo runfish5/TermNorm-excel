@@ -61,7 +61,7 @@ async def health() -> dict[str, Any]:
     """Health check endpoint - returns server status and environment info"""
     connection_type, connection_url, environment = _get_connection_info()
     return _ok("Server online", data={
-        "provider": llm_providers.LLM_PROVIDER,
+        "available_providers": llm_providers.get_available_providers(),
         "connection_type": connection_type,
         "connection_url": connection_url,
         "environment": environment,
@@ -100,8 +100,7 @@ async def status() -> dict[str, Any]:
         "mappings_count": mappings_count,
         "experiments": experiments,
         "pipeline_version": pipeline_cfg.get("version", "unknown"),
-        "llm_provider": llm_providers.LLM_PROVIDER,
-        "llm_model": llm_providers.LLM_MODEL,
+        "available_providers": llm_providers.get_available_providers(),
     })
 
 
@@ -109,23 +108,13 @@ async def status() -> dict[str, Any]:
 async def get_settings() -> dict[str, Any]:
     return _ok("Settings retrieved", data={
         "available_providers": llm_providers.get_available_providers(),
-        "current_provider": llm_providers.LLM_PROVIDER,
-        "current_model": llm_providers.LLM_MODEL,
         "brave_api_enabled": settings.use_brave_api,
     })
 
 
 @router.put("/settings")
 async def update_settings(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
-    updated = {}
-    if "provider" in payload and "model" in payload:
-        os.environ["LLM_PROVIDER"] = payload["provider"]
-        os.environ["LLM_MODEL"] = payload["model"]
-        llm_providers.LLM_PROVIDER = payload["provider"]
-        llm_providers.LLM_MODEL = payload["model"]
-        updated["provider"] = payload["provider"]
-        updated["model"] = payload["model"]
-        logger.info(f"LLM provider changed to {payload['provider']}/{payload['model']}")
+    updated: dict[str, Any] = {}
     if "brave_api" in payload:
         settings.use_brave_api = payload["brave_api"]
         updated["brave_api"] = payload["brave_api"]

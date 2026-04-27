@@ -10,7 +10,7 @@ import sys
 
 from config.pipeline_config import get_pipeline_config, get_pipeline_steps
 from config.settings import settings
-from core.llm_providers import LLM_MODEL, LLM_PROVIDER, get_available_providers
+from core.llm_providers import get_available_providers
 from services.match_database import get_cache_metadata, get_db
 
 _WIDTH = 38
@@ -157,7 +157,6 @@ def print_startup_banner() -> None:
     out.extend(f"{_INDENT}{line}" for line in _TAGLINE)
     out.append("")
     out.extend(_section("Mode", _mode_body()))
-    out.extend(_kv("LLM", f"{LLM_PROVIDER} · {LLM_MODEL}"))
     out.extend(_kv("Keys", _provider_flags()))
     out.extend(_section("Pipeline", _pipeline_body()))
     out.extend(_section("Cache", _cache_body()))

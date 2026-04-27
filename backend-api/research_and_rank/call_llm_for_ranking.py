@@ -3,7 +3,7 @@ import json
 import logging
 import random
 from rapidfuzz import fuzz, process
-from core.llm_providers import llm_call, LLM_PROVIDER, LLM_MODEL
+from core.llm_providers import llm_call
 from utils.prompt_registry import get_prompt_registry
 from config.pipeline_config import get_node_config
 
@@ -50,14 +50,14 @@ def _correct_candidate_strings(ranking_result, match_results, relevance_weight_c
     return ranking_result
 
 
-def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int) -> tuple[dict, dict]:
+def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int, provider: str, model: str) -> tuple[dict, dict]:
     """Build standardized (result, debug_info) tuple for ranking responses."""
     result = {
         "query": query,
         "total_matches": len(candidates),
         "research_performed": True,
         "ranked_candidates": candidates,
-        "llm_provider": f"{LLM_PROVIDER}/{LLM_MODEL}",
+        "llm_provider": f"{provider}/{model}",
     }
     debug_info = {"inputs": {"candidate_ranking": match_results[:debug_output_limit]}}
     return result, debug_info
@@ -128,17 +128,16 @@ IMPORTANT: Return a valid JSON response matching this exact structure:
 Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
 
     ranking_schema = lr_cfg.get("output_schema")
-    ranking_model = lr_cfg.get("model")
     llm_kwargs = {
         "messages": [{"role": "user", "content": enhanced_prompt}],
+        "provider": lr_cfg["provider"],
+        "model": lr_cfg["model"],
         "temperature": lr_cfg["temperature"],
         "max_tokens": lr_cfg.get("max_tokens"),
         "output_format": "schema" if ranking_schema else "json",
     }
     if ranking_schema:
         llm_kwargs["schema"] = ranking_schema
-    if ranking_model:
-        llm_kwargs["model"] = ranking_model
     _usage: dict = {}
     ranking_result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage)
     if usage_out is not None and _usage:
@@ -154,10 +153,10 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         top_score = candidates[0].get("relevance_score", 0)
         logger.info(f"\n{GREEN}[PIPELINE] Success! {len(candidates)} matches — top: {top}... ({top_score:.3f}){RESET}")
 
-        result, debug_info = _build_result(query, candidates, match_results, debug_output_limit)
+        result, debug_info = _build_result(query, candidates, match_results, debug_output_limit, lr_cfg["provider"], lr_cfg["model"])
     else:
         logger.warning(f"{BRIGHT_RED}[WARNING] Unexpected results format: {type(corrected)}{RESET}")
-        result, debug_info = _build_result(query, [], match_results, debug_output_limit)
+        result, debug_info = _build_result(query, [], match_results, debug_output_limit, lr_cfg["provider"], lr_cfg["model"])
 
     if _usage:
         debug_info["llm_usage"] = dict(_usage)

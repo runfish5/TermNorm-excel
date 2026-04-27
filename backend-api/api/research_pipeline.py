@@ -12,7 +12,7 @@ from research_and_rank.web_generate_entity_profile import web_generate_entity_pr
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_top_matches
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
-from core.llm_providers import llm_call, LLM_PROVIDER
+from core.llm_providers import llm_call
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
@@ -435,7 +435,8 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     t0 = time.time()
 
     system = cfg.get("prompt", "")
-    model = cfg.get("model")
+    provider = cfg["provider"]
+    model = cfg["model"]
     temperature = cfg.get("temperature", 0.0)
     max_tokens = cfg.get("max_tokens")
     response_format = cfg.get("response_format", "text")
@@ -445,9 +446,10 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     call_warnings: list[str] = []
     kwargs: dict[str, Any] = {
         "messages": messages,
+        "provider": provider,
+        "model": model,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "model": model,
         "warnings": call_warnings,
     }
     if system:
@@ -463,9 +465,17 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     elapsed = round(time.time() - t0, 3)
     ctx.record_step_tokens("llm_only", llm_only_usage)
 
-    step_warnings: list[StepWarning] = [
-        StepWarning("llm_only", w, w) for w in call_warnings
-    ]
+    # Split ``"code: message"`` strings emitted by ``llm_call`` into the
+    # StepWarning(step, code, message) shape so PromptPotter's classifier sees
+    # a clean code (e.g. ``content_empty``) instead of the whole verbose line.
+    # Strings without ``": "`` keep the legacy behavior (string used as both).
+    step_warnings: list[StepWarning] = []
+    for w in call_warnings:
+        if ": " in w:
+            code, _, msg = w.partition(": ")
+            step_warnings.append(StepWarning("llm_only", code, msg))
+        else:
+            step_warnings.append(StepWarning("llm_only", w, w))
     if not answer.strip():
         logger.warning("[PIPELINE] llm_only: empty output after %ss", elapsed)
         step_warnings.append(
@@ -485,7 +495,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         "total_time": elapsed,
         "terminated_at": "llm_only",
         "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
-        "llm_provider": LLM_PROVIDER,
+        "llm_provider": provider,
         "diagnostics": {"warnings": warning_dicts, "step_statuses": {"llm_only": step_status}},
     }
     if llm_only_usage:
@@ -593,8 +603,9 @@ def _build_response(ctx: PipelineContext) -> tuple:
     training_record = {
         "source": ctx.query, "target": target, "method": "ProfileRank",
         "confidence": confidence, "session_id": ctx.user_id,
-        "llm_provider": LLM_PROVIDER,
+        "profiling_provider": ep_cfg.get("provider"),
         "profiling_model": ep_cfg.get("model"),
+        "ranking_provider": lr_cfg.get("provider"),
         "ranking_model": lr_cfg.get("model"),
         "total_time": total_time, "web_search_status": web_status, "error": web_error,
         "step_timings": step_timings,
@@ -623,8 +634,9 @@ def _build_response(ctx: PipelineContext) -> tuple:
     data = {
         "final_ranking": ranked, "entity_profile": entity_profile,
         "candidate_ranking": candidates[:ctx.params.get("token_matching", {}).get("max_token_candidates", 20)],
-        "llm_provider": LLM_PROVIDER,
+        "profiling_provider": ep_cfg.get("provider"),
         "profiling_model": ep_cfg.get("model"),
+        "ranking_provider": lr_cfg.get("provider"),
         "ranking_model": lr_cfg.get("model"),
         "total_time": total_time,
         "step_timings": step_timings,
@@ -882,6 +894,7 @@ async def direct_prompt(
     # Resolve direct_prompt node config (pipeline.json base + request overrides)
     _dp = _node("direct_prompt")
     _dp_ov = payload.get("node_config", {}).get("direct_prompt", {})
+    dp_provider = _dp_ov.get("provider", _dp["provider"])
     dp_model = _dp_ov.get("model", _dp["model"])
     dp_temperature = _dp_ov.get("temperature", _dp["temperature"])
     dp_max_tokens = _dp_ov.get("max_tokens", _dp["max_tokens"])
@@ -916,11 +929,12 @@ Return ONLY valid JSON."""
     try:
         response = await llm_call(
             messages=[{"role": "user", "content": user_content}],
+            provider=dp_provider,
+            model=dp_model,
             system=system_prompt,
             output_format="json",
             temperature=dp_temperature,
             max_tokens=dp_max_tokens,
-            model=dp_model,
         )
 
         target = response.get("output", query)  # Default to original if no output
@@ -959,7 +973,7 @@ Return ONLY valid JSON."""
     training_record = {
         "source": query, "target": target, "method": "DirectPrompt",
         "confidence": confidence, "reasoning": reasoning,
-        "llm_provider": LLM_PROVIDER, "direct_prompt_model": dp_model,
+        "llm_provider": dp_provider, "direct_prompt_model": dp_model,
         "total_time": total_time,
         "fuzzy_score": fuzzy_score, "fuzzy_corrected": fuzzy_corrected,
         "original_target": original_target, "needs_user_selection": needs_user_selection,

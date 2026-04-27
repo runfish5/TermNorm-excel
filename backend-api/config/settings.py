@@ -14,11 +14,12 @@ class Settings(BaseSettings):
     api_title: str = "LLM Processing API"
     api_description: str = "TermNorm Excel Add-in Backend API"
 
-    # LLM Configuration (allow extra fields from .env)
-    llm_provider: str | None = Field(None, alias="LLM_PROVIDER")
-    llm_model: str | None = Field(None, alias="LLM_MODEL")
+    # LLM API keys. Provider + model are per-node in pipeline.json
+    # (overridable per request via node_config) — no env-var defaults.
     groq_api_key: str | None = Field(None, alias="GROQ_API_KEY")
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
+    openrouter_api_key: str | None = Field(None, alias="OPENROUTER_API_KEY")
+    anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
 
     # Search API Configuration
     brave_search_api_key: str | None = Field(None, alias="BRAVE_SEARCH_API_KEY")

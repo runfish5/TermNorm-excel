@@ -1,23 +1,28 @@
-"""Simple global LLM provider - one config for entire app"""
+"""LLM provider dispatch — per-call provider, no global fallback.
 
+Providers: openai/groq/openrouter (via ``AsyncOpenAI`` with ``base_url`` swap)
+and anthropic (via ``AsyncAnthropic``). Provider must be specified explicitly
+on each ``llm_call(provider=...)`` — typically sourced from each pipeline
+node's ``config.provider`` (overridable per request via ``node_config``).
+"""
+
+import asyncio
 import json
 import logging
 import os
 import re
-import asyncio
+from dataclasses import dataclass
 from typing import Literal
-from fastapi import HTTPException
 
-logger = logging.getLogger(__name__)
+from fastapi import HTTPException
 
 from config.pipeline_config import get_llm_defaults
 
+logger = logging.getLogger(__name__)
+
 _llm_cfg = get_llm_defaults()
 
-# Global configuration - pipeline.json is the source, env vars override
-# Pipeline nodes own their own model config; these globals are a safety net only
-LLM_PROVIDER = os.getenv("LLM_PROVIDER") or _llm_cfg["provider"]
-LLM_MODEL = os.getenv("LLM_MODEL") or _llm_cfg["model"]
+# Loop / budget knobs — non-provider; still sourced from pipeline.json llm_defaults.
 _TIMEOUT = _llm_cfg.get("timeout", 60)
 _RETRY_ATTEMPTS = _llm_cfg.get("retry_attempts", 3)
 _RETRY_BACKOFF_BASE = _llm_cfg.get("retry_backoff_base", 2)
@@ -25,15 +30,46 @@ _TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg.get("token_estimation_multiplier", 1.3)
 _TOKEN_LIMIT = _llm_cfg.get("token_limit", 100000)
 _SEED = _llm_cfg.get("seed")
 _LOGPROBS = _llm_cfg.get("logprobs")
+# Anthropic's API rejects requests where ``max_tokens`` is omitted. To honor the
+# "no dataset-side default across all providers" contract, we substitute a sane
+# floor when the caller passes ``None``. Set to a value safe for all current
+# Anthropic models (claude-haiku-4-5 publishes 8192 max output tokens; opus/sonnet
+# accept much higher). Override via ``llm_defaults.anthropic_max_tokens_default``
+# in pipeline.json if you need more headroom on a specific deployment.
+_ANTHROPIC_MAX_TOKENS_DEFAULT = _llm_cfg.get("anthropic_max_tokens_default", 8192)
+
+
+@dataclass(frozen=True)
+class ProviderSpec:
+    """Wiring for one OpenAI-compatible provider."""
+
+    display_name: str            # e.g. "Groq" — for logs / error messages
+    api_key_env: str             # env var holding the API key
+    base_url: str | None = None  # None ⇒ AsyncOpenAI default (openai.com)
+
+
+_OPENAI_COMPAT_SPECS: dict[str, ProviderSpec] = {
+    "openai": ProviderSpec("OpenAI", "OPENAI_API_KEY"),
+    "groq": ProviderSpec(
+        "Groq", "GROQ_API_KEY", base_url="https://api.groq.com/openai/v1"
+    ),
+    "openrouter": ProviderSpec(
+        "OpenRouter", "OPENROUTER_API_KEY", base_url="https://openrouter.ai/api/v1"
+    ),
+}
+
+_VALID_PROVIDERS = sorted(set(_OPENAI_COMPAT_SPECS) | {"anthropic"})
 
 
 def get_available_providers() -> list[str]:
-    """Return list of providers with configured API keys"""
+    """Return list of providers with configured API keys."""
     providers = []
     if os.getenv("GROQ_API_KEY"):
         providers.append("groq")
     if os.getenv("OPENAI_API_KEY"):
         providers.append("openai")
+    if os.getenv("OPENROUTER_API_KEY"):
+        providers.append("openrouter")
     if os.getenv("ANTHROPIC_API_KEY"):
         providers.append("anthropic")
     return providers
@@ -92,6 +128,9 @@ def _extract_retry_after(exc: Exception) -> int | None:
 
 async def llm_call(
     messages: list[dict[str, str]],
+    *,
+    provider: str,
+    model: str,
     max_tokens: int | None = None,
     system: str | None = None,
     tools: list[dict] | None = None,
@@ -99,25 +138,31 @@ async def llm_call(
     temperature: float = 0.7,
     output_format: Literal["text", "json", "schema"] = "text",
     schema: dict | None = None,
-    model: str | None = None,
     seed: int | None = None,
     logprobs: int | None = None,
     reasoning_effort: Literal["low", "medium", "high"] | None = None,
     warnings: list[str] | None = None,
     usage_out: dict | None = None,
 ) -> str | dict:
-    """Universal LLM function - uses global provider config.
+    """Universal LLM dispatch — per-call ``provider`` + ``model``, no global fallback.
 
     Args:
-        model: Override the global LLM_MODEL for this call. When None, uses
-            the globally configured model.
+        provider: One of ``openai`` / ``groq`` / ``openrouter`` / ``anthropic``.
+            Required. Sourced from each node's ``config.provider`` block in
+            ``pipeline.json``, overridable per request via ``node_config``.
+        model: Model identifier. Required. (Was previously globally defaulted
+            via ``LLM_MODEL`` env var — that env var is no longer consulted.)
         usage_out: Optional dict the caller supplies to receive per-call
             token usage. When provided and the provider returns a usage
             object, populated with ``{"input": prompt_tokens, "output":
             completion_tokens}`` before return. Left untouched on timeout /
             retry paths where no single call succeeded.
     """
-    effective_model = model or LLM_MODEL
+    is_openai_compat = provider in _OPENAI_COMPAT_SPECS
+    if not is_openai_compat and provider != "anthropic":
+        raise ValueError(
+            f"Unknown provider: {provider!r}. Valid: {', '.join(_VALID_PROVIDERS)}."
+        )
 
     # Request validation - prevent guaranteed failures
     total_tokens = sum(len(m.get('content', '').split()) for m in messages) * _TOKEN_ESTIMATION_MULTIPLIER
@@ -127,88 +172,94 @@ async def llm_call(
     if system:
         messages = [{"role": "system", "content": system}] + messages
 
-    params = {
-        "model": effective_model,
+    params: dict = {
+        "model": model,
         "messages": messages,
-        "temperature": temperature
+        "temperature": temperature,
     }
     if max_tokens is not None:
         params["max_tokens"] = max_tokens
-    if tools: params["tools"] = tools
-    if stop_sequences: params["stop"] = stop_sequences
+    if tools:
+        params["tools"] = tools
+    if stop_sequences:
+        params["stop"] = stop_sequences
 
-    # Reproducibility and diagnostics (OpenAI/Groq only)
+    # Reproducibility and diagnostics (OpenAI-compatible providers only)
     effective_seed = seed if seed is not None else _SEED
-    if effective_seed is not None and LLM_PROVIDER in ["openai", "groq"]:
+    if effective_seed is not None and is_openai_compat:
         params["seed"] = effective_seed
     effective_logprobs = logprobs if logprobs is not None else _LOGPROBS
-    if effective_logprobs is not None and LLM_PROVIDER in ["openai", "groq"]:
+    if effective_logprobs is not None and is_openai_compat:
         params["logprobs"] = True
         params["top_logprobs"] = effective_logprobs
-    if reasoning_effort is not None and LLM_PROVIDER in ["openai", "groq"]:
+    if reasoning_effort is not None and is_openai_compat:
         params["reasoning_effort"] = reasoning_effort
-    
+
     # Handle structured output
-    if output_format == "json" and LLM_PROVIDER in ["openai", "groq"]:
+    if output_format == "json" and is_openai_compat:
         params["response_format"] = {"type": "json_object"}
-    elif output_format == "schema" and schema and LLM_PROVIDER in ["openai", "groq"]:
+    elif output_format == "schema" and schema and is_openai_compat:
         params["response_format"] = {
             "type": "json_schema",
-            "json_schema": {"name": "response_schema", "schema": schema}
+            "json_schema": {"name": "response_schema", "schema": schema},
         }
-    
-    
-    # Get API key and create client based on provider
-    if LLM_PROVIDER == "openai":
+
+    # Construct provider client
+    if is_openai_compat:
+        spec = _OPENAI_COMPAT_SPECS[provider]
         from openai import AsyncOpenAI
-        api_key = os.getenv("OPENAI_API_KEY")
-        client = AsyncOpenAI(api_key=api_key)
 
-    elif LLM_PROVIDER == "groq":
-        from groq import AsyncGroq
-        api_key = os.getenv("GROQ_API_KEY")
-        client = AsyncGroq(api_key=api_key)
-
-    elif LLM_PROVIDER == "anthropic":
+        api_key = os.getenv(spec.api_key_env)
+        client_kwargs: dict = {"api_key": api_key}
+        if spec.base_url:
+            client_kwargs["base_url"] = spec.base_url
+        client = AsyncOpenAI(**client_kwargs)
+    else:  # anthropic
         import anthropic
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         client = anthropic.AsyncAnthropic(api_key=api_key)
-    else:
-        raise ValueError(f"Unknown provider: {LLM_PROVIDER}")
 
     if not api_key:
-        raise ValueError(f"API key not found for {LLM_PROVIDER}")
+        raise ValueError(f"API key not found for {provider}")
 
     # Retry logic with exponential backoff
     for attempt in range(_RETRY_ATTEMPTS):
         try:
             # Anthropic uses different API structure
-            if LLM_PROVIDER == "anthropic":
-                # Anthropic's API requires max_tokens. No hidden default — the
-                # caller must pass one explicitly. Injecting a silent fallback
-                # hides output truncation and defeats the "let real failures
-                # surface to self-healing" policy.
+            if provider == "anthropic":
+                # Anthropic's API requires max_tokens. The other providers accept
+                # ``None`` and fall back to their own ceiling — to keep the contract
+                # uniform across providers, auto-fill with a safe floor here.
+                # Truncation still surfaces normally via the finish_reason="length"
+                # path, so self-healing is not defeated.
+                anthropic_max_tokens = (
+                    max_tokens if max_tokens is not None else _ANTHROPIC_MAX_TOKENS_DEFAULT
+                )
                 if max_tokens is None:
-                    raise HTTPException(
-                        400,
-                        "Anthropic provider requires max_tokens on the call site. "
-                        "Pass it from the node config — no silent default.",
+                    logger.info(
+                        "[LLM] Anthropic max_tokens auto-filled to %d (caller passed None)",
+                        anthropic_max_tokens,
                     )
-                anthropic_params = {
-                    "model": effective_model,
+                anthropic_params: dict = {
+                    "model": model,
                     "messages": [m for m in messages if m["role"] != "system"],
-                    "max_tokens": max_tokens,
-                    "temperature": temperature
+                    "max_tokens": anthropic_max_tokens,
+                    "temperature": temperature,
                 }
                 if system:
                     anthropic_params["system"] = system
                 if stop_sequences:
                     anthropic_params["stop_sequences"] = stop_sequences
-                response = await asyncio.wait_for(client.messages.create(**anthropic_params), timeout=_TIMEOUT)
+                response = await asyncio.wait_for(
+                    client.messages.create(**anthropic_params), timeout=_TIMEOUT
+                )
                 content = response.content[0].text if response.content else ""
             else:
-                # OpenAI/Groq use same API
-                response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=_TIMEOUT)
+                # OpenAI-compatible providers (openai/groq/openrouter)
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(**params), timeout=_TIMEOUT
+                )
                 content = response.choices[0].message.content if response.choices else ""
                 # Reasoning models (e.g. Groq gpt-oss-120b) can spend their entire
                 # output budget on the hidden ``reasoning`` field and return
@@ -232,7 +283,7 @@ async def llm_call(
 
             # Detect output truncation by max_tokens. Normalize ``finish_reason``
             # across providers so PromptPotter's classifier sees stable values.
-            if LLM_PROVIDER == "anthropic":
+            if provider == "anthropic":
                 _raw_fr = getattr(response, "stop_reason", None)
                 _ANTH_MAP = {
                     "end_turn": "stop",
@@ -260,17 +311,18 @@ async def llm_call(
                 continue
 
             # Capture provider-reported token usage when the caller asked for it.
-            # OpenAI/Groq expose prompt_tokens/completion_tokens on response.usage;
-            # Anthropic exposes input_tokens/output_tokens. Missing fields default
-            # to 0 so the dict shape is always stable for downstream aggregation.
-            # ``reasoning`` (Groq/OpenAI only), ``finish_reason``, and
-            # ``max_tokens_requested`` are surfaced for PromptPotter's classifier;
-            # ``max_tokens_requested`` echoes the value actually sent (post-retry it
-            # can differ from the caller's argument).
+            # OpenAI/Groq/OpenRouter expose prompt_tokens/completion_tokens on
+            # response.usage; Anthropic exposes input_tokens/output_tokens.
+            # Missing fields default to 0 so the dict shape is always stable
+            # for downstream aggregation. ``reasoning`` (OpenAI-compat only),
+            # ``finish_reason``, and ``max_tokens_requested`` are surfaced for
+            # PromptPotter's classifier; ``max_tokens_requested`` echoes the
+            # value actually sent (post-retry it can differ from the caller's
+            # argument).
             if usage_out is not None:
                 u = getattr(response, "usage", None)
                 if u is not None:
-                    if LLM_PROVIDER == "anthropic":
+                    if provider == "anthropic":
                         usage_out["input"] = int(getattr(u, "input_tokens", 0) or 0)
                         usage_out["output"] = int(getattr(u, "output_tokens", 0) or 0)
                     else:

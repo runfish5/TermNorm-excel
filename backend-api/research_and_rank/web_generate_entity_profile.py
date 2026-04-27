@@ -433,7 +433,8 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     # Build research prompt (custom override or registry-based)
     profiling_prompt = ep_cfg.get("prompt")
     profiling_schema = ep_cfg.get("output_schema")
-    profiling_model = ep_cfg.get("model")
+    profiling_provider = ep_cfg["provider"]
+    profiling_model = ep_cfg["model"]
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
         if not scraped_content:
@@ -468,14 +469,14 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     messages = [{"role": "user", "content": prompt}]
     llm_kwargs = {
         "messages": messages,
+        "provider": profiling_provider,
+        "model": profiling_model,
         "temperature": ep_cfg["temperature"],
         "max_tokens": ep_cfg.get("max_tokens"),
         "output_format": "schema" if profiling_schema else "json",
     }
     if profiling_schema:
         llm_kwargs["schema"] = profiling_schema
-    if profiling_model:
-        llm_kwargs["model"] = profiling_model
 
     # LLM call phase timing
     llm_start = time.time()
