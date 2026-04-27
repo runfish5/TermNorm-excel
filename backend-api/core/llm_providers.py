@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import asyncio
 from typing import Literal
 from fastapi import HTTPException
@@ -64,6 +65,29 @@ def _format_api_error(e: Exception) -> str:
             return f"{code}: {msg}" if code else msg
     raw = str(e)
     return raw if len(raw) <= 150 else raw[:150] + "…"
+
+
+def _extract_retry_after(exc: Exception) -> int | None:
+    """Pull Retry-After (seconds) from a Groq/OpenAI SDK rate-limit exception.
+
+    The SDK exposes the upstream httpx response on ``exc.response`` whose
+    headers carry the canonical ``Retry-After`` hint. Falls back to parsing
+    Groq's ``"try again in Xm Ys"`` body once at the boundary so downstream
+    clients only ever need to honor the standard header.
+    """
+    resp = getattr(exc, "response", None)
+    headers = getattr(resp, "headers", None) if resp is not None else None
+    if headers is not None:
+        val = headers.get("Retry-After") or headers.get("retry-after")
+        if val:
+            try:
+                return int(float(val))
+            except (TypeError, ValueError):
+                pass
+    m = re.search(r"try again in (?:(\d+)m)?\s*(\d+(?:\.\d+)?)\s*s", str(exc))
+    if m:
+        return int(int(m.group(1) or 0) * 60 + float(m.group(2)))
+    return None
 
 
 async def llm_call(
@@ -186,24 +210,43 @@ async def llm_call(
                 # OpenAI/Groq use same API
                 response = await asyncio.wait_for(client.chat.completions.create(**params), timeout=_TIMEOUT)
                 content = response.choices[0].message.content if response.choices else ""
+                # Reasoning models (e.g. Groq gpt-oss-120b) can spend their entire
+                # output budget on the hidden ``reasoning`` field and return
+                # ``content=""``. Emit a neutral advisory and let raw response shape
+                # (finish_reason + reasoning_tokens) flow through ``usage_out``;
+                # PromptPotter's classifier decides whether this is fatal. We do not
+                # substitute the reasoning trace as content — it is internal monologue,
+                # not an answer.
                 if not content and response.choices:
                     msg = response.choices[0].message
                     reasoning = getattr(msg, "reasoning", None) or ""
-                    if reasoning:
-                        logger.warning(
-                            "[LLM] Empty content, falling back to reasoning field (%d chars)",
-                            len(reasoning),
+                    fr = response.choices[0].finish_reason or "unknown"
+                    logger.warning(
+                        "[LLM] Empty content (reasoning=%d chars, finish_reason=%s) — returning empty",
+                        len(reasoning), fr,
+                    )
+                    if warnings is not None:
+                        warnings.append(
+                            f"content_empty: finish_reason={fr} reasoning_chars={len(reasoning)}"
                         )
-                        if warnings is not None:
-                            warnings.append("empty_content_reasoning_fallback")
-                        content = reasoning
 
-            # Detect output truncation by max_tokens
+            # Detect output truncation by max_tokens. Normalize ``finish_reason``
+            # across providers so PromptPotter's classifier sees stable values.
             if LLM_PROVIDER == "anthropic":
-                truncated = getattr(response, "stop_reason", None) == "max_tokens"
+                _raw_fr = getattr(response, "stop_reason", None)
+                _ANTH_MAP = {
+                    "end_turn": "stop",
+                    "stop_sequence": "stop",
+                    "max_tokens": "length",
+                    "tool_use": "tool_use",
+                }
+                normalized_fr = _ANTH_MAP.get(_raw_fr or "", _raw_fr or "unknown")
+                truncated = _raw_fr == "max_tokens"
             else:
-                _fr = response.choices[0].finish_reason if response.choices else None
-                truncated = _fr == "length"
+                _raw_fr = response.choices[0].finish_reason if response.choices else None
+                _OAI_MAP = {"tool_calls": "tool_use"}
+                normalized_fr = _OAI_MAP.get(_raw_fr or "", _raw_fr or "unknown")
+                truncated = _raw_fr == "length"
 
             if truncated and output_format in ("json", "schema") and max_tokens is not None:
                 _mt = params.get("max_tokens", max_tokens)
@@ -220,6 +263,10 @@ async def llm_call(
             # OpenAI/Groq expose prompt_tokens/completion_tokens on response.usage;
             # Anthropic exposes input_tokens/output_tokens. Missing fields default
             # to 0 so the dict shape is always stable for downstream aggregation.
+            # ``reasoning`` (Groq/OpenAI only), ``finish_reason``, and
+            # ``max_tokens_requested`` are surfaced for PromptPotter's classifier;
+            # ``max_tokens_requested`` echoes the value actually sent (post-retry it
+            # can differ from the caller's argument).
             if usage_out is not None:
                 u = getattr(response, "usage", None)
                 if u is not None:
@@ -229,6 +276,13 @@ async def llm_call(
                     else:
                         usage_out["input"] = int(getattr(u, "prompt_tokens", 0) or 0)
                         usage_out["output"] = int(getattr(u, "completion_tokens", 0) or 0)
+                        details = getattr(u, "completion_tokens_details", None)
+                        if details is not None:
+                            rt = getattr(details, "reasoning_tokens", None)
+                            if rt is not None:
+                                usage_out["reasoning"] = int(rt)
+                usage_out["finish_reason"] = normalized_fr
+                usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
 
             # Parse JSON if needed
             if output_format in ["json", "schema"]:
@@ -242,10 +296,16 @@ async def llm_call(
         except Exception as e:
             status = getattr(e, "status_code", None)
             if status == 429:
-                if attempt == _RETRY_ATTEMPTS - 1:
-                    raise HTTPException(429, f"LLM rate limited: {_format_api_error(e)}")
-                await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
-                continue
+                # Forward the provider's Retry-After to the client (RFC 7231).
+                # Server-side seconds-scale backoff is useless against Groq TPD
+                # windows (multi-hour); the client decides whether to wait.
+                retry_after = _extract_retry_after(e)
+                headers = {"Retry-After": str(retry_after)} if retry_after else None
+                raise HTTPException(
+                    429,
+                    f"LLM rate limited: {_format_api_error(e)}",
+                    headers=headers,
+                )
             if status and 400 <= status < 500:
                 if _is_token_limit_error(e) and max_tokens is not None:
                     _mt = params.get("max_tokens", max_tokens)
