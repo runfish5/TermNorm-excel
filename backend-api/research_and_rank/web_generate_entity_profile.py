@@ -481,7 +481,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     # LLM call phase timing
     llm_start = time.time()
     _usage: dict = {}
-    result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage)
+    result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage, node_name="entity_profiling")
     llm_elapsed = round(time.time() - llm_start, 3)
     if usage_out is not None and _usage:
         usage_out.update(_usage)

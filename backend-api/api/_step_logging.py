@@ -8,8 +8,8 @@ Two modes:
   so the information density is meaningful rather than forced into a
   universal shape.
 
-* **Long form** — the multi-line ``[RESPONSE] success — ...`` block, emitted
-  exactly once per request by the runner via :func:`log_run_summary`.
+* **Long form** — the multi-line ``[RESP] ...`` block, emitted exactly once
+  per request by the runner via :func:`log_run_summary`.
 
 Nodes themselves never touch logging — they return ``StepResult`` and the
 runner decides what to print.
@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
+from core.log_format import TAG_RESP, TAG_STEP
 from core.pipeline_context import PipelineContext, StepResult
 from utils.utils import GREEN, RESET
 
@@ -115,11 +116,11 @@ def log_step_short(
     rec = ctx._steps.get(step_name)
     warn_count = len(rec.warnings) if rec else 0
     body = fmt(step_name, result.elapsed, result.output, warn_count)
-    logger.info(f"{GREEN}[STEP]{RESET} {body}")
+    logger.info(f"{GREEN}{TAG_STEP}{RESET} {body}")
 
 
 def log_run_summary(ctx: PipelineContext, api_response: dict) -> None:
-    """Emit the long-form ``[RESPONSE]`` summary once per request."""
+    """Emit the long-form ``[RESP]`` summary once per request."""
     logger.info(_summarize_response(api_response))
 
 
@@ -159,7 +160,7 @@ def _summarize_response(resp: dict) -> str:
     """Compact, grouped structural summary of an API response for logging.
 
     Layout (one row per group, labels left-aligned):
-        [RESPONSE] <status> · <total>s → <terminated_at>
+        [RESP] <status> · <total>s → <terminated_at>
           output     {final_ranking: {...}, entity_profile: {...}, candidate_ranking: {...}}
           llm        <provider> · <model> · t=.. · max=.. · reasoning=.. · fmt=..
           steps      <per-step timings>
@@ -169,7 +170,7 @@ def _summarize_response(resp: dict) -> str:
     status = resp.get("status", "?")
     total = data.get("total_time")
     terminated = data.get("terminated_at")
-    header = f"{GREEN}[RESPONSE] {status}"
+    header = f"{GREEN}{TAG_RESP} {status}"
     if total is not None:
         header += f" · {total}s"
     if terminated:

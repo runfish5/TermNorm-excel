@@ -24,10 +24,12 @@ def setup_logging(
         log_path = Path(log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Configure root logger
+    # Configure root logger — console format is intentionally terse.
+    # File handler (below) keeps the verbose format for post-mortem.
     logging.basicConfig(
         level=getattr(logging, level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s %(message)s',
+        datefmt='%H:%M:%S',
         handlers=[]  # Clear default handlers
     )
 
@@ -37,7 +39,7 @@ def setup_logging(
     if include_console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            logging.Formatter('%(asctime)s %(message)s', datefmt='%H:%M:%S')
         )
         root_logger.addHandler(console_handler)
 

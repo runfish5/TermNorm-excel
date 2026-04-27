@@ -139,7 +139,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
     if ranking_schema:
         llm_kwargs["schema"] = ranking_schema
     _usage: dict = {}
-    ranking_result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage)
+    ranking_result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage, node_name="llm_ranking")
     if usage_out is not None and _usage:
         usage_out.update(_usage)
 

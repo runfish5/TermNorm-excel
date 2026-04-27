@@ -13,6 +13,7 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_to
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call
+from core.log_format import TAG_REQ, TAG_STEP, fmt_fields, fmt_list
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
@@ -431,7 +432,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
 
 async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
     """Generic LLM call — send prompt + query, get text response."""
-    logger.info(RED + "[PIPELINE] llm_only" + RESET)
+    # Start line is emitted by llm_call() via node_name=, so no separate tag here.
     t0 = time.time()
 
     system = cfg.get("prompt", "")
@@ -460,7 +461,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         kwargs["reasoning_effort"] = reasoning_effort
 
     llm_only_usage: dict = {}
-    response = await llm_call(**kwargs, usage_out=llm_only_usage)
+    response = await llm_call(**kwargs, usage_out=llm_only_usage, node_name="llm_only")
     answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
     ctx.record_step_tokens("llm_only", llm_only_usage)
@@ -661,23 +662,12 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     """Normalize a term — dispatch through the step registry."""
     user_id = request.state.user_id
     query = payload.get("query", "")
-    steps = payload.get("steps") or _pipeline("default")
+    payload_steps = payload.get("steps")
+    steps = payload_steps or _pipeline("default")
     trace_id = payload.get("trace_id")
-    logger.info(
-        "[PIPELINE] /matches incoming: payload_steps=%s resolved_steps=%s node_config_keys=%s",
-        payload.get("steps"),
-        steps,
-        list((payload.get("node_config") or {}).keys()),
-    )
 
     params = _resolve_pipeline_params(payload, steps=steps)
     precomputed = payload.get("precomputed") or {}
-
-    # Validate step dependencies — warn if input_keys aren't satisfied
-    # (precomputed outputs count as available upstream)
-    _dep_violations = validate_step_dependencies(steps, pre_available=set(precomputed))
-    if _dep_violations:
-        logger.warning("[PIPELINE] Steps with unsatisfied dependencies: %s", _dep_violations)
 
     # Session relaxation — only require a session for steps that need terms
     requires_session = bool(set(steps) & REQUIRES_SESSION)
@@ -688,11 +678,32 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     else:
         terms = []
 
-    # Entry log
-    term_info = f" ({len(terms)} terms)" if terms else ""
-    precomp_info = f" [precomputed: {', '.join(precomputed)}]" if precomputed else ""
-    query_display = query if len(query) <= 300 else f"{query[:300]}… ({len(query)} chars)"
-    logger.info(f"{RED}[PIPELINE] {user_id}: '{query_display}'{term_info}{precomp_info}{RESET}")
+    # Single request entry — merges incoming-step bookkeeping with user/query
+    # preview into one structured [REQ ] line. Optional fields drop out via
+    # fmt_fields when their value is None/empty.
+    overrides = list((payload.get("node_config") or {}).keys())
+    query_display = query if len(query) <= 25 else f"{query[:25]}…"
+    body = fmt_fields(
+        "/matches",
+        ("user", user_id),
+        ("steps", fmt_list(steps)),
+        ("default_steps", fmt_list(steps) if not payload_steps else None),
+        ("overrides", fmt_list(overrides) if overrides else None),
+        ("terms", len(terms) if terms else None),
+        ("precomputed", fmt_list(precomputed) if precomputed else None),
+        ("chars", len(query)),
+        ("query", f'"{query_display}"'),
+    )
+    logger.info(f"{RED}{TAG_REQ} {body}{RESET}")
+
+    # Validate step dependencies — warn if input_keys aren't satisfied
+    # (precomputed outputs count as available upstream)
+    _dep_violations = validate_step_dependencies(steps, pre_available=set(precomputed))
+    if _dep_violations:
+        logger.warning(
+            "%s unsatisfied step dependencies · %s",
+            TAG_REQ, _dep_violations,
+        )
 
     ctx = PipelineContext(query, user_id, requested_steps=steps, params=params)
 
@@ -701,7 +712,10 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         ctx.set_output("_session_terms", terms)
         token_matcher = TokenLookupMatcher(terms)
         ctx.set_output("_token_matcher", token_matcher)
-        logger.debug(f"[PIPELINE] TokenLookupMatcher: {len(token_matcher.deduplicated_terms)} unique terms")
+        logger.debug(
+            "%s token_matcher · unique=%d",
+            TAG_REQ, len(token_matcher.deduplicated_terms),
+        )
 
     # Pre-register precomputed outputs (per-node deserializers in PRECOMPUTED_DESERIALIZERS)
     for step_name, precomp_data in precomputed.items():
@@ -711,7 +725,7 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     # Dispatch loop
     for step_name in steps:
         if step_name not in STEP_REGISTRY:
-            logger.warning("Unknown step %r — skipping", step_name)
+            logger.warning("%s unknown step %r · skipping", TAG_STEP, step_name)
             ctx.record_step(step_name, StepStatus.SKIPPED)
             continue
 
@@ -725,7 +739,7 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         except HTTPException:
             raise
         except Exception as exc:
-            logger.error("[PIPELINE] %s failed: %s", step_name, exc)
+            logger.error("%s %s failed · %s", TAG_STEP, step_name, exc)
             ctx.record_step(step_name, StepStatus.FAILED)
             ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}")
             result = StepResult(output=None, elapsed=0.0, status=StepStatus.FAILED)

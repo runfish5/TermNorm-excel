@@ -17,6 +17,13 @@ from typing import Literal
 from fastapi import HTTPException
 
 from config.pipeline_config import get_llm_defaults
+from core.log_format import (
+    TAG_LLM,
+    TAG_LLM_ERR,
+    continuation,
+    fmt_fields,
+)
+from utils.utils import RED, RESET
 
 logger = logging.getLogger(__name__)
 
@@ -89,18 +96,34 @@ def _is_token_limit_error(e: Exception) -> bool:
 
 
 def _format_api_error(e: Exception) -> str:
-    """Extract concise error summary from LLM provider exceptions."""
+    """Extract upstream error detail from LLM provider exceptions.
+
+    Returns the full ``{code}: {message}`` pair when the SDK exposes a
+    structured body, otherwise the full exception ``str()``. **No truncation
+    by design** — errors are first-class diagnostic signal (rate limits,
+    quotas, param-validation hints) and downstream consumers (PromptPotter's
+    classifier, operators tailing logs) need the complete upstream text.
+    """
     body = getattr(e, "body", None)
     if isinstance(body, dict):
         error = body.get("error", {})
         if isinstance(error, dict):
             code = error.get("code", "")
             msg = error.get("message", str(e))
-            if len(msg) > 120:
-                msg = msg[:120] + "…"
             return f"{code}: {msg}" if code else msg
-    raw = str(e)
-    return raw if len(raw) <= 150 else raw[:150] + "…"
+    return str(e)
+
+
+def _extract_error_code(e: Exception) -> str | None:
+    """Pull the upstream ``error.code`` (e.g. ``rate_limit_exceeded``) if present."""
+    body = getattr(e, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error", {})
+        if isinstance(error, dict):
+            code = error.get("code")
+            if code:
+                return str(code)
+    return None
 
 
 def _extract_retry_after(exc: Exception) -> int | None:
@@ -143,6 +166,7 @@ async def llm_call(
     reasoning_effort: Literal["low", "medium", "high"] | None = None,
     warnings: list[str] | None = None,
     usage_out: dict | None = None,
+    node_name: str | None = None,
 ) -> str | dict:
     """Universal LLM dispatch — per-call ``provider`` + ``model``, no global fallback.
 
@@ -168,6 +192,21 @@ async def llm_call(
     total_tokens = sum(len(m.get('content', '').split()) for m in messages) * _TOKEN_ESTIMATION_MULTIPLIER
     if total_tokens > _TOKEN_LIMIT:
         raise HTTPException(400, "Request exceeds token limit")
+
+    # Per-LLM-node start line — one chokepoint, every node inherits.
+    # Emits "[LLM ] {node} · {provider}:{model} · chars=N · reasoning=X"
+    # so the operator sees model + payload size + reasoning effort on every call.
+    if node_name is not None:
+        user_chars = sum(
+            len(m.get("content", "")) for m in messages if m.get("role") != "system"
+        )
+        body = fmt_fields(
+            node_name,
+            f"{provider}:{model}",
+            ("chars", user_chars),
+            ("reasoning", reasoning_effort),
+        )
+        logger.info(f"{RED}{TAG_LLM} {body}{RESET}")
 
     if system:
         messages = [{"role": "system", "content": system}] + messages
@@ -238,8 +277,8 @@ async def llm_call(
                 )
                 if max_tokens is None:
                     logger.info(
-                        "[LLM] Anthropic max_tokens auto-filled to %d (caller passed None)",
-                        anthropic_max_tokens,
+                        "%s anthropic · max_tokens auto-filled · max=%d (caller passed None)",
+                        TAG_LLM, anthropic_max_tokens,
                     )
                 anthropic_params: dict = {
                     "model": model,
@@ -272,10 +311,13 @@ async def llm_call(
                     msg = response.choices[0].message
                     reasoning = getattr(msg, "reasoning", None) or ""
                     fr = response.choices[0].finish_reason or "unknown"
-                    logger.warning(
-                        "[LLM] Empty content (reasoning=%d chars, finish_reason=%s) — returning empty",
-                        len(reasoning), fr,
+                    header = fmt_fields(
+                        node_name or "llm",
+                        "empty content",
+                        ("finish_reason", fr),
+                        ("reasoning_chars", len(reasoning)),
                     )
+                    logger.warning("%s %s", TAG_LLM_ERR, header)
                     if warnings is not None:
                         warnings.append(
                             f"content_empty: finish_reason={fr} reasoning_chars={len(reasoning)}"
@@ -301,9 +343,12 @@ async def llm_call(
 
             if truncated and output_format in ("json", "schema") and max_tokens is not None:
                 _mt = params.get("max_tokens", max_tokens)
-                logger.warning(
-                    "[LLM] Structured output truncated (max_tokens=%s) — retrying without limit", _mt,
+                header = fmt_fields(
+                    node_name or "llm",
+                    "structured output truncated · retrying without max_tokens",
+                    ("max_tokens", _mt),
                 )
+                logger.warning("%s %s", TAG_LLM_ERR, header)
                 if warnings is not None:
                     warnings.append(f"Structured output truncated (max_tokens={_mt}) — retried without limit")
                 params.pop("max_tokens", None)
@@ -343,39 +388,58 @@ async def llm_call(
 
         except asyncio.TimeoutError:
             if attempt == _RETRY_ATTEMPTS - 1:
+                header = fmt_fields(
+                    node_name or "llm",
+                    "timeout",
+                    f"{provider}:{model}",
+                    ("attempt", f"{attempt + 1}/{_RETRY_ATTEMPTS}"),
+                    ("timeout_s", _TIMEOUT),
+                )
+                logger.error("%s %s", TAG_LLM_ERR, header)
                 raise HTTPException(503, "LLM request timeout")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
         except Exception as e:
             status = getattr(e, "status_code", None)
+            upstream = _format_api_error(e)
+            err_code = _extract_error_code(e)
             if status == 429:
                 # Forward the provider's Retry-After to the client (RFC 7231).
                 # Server-side seconds-scale backoff is useless against Groq TPD
                 # windows (multi-hour); the client decides whether to wait.
+                # Surface provider/model both in the server log and the response
+                # detail so the consumer (PromptPotter) sees which call hit the
+                # cap, not just the bare 429.
                 retry_after = _extract_retry_after(e)
+                header = fmt_fields(
+                    node_name or "llm",
+                    f"HTTP 429 {err_code or 'rate_limit_exceeded'}",
+                    f"{provider}:{model}",
+                    ("retry_after", f"{retry_after}s" if retry_after is not None else None),
+                )
+                logger.warning(
+                    "%s %s\n%s",
+                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
+                )
                 headers = {"Retry-After": str(retry_after)} if retry_after else None
                 raise HTTPException(
                     429,
-                    f"LLM rate limited: {_format_api_error(e)}",
+                    f"LLM rate limited (provider={provider}, model={model}): {upstream}",
                     headers=headers,
                 )
             if status and 400 <= status < 500:
                 if _is_token_limit_error(e) and max_tokens is not None:
                     _mt = params.get("max_tokens", max_tokens)
-                    logger.warning(
-                        "[LLM] Token limit error (max_tokens=%s) — retrying without limit", _mt,
+                    header = fmt_fields(
+                        node_name or "llm",
+                        "token limit · retrying without max_tokens",
+                        ("max_tokens", _mt),
                     )
+                    logger.warning("%s %s", TAG_LLM_ERR, header)
                     if warnings is not None:
                         warnings.append(f"Token limit error (max_tokens={_mt}) — retried without limit")
                     params.pop("max_tokens", None)
                     max_tokens = None
                     continue
-                if status == 404:
-                    detail = f"Model not found: {_format_api_error(e)}"
-                elif status == 401:
-                    detail = f"Auth failed: {_format_api_error(e)}"
-                else:
-                    detail = f"{status}: {_format_api_error(e)}"
-                logger.error("[LLM] %s", detail)
                 # Param-validation errors ("not one of the allowed values",
                 # "invalid_request_error") are the caller's fault — surface
                 # as 4xx, not 502. 502 Bad Gateway implies the upstream is
@@ -383,14 +447,40 @@ async def llm_call(
                 # enum value. Optimizers watching for CLIENT vs SERVER
                 # (see PromptPotter's ErrorCategory) can then short-circuit
                 # on the offending candidate instead of retrying.
-                raw_detail = detail.lower()
+                raw_lower = upstream.lower()
                 is_param_validation = (
-                    "not one of the allowed values" in raw_detail
-                    or "invalid_request_error" in raw_detail
-                    or "invalid_enum" in raw_detail
-                    or "is not a valid" in raw_detail
+                    "not one of the allowed values" in raw_lower
+                    or "invalid_request_error" in raw_lower
+                    or "invalid_enum" in raw_lower
+                    or "is not a valid" in raw_lower
                 )
+                if status == 404:
+                    phrase = "model_not_found"
+                elif status == 401:
+                    phrase = "auth_failed"
+                else:
+                    phrase = err_code or "client_error"
+                header = fmt_fields(
+                    node_name or "llm",
+                    f"HTTP {status} {phrase}",
+                    f"{provider}:{model}",
+                )
+                logger.error(
+                    "%s %s\n%s",
+                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
+                )
+                detail = f"{status}: {upstream}"
                 raise HTTPException(400 if is_param_validation else 502, detail)
             if attempt == _RETRY_ATTEMPTS - 1:
-                raise HTTPException(503, f"LLM error: {_format_api_error(e)}")
+                header = fmt_fields(
+                    node_name or "llm",
+                    f"HTTP {status} {err_code or 'upstream_error'}" if status else "upstream_error",
+                    f"{provider}:{model}",
+                    ("attempt", f"{attempt + 1}/{_RETRY_ATTEMPTS}"),
+                )
+                logger.error(
+                    "%s %s\n%s",
+                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
+                )
+                raise HTTPException(503, f"LLM error: {upstream}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
