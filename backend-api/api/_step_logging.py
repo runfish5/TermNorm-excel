@@ -140,45 +140,53 @@ def _approx_tokens(chars: int) -> int:
 
 
 def _fmt_params(cfg: dict) -> str:
-    """Compact LLM config summary: model · t=X · max=Y · reasoning=Z · fmt=F."""
+    """Compact LLM sampling-param summary for the RESP `llm` sub-row.
+
+    Only emits values that deviate from the eval-run defaults — `t=0.0`,
+    `fmt=text`, and an absent `max_tokens` are uninformative. Excludes
+    `model` and `reasoning_effort` (already on `[LLM ]`). Returns "" when
+    there's nothing new to say; the caller skips the row in that case.
+    """
     parts: list[str] = []
-    model = cfg.get("model")
-    if model:
-        parts.append(str(model))
-    if "temperature" in cfg:
-        parts.append(f"t={cfg['temperature']}")
+    temp = cfg.get("temperature")
+    if temp is not None and temp != 0.0:
+        parts.append(f"temp={temp}")
     if cfg.get("max_tokens") is not None:
         parts.append(f"max={cfg['max_tokens']}")
-    if cfg.get("reasoning_effort") is not None:
-        parts.append(f"reasoning={cfg['reasoning_effort']}")
-    if cfg.get("response_format"):
-        parts.append(f"fmt={cfg['response_format']}")
+    fmt = cfg.get("response_format")
+    if fmt and fmt != "text":
+        parts.append(f"fmt={fmt}")
     return " · ".join(parts)
 
 
 def _summarize_response(resp: dict) -> str:
     """Compact, grouped structural summary of an API response for logging.
 
-    Layout (one row per group, labels left-aligned):
-        [RESP] <status> · <total>s → <terminated_at>
+    Layout (one row per group, labels left-aligned). Sub-rows are emitted
+    only when they carry information not already on [REQ ] / [LLM ]:
+
+        [RESP] <status> · <total:.2f>s [→ <terminated_at> if early-termination]
           output     {final_ranking: {...}, entity_profile: {...}, candidate_ranking: {...}}
-          llm        <provider> · <model> · t=.. · max=.. · reasoning=.. · fmt=..
-          steps      <per-step timings>
+          llm        t=.. · max=.. · fmt=..       (model+reasoning live on [LLM ])
+          steps      <per-step timings>            (multi-step pipelines only)
           status     <exec>/<req> steps · <N> warn[ (step: code)] · <non-success>
+                                                   (only on warn / non-success)
     """
     data = resp.get("data", {})
     status = resp.get("status", "?")
     total = data.get("total_time")
     terminated = data.get("terminated_at")
+    pp = data.get("pipeline_params", {}) or {}
+    final_step = (pp.get("steps") or [None])[-1]
     header = f"{GREEN}{TAG_RESP} {status}"
     if total is not None:
-        header += f" · {total}s"
-    if terminated:
+        header += f" · {total:.2f}s"
+    # Only show terminated_at on early termination — when the pipeline ran
+    # all the way through, the operator already knows the last step from REQ.
+    if terminated and terminated != final_step:
         header += f" → {terminated}"
     header += RESET
     lines = [header]
-
-    pp = data.get("pipeline_params", {}) or {}
 
     # ---- output (nested-dict-style one-liner showing result shape) --------
     parts: list[str] = []
@@ -221,7 +229,7 @@ def _summarize_response(resp: dict) -> str:
     if parts:
         lines.append(_row("output", "{" + ", ".join(parts) + "}"))
 
-    # ---- llm config (model + sampling params, grouped) --------------------
+    # ---- llm sampling params (model+reasoning+provider live on [LLM ]) ----
     # Prefer llm_only cfg; else entity_profiling / llm_ranking.
     llm_cfg: dict = {}
     for node in ("llm_only", "llm_ranking", "entity_profiling"):
@@ -229,12 +237,10 @@ def _summarize_response(resp: dict) -> str:
         if isinstance(node_cfg, dict) and node_cfg.get("model"):
             llm_cfg = node_cfg
             break
-    provider = data.get("llm_provider")
     if llm_cfg:
         body = _fmt_params(llm_cfg)
-        if provider:
-            body = f"{provider} · {body}"
-        lines.append(_row("llm", body))
+        if body:
+            lines.append(_row("llm", body))
 
     # ---- timings (one step = skip that line) ------------------------------
     step_timings = data.get("step_timings", {})
@@ -242,22 +248,24 @@ def _summarize_response(resp: dict) -> str:
         timing_parts = []
         for step, t in step_timings.items():
             short = step.split("_")[0][:8]
-            timing_parts.append(f"{short}={'skip' if t is None else f'{t:.1f}s'}")
+            timing_parts.append(f"{short}={'skip' if t is None else f'{t:.2f}s'}")
         lines.append(_row("steps", " ".join(timing_parts)))
 
-    # ---- status (pipeline counts + warnings + non-success statuses) -------
+    # ---- status (only when something is interesting) ----------------------
+    # Skip on clean runs: 1:1 step exec, no warnings, no non-success statuses.
     diag = data.get("diagnostics") or {}
     warnings = diag.get("warnings", []) if isinstance(diag, dict) else []
     statuses = diag.get("step_statuses", {}) if isinstance(diag, dict) else {}
     exec_steps = pp.get("steps") or list(statuses.keys())
     req_steps = pp.get("requested_steps") or exec_steps
     n_exec, n_req = len(exec_steps), len(req_steps)
-    w_str = f"{len(warnings)} warn"
-    if warnings:
-        first = warnings[0]
-        w_str += f" ({first['step']}: {first['code']})"
     non_success = [f"{s}={st}" for s, st in statuses.items() if st != "success"]
-    status_tail = f" · {', '.join(non_success)}" if non_success else ""
-    lines.append(_row("status", f"{n_exec}/{n_req} steps · {w_str}{status_tail}"))
+    if warnings or non_success or n_exec != n_req:
+        w_str = f"{len(warnings)} warn"
+        if warnings:
+            first = warnings[0]
+            w_str += f" ({first['step']}: {first['code']})"
+        status_tail = f" · {', '.join(non_success)}" if non_success else ""
+        lines.append(_row("status", f"{n_exec}/{n_req} steps · {w_str}{status_tail}"))
 
     return "\n".join(lines)

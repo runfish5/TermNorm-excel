@@ -678,17 +678,20 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     else:
         terms = []
 
-    # Single request entry — merges incoming-step bookkeeping with user/query
+    # Single request entry — merges incoming-step bookkeeping with the query
     # preview into one structured [REQ ] line. Optional fields drop out via
-    # fmt_fields when their value is None/empty.
+    # fmt_fields when their value is None/empty. `overrides` only renders
+    # when node_config carries a key beyond the active steps (i.e. a real
+    # cross-step override) — the common shape `node_config={"<step>": {...}}`
+    # would just duplicate `steps`.
     overrides = list((payload.get("node_config") or {}).keys())
+    extra_overrides = [o for o in overrides if o not in steps]
     query_display = query if len(query) <= 25 else f"{query[:25]}…"
     body = fmt_fields(
         "/matches",
-        ("user", user_id),
         ("steps", fmt_list(steps)),
         ("default_steps", fmt_list(steps) if not payload_steps else None),
-        ("overrides", fmt_list(overrides) if overrides else None),
+        ("overrides", fmt_list(extra_overrides) if extra_overrides else None),
         ("terms", len(terms) if terms else None),
         ("precomputed", fmt_list(precomputed) if precomputed else None),
         ("chars", len(query)),

@@ -194,16 +194,13 @@ async def llm_call(
         raise HTTPException(400, "Request exceeds token limit")
 
     # Per-LLM-node start line — one chokepoint, every node inherits.
-    # Emits "[LLM ] {node} · {provider}:{model} · chars=N · reasoning=X"
-    # so the operator sees model + payload size + reasoning effort on every call.
+    # Emits "[LLM ] {node} · {provider}:{model} · reasoning=X" so the operator
+    # sees model + reasoning on every call. Input chars are already on the
+    # [REQ ] line (for /matches calls); duplicating here was redundant.
     if node_name is not None:
-        user_chars = sum(
-            len(m.get("content", "")) for m in messages if m.get("role") != "system"
-        )
         body = fmt_fields(
             node_name,
             f"{provider}:{model}",
-            ("chars", user_chars),
             ("reasoning", reasoning_effort),
         )
         logger.info(f"{RED}{TAG_LLM} {body}{RESET}")
