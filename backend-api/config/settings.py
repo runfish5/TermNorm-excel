@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     brave_search_api_key: str | None = Field(None, alias="BRAVE_SEARCH_API_KEY")
     use_brave_api: bool = Field(True, alias="USE_BRAVE_API")  # Toggle for testing fallbacks
 
+    # Wire-level bearer auth — opt-in. When enabled, every request must
+    # carry ``Authorization: Bearer <termnorm_token>``; mismatches → 401.
+    # Independent of the IP-based ``user_auth_middleware`` on protected_paths.
+    termnorm_require_auth: bool = Field(False, alias="TERMNORM_REQUIRE_AUTH")
+    termnorm_token: str = Field("", alias="TERMNORM_TOKEN")
+
     # Server Configuration
     host: str = "127.0.0.1"
     port: int = 8000
