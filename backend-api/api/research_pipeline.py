@@ -104,19 +104,25 @@ def _resolve_pipeline_params(
     payload: dict[str, Any],
     steps: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Merge node_config overrides with pipeline.json defaults per node.
+    """Resolve per-node config: caller-provided OR TermNorm defaults.
 
-    Returns nested dict: ``{node_name: {param: value, ...}, ...}``.
-    Only active nodes (in *steps*) are included.  Callers receive their
-    node's native config keys — no prefixing.
+    Per-node ownership — no silent half-merges. For each active node:
+    - ``node_config[name]`` present → use it verbatim (caller is authoritative).
+    - absent → fall back to TermNorm's pipeline.json defaults for that node.
+
+    Rationale: half-merging (caller sends ``model`` but not ``provider``,
+    backend silently fills ``provider`` from defaults) hides config errors as
+    downstream 404s. With per-node ownership, the caller either declares the
+    full node config or omits the node entirely.
     """
     ov = payload.get("node_config", {})
     active = set(steps or _pipeline("default"))
     resolved: dict[str, dict[str, Any]] = {}
     for node_name in active:
-        defaults = _node(node_name)
-        overrides = ov.get(node_name, {})
-        resolved[node_name] = {**defaults, **overrides}
+        if node_name in ov:
+            resolved[node_name] = dict(ov[node_name])
+        else:
+            resolved[node_name] = _node(node_name)
     return resolved
 
 
