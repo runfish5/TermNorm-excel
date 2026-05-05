@@ -104,25 +104,25 @@ def _resolve_pipeline_params(
     payload: dict[str, Any],
     steps: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Resolve per-node config: caller-provided OR TermNorm defaults.
+    """Resolve per-node config by per-key merge of caller overrides on defaults.
 
-    Per-node ownership — no silent half-merges. For each active node:
-    - ``node_config[name]`` present → use it verbatim (caller is authoritative).
-    - absent → fall back to TermNorm's pipeline.json defaults for that node.
+    Backend's ``pipeline.json::nodes.{name}.config`` is the source of truth.
+    Caller's ``node_config[name]`` is a sparse override map — only the keys
+    the caller wants to mutate. The two are merged per-key, override on top.
 
-    Rationale: half-merging (caller sends ``model`` but not ``provider``,
-    backend silently fills ``provider`` from defaults) hides config errors as
-    downstream 404s. With per-node ownership, the caller either declares the
-    full node config or omits the node entirely.
+    Lets PromptPotter (and any client) send minimal overrides like
+    ``{"llm_only": {"temperature": 0.7}}`` without restating every other key
+    (provider, model, max_tokens, ...). New backend defaults flow through
+    automatically.
     """
     ov = payload.get("node_config", {})
     active = set(steps or _pipeline("default"))
     resolved: dict[str, dict[str, Any]] = {}
     for node_name in active:
+        merged = dict(_node(node_name))
         if node_name in ov:
-            resolved[node_name] = dict(ov[node_name])
-        else:
-            resolved[node_name] = _node(node_name)
+            merged.update(ov[node_name])
+        resolved[node_name] = merged
     return resolved
 
 
@@ -748,7 +748,6 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         except HTTPException:
             raise
         except Exception as exc:
-            logger.error("%s %s failed · %s", TAG_STEP, step_name, exc)
             ctx.record_step(step_name, StepStatus.FAILED)
             ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}")
             result = StepResult(output=None, elapsed=0.0, status=StepStatus.FAILED)
@@ -761,11 +760,12 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
                             details=list(w.details) if w.details else None,
                             stats=dict(w.stats) if w.stats else None)
 
-        # Short-form per-step log: only for non-terminal, non-skipped steps.
-        # Terminal steps (llm_only, fuzzy-as-last) flow through log_run_summary instead.
+        # Short-form per-step log: only for non-terminal steps that actually
+        # produced output. FAILED/SKIPPED steps surface in the [RESP] status
+        # row; terminal steps flow through log_run_summary.
         if (
             not result.terminates
-            and result.status != StepStatus.SKIPPED
+            and result.status not in (StepStatus.FAILED, StepStatus.SKIPPED)
             and step_name in STEP_NODE_TYPE
         ):
             log_step_short(ctx, step_name, STEP_NODE_TYPE[step_name], result)

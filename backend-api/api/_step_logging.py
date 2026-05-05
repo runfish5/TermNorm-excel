@@ -21,7 +21,7 @@ from typing import Any, Callable
 
 from core.log_format import TAG_RESP, TAG_STEP
 from core.pipeline_context import PipelineContext, StepResult
-from utils.utils import GREEN, RESET
+from utils.utils import BRIGHT_RED, GREEN, RESET, YELLOW
 
 logger = logging.getLogger(__name__)
 
@@ -129,10 +129,14 @@ def log_run_summary(ctx: PipelineContext, api_response: dict) -> None:
 # ---------------------------------------------------------------------------
 
 _LABEL_WIDTH = 9
+# Indent continuation rows under the [TAG ] column. The console formatter
+# emits "HH:MM:SS " (8+1=9 chars) before the message, so a 9-space lead
+# places the label directly under the tag — visually nested.
+_ROW_INDENT = " " * 9
 
 
 def _row(label: str, body: str) -> str:
-    return f"  {GREEN}{label:<{_LABEL_WIDTH}}{RESET} {body}"
+    return f"{_ROW_INDENT}{GREEN}{label:<{_LABEL_WIDTH}}{RESET} {body}"
 
 
 def _approx_tokens(chars: int) -> int:
@@ -162,23 +166,38 @@ def _fmt_params(cfg: dict) -> str:
 def _summarize_response(resp: dict) -> str:
     """Compact, grouped structural summary of an API response for logging.
 
+    Header status reflects pipeline outcome (ok/warn/fail), not the HTTP
+    response wrapper — a step that errored still returns a 200 OK envelope,
+    but the operator wants to see at a glance that something went wrong.
+
     Layout (one row per group, labels left-aligned). Sub-rows are emitted
     only when they carry information not already on [REQ ] / [LLM ]:
 
-        [RESP] <status> · <total:.2f>s [→ <terminated_at> if early-termination]
-          output     {final_ranking: {...}, entity_profile: {...}, candidate_ranking: {...}}
-          llm        t=.. · max=.. · fmt=..       (model+reasoning live on [LLM ])
-          steps      <per-step timings>            (multi-step pipelines only)
-          status     <exec>/<req> steps · <N> warn[ (step: code)] · <non-success>
-                                                   (only on warn / non-success)
+        [RESP] <ok|warn|fail> · <total:.2f>s [→ <terminated_at>]
+                 output    {final_ranking: {...}, entity_profile: {...}, ...}
+                 llm       t=.. · max=.. · fmt=..   (model+reasoning on [LLM ])
+                 steps     <per-step timings>        (multi-step pipelines only)
+                 status    <exec>/<req> steps · <N> warn[ (step: code)] · ...
+                                                    (only on warn / non-success)
     """
     data = resp.get("data", {})
-    status = resp.get("status", "?")
     total = data.get("total_time")
     terminated = data.get("terminated_at")
     pp = data.get("pipeline_params", {}) or {}
     final_step = (pp.get("steps") or [None])[-1]
-    header = f"{GREEN}{TAG_RESP} {status}"
+
+    diag = data.get("diagnostics") or {}
+    warnings = diag.get("warnings", []) if isinstance(diag, dict) else []
+    statuses = diag.get("step_statuses", {}) if isinstance(diag, dict) else {}
+    has_failed = any(st == "failed" for st in statuses.values())
+    if has_failed:
+        outcome, color = "fail", BRIGHT_RED
+    elif warnings or any(st not in ("success", "skipped") for st in statuses.values()):
+        outcome, color = "warn", YELLOW
+    else:
+        outcome, color = "ok", GREEN
+
+    header = f"{color}{TAG_RESP} {outcome}"
     if total is not None:
         header += f" · {total:.2f}s"
     # Only show terminated_at on early termination — when the pipeline ran
@@ -253,9 +272,6 @@ def _summarize_response(resp: dict) -> str:
 
     # ---- status (only when something is interesting) ----------------------
     # Skip on clean runs: 1:1 step exec, no warnings, no non-success statuses.
-    diag = data.get("diagnostics") or {}
-    warnings = diag.get("warnings", []) if isinstance(diag, dict) else []
-    statuses = diag.get("step_statuses", {}) if isinstance(diag, dict) else {}
     exec_steps = pp.get("steps") or list(statuses.keys())
     req_steps = pp.get("requested_steps") or exec_steps
     n_exec, n_req = len(exec_steps), len(req_steps)
