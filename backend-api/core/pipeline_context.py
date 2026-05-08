@@ -120,6 +120,11 @@ class PipelineContext:
             record["finish_reason"] = str(usage["finish_reason"])
         if "max_tokens_requested" in usage and usage["max_tokens_requested"] is not None:
             record["max_tokens_requested"] = int(usage["max_tokens_requested"])
+        # Forwarded only when the provider returned USD (today: OpenRouter's
+        # usage.cost). PromptPotter's dashboard prefers this over its
+        # bundled rate table; absence falls back to the rate table.
+        if "cost_usd" in usage and usage["cost_usd"] is not None:
+            record["cost_usd"] = float(usage["cost_usd"])
         self._step_tokens[name] = record
 
     def add_warning(self, step: str, code: str, message: str,

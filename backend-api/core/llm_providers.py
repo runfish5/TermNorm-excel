@@ -375,6 +375,14 @@ async def llm_call(
                             rt = getattr(details, "reasoning_tokens", None)
                             if rt is not None:
                                 usage_out["reasoning"] = int(rt)
+                    # OpenRouter ships USD on the wire under usage.cost (some
+                    # responses also expose total_cost). PromptPotter's
+                    # dashboard prefers this over its rate table when present.
+                    cost = getattr(u, "cost", None)
+                    if cost is None:
+                        cost = getattr(u, "total_cost", None)
+                    if cost is not None:
+                        usage_out["cost_usd"] = float(cost)
                 usage_out["finish_reason"] = normalized_fr
                 usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
 
