@@ -445,20 +445,13 @@ async def llm_call(
                     params.pop("max_tokens", None)
                     max_tokens = None
                     continue
-                # Param-validation errors ("not one of the allowed values",
-                # "invalid_request_error") are the caller's fault — surface
-                # as 4xx, not 502. 502 Bad Gateway implies the upstream is
-                # broken, which is misleading when the client sent a bad
-                # enum value. Optimizers watching for CLIENT vs SERVER
-                # (see PromptPotter's ErrorCategory) can then short-circuit
-                # on the offending candidate instead of retrying.
-                raw_lower = upstream.lower()
-                is_param_validation = (
-                    "not one of the allowed values" in raw_lower
-                    or "invalid_request_error" in raw_lower
-                    or "invalid_enum" in raw_lower
-                    or "is not a valid" in raw_lower
-                )
+                # Upstream 4xx is the caller's fault — propagate as 4xx, not
+                # 502. 502 Bad Gateway implies the upstream is broken, which
+                # mis-signals a wire-format error to optimizers like
+                # PromptPotter that treat 5xx as transient (and burn retries).
+                # The detail dict carries the upstream summary so the consumer
+                # can render "temperature: Invalid input: expected number..."
+                # to the operator without scraping our log file.
                 if status == 404:
                     phrase = "model_not_found"
                 elif status == 401:
@@ -474,8 +467,16 @@ async def llm_call(
                     "%s %s\n%s",
                     TAG_LLM_ERR, header, continuation(upstream, "upstream"),
                 )
-                detail = f"{status}: {upstream}"
-                raise HTTPException(400 if is_param_validation else 502, detail)
+                raise HTTPException(
+                    status,
+                    {
+                        "upstream_status": status,
+                        "upstream_provider": provider,
+                        "upstream_model": model,
+                        "upstream_message": upstream,
+                        "error_code": err_code or phrase,
+                    },
+                )
             if attempt == _RETRY_ATTEMPTS - 1:
                 header = fmt_fields(
                     node_name or "llm",

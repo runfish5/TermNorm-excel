@@ -17,6 +17,7 @@ from typing import Any, Iterable
 
 # Stage tags — all 4 chars so columns align.
 TAG_REQ = "[REQ ]"   # request entry — one per /matches call
+TAG_CFG = "[CFG ]"   # caller's node_config overrides (post-merge effective values)
 TAG_STEP = "[STEP]"  # non-terminal step result
 TAG_LLM = "[LLM ]"   # LLM call dispatch (per node)
 TAG_LLM_ERR = "[LLM!]"  # LLM call failure (rate limit, timeout, 4xx, 5xx)

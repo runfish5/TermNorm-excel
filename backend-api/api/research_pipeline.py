@@ -13,7 +13,7 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_to
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call
-from core.log_format import TAG_REQ, TAG_STEP, fmt_fields, fmt_list
+from core.log_format import TAG_CFG, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
@@ -704,6 +704,25 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         ("query", f'"{query_display}"'),
     )
     logger.info(f"{RED}{TAG_REQ} {body}{RESET}")
+
+    # Surface the caller's effective node_config overrides (post-merge with
+    # backend defaults) so it's visible *what* the caller asked for, not just
+    # *that* they asked. Single most-useful diagnostic when an LLM call fails
+    # on a type-mismatch — operator can read the offending value off the log
+    # line instead of digging through optimizer state. Only the keys actually
+    # overridden are printed; backend defaults stay implicit.
+    caller_ov = payload.get("node_config") or {}
+    for node_name, ov_keys in caller_ov.items():
+        if not isinstance(ov_keys, dict) or not ov_keys:
+            continue
+        ov_fields = [
+            (k, repr(v) if isinstance(v, str) and len(v) > 40 else v)
+            for k, v in ov_keys.items()
+            if not (isinstance(v, str) and len(v) > 200)
+        ]
+        if not ov_fields:
+            continue
+        logger.info(f"{TAG_CFG} {fmt_fields(node_name, *ov_fields)}")
 
     # Validate step dependencies — warn if input_keys aren't satisfied
     # (precomputed outputs count as available upstream)
