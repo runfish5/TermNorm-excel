@@ -468,7 +468,12 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
 
     llm_only_usage: dict = {}
     response = await llm_call(**kwargs, usage_out=llm_only_usage, node_name="llm_only")
-    answer = response if isinstance(response, str) else response.get("output", json.dumps(response))
+    if response is None:
+        answer = ""
+    elif isinstance(response, str):
+        answer = response
+    else:
+        answer = response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
     ctx.record_step_tokens("llm_only", llm_only_usage)
 

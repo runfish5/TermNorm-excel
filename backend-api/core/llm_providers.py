@@ -296,7 +296,13 @@ async def llm_call(
                 response = await asyncio.wait_for(
                     client.chat.completions.create(**params), timeout=_TIMEOUT
                 )
-                content = response.choices[0].message.content if response.choices else ""
+                # Some providers (notably reasoning models) ship a successful
+                # response with ``message.content = None`` — coerce to "" so
+                # the contract stays ``str | dict``, never ``None``. The
+                # finish_reason / reasoning_chars warning below still fires.
+                content = (
+                    (response.choices[0].message.content or "") if response.choices else ""
+                )
                 # Reasoning models (e.g. Groq gpt-oss-120b) can spend their entire
                 # output budget on the hidden ``reasoning`` field and return
                 # ``content=""``. Emit a neutral advisory and let raw response shape
