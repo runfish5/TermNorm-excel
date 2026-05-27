@@ -7,16 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Registry-driven `GET /pipeline`**: `_enrich_with_registries()` resolves `schema_family`/`prompt_family` references from on-disk registries into top-level `resolved_schemas`/`resolved_prompts` dicts. External consumers get full field metadata without hardcoded knowledge.
-- **`/status` endpoint**: Aggregates session, match DB, experiment, and pipeline info into a single snapshot for external tools (PromptPotter).
-- **`llm_ranking_output` schema**: Committed to `logs/schemas/llm_ranking_output/1/`. Both LLMGeneration nodes (`entity_profiling`, `llm_ranking`) now use registry references.
-- **Raw LLM-call response shape on `step_tokens`**: `usage_out` from `llm_call` now includes (Groq/OpenAI only) `reasoning` token count when the provider exposes it, normalized `finish_reason` (`length` / `stop` / `content_filter` / `tool_use` regardless of provider), and `max_tokens_requested`. Flows through `step_tokens.{node}` so external consumers can classify failure modes from the raw signal.
+## [1.0.6] - 2026-05-27
 
-### Changed
-- `llm_ranking` node config: replaced inline `ranking_schema` with `schema_family: "llm_ranking_output"` + `schema_version: 1`
-- PromptPotter integration: dynamic metadata discovery from live `GET /pipeline` response — no hardcoded schemas or prompts on the optimizer side
-- **BREAKING (consumer-visible): `llm_only` no longer substitutes reasoning trace as content** when a Groq/OpenAI reasoning model returns empty `message.content`. Returns `content=""` and emits a single neutral advisory of the form `content_empty: finish_reason={fr} reasoning_chars={N}` in `diagnostics.warnings`. The classifier on the consumer side derives fatality from advisory + raw shape (`step_tokens.llm_only.finish_reason` + `reasoning`), not by string-matching the warning code. Replaces the previous `empty_content_reasoning_fallback` warning that doubled as a substitution marker. Wire-format break is the substitution removal; the rename is additive.
+### Highlights
+
+**Pipeline Composability**
+- Nested-only pipeline params — flat-prefixing and `override_map` removed; per-step `model` / `schema` / `prompt` via `node_overrides` (renamed `node_config` on `/matches`)
+- `steps[]` is now the single source of truth for pipeline control
+- Self-describing `pipeline.json` — optimizer metadata baked in; all hardcoded server defaults wired through `pipeline.json` (no shadow defaults)
+- Per-key node-config merge with clear step/RESP logs (no silent half-merges)
+- Required LLM params validated up front on `/matches`; `max_tokens` defaults removed from every generation node
+
+**LLM Provider Expansion + Robustness**
+- New OpenRouter provider with per-node provider routing (no global fallback)
+- New `llm_only` pipeline step + reasoning-model hardening (see BREAKING below)
+- 429 rate-limit handling forwards `Retry-After` per RFC 7231
+- Structured-output truncation now retries without `max_tokens` instead of failing
+- Decommissioned model swap + graceful LLM degradation
+- `llm_ranking` defended against empty candidate lists and `None` slip-through
+- Exposed previously hidden library params (seed, logprobs, Brave filters); unified fuzzy algorithm
+
+**PromptPotter Integration**
+- Registry-driven `GET /pipeline` — `_enrich_with_registries()` resolves `schema_family` / `prompt_family` references from on-disk registries into top-level `resolved_schemas` / `resolved_prompts` dicts (external consumers get full field metadata without hardcoded knowledge)
+- New `/status` endpoint — single-snapshot aggregation of session, match DB, experiment, and pipeline info for external tools
+- `step_tokens` carries raw LLM-call response shape on `usage_out` — `reasoning` token count (Groq/OpenAI), normalized `finish_reason` (`length` / `stop` / `content_filter` / `tool_use` regardless of provider), `max_tokens_requested`
+- Per-LLM-node token usage emitted on `/matches`
+- OpenRouter `usage.cost` forwarded as `cost_usd`
+- `/matches` accepts pipeline parameter overrides + `ranking_prompt` override + `steps` selection + per-step timings
+- `/matches` response exposes `entity_profile` and `token_matched_candidates`
+- New `GET /experiments/{id}/mappings` endpoint
+- `llm_ranking_output` schema committed to `logs/schemas/llm_ranking_output/1/`; both LLMGeneration nodes (`entity_profiling`, `llm_ranking`) use registry references
+- Trace metadata derived from execution results (removed `use_web_search` server override)
+
+**Logging & Diagnostics**
+- Coherent lifecycle taxonomy with full upstream errors propagated structurally as 4xx + `[CFG]` log line
+- Phase-coloured console output + condensed REQ/LLM/RESP logging
+- Scrape diagnostics overhaul — accurate counts, condensed format, structured pipeline diagnostics
+- Mature startup TUI — narrow-column banner with richer boot info
+- Per-step logging primitive extracted; verbose LLM error log messages shortened
+
+**Web Search**
+- Simplified to Brave-only with `query_prefix` / `query_suffix` knobs
+
+**First-Class Linux Support**
+- New `start-server-py-LLMs.sh` — POSIX-bash launcher for Ubuntu/macOS, parity with the Windows `.bat`
+- Portable `python3` detection with `python` fallback for 3.x interpreters
+- `.venv` bootstrap on first run; requirements sync via `find -newer` (works on GNU + BSD/macOS `find`)
+- Production launcher: uvicorn on `0.0.0.0:8000` *without* `--reload` (avoids the watchfiles INFO chatter that Linux `inotify` produces; Windows `.bat` left as-is)
+- `.gitattributes` locks `*.sh` to `eol=lf` so Linux operators get LF line endings even when commits originate on Windows (`core.autocrlf=true`)
+- Release deploy zip ships the `.sh` alongside the `.bat`
+
+**Security**
+- Opt-in bearer-token wire auth
+
+**Operator Guidance**
+- New `backend-api/.env.example` — annotated template covering all provider keys (Groq / OpenAI / OpenRouter / Anthropic), optional Brave web-search, opt-in bearer auth, and network-mode bind. Operators `cp .env.example .env` and uncomment the line for the provider they have a key for.
+- Missing-API-key warning at boot now points operators at `.env.example` and prints the exact `cp` + `nano` commands, so first-run setup on a clean Linux box is unambiguous
+
+### Bug Fixes
+- Pinned `requests` in `backend-api/requirements.txt` (used in `research_and_rank/web_generate_entity_profile.py`; was satisfied transitively on Windows operator venvs, broke first-boot on a clean Linux venv)
+- `llm_ranking` no longer crashes on empty candidates / `None` content
+- Duplicate trace emissions eliminated; `pipeline.json` defaults wired everywhere
+- `REQUIRES_SESSION` narrowed to fuzzy/token nodes only
+- Restored `name` field to `pipeline.json` and defined it in spec
+- Removed unused `batch_overrides` from pipeline config
+- Web search warning emission fixed alongside partial-pipeline caching
+
+### BREAKING Changes
+- **Consumer-visible: `llm_only` no longer substitutes reasoning trace as content** when a Groq/OpenAI reasoning model returns empty `message.content`. Returns `content=""` and emits a single neutral advisory of the form `content_empty: finish_reason={fr} reasoning_chars={N}` in `diagnostics.warnings`. The classifier on the consumer side derives fatality from advisory + raw shape (`step_tokens.llm_only.finish_reason` + `reasoning`), not by string-matching the warning code. Replaces the previous `empty_content_reasoning_fallback` warning that doubled as a substitution marker. Wire-format break is the substitution removal; the rename is additive.
+- **Internal: `override_map` removed.** Pipeline params are nested-only; `node_overrides` / `node_config` is the sole route for per-node overrides.
+
+### Technical Details
+- 70 commits since v1.0.5: 31 features, 15 fixes, 19 refactors, 4 docs, 1 chore
+- Major architecture pass: dead module elimination (`standards_logger.py`, `responses.py`, `environment.py` inlined), service/UI boundary enforcement (state-actions, pipeline-config, batch dedup), god-function decomposition, canonical 6-field prompt form, node-coordinate registries with dependency validation, type hints + named constants throughout
 
 ## [1.0.5] - 2026-01-27
 

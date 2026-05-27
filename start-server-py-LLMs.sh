@@ -118,7 +118,7 @@ trap on_shutdown INT TERM
 while true; do
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Server starting" >> "$LOG_FILE"
     set +e
-    "$VENV_PATH/bin/python" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    "$VENV_PATH/bin/python" -m uvicorn main:app --host 0.0.0.0 --port 8000
     EXIT_CODE=$?
     set -e
     echo

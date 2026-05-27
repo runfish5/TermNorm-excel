@@ -74,7 +74,11 @@ async def startup_event():
     if not available:
         logger.warning(
             "No LLM provider API keys detected — LLM features will fail at first call. "
-            "Set one of: GROQ_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY."
+            "Copy backend-api/.env.example to backend-api/.env, uncomment one of the "
+            "provider lines (GROQ_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY / "
+            "ANTHROPIC_API_KEY), paste your key, then restart. From the repo root:\n"
+            "    cp backend-api/.env.example backend-api/.env\n"
+            "    nano backend-api/.env"
         )
     else:
         logger.info("LLM providers available: %s", ", ".join(available))

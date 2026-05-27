@@ -6,5 +6,6 @@ openai
 python-dotenv
 rapidfuzz
 regex
+requests
 beautifulsoup4
 pyyaml
