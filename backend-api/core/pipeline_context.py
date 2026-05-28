@@ -125,6 +125,11 @@ class PipelineContext:
         # bundled rate table; absence falls back to the rate table.
         if "cost_usd" in usage and usage["cost_usd"] is not None:
             record["cost_usd"] = float(usage["cost_usd"])
+        # Upstream model identifier (e.g. ``mistralai/mistral-7b-instruct``)
+        # so downstream spend bucketing hits the right model instead of
+        # the provider slug.
+        if usage.get("model"):
+            record["model"] = str(usage["model"])
         self._step_tokens[name] = record
 
     def add_warning(self, step: str, code: str, message: str,

@@ -391,6 +391,7 @@ async def llm_call(
                         usage_out["cost_usd"] = float(cost)
                 usage_out["finish_reason"] = normalized_fr
                 usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
+                usage_out["model"] = model
 
             # Parse JSON if needed
             if output_format in ["json", "schema"]:
