@@ -1,6 +1,6 @@
 {
   "name": "TermNorm",
-  "version": "v1.1",
+  "version": "v1.1.1",
   "description": "TermNorm AI terminology normalization pipeline",
   "required_step": "entity_profile",
   "template_variables": ["{{core_concept}}", "{{entity_profile_json}}", "{{matches}}"],
@@ -317,6 +317,7 @@
     "token_estimation_multiplier": 1.3,
     "token_limit": 100000,
     "seed": null,
-    "logprobs": null
+    "logprobs": null,
+    "structured_repair_attempts": 2
   }
 }

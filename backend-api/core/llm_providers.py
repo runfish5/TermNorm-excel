@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+import jsonschema
 from fastapi import HTTPException
 
 from config.pipeline_config import get_llm_defaults
@@ -37,6 +38,9 @@ _TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg.get("token_estimation_multiplier", 1.3)
 _TOKEN_LIMIT = _llm_cfg.get("token_limit", 100000)
 _SEED = _llm_cfg.get("seed")
 _LOGPROBS = _llm_cfg.get("logprobs")
+# Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts
+# the model with the validation errors, up to this many times, before raising 422.
+_STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg.get("structured_repair_attempts", 2)
 # Anthropic's API rejects requests where ``max_tokens`` is omitted. To honor the
 # "no dataset-side default across all providers" contract, we substitute a sane
 # floor when the caller passes ``None``. Set to a value safe for all current
@@ -83,16 +87,66 @@ def get_available_providers() -> list[str]:
 
 
 def _is_token_limit_error(e: Exception) -> bool:
-    """Detect errors caused by structured output exceeding max_tokens."""
+    """Detect errors caused by structured output exceeding max_tokens.
+
+    Note: ``json_validate_failed`` is deliberately NOT treated here. It is a
+    schema-conformance failure, not a token-budget problem — and now unreachable,
+    since schema mode no longer engages provider-native ``json_schema`` decoding.
+    """
     body = getattr(e, "body", None)
     if isinstance(body, dict):
         error = body.get("error", {})
         if isinstance(error, dict):
-            if error.get("code") == "json_validate_failed":
-                return True
             if "max completion tokens" in str(error.get("message", "")):
                 return True
-    return "json_validate_failed" in str(e) or "max completion tokens" in str(e)
+    return "max completion tokens" in str(e)
+
+
+def _schema_errors(instance: object, schema: dict) -> str:
+    """Return a compact bullet list of schema-validation errors, or '' if valid."""
+    validator = jsonschema.Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(instance), key=lambda e: list(e.path))
+    if not errors:
+        return ""
+    lines = []
+    for err in errors[:8]:
+        loc = "/".join(str(p) for p in err.path) or "(root)"
+        lines.append(f"- {loc}: {err.message}")
+    return "\n".join(lines)
+
+
+def _note_repair(node_name: str | None, attempt: int, detail: str, warnings: list[str] | None) -> None:
+    """Log + record a schema-repair re-prompt so it lands on disk, not just stdout."""
+    reason = detail.splitlines()[0] if detail else ""
+    header = fmt_fields(
+        node_name or "llm",
+        "schema repair · re-prompting",
+        ("attempt", f"{attempt}/{_STRUCTURED_REPAIR_ATTEMPTS}"),
+        ("reason", reason),
+    )
+    logger.warning("%s %s", TAG_LLM_ERR, header)
+    if warnings is not None:
+        warnings.append(f"schema_repair attempt={attempt}: {detail}")
+
+
+def _append_repair_turn(messages: list[dict], bad_content: str, error_summary: str) -> None:
+    """Append an assistant→user repair exchange so the model can self-correct.
+
+    Mutates ``messages`` in place. The openai-compat ``params['messages']`` is the
+    same list object, and the anthropic path rebuilds its messages from ``messages``
+    each attempt — so both providers pick up the repair turn on the next call.
+    """
+    messages.append({"role": "assistant", "content": bad_content})
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                "Your previous response did not satisfy the required JSON schema:\n"
+                f"{error_summary}\n"
+                "Reply with ONLY corrected JSON that satisfies the schema — no prose, no code fences."
+            ),
+        }
+    )
 
 
 def _format_api_error(e: Exception) -> str:
@@ -231,14 +285,15 @@ async def llm_call(
     if reasoning_effort is not None and is_openai_compat:
         params["reasoning_effort"] = reasoning_effort
 
-    # Handle structured output
-    if output_format == "json" and is_openai_compat:
+    # Structured output. Both ``json`` and ``schema`` ask openai-compat providers
+    # for a JSON object; ``schema`` additionally validates the parsed result against
+    # ``schema`` client-side and self-repairs (see the validate/repair loop below).
+    # Provider-native ``json_schema`` constrained decoding is deliberately NOT used:
+    # reasoning models (e.g. Groq gpt-oss-120b) fail its grammar validation ~50% of
+    # the time, and it only covers openai-compat providers — client-side validation
+    # is reliable and uniform across all four providers.
+    if output_format in ("json", "schema") and is_openai_compat:
         params["response_format"] = {"type": "json_object"}
-    elif output_format == "schema" and schema and is_openai_compat:
-        params["response_format"] = {
-            "type": "json_schema",
-            "json_schema": {"name": "response_schema", "schema": schema},
-        }
 
     # Construct provider client
     if is_openai_compat:
@@ -259,8 +314,12 @@ async def llm_call(
     if not api_key:
         raise ValueError(f"API key not found for {provider}")
 
-    # Retry logic with exponential backoff
-    for attempt in range(_RETRY_ATTEMPTS):
+    # Retry logic with exponential backoff. ``attempt`` advances only on transport
+    # errors (timeout / 5xx); schema-repair re-issues use ``repair_attempt`` and a
+    # bare ``continue`` so they never consume the transport-retry budget.
+    attempt = 0
+    repair_attempt = 0
+    while True:
         try:
             # Anthropic uses different API structure
             if provider == "anthropic":
@@ -393,11 +452,51 @@ async def llm_call(
                 usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
                 usage_out["model"] = model
 
-            # Parse JSON if needed
-            if output_format in ["json", "schema"]:
+            # Parse + (for schema mode) validate client-side, repairing in place.
+            if output_format == "schema":
+                try:
+                    parsed = json.loads(content)
+                except json.JSONDecodeError:
+                    if repair_attempt < _STRUCTURED_REPAIR_ATTEMPTS:
+                        repair_attempt += 1
+                        _note_repair(node_name, repair_attempt, "response was not valid JSON", warnings)
+                        _append_repair_turn(messages, content, "Response was not valid JSON.")
+                        continue
+                    raise HTTPException(
+                        422,
+                        {
+                            "upstream_provider": provider,
+                            "upstream_model": model,
+                            "error_code": "json_parse_failed",
+                            "node": node_name,
+                        },
+                    )
+                schema_err = _schema_errors(parsed, schema) if schema is not None else ""
+                if schema_err:
+                    if repair_attempt < _STRUCTURED_REPAIR_ATTEMPTS:
+                        repair_attempt += 1
+                        _note_repair(node_name, repair_attempt, schema_err, warnings)
+                        _append_repair_turn(messages, content, schema_err)
+                        continue
+                    raise HTTPException(
+                        422,
+                        {
+                            "upstream_provider": provider,
+                            "upstream_model": model,
+                            "error_code": "schema_validation_failed",
+                            "validation_errors": schema_err,
+                            "node": node_name,
+                        },
+                    )
+                return parsed
+            if output_format == "json":
                 return json.loads(content)
             return content
 
+        except HTTPException:
+            # Validation-exhaustion (422) and already-shaped upstream errors propagate
+            # untouched — they are deliberate, not transport failures to retry/re-wrap.
+            raise
         except asyncio.TimeoutError:
             if attempt == _RETRY_ATTEMPTS - 1:
                 header = fmt_fields(
@@ -410,6 +509,7 @@ async def llm_call(
                 logger.error("%s %s", TAG_LLM_ERR, header)
                 raise HTTPException(503, "LLM request timeout")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
+            attempt += 1
         except Exception as e:
             status = getattr(e, "status_code", None)
             upstream = _format_api_error(e)
@@ -497,3 +597,4 @@ async def llm_call(
                 )
                 raise HTTPException(503, f"LLM error: {upstream}")
             await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
+            attempt += 1

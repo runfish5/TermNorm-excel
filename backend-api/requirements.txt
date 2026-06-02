@@ -3,6 +3,7 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 openai
+jsonschema
 python-dotenv
 rapidfuzz
 regex
