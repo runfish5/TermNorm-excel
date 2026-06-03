@@ -11,10 +11,10 @@ import json
 import logging
 import os
 import re
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal
 
-import jsonschema
 from fastapi import HTTPException
 
 from config.pipeline_config import get_llm_defaults
@@ -102,16 +102,61 @@ def _is_token_limit_error(e: Exception) -> bool:
     return "max completion tokens" in str(e)
 
 
+# JSON Schema type name -> Python predicate. ``bool`` is excluded from
+# number/integer because JSON Schema treats booleans as a distinct type.
+_TYPE_CHECKS: dict[str, Callable[[object], bool]] = {
+    "object": lambda v: isinstance(v, dict),
+    "array": lambda v: isinstance(v, list),
+    "string": lambda v: isinstance(v, str),
+    "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
+    "boolean": lambda v: isinstance(v, bool),
+    "null": lambda v: v is None,
+}
+
+
+def _iter_schema_errors(instance: object, schema: dict, path: list) -> Iterator[tuple[list, str]]:
+    """Walk ``instance`` against the JSON-Schema subset we actually emit.
+
+    Supported keywords: ``type`` (single or union), ``required``, ``properties``,
+    ``items`` (single sub-schema applied to every element), ``enum``. Anything
+    else is ignored — we control the schemas, so this stays a closed set.
+    """
+    expected = schema.get("type")
+    if expected is not None:
+        names = expected if isinstance(expected, list) else [expected]
+        if not any(_TYPE_CHECKS.get(n, lambda _v: True)(instance) for n in names):
+            yield path, f"expected type {' | '.join(names)}, got {type(instance).__name__}"
+            return  # type mismatch makes deeper checks meaningless
+
+    enum = schema.get("enum")
+    if enum is not None and instance not in enum:
+        yield path, f"value {instance!r} is not one of {enum}"
+
+    if isinstance(instance, dict):
+        for key in schema.get("required", []):
+            if key not in instance:
+                yield path + [key], "required property is missing"
+        for key, sub in schema.get("properties", {}).items():
+            if key in instance:
+                yield from _iter_schema_errors(instance[key], sub, path + [key])
+
+    if isinstance(instance, list):
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for i, element in enumerate(instance):
+                yield from _iter_schema_errors(element, item_schema, path + [i])
+
+
 def _schema_errors(instance: object, schema: dict) -> str:
     """Return a compact bullet list of schema-validation errors, or '' if valid."""
-    validator = jsonschema.Draft202012Validator(schema)
-    errors = sorted(validator.iter_errors(instance), key=lambda e: list(e.path))
+    errors = sorted(_iter_schema_errors(instance, schema, []), key=lambda e: [str(p) for p in e[0]])
     if not errors:
         return ""
     lines = []
-    for err in errors[:8]:
-        loc = "/".join(str(p) for p in err.path) or "(root)"
-        lines.append(f"- {loc}: {err.message}")
+    for loc_path, message in errors[:8]:
+        loc = "/".join(str(p) for p in loc_path) or "(root)"
+        lines.append(f"- {loc}: {message}")
     return "\n".join(lines)
 
 
