@@ -269,6 +269,11 @@
       "runtime": "backend",
       "node_role": "ranker",
       "description": "Generic LLM call — send a system prompt + user query, get a text response. Bypasses all enrichment. No session or terms required.",
+      "prompt_info": {
+        "family": "llm_only",
+        "template_variables": ["query"],
+        "description": "System prompt for the llm_only generation node — fully caller-supplied (cfg['prompt']), the node's primary optimization target."
+      },
       "config": {
         "provider": "groq",
         "model": "openai/gpt-oss-120b",
