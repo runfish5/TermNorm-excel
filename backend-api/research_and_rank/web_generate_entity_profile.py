@@ -474,6 +474,12 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         "temperature": ep_cfg["temperature"],
         "max_tokens": ep_cfg.get("max_tokens"),
         "output_format": "schema" if profiling_schema else "json",
+        "structured_output_mode": ep_cfg.get("structured_output_mode"),
+        # Cap reasoning_effort: "low" in the node config for schema nodes — Groq gpt-oss
+        # reasoning models return HTTP 400 json_validate_failed (empty failed_generation,
+        # unrecoverable by the repair loop) when native strict json_schema is paired with
+        # reasoning_effort: "high". Confirmed working at none/low/medium.
+        "reasoning_effort": ep_cfg.get("reasoning_effort"),
     }
     if profiling_schema:
         llm_kwargs["schema"] = profiling_schema

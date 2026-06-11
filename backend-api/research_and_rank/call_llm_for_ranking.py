@@ -135,6 +135,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
         "temperature": lr_cfg["temperature"],
         "max_tokens": lr_cfg.get("max_tokens"),
         "output_format": "schema" if ranking_schema else "json",
+        "structured_output_mode": lr_cfg.get("structured_output_mode"),
     }
     if ranking_schema:
         llm_kwargs["schema"] = ranking_schema

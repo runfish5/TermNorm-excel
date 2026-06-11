@@ -41,6 +41,13 @@ _LOGPROBS = _llm_cfg.get("logprobs")
 # Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts
 # the model with the validation errors, up to this many times, before raising 422.
 _STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg.get("structured_repair_attempts", 2)
+# Structured-output mode. "native" (default) sends a provider-native ``response_format``
+# (``json_schema`` when a schema is supplied, else ``json_object``) so capable models are
+# CONSTRAINED to emit valid JSON. "prompt_repair" sends no ``response_format`` and relies
+# only on the client-side parse/validate/repair loop — kept inactive for rare experiments
+# with models that lack reliable native structured-output. Overridable per call via
+# ``llm_call(structured_output_mode=...)`` (sourced from a node's config).
+_STRUCTURED_OUTPUT_MODE = _llm_cfg.get("structured_output_mode", "native")
 # Anthropic's API rejects requests where ``max_tokens`` is omitted. To honor the
 # "no dataset-side default across all providers" contract, we substitute a sane
 # floor when the caller passes ``None``. Set to a value safe for all current
@@ -90,8 +97,9 @@ def _is_token_limit_error(e: Exception) -> bool:
     """Detect errors caused by structured output exceeding max_tokens.
 
     Note: ``json_validate_failed`` is deliberately NOT treated here. It is a
-    schema-conformance failure, not a token-budget problem — and now unreachable,
-    since schema mode no longer engages provider-native ``json_schema`` decoding.
+    schema-conformance failure, not a token-budget problem. Under native mode
+    (provider-native ``json_schema`` decoding) it is reachable again; it surfaces
+    through the normal 4xx path, not as a token-limit retry.
     """
     body = getattr(e, "body", None)
     if isinstance(body, dict):
@@ -158,6 +166,31 @@ def _schema_errors(instance: object, schema: dict) -> str:
         loc = "/".join(str(p) for p in loc_path) or "(root)"
         lines.append(f"- {loc}: {message}")
     return "\n".join(lines)
+
+
+def _strictify(schema: dict) -> dict:
+    """Deep-copy ``schema`` tightened for provider-native ``json_schema`` strict mode.
+
+    Every object gets ``additionalProperties: false`` and a ``required`` listing all its
+    declared properties (OpenAI's strict contract; harmless on Groq/OpenRouter). Recurses
+    into ``properties`` and array ``items``. Operates over the same closed JSON-Schema
+    subset we emit (object/array/string/number/...), so unknown keywords pass through.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    out = dict(schema)
+    t = out.get("type")
+    types = t if isinstance(t, list) else [t]
+    props = out.get("properties")
+    if "object" in types or isinstance(props, dict):
+        if isinstance(props, dict):
+            out["properties"] = {k: _strictify(v) for k, v in props.items()}
+            out["required"] = list(props.keys())
+        out["additionalProperties"] = False
+    items = out.get("items")
+    if isinstance(items, dict):
+        out["items"] = _strictify(items)
+    return out
 
 
 def _note_repair(node_name: str | None, attempt: int, detail: str, warnings: list[str] | None) -> None:
@@ -260,6 +293,7 @@ async def llm_call(
     temperature: float = 0.7,
     output_format: Literal["text", "json", "schema"] = "text",
     schema: dict | None = None,
+    structured_output_mode: Literal["native", "prompt_repair"] | None = None,
     seed: int | None = None,
     logprobs: int | None = None,
     reasoning_effort: Literal["low", "medium", "high"] | None = None,
@@ -330,15 +364,29 @@ async def llm_call(
     if reasoning_effort is not None and is_openai_compat:
         params["reasoning_effort"] = reasoning_effort
 
-    # Structured output. Both ``json`` and ``schema`` ask openai-compat providers
-    # for a JSON object; ``schema`` additionally validates the parsed result against
-    # ``schema`` client-side and self-repairs (see the validate/repair loop below).
-    # Provider-native ``json_schema`` constrained decoding is deliberately NOT used:
-    # reasoning models (e.g. Groq gpt-oss-120b) fail its grammar validation ~50% of
-    # the time, and it only covers openai-compat providers — client-side validation
-    # is reliable and uniform across all four providers.
-    if output_format in ("json", "schema") and is_openai_compat:
-        params["response_format"] = {"type": "json_object"}
+    # Structured output. In "native" mode (default) we send a provider-native
+    # ``response_format`` so capable models are CONSTRAINED to valid JSON — the
+    # client-side parse/validate/repair loop below stays on as a universal safety net,
+    # so native is strictly more robust than prompt-only. ``json_schema`` (schema
+    # supplied) needs no caveat; bare ``json_object`` is openai-compat-only and 400s
+    # unless the literal word "json" appears in the messages. "prompt_repair" mode
+    # sends NO ``response_format`` and leans on the repair loop alone — kept inactive
+    # for rare models without reliable native structured output (opt in per node via
+    # ``config.structured_output_mode``). Anthropic has no ``response_format``; it stays
+    # prompt-instructed + repair regardless of mode.
+    so_mode = structured_output_mode or _STRUCTURED_OUTPUT_MODE
+    if so_mode == "native" and is_openai_compat and output_format in ("json", "schema"):
+        if schema is not None:
+            params["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": (node_name or "structured_output").replace(" ", "_")[:64],
+                    "schema": _strictify(schema),
+                    "strict": True,
+                },
+            }
+        else:
+            params["response_format"] = {"type": "json_object"}
 
     # Construct provider client
     if is_openai_compat:
@@ -497,8 +545,11 @@ async def llm_call(
                 usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
                 usage_out["model"] = model
 
-            # Parse + (for schema mode) validate client-side, repairing in place.
-            if output_format == "schema":
+            # Parse + validate client-side, repairing in place. ``json`` and
+            # ``schema`` share ONE path — both parse-and-repair; ``schema`` (when a
+            # ``schema`` is supplied) additionally checks structure. No provider
+            # response_format is involved, so this is the only JSON-correctness gate.
+            if output_format in ("json", "schema"):
                 try:
                     parsed = json.loads(content)
                 except json.JSONDecodeError:
@@ -534,8 +585,6 @@ async def llm_call(
                         },
                     )
                 return parsed
-            if output_format == "json":
-                return json.loads(content)
             return content
 
         except HTTPException:
