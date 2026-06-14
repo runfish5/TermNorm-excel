@@ -285,7 +285,7 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
         # Only warn when below threshold AND actual losses occurred
         if len(scraped_content) < max_sites and (scrape_errors or _fr):
             warnings.append({
-                "step": "web_search", "code": "low_document_count",
+                "step": "web_search", "code": "low_document_count", "kind": "transient",
                 "message": _web_msg(stats, detail), "stats": stats,
                 "details": scrape_errors, "filter_reasons": _fr,
             })
@@ -310,19 +310,19 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
             stats = _web_stats(0, total)
             detail = _loss_detail(scrape_errors, _fr, _n_filtered)
             warnings.append({
-                "step": "web_search", "code": "scrape_failed",
+                "step": "web_search", "code": "scrape_failed", "kind": "transient",
                 "message": _web_msg(stats, detail), "stats": stats,
                 "details": scrape_errors, "filter_reasons": _fr,
             })
         elif search_log:
             last_log = search_log[-1] if search_log else "unknown"
             warnings.append({
-                "step": "web_search", "code": "search_failed",
+                "step": "web_search", "code": "search_failed", "kind": "transient",
                 "message": f"No URLs found — {last_log}",
             })
         else:
             warnings.append({
-                "step": "web_search", "code": "no_results",
+                "step": "web_search", "code": "no_results", "kind": "transient",
                 "message": "Web search returned no results",
             })
 

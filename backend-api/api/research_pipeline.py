@@ -14,7 +14,7 @@ from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call
 from core.log_format import TAG_CFG, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
-from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning
+from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning, WarningKind
 import utils.utils as utils
 from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
@@ -246,7 +246,7 @@ async def _step_fuzzy(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
     except Exception as e:
         logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
         return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
-                          warnings=[StepWarning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}")])
+                          warnings=[StepWarning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}", WarningKind.STRUCTURAL)])
 
     # Determine if fuzzy is the last step — if so, terminate the pipeline
     req = ctx.requested_steps
@@ -278,6 +278,42 @@ async def _step_web_search(query: str, cfg: dict, ctx: PipelineContext) -> StepR
         return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
     # web_search without entity_profiling is not a supported configuration
     return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
+
+
+def _llm_failure_code(e: HTTPException) -> str:
+    """Map a provider HTTPException to a distinct warning code keyed on its status.
+
+    PromptPotter's degradation verdict classifies the failure from the CODE alone (no
+    message parsing), so the code must carry the structural-vs-transient signal:
+      * 429            -> ``rate_limited``  (transient — backend rate-limited, recoverable)
+      * 5xx            -> ``server_error``  (transient — upstream outage / timeout)
+      * 401/403/404    -> ``client_error``  (structural — auth / not-found, won't self-heal)
+      * other 4xx      -> ``schema_invalid``(structural — json/schema/token-limit fault, the
+                          deterministic-for-config break the optimizer must not re-propose)
+
+    Mirrors PromptPotter's STRUCTURAL_/TRANSIENT_WARNING_CODES taxonomy. Replaces the old
+    single ``llm_error`` code that forced the consumer to grep the free-text message.
+    """
+    status = getattr(e, "status_code", None)
+    if status == 429:
+        return "rate_limited"
+    if isinstance(status, int) and status >= 500:
+        return "server_error"
+    if status in (401, 403, 404):
+        return "client_error"
+    return "schema_invalid"
+
+
+def _llm_failure_kind(e: HTTPException) -> WarningKind:
+    """Structural vs transient for a provider HTTPException — keyed on status, in
+    lockstep with :func:`_llm_failure_code`. 429 (rate-limited) and 5xx (upstream
+    outage / timeout) are recoverable noise → transient; every other 4xx (auth,
+    not-found, schema/json/token-limit fault) is a deterministic-for-config break
+    the optimizer must not re-propose → structural."""
+    status = getattr(e, "status_code", None)
+    if status == 429 or (isinstance(status, int) and status >= 500):
+        return WarningKind.TRANSIENT
+    return WarningKind.STRUCTURAL
 
 
 async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
@@ -317,11 +353,12 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
             usage_out=ep_usage,
         )
         ctx.record_step_tokens("entity_profiling", ep_usage)
-        # Surface warnings
+        # Surface warnings — web_search dicts carry their own source-stamped kind;
+        # the llm retry/repair channel is recoverable noise → transient.
         for w in profile_debug.get("warnings", []):
-            ctx.add_warning(w["step"], w["code"], w["message"], details=w.get("details"), stats=w.get("stats"))
+            ctx.add_warning(w["step"], w["code"], w["message"], w["kind"], details=w.get("details"), stats=w.get("stats"))
         for msg in ep_llm_warnings:
-            ctx.add_warning("entity_profiling", "llm_retry", msg)
+            ctx.add_warning("entity_profiling", "llm_retry", msg, WarningKind.TRANSIENT)
 
         # Store scraped content for node_outputs
         ctx.set_output("_profile_debug", profile_debug)
@@ -359,7 +396,7 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
             output=[],
             elapsed=0.0,
             status=StepStatus.FAILED,
-            warnings=[StepWarning("entity_profiling", "llm_error", f"Entity profiling failed: {e.detail}")],
+            warnings=[StepWarning("entity_profiling", _llm_failure_code(e), f"Entity profiling failed: {e.detail}", _llm_failure_kind(e))],
         )
 
 
@@ -376,7 +413,7 @@ async def _step_token(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
     except Exception as e:
         logger.error("[PIPELINE] Token matching failed: %s — continuing with empty candidates", e)
         return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
-                          warnings=[StepWarning("token_matching", "step_error", f"Token matching failed: {e}")])
+                          warnings=[StepWarning("token_matching", "step_error", f"Token matching failed: {e}", WarningKind.STRUCTURAL)])
 
 
 async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
@@ -409,7 +446,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
         if "llm_ranking" not in ctx.requested_steps:
             return StepResult(output=llm_response, elapsed=0.0, status=StepStatus.SKIPPED)
 
-        warnings = [StepWarning("llm_ranking", "llm_retry", msg) for msg in ranking_llm_warnings]
+        warnings = [StepWarning("llm_ranking", "llm_retry", msg, WarningKind.TRANSIENT) for msg in ranking_llm_warnings]
         status = StepStatus.DEGRADED if ranking_llm_warnings else StepStatus.SUCCESS
         return StepResult(output=llm_response, elapsed=elapsed or 0.0, status=status, warnings=warnings)
 
@@ -432,7 +469,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
         ctx.set_output("_ranking_debug", ranking_debug)
         return StepResult(
             output=llm_response, elapsed=0.0, status=StepStatus.FAILED,
-            warnings=[StepWarning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}")],
+            warnings=[StepWarning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}", WarningKind.TRANSIENT)],
         )
 
 
@@ -477,27 +514,27 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     elapsed = round(time.time() - t0, 3)
     ctx.record_step_tokens("llm_only", llm_only_usage)
 
-    # Split ``"code: message"`` strings emitted by ``llm_call`` into the
-    # StepWarning(step, code, message) shape so PromptPotter's classifier sees
-    # a clean code (e.g. ``content_empty``) instead of the whole verbose line.
-    # Strings without ``": "`` keep the legacy behavior (string used as both).
+    # The ``llm_call`` retry/repair/empty channel is recoverable noise → transient.
+    # ``content_empty`` keeps its distinct code (PoBB's empty-response fast-path
+    # reads it alongside the raw finish_reason shape from step_tokens); the rest
+    # collapse to ``llm_retry`` rather than the old "code: message" re-split that
+    # turned verbose repair lines into garbage codes.
     step_warnings: list[StepWarning] = []
     for w in call_warnings:
-        if ": " in w:
-            code, _, msg = w.partition(": ")
-            step_warnings.append(StepWarning("llm_only", code, msg))
+        if w.startswith("content_empty:"):
+            step_warnings.append(StepWarning("llm_only", "content_empty", w.partition(": ")[2], WarningKind.TRANSIENT))
         else:
-            step_warnings.append(StepWarning("llm_only", w, w))
+            step_warnings.append(StepWarning("llm_only", "llm_retry", w, WarningKind.TRANSIENT))
     if not answer.strip():
         logger.warning("[PIPELINE] llm_only: empty output after %ss", elapsed)
         step_warnings.append(
-            StepWarning("llm_only", "empty_output", "LLM returned empty content")
+            StepWarning("llm_only", "empty_output", "LLM returned empty content", WarningKind.TRANSIENT)
         )
 
     # Build early-exit response
     final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
     warning_dicts = [
-        {"step": w.step, "code": w.code, "message": w.message} for w in step_warnings
+        {"step": w.step, "code": w.code, "message": w.message, "kind": w.kind.value} for w in step_warnings
     ]
     step_status = "success" if answer.strip() else "empty_output"
     early_data: dict = {
@@ -773,14 +810,14 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
             raise
         except Exception as exc:
             ctx.record_step(step_name, StepStatus.FAILED)
-            ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}")
+            ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}", WarningKind.STRUCTURAL)
             result = StepResult(output=None, elapsed=0.0, status=StepStatus.FAILED)
 
         # Record step (step functions may also record internally for coupled steps)
         ctx.record_step(step_name, result.status, elapsed=result.elapsed)
         ctx.set_output(step_name, result.output)
         for w in result.warnings:
-            ctx.add_warning(step_name, w.code, w.message,
+            ctx.add_warning(step_name, w.code, w.message, w.kind,
                             details=list(w.details) if w.details else None,
                             stats=dict(w.stats) if w.stats else None)
 

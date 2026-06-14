@@ -9,7 +9,7 @@ Usage in the /matches handler::
     ctx = PipelineContext(query, user_id, requested_steps, params)
     ...
     ctx.record_step("web_search", StepStatus.FAILED, elapsed=ws_time,
-                     warnings=[StepWarning("web_search", "scrape_failed", msg)])
+                     warnings=[StepWarning("web_search", "scrape_failed", msg, WarningKind.TRANSIENT)])
     ...
     diagnostics = ctx.build_diagnostics()   # → response["data"]["diagnostics"]
     timings     = ctx.step_timings          # → backward-compat step_timings dict
@@ -31,11 +31,24 @@ class StepStatus(str, Enum):
     PRECOMPUTED = "precomputed"  # output supplied by caller (partial caching)
 
 
+class WarningKind(str, Enum):
+    """Whether a warning is a config/schema fault the operator must fix or
+    recoverable backend noise. Stamped HERE, at the source, on every warning —
+    PromptPotter's degradation verdict reads ``kind`` directly and keeps NO
+    fallback taxonomy of its own (a code it doesn't recognize is skipped, never
+    guessed). A forgotten stamp therefore under-counts (and shows up in the live
+    smoke), never silently mis-grades a transient blip as an abort-worthy break."""
+
+    STRUCTURAL = "structural"  # deterministic-for-config break (schema/json/auth) — abort-worthy
+    TRANSIENT = "transient"    # recoverable noise (rate limit, scrape miss, retry) — keep going
+
+
 @dataclass(frozen=True)
 class StepWarning:
-    step: str       # pipeline step name (e.g. "web_search")
-    code: str       # machine-readable code (e.g. "scrape_failed")
-    message: str    # human-readable detail
+    step: str          # pipeline step name (e.g. "web_search")
+    code: str          # machine-readable code (e.g. "scrape_failed")
+    message: str       # human-readable detail
+    kind: WarningKind  # structural (operator must fix) vs transient (keep going)
     details: tuple = ()  # optional structured data (e.g. failed URLs + reasons)
     stats: tuple = ()    # frozen key-value pairs for structured numerics (e.g. min/usable/fetched/requested)
 
@@ -133,10 +146,16 @@ class PipelineContext:
         self._step_tokens[name] = record
 
     def add_warning(self, step: str, code: str, message: str,
+                    kind: WarningKind | str,
                     details: list | None = None,
                     stats: dict | None = None) -> None:
-        """Append a warning to an already-recorded step, or create a stub."""
-        w = StepWarning(step, code, message,
+        """Append a warning to an already-recorded step, or create a stub.
+
+        ``kind`` is required — every warning carries its structural/transient
+        verdict at the source. Accepts the enum or its string value (the API
+        ``warnings`` dicts carry ``"transient"`` as a plain string); normalized
+        to :class:`WarningKind` so ``build_diagnostics`` can read ``.value``."""
+        w = StepWarning(step, code, message, WarningKind(kind),
                         details=tuple(details) if details else (),
                         stats=tuple(stats.items()) if stats else ())
         if step in self._steps:
@@ -202,7 +221,7 @@ class PipelineContext:
         """Structured diagnostics payload for the API response."""
         warnings_list = []
         for w in self.warnings:
-            d = {"step": w.step, "code": w.code, "message": w.message}
+            d = {"step": w.step, "code": w.code, "message": w.message, "kind": w.kind.value}
             if w.details:
                 d["details"] = list(w.details)
             if w.stats:
