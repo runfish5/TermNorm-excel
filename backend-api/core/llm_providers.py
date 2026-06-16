@@ -94,18 +94,23 @@ def get_available_providers() -> list[str]:
 
 
 def _is_token_limit_error(e: Exception) -> bool:
-    """Detect errors caused by structured output exceeding max_tokens.
+    """Detect a completion that ran out of token budget.
 
-    Note: ``json_validate_failed`` is deliberately NOT treated here. It is a
-    schema-conformance failure, not a token-budget problem. Under native mode
-    (provider-native ``json_schema`` decoding) it is reachable again; it surfaces
-    through the normal 4xx path, not as a token-limit retry.
+    The provider reports this two ways: plainly ("max completion tokens" in the
+    error message), or — under Groq's native ``json_schema`` constrained decoding
+    — as a ``json_validate_failed`` whose ``failed_generation`` reads "max
+    completion tokens reached before generating a valid document". The second is a
+    budget failure wearing a conformance label: the strict decoder hit the ceiling
+    mid-document, so there is no partial output to repair. Both must be re-driven
+    with more headroom, so both are matched here (message AND failed_generation).
     """
     body = getattr(e, "body", None)
     if isinstance(body, dict):
         error = body.get("error", {})
         if isinstance(error, dict):
             if "max completion tokens" in str(error.get("message", "")):
+                return True
+            if "max completion tokens" in str(error.get("failed_generation", "")):
                 return True
     return "max completion tokens" in str(e)
 
@@ -633,19 +638,39 @@ async def llm_call(
                     headers=headers,
                 )
             if status and 400 <= status < 500:
-                if _is_token_limit_error(e) and max_tokens is not None:
-                    _mt = params.get("max_tokens", max_tokens)
-                    header = fmt_fields(
-                        node_name or "llm",
-                        "token limit · retrying without max_tokens",
-                        ("max_tokens", _mt),
-                    )
-                    logger.warning("%s %s", TAG_LLM_ERR, header)
-                    if warnings is not None:
-                        warnings.append(f"Token limit error (max_tokens={_mt}) — retried without limit")
-                    params.pop("max_tokens", None)
-                    max_tokens = None
-                    continue
+                if _is_token_limit_error(e):
+                    # Budget exhaustion — recover by freeing headroom rather than
+                    # failing hard, regardless of whether a cap was set. Relax in
+                    # one shot: drop any explicit cap; cap reasoning so reasoning
+                    # tokens stop stealing the document's budget; drop strict
+                    # ``json_schema`` so a truncated doc is parseable and the
+                    # client-side repair gate can salvage it. Each lever fires at
+                    # most once, so the retry is naturally bounded (a second hit
+                    # finds nothing left to relax and propagates).
+                    relaxed: list[str] = []
+                    if params.pop("max_tokens", None) is not None:
+                        max_tokens = None
+                        relaxed.append("max_tokens")
+                    if reasoning_effort != "low":
+                        reasoning_effort = "low"
+                        if is_openai_compat:
+                            params["reasoning_effort"] = "low"
+                        relaxed.append("reasoning_effort=low")
+                    if so_mode == "native" and params.pop("response_format", None) is not None:
+                        so_mode = "prompt_repair"
+                        relaxed.append("non-strict")
+                    if relaxed:
+                        header = fmt_fields(
+                            node_name or "llm",
+                            "token budget exhausted · retrying relaxed",
+                            ("relaxed", ", ".join(relaxed)),
+                        )
+                        logger.warning("%s %s", TAG_LLM_ERR, header)
+                        if warnings is not None:
+                            warnings.append(
+                                f"Token budget exhausted — retried relaxed ({', '.join(relaxed)})"
+                            )
+                        continue
                 # Upstream 4xx is the caller's fault — propagate as 4xx, not
                 # 502. 502 Bad Gateway implies the upstream is broken, which
                 # mis-signals a wire-format error to optimizers like

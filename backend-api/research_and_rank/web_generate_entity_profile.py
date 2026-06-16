@@ -1,3 +1,4 @@
+import asyncio
 import time
 import random
 import logging
@@ -6,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from core.llm_providers import llm_call
-from utils.utils import YELLOW, BRIGHT_RED, RESET
+from utils.utils import GREEN, YELLOW, BRIGHT_RED, RESET
 from config.settings import settings
 from config.pipeline_config import get_node_config
 from utils.prompt_registry import get_prompt_registry
@@ -94,16 +95,46 @@ def scrape_url(url, char_limit):
 
         response = None
         for attempt in range(1 + SCRAPE_MAX_RETRIES):
-            response = requests.get(url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers)
+            response = requests.get(
+                url, timeout=SCRAPE_TIMEOUT_SECONDS, headers=headers, stream=True
+            )
             if response.status_code in SCRAPE_RETRY_STATUS_CODES and attempt < SCRAPE_MAX_RETRIES:
+                response.close()
                 time.sleep(SCRAPE_RETRY_DELAY)
                 continue
             break
 
         if response.status_code != 200:
+            response.close()
             return {"_filtered": f"http_{response.status_code}", "url": url}
 
-        soup = BeautifulSoup(response.content[:SCRAPE_MAX_RESPONSE_BYTES], 'html.parser')
+        # Only HTML/text pages feed the profiler. A download endpoint (CSV, binary,
+        # octet-stream) is unnecessary detail we must not pull — skip it (a warning)
+        # rather than stream megabytes we'd only discard.
+        content_type = response.headers.get("Content-Type", "").lower()
+        if "html" not in content_type and "text" not in content_type:
+            response.close()
+            return {"_filtered": "non_html", "url": url}
+
+        # ``requests`` ``timeout`` bounds per-read/connect, NOT total download — and
+        # ``.content`` downloads the WHOLE body before the byte slice, so the limit
+        # is useless against a slow-streaming or oversized URL (it runs for minutes
+        # and blows the research step to 10-20 min). Stream and stop at the byte cap
+        # OR a wall-clock deadline (``scrape_timeout``), whichever first: every URL
+        # is hard-bounded in bytes AND time, and an overrun degrades to a short page
+        # (a warning), never a block.
+        deadline = time.monotonic() + SCRAPE_TIMEOUT_SECONDS
+        buf = bytearray()
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    buf.extend(chunk)
+                if len(buf) >= SCRAPE_MAX_RESPONSE_BYTES or time.monotonic() > deadline:
+                    break
+        finally:
+            response.close()
+
+        soup = BeautifulSoup(bytes(buf[:SCRAPE_MAX_RESPONSE_BYTES]), 'html.parser')
         for tag in soup(HTML_STRIP_TAGS):
             tag.decompose()
 
@@ -211,18 +242,24 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
     return []
 
 
-def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
-    """Build LLM prompt for entity profile extraction"""
-    # Build combined text from scraped content or fallback
+def _build_combined_text(query, scraped_content, raw_content_limit):
+    """The research-context block for the entity-profiling prompt: the scraped
+    sources (each truncated to per_site_content_limit, the whole capped at
+    raw_content_limit) or, when nothing scraped, a keyword fallback. One owner —
+    both the registry path and the custom-prompt path render through here."""
     if not scraped_content:
         keywords = [w.strip() for w in _split_keywords(query) if len(w.strip()) >= MIN_KEYWORD_LENGTH]
         fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
-        combined_text = f"Research about: {query}\n\n{fallback_context}"
-    else:
-        combined_text = f"Research about: {query}\n\n" + "\n\n".join(
-            [f"{i}. {item['title']}\n{item['content'][:_EP_CONFIG['per_site_content_limit']]}" for i, item in enumerate(scraped_content, 1)]
-        )[:raw_content_limit]
+        return f"Research about: {query}\n\n{fallback_context}"
+    return f"Research about: {query}\n\n" + "\n\n".join(
+        f"{i}. {item['title']}\n{item['content'][:_EP_CONFIG['per_site_content_limit']]}"
+        for i, item in enumerate(scraped_content, 1)
+    )[:raw_content_limit]
 
+
+def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
+    """Build LLM prompt for entity profile extraction"""
+    combined_text = _build_combined_text(query, scraped_content, raw_content_limit)
     format_string = _generate_format_string_from_schema(schema)
 
     # Get prompt from registry (versioned)
@@ -251,10 +288,10 @@ def _build_debug_info(scraped_content, search_method, search_log, scrape_errors,
     info: list[dict] = []
 
     def _web_stats(usable: int, fetched: int) -> dict:
-        return {"min": max_sites, "usable": usable, "fetched": fetched, "requested": num_results}
+        return {"target": max_sites, "usable": usable, "fetched": fetched, "requested": num_results}
 
     def _web_msg(stats: dict, detail: str = "") -> str:
-        msg = f"{stats['min']} min, {stats['usable']} usable, {stats['fetched']} fetched, {stats['requested']} requested"
+        msg = f"{stats['usable']} usable of {stats['target']} target ({stats['fetched']} fetched, {stats['requested']} requested)"
         return f"{msg} — {detail}" if detail else msg
 
     def _loss_detail(scrape_errors, _fr, _n_filtered) -> str:
@@ -380,44 +417,55 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         search_log.append("Web search skipped (skip_search=True)")
     else:
         scraped_content = []
-        # Direct Brave Search API call
-        urls = _brave_search(query, num_results=num_results, log=search_log,
-                             query_prefix=query_prefix, query_suffix=query_suffix)
+        # Direct Brave Search API call. ``_brave_search`` + ``scrape_url`` are
+        # synchronous (``requests``); offload BOTH to threads so they never block
+        # the async event loop. A bare ``list(executor.map(...))`` here froze the
+        # single uvicorn worker for the whole scrape — /status and every concurrent
+        # /matches stalled until it finished, which under load read as a dead backend.
+        urls = await asyncio.to_thread(
+            _brave_search, query, num_results=num_results, log=search_log,
+            query_prefix=query_prefix, query_suffix=query_suffix,
+        )
         search_method = "Brave Search API"
 
-        # Parallel URL scraping with ThreadPoolExecutor
+        # Parallel URL scraping with ThreadPoolExecutor, run off the event loop.
         if urls:
             logger.info(f"[WEB_SCRAPE] Scraping {len(urls)} URLs in parallel...")
 
-            with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
-                results = list(executor.map(lambda url: scrape_url(url, content_char_limit), urls))
+            def _scrape_all():
+                with ThreadPoolExecutor(max_workers=SCRAPE_MAX_WORKERS) as executor:
+                    return list(executor.map(lambda url: scrape_url(url, content_char_limit), urls))
 
-                filtered = 0
-                filter_reasons = {}
-                for result in results:
-                    if result is None:
-                        filtered += 1
-                    elif "_filtered" in result:
-                        filtered += 1
-                        reason = result["_filtered"]
-                        filter_reasons[reason] = filter_reasons.get(reason, 0) + 1
-                    elif "_scrape_error" in result:
-                        scrape_errors.append({"url": result["url"], "reason": result["_scrape_error"]})
-                    else:
-                        scraped_content.append(result)
-                        if len(scraped_content) >= max_sites:
-                            break
+            results = await asyncio.get_event_loop().run_in_executor(None, _scrape_all)
+
+            filtered = 0
+            filter_reasons = {}
+            for result in results:
+                if result is None:
+                    filtered += 1
+                elif "_filtered" in result:
+                    filtered += 1
+                    reason = result["_filtered"]
+                    filter_reasons[reason] = filter_reasons.get(reason, 0) + 1
+                elif "_scrape_error" in result:
+                    scrape_errors.append({"url": result["url"], "reason": result["_scrape_error"]})
+                else:
+                    scraped_content.append(result)
+                    if len(scraped_content) >= max_sites:
+                        break
 
             fetched = len(scraped_content) + len(scrape_errors) + filtered
             n_ok = len(scraped_content)
             n_err = len(scrape_errors)
             if n_ok > 0:
-                detail_parts = [f"{fetched} fetched"]
-                if n_err:
-                    detail_parts.append(f"{n_err} error{'s' if n_err != 1 else ''}")
-                detail = f"  ({', '.join(detail_parts)})" if n_err else ""
+                # n_ok kept of the max_sites *target* — a cap we stop at, not a
+                # floor we must hit — with each fetched URL's fate shown so "5/7"
+                # can't be misread as a hard minimum.
                 titles = " | ".join(s["title"][:40] for s in scraped_content)
-                logger.info(f"{YELLOW}[WEB_SCRAPE] ✓ {n_ok}/{max_sites} sources{detail}{RESET}: {titles}")
+                logger.info(
+                    f"{GREEN}[WEB_SCRAPE] ✓ {n_ok} sites · target {max_sites} · "
+                    f"{fetched} scraped · {n_err} err · {filtered} skip{RESET}: {titles}"
+                )
             else:
                 parts = []
                 if n_err:
@@ -437,14 +485,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     profiling_model = ep_cfg["model"]
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
-        if not scraped_content:
-            keywords = [w.strip() for w in _split_keywords(query) if len(w.strip()) >= MIN_KEYWORD_LENGTH]
-            fallback_context = f"Query contains terms: {', '.join(keywords[:_WS_CONFIG['fallback_keywords_limit']])}"
-            combined_text = f"Research about: {query}\n\n{fallback_context}"
-        else:
-            combined_text = f"Research about: {query}\n\n" + "\n\n".join(
-                [f"{i}. {item['title']}\n{item['content'][:_EP_CONFIG['per_site_content_limit']]}" for i, item in enumerate(scraped_content, 1)]
-            )[:raw_content_limit]
+        combined_text = _build_combined_text(query, scraped_content, raw_content_limit)
         format_string = _generate_format_string_from_schema(profiling_schema or schema)
         prompt = profiling_prompt.replace("{{query}}", query)
         prompt = prompt.replace("{{format_string}}", format_string)
@@ -491,6 +532,13 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     llm_elapsed = round(time.time() - llm_start, 3)
     if usage_out is not None and _usage:
         usage_out.update(_usage)
+
+    # The non-strict recovery path (prompt_repair, taken when a token-budget 400 forces us off
+    # constrained decoding) can return the profile wrapped in a single-element array instead of
+    # the bare object — the strict json_schema decoder would have forbidden it. Unwrap to the
+    # first object so the metadata stamp below doesn't crash with "list indices must be integers".
+    if isinstance(result, list):
+        result = next((item for item in result if isinstance(item, dict)), {})
 
     processing_time = (ws_elapsed or 0) + llm_elapsed
     result['_metadata'] = {

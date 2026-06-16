@@ -27,6 +27,8 @@ BLUE    = '\033[34m'
 MAGENTA = '\033[35m'
 CYAN    = '\033[36m'
 WHITE   = '\033[37m'
+# Info / progress markers — RED is reserved for errors + warnings.
+ORANGE  = '\033[38;5;208m'
 
 # Bright Colors
 BRIGHT_BLACK   = '\033[90m'

@@ -32,18 +32,25 @@ app = FastAPI(title=settings.api_title, description=settings.api_description)
 # Custom HTTPException handler - standardize error format
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Convert HTTPException to standardized error format.
+    """Convert HTTPException to the standardized error envelope.
 
-    Forwards ``exc.headers`` so rate-limit responses carry their
-    ``Retry-After`` header to the client (RFC 7231 §7.1.3).
+    ``code`` is the **stable, machine-readable** error signal callers branch on
+    (the PromptPotter client keys session-recovery on ``code == "no_session"``).
+    A handler raising ``detail={"code": "<slug>", "message": "..."}`` sets a
+    semantic code; a plain string ``detail`` falls back to the numeric HTTP status
+    (backward compatible). Forwards ``exc.headers`` so a 429 keeps its
+    ``Retry-After`` (RFC 7231 §7.1.3).
     """
+    detail = exc.detail
+    if isinstance(detail, dict):
+        message = detail.get("message", "")
+        code = detail.get("code", exc.status_code)
+    else:
+        message = detail
+        code = exc.status_code
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "status": "error",
-            "message": exc.detail,
-            "code": exc.status_code
-        },
+        content={"status": "error", "message": message, "code": code},
         headers=exc.headers,
     )
 

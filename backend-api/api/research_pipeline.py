@@ -16,7 +16,7 @@ from core.llm_providers import llm_call
 from core.log_format import TAG_CFG, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning, WarningKind
 import utils.utils as utils
-from utils.utils import RED, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
+from utils.utils import ORANGE, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
 from utils.langfuse_logger import (
     log_batch_start, log_batch_complete, log_pipeline,
@@ -128,7 +128,7 @@ def _resolve_pipeline_params(
 
 def _run_fuzzy_step(query: str, terms: list[str], fm_cfg: dict) -> tuple:
     """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
-    logger.info(RED + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+    logger.info(ORANGE + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
     t0 = time.time()
     results = fuzzy_match_terms(
         query, terms, threshold=fm_cfg["threshold"], scorer=fm_cfg["scorer"], limit=fm_cfg["limit"]
@@ -157,9 +157,9 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
         return [], profile_debug, None, None
 
     if scraped_content is not None:
-        logger.info(RED + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
+        logger.info(ORANGE + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
     else:
-        logger.info(RED + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
+        logger.info(ORANGE + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         ws_cfg=ws_cfg,
@@ -721,7 +721,17 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     requires_session = bool(set(steps) & REQUIRES_SESSION)
     if requires_session:
         if user_id not in user_sessions:
-            raise HTTPException(status_code=400, detail="No session found - initialize session first with POST /sessions")
+            # Stable machine-readable code so a client (PromptPotter) can
+            # auto-recover — re-POST /sessions + retry — instead of aborting.
+            # The in-memory session is wiped on every backend restart/--reload,
+            # so this fires constantly during backend development.
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "no_session",
+                    "message": "No session found - initialize session first with POST /sessions",
+                },
+            )
         terms = user_sessions[user_id]["terms"]
     else:
         terms = []
@@ -745,7 +755,7 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         ("chars", len(query)),
         ("query", f'"{query_display}"'),
     )
-    logger.info(f"{RED}{TAG_REQ} {body}{RESET}")
+    logger.info(f"{ORANGE}{TAG_REQ} {body}{RESET}")
 
     # Surface the caller's effective node_config overrides (post-merge with
     # backend defaults) so it's visible *what* the caller asked for, not just
@@ -754,13 +764,27 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     # line instead of digging through optimizer state. Only the keys actually
     # overridden are printed; backend defaults stay implicit.
     caller_ov = payload.get("node_config") or {}
+    # Keep [CFG] to values an operator actually tunes. Operational constants —
+    # the UA pool, request headers, skip lists, retry policy, language/region —
+    # are static noise that buried the meaningful knobs (models, limits, timeouts).
+    _cfg_skip = {
+        "user_agents", "scrape_headers", "skip_extensions", "skip_domains",
+        "html_strip_tags", "keyword_split_chars", "scrape_retry_status_codes",
+        "accept_language", "search_language", "search_country", "spellcheck",
+        "result_filter", "extra_snippets", "freshness", "scrape_jitter",
+        "scrape_retry_delay", "scrape_max_retries", "title_truncate_length",
+        "min_keyword_length", "min_page_text_length", "max_page_text_length",
+        "fallback_keywords_limit", "schema_family", "schema_version",
+    }
     for node_name, ov_keys in caller_ov.items():
         if not isinstance(ov_keys, dict) or not ov_keys:
             continue
         ov_fields = [
-            (k, repr(v) if isinstance(v, str) and len(v) > 40 else v)
+            (k, v)
             for k, v in ov_keys.items()
-            if not (isinstance(v, str) and len(v) > 200)
+            if k not in _cfg_skip
+            and not isinstance(v, (list, dict))
+            and v not in (None, "")
         ]
         if not ov_fields:
             continue
