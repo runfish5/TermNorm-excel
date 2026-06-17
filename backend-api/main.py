@@ -37,20 +37,28 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     ``code`` is the **stable, machine-readable** error signal callers branch on
     (the PromptPotter client keys session-recovery on ``code == "no_session"``).
     A handler raising ``detail={"code": "<slug>", "message": "..."}`` sets a
-    semantic code; a plain string ``detail`` falls back to the numeric HTTP status
-    (backward compatible). Forwards ``exc.headers`` so a 429 keeps its
-    ``Retry-After`` (RFC 7231 §7.1.3).
+    semantic code; a plain string ``detail`` falls back to the numeric HTTP status.
+    Forwards ``exc.headers`` so a 429 keeps its ``Retry-After`` (RFC 7231 §7.1.3).
+
+    A dict ``detail`` is ALSO preserved verbatim under ``detail`` in the envelope.
+    The upstream-LLM-error raise-site (``core/llm_providers.py``) sets
+    ``{upstream_provider, upstream_model, upstream_message, error_code, ...}``;
+    PromptPotter's diagnostics extractor reads ``body["detail"]`` to surface what the
+    provider actually rejected. Flattening to ``{status,message,code}`` dropped that
+    dict and PP fell back to dumping raw body text — so the envelope now carries both
+    the flat fields (for the ``no_session`` self-heal) and the full ``detail``.
     """
     detail = exc.detail
+    content = {"status": "error", "message": "", "code": exc.status_code}
     if isinstance(detail, dict):
-        message = detail.get("message", "")
-        code = detail.get("code", exc.status_code)
+        content["detail"] = detail
+        content["message"] = detail.get("message") or detail.get("upstream_message") or ""
+        content["code"] = detail.get("code") or detail.get("error_code") or exc.status_code
     else:
-        message = detail
-        code = exc.status_code
+        content["message"] = detail
     return JSONResponse(
         status_code=exc.status_code,
-        content={"status": "error", "message": message, "code": code},
+        content=content,
         headers=exc.headers,
     )
 
