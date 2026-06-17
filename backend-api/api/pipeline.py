@@ -84,7 +84,7 @@ def _enrich_with_registries(config: dict) -> None:
 @router.get("/pipeline")
 async def get_pipeline():
     """Return the complete pipeline configuration with resolved registry references."""
-    config = json.loads(PIPELINE_CONFIG_PATH.read_text())
+    config = json.loads(PIPELINE_CONFIG_PATH.read_text(encoding="utf-8"))
     _enrich_with_registries(config)
     return _ok(
         message="Pipeline configuration",

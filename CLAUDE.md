@@ -112,8 +112,26 @@ Or use `start-server-py-LLMs.bat` for one-click startup.
   - `schemas/` - Versioned JSON schemas (`entity_profile`, `llm_ranking_output`) — committed to git, resolved at request time by `GET /pipeline`
 
 ### Web Search
-Brave API → SearXNG → DuckDuckGo → Bing fallback chain.
-Toggle via `USE_BRAVE_API=true/false` in `.env`. Get key: https://api-dashboard.search.brave.com/register
+**Brave only** — one metered query per match (free tier 2,000/month). No secondary provider;
+with no key the node fails soft to LLM-knowledge-only. Toggle via `USE_BRAVE_API=true/false`
+in `.env`. Get key: https://api-dashboard.search.brave.com/register
+
+The `web_search` node has **3 reachable strategies** (`web_search.config.strategy`), all on
+the *same* single Brave query — they differ only in how that query becomes evidence:
+
+1. **`snippets`** — use the text Brave already returns (description + extra_snippets). No page
+   fetches: instant, never hangs, fewest LLM tokens; shallowest evidence.
+2. **`scrape`** — fetch the full pages behind the result URLs (deepest evidence) under a hard
+   `scrape_budget` aggregate deadline; slower, more LLM tokens. PDF datasheets extracted when
+   `extract_pdf` is on.
+3. **`hybrid`** *(default)* — `scrape`, falling back to each source's snippet on failure/timeout.
+   Snippet floor everywhere + full-page depth where sites cooperate; never empty, never hangs.
+
+`strategy` is a swept optimizer axis; the per-match `web_cost` block (on `/matches` + langfuse)
+carries `brave_queries`/`scrape_ok`/`scrape_failed`/`evidence_chars` so PromptPotter picks the
+most-efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
+(Distinct from the named *pipelines* in `pipeline.json` — `default` and `llm_only` — which select
+*which nodes run*; strategy selects *how `web_search` gathers evidence*.)
 
 ### Key Patterns
 1. **Event-Driven UI**: Components react to events from event-bus (MAPPINGS_LOADED, CANDIDATES_AVAILABLE, MATCH_LOGGED)

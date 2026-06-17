@@ -638,6 +638,11 @@ def _build_response(ctx: PipelineContext) -> tuple:
         web_status, web_error = "success", None
         web_sources = scraped_sources.get("sources_fetched", [])
 
+    # Per-match cost + reliability (strategy, metered brave_queries, scrape stats,
+    # evidence_chars) — PromptPotter weighs this against accuracy to pick the
+    # "most efficiently true" web_search strategy. See WEB_SEARCH_STRATEGY.md.
+    web_cost = profile_debug.get("web_cost", {})
+
     step_timings = ctx.step_timings
     step_tokens = ctx.step_tokens
     total_time = ctx.total_time
@@ -668,6 +673,7 @@ def _build_response(ctx: PipelineContext) -> tuple:
         ] if ranked else [],
         "token_matches": ranking_debug["inputs"]["candidate_ranking"] if ranking_debug else [],
         "web_sources": web_sources,
+        "web_cost": web_cost,
     }
 
     # Node outputs for partial pipeline caching (registry-driven)
@@ -690,7 +696,8 @@ def _build_response(ctx: PipelineContext) -> tuple:
         "total_time": total_time,
         "step_timings": step_timings,
         "web_search_status": web_status,
-        "web_search_error": web_error, "pipeline_params": pipeline_params,
+        "web_search_error": web_error, "web_cost": web_cost,
+        "pipeline_params": pipeline_params,
         "terminated_at": ctx.terminated_at,
         "diagnostics": ctx.build_diagnostics(),
     }

@@ -41,7 +41,7 @@ def _get_connection_info():
 def _read_yaml(file_path) -> dict:
     data = {}
     try:
-        for line in file_path.read_text().splitlines():
+        for line in file_path.read_text(encoding="utf-8").splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
                 value = value.strip().strip('"')
@@ -87,7 +87,7 @@ async def status() -> dict[str, Any]:
             mappings_path = exp_dir / "mappings.tsv"
             exp_mappings = 0
             if mappings_path.exists():
-                exp_mappings = max(0, sum(1 for _ in open(mappings_path)) - 1)
+                exp_mappings = max(0, sum(1 for _ in open(mappings_path, encoding="utf-8")) - 1)
             mappings_count += exp_mappings
             experiments.append({"id": exp_id, "mappings": exp_mappings})
 

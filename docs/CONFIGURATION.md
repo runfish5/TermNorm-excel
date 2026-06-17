@@ -34,7 +34,9 @@ Edit `backend-api/config/users.json`:
 
 ### 3. Configure Web Search (Optional)
 
-For reliable web research, configure Brave Search API (2,000 free queries/month):
+Web search enriches matches with real evidence. It is **optional and free to try**: one
+Brave query per match (free tier: 2,000/month), and if you skip it entirely the system
+still runs on LLM knowledge alone.
 
 > **Note:** Brave Search API requires a credit card for registration (even for free tier)
 
@@ -45,7 +47,23 @@ For reliable web research, configure Brave Search API (2,000 free queries/month)
    ```
 3. **Restart server** after configuration changes
 
-If not configured, system uses fallback providers: SearXNG → DuckDuckGo → Bing.
+If `BRAVE_SEARCH_API_KEY` is not set (or `USE_BRAVE_API=false`), web search is skipped and
+the node falls back to LLM-knowledge-only — thinner profiles, but the pipeline still runs.
+There is no secondary search provider (Brave only).
+
+**Strategy knobs** (`backend-api/config/pipeline.json` → node `web_search` → `config`):
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `strategy` | `hybrid` | `snippets` (use Brave's returned text — instant, never hangs), `scrape` (fetch full pages — deepest evidence), or `hybrid` (scrape with per-source snippet fallback) |
+| `scrape_budget` | `20` | Hard aggregate scrape deadline (s). The step can never run longer than this — the fix for the old multi-minute hang |
+| `extract_pdf` | `true` | Extract text from PDF datasheets (needs `pypdf`, in requirements.txt). Fails soft if a PDF is unreadable |
+| `max_sites` | `7` | Max evidence sources kept (scraped pages or snippets) |
+| `content_char_limit` | `800` | Max characters kept per evidence source |
+
+All three strategies issue exactly **one** Brave query per match — the choice trades
+evidence depth vs latency vs LLM token cost, not Brave quota. Full explanation:
+`backend-api/docs/WEB_SEARCH_STRATEGY.md`.
 
 ### 4. Configure Server URL (Network deployment)
 

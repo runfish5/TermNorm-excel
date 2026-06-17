@@ -30,7 +30,7 @@ def _log_event(event: dict):
     """Append event to events.jsonl (simple flat log of all actions)."""
     _ensure_dirs()
     event["timestamp"] = datetime.utcnow().isoformat() + "Z"
-    with open(EVENTS_FILE, "a") as f:
+    with open(EVENTS_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(event) + "\n")
 
 
@@ -76,7 +76,7 @@ def create_trace(
     }
 
     path = BASE_PATH / "traces" / f"{trace_id}.json"
-    path.write_text(json.dumps(trace, indent=2))
+    path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
     return trace_id
 
 
@@ -86,13 +86,13 @@ def update_trace(trace_id: str, output: dict = None, metadata: dict = None):
     if not path.exists():
         return
 
-    trace = json.loads(path.read_text())
+    trace = json.loads(path.read_text(encoding="utf-8"))
     if output is not None:
         trace["output"] = output
     if metadata:
         trace["metadata"] = {**trace.get("metadata", {}), **metadata}
 
-    path.write_text(json.dumps(trace, indent=2))
+    path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
 
 
 def get_trace(trace_id: str) -> dict | None:
@@ -100,7 +100,7 @@ def get_trace(trace_id: str) -> dict | None:
     path = BASE_PATH / "traces" / f"{trace_id}.json"
     if not path.exists():
         return None
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 # =============================================================================
@@ -137,7 +137,7 @@ def create_observation(
 
     trace_dir = BASE_PATH / "observations" / trace_id
     trace_dir.mkdir(parents=True, exist_ok=True)
-    (trace_dir / f"{obs_id}.json").write_text(json.dumps(observation, indent=2))
+    (trace_dir / f"{obs_id}.json").write_text(json.dumps(observation, indent=2), encoding="utf-8")
 
     return obs_id
 
@@ -159,7 +159,7 @@ def create_score(trace_id: str, name: str, value: Any, data_type: str = "NUMERIC
     }
 
     path = BASE_PATH / "scores" / f"{trace_id}.jsonl"
-    with open(path, "a") as f:
+    with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(score) + "\n")
 
 
@@ -177,7 +177,7 @@ def _load_query_index():
     if datasets_dir.exists():
         for item_file in datasets_dir.rglob("*.json"):
             try:
-                item = json.loads(item_file.read_text())
+                item = json.loads(item_file.read_text(encoding="utf-8"))
                 query = item.get("input", {}).get("query")
                 if query:
                     _query_index[query] = item["id"]
@@ -211,7 +211,7 @@ def get_or_create_item(query: str, source_trace_id: str = None) -> str:
     }
 
     path = BASE_PATH / "datasets" / DEFAULT_DATASET / f"{item_id}.json"
-    path.write_text(json.dumps(item, indent=2))
+    path.write_text(json.dumps(item, indent=2), encoding="utf-8")
     _query_index[query] = item_id
     return item_id
 
@@ -222,10 +222,10 @@ def _update_item_trace(item_id: str, trace_id: str):
     if not path.exists():
         return
 
-    item = json.loads(path.read_text())
+    item = json.loads(path.read_text(encoding="utf-8"))
     item["source_trace_id"] = trace_id
     item["metadata"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    path.write_text(json.dumps(item, indent=2))
+    path.write_text(json.dumps(item, indent=2), encoding="utf-8")
 
 
 def set_ground_truth(item_id: str, target: str) -> bool:
@@ -234,10 +234,10 @@ def set_ground_truth(item_id: str, target: str) -> bool:
     if not path.exists():
         return False
 
-    item = json.loads(path.read_text())
+    item = json.loads(path.read_text(encoding="utf-8"))
     item["expected_output"] = {"target": target}
     item["metadata"]["ground_truth_at"] = datetime.utcnow().isoformat() + "Z"
-    path.write_text(json.dumps(item, indent=2))
+    path.write_text(json.dumps(item, indent=2), encoding="utf-8")
     return True
 
 
@@ -251,7 +251,7 @@ def get_item_by_query(query: str) -> dict | None:
     path = BASE_PATH / "datasets" / DEFAULT_DATASET / f"{item_id}.json"
     if not path.exists():
         return None
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 # =============================================================================

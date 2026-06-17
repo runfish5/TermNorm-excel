@@ -254,7 +254,7 @@ def save_mlflow_filestore_trace(experiments_path: Path, experiment_id: str,
     for key, value in metadata.items():
         if value is not None:
             meta_file = mlflow_traces_path / "request_metadata" / key
-            with open(meta_file, "w") as f:
+            with open(meta_file, "w", encoding="utf-8") as f:
                 f.write(str(value))
 
     # Write tags
@@ -274,13 +274,13 @@ def save_mlflow_filestore_trace(experiments_path: Path, experiment_id: str,
 
     for key, value in tags.items():
         tag_file = mlflow_traces_path / "tags" / key
-        with open(tag_file, "w") as f:
+        with open(tag_file, "w", encoding="utf-8") as f:
             f.write(str(value))
 
     # Save spans as artifact
     spans_data = convert_langfuse_to_mlflow_trace(langfuse_trace)
     spans_file = mlflow_traces_path / "artifacts" / "traces.json"
-    with open(spans_file, "w") as f:
+    with open(spans_file, "w", encoding="utf-8") as f:
         json.dump(spans_data, f, indent=2)
 
     return True
@@ -323,7 +323,7 @@ def migrate_traces(experiments_path: Path, dry_run: bool = False) -> None:
 
         for trace_file in trace_files:
             try:
-                with open(trace_file, "r") as f:
+                with open(trace_file, "r", encoding="utf-8") as f:
                     langfuse_trace = json.load(f)
 
                 # Get trace ID

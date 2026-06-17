@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-_config = json.loads((Path(__file__).parent / "pipeline.json").read_text())
+_config = json.loads((Path(__file__).parent / "pipeline.json").read_text(encoding="utf-8"))
 
 
 def get_pipeline_config():

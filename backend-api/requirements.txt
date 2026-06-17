@@ -8,4 +8,5 @@ rapidfuzz
 regex
 requests
 beautifulsoup4
+pypdf
 pyyaml

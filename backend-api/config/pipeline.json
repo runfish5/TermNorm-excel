@@ -47,8 +47,13 @@
       "type": "tool",
       "runtime": "backend",
       "node_role": "enricher",
-      "description": "Searches the web for contextual information about the input query. Retrieved content provides the primary raw context that entity_profiling uses to generate structured profiles — the quality of web results directly determines profiling quality.",
+      "description": "Searches the web for contextual information about the input query, gathering the raw evidence entity_profiling turns into a structured profile. ONE metered Brave query per match; the 'strategy' knob picks how that query becomes evidence — 'snippets' (use Brave's returned text, instant, never hangs), 'scrape' (fetch full pages under a hard scrape_budget deadline, deepest evidence), or 'hybrid' (scrape, fall back to the snippet per source on failure). The quality of web results directly determines profiling quality. See docs/WEB_SEARCH_STRATEGY.md.",
       "config": {
+        "strategy": "hybrid",
+        "scrape_budget": 20,
+        "extract_pdf": true,
+        "pdf_max_pages": 10,
+        "pdf_max_bytes": 5000000,
         "max_sites": 7,
         "num_results": 10,
         "content_char_limit": 800,
@@ -58,7 +63,7 @@
         "brave_api_timeout": 10,
         "scrape_timeout": 5,
         "http_content_limit": 15000,
-        "min_page_text_length": 100,
+        "min_page_text_length": 50,
         "max_page_text_length": 10000,
         "title_truncate_length": 100,
         "scrape_workers": 10,
@@ -87,8 +92,8 @@
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0"
         ],
-        "skip_extensions": [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"],
-        "skip_domains": ["academia.edu", "researchgate.net", "arxiv.org", "ieee.org", "linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com"],
+        "skip_extensions": [".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"],
+        "skip_domains": ["linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com"],
         "search_language": "en",
         "search_country": "US",
         "accept_language": "en-US,en;q=0.9",
@@ -102,18 +107,23 @@
       },
       "optimizer": {
         "display_tag": "webS",
-        "param_keys": ["max_sites", "num_results", "content_char_limit", "query_prefix", "query_suffix"],
+        "param_keys": ["strategy", "max_sites", "num_results", "content_char_limit", "query_prefix", "query_suffix"],
+        "param_allowed_values": {
+          "strategy": ["snippets", "scrape", "hybrid"]
+        },
         "param_descriptions": {
+          "strategy": "How the single Brave query becomes evidence: 'snippets' (Brave's returned text — instant, never hangs, fewer LLM tokens), 'scrape' (full-page fetch under scrape_budget — deepest evidence, slower), 'hybrid' (scrape with per-source snippet fallback). Swept on ground truth to pick most-efficiently-true.",
           "query_prefix": "Text prepended to the input query before web search — controls search focus, domain targeting, and terminology framing (e.g. 'LCA database' narrows to domain)",
           "query_suffix": "Text appended to the input query before web search — adds qualifiers, constraints, or context keywords (e.g. 'material composition' adds specificity)",
           "num_results": "Number of search engine results to request",
-          "max_sites": "Maximum number of web pages to fetch and extract content from",
-          "content_char_limit": "Maximum characters of content to extract per web page"
+          "max_sites": "Maximum number of evidence sources kept (scraped pages or snippets)",
+          "content_char_limit": "Maximum characters of content kept per evidence source"
         },
         "observation_name": "web_search",
         "observation_mappings": [
           {"pipeline_key": "web_sources", "output_field": "sources"},
-          {"pipeline_key": "web_search_status", "output_field": "status"}
+          {"pipeline_key": "web_search_status", "output_field": "status"},
+          {"pipeline_key": "web_cost", "output_field": "cost"}
         ],
         "langfuse_type": "tool"
       }

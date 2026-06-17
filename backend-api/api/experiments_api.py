@@ -29,7 +29,7 @@ def _read_yaml(file_path: Path) -> dict:
     """Read simple key: value YAML-like format."""
     data = {}
     try:
-        for line in file_path.read_text().splitlines():
+        for line in file_path.read_text(encoding="utf-8").splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
                 value = value.strip().strip('"')
@@ -80,7 +80,7 @@ def _load_dir_fields(run_path: Path) -> dict:
         for f in field_dir.iterdir():
             if not f.is_file():
                 continue
-            content = f.read_text().strip()
+            content = f.read_text(encoding="utf-8").strip()
             if field == "metrics":
                 # MLflow format: "timestamp value step\n" — take last line
                 lines = content.splitlines()
@@ -133,7 +133,7 @@ def _get_node_config(config_id: str) -> dict | None:
     if not config_file.exists():
         return None
     try:
-        return json.loads(config_file.read_text())
+        return json.loads(config_file.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -329,7 +329,7 @@ async def list_traces(
         trace_info["trace_id"] = trace_dir.name
         tags_dir = trace_dir / "tags"
         if tags_dir.exists():
-            trace_info["tags"] = {f.name: f.read_text().strip() for f in tags_dir.iterdir() if f.is_file()}
+            trace_info["tags"] = {f.name: f.read_text(encoding="utf-8").strip() for f in tags_dir.iterdir() if f.is_file()}
         traces.append(trace_info)
 
     traces.sort(key=lambda t: t.get("request_time", ""), reverse=True)
@@ -348,18 +348,18 @@ async def get_trace(experiment_id: str, trace_id: str):
     metadata_dir = trace_path / "request_metadata"
     trace_info["request_metadata"] = {}
     if metadata_dir.exists():
-        trace_info["request_metadata"] = {f.name: f.read_text().strip() for f in metadata_dir.iterdir() if f.is_file()}
+        trace_info["request_metadata"] = {f.name: f.read_text(encoding="utf-8").strip() for f in metadata_dir.iterdir() if f.is_file()}
 
     tags_dir = trace_path / "tags"
     trace_info["tags"] = {}
     if tags_dir.exists():
-        trace_info["tags"] = {f.name: f.read_text().strip() for f in tags_dir.iterdir() if f.is_file()}
+        trace_info["tags"] = {f.name: f.read_text(encoding="utf-8").strip() for f in tags_dir.iterdir() if f.is_file()}
 
     spans_file = trace_path / "artifacts" / "traces.json"
     trace_info["spans"] = []
     if spans_file.exists():
         try:
-            trace_info["spans"] = json.loads(spans_file.read_text()).get("spans", [])
+            trace_info["spans"] = json.loads(spans_file.read_text(encoding="utf-8")).get("spans", [])
         except json.JSONDecodeError:
             pass
 
@@ -377,7 +377,7 @@ async def get_trace_langfuse_format(experiment_id: str, trace_id: str):
             trace_file = run_dir / "artifacts" / "traces" / f"trace-{trace_id}.json"
             if trace_file.exists():
                 try:
-                    return {"trace": json.loads(trace_file.read_text()), "format": "langfuse"}
+                    return {"trace": json.loads(trace_file.read_text(encoding="utf-8")), "format": "langfuse"}
                 except json.JSONDecodeError:
                     raise HTTPException(status_code=500, detail="Failed to parse trace file")
 
@@ -462,7 +462,7 @@ async def get_dataset(
     items = []
     for item_file in sorted(dataset_path.glob("item-*.json"), reverse=True):
         try:
-            items.append(json.loads(item_file.read_text()))
+            items.append(json.loads(item_file.read_text(encoding="utf-8")))
         except json.JSONDecodeError:
             continue
 
@@ -480,7 +480,7 @@ async def get_dataset_item(dataset_name: str, item_id: str):
     if not item_file.exists():
         raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found in dataset '{dataset_name}'")
     try:
-        return {"item": json.loads(item_file.read_text())}
+        return {"item": json.loads(item_file.read_text(encoding="utf-8"))}
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Failed to parse item file")
 
@@ -496,7 +496,7 @@ async def get_dataset_item_full(dataset_name: str, item_id: str):
     if not item_file.exists():
         raise HTTPException(status_code=404, detail=f"Item '{item_id}' not found")
     try:
-        item_data = json.loads(item_file.read_text())
+        item_data = json.loads(item_file.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail="Failed to parse item file")
 
@@ -506,20 +506,20 @@ async def get_dataset_item_full(dataset_name: str, item_id: str):
         trace_file = TRACES_PATH / f"{source_trace_id}.json"
         if trace_file.exists():
             try:
-                result["trace"] = json.loads(trace_file.read_text())
+                result["trace"] = json.loads(trace_file.read_text(encoding="utf-8"))
             except json.JSONDecodeError:
                 pass
         obs_dir = OBSERVATIONS_PATH / source_trace_id
         if obs_dir.exists():
             for obs_file in obs_dir.glob("*.json"):
                 try:
-                    result["observations"].append(json.loads(obs_file.read_text()))
+                    result["observations"].append(json.loads(obs_file.read_text(encoding="utf-8")))
                 except json.JSONDecodeError:
                     continue
         scores_file = SCORES_PATH / f"{source_trace_id}.jsonl"
         if scores_file.exists():
             try:
-                for line in scores_file.read_text().strip().split("\n"):
+                for line in scores_file.read_text(encoding="utf-8").strip().split("\n"):
                     if line:
                         result["scores"].append(json.loads(line))
             except (json.JSONDecodeError, Exception):

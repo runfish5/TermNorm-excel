@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Web Search — strategy-driven evidence + hang fix
+- `web_search` is now strategy-driven (`strategy`: `snippets` / `scrape` / `hybrid`,
+  default `hybrid`). `snippets` uses the text Brave already returns (instant, no scraping);
+  `scrape` fetches full pages; `hybrid` scrapes with per-source snippet fallback. All three
+  issue exactly ONE metered Brave query per match.
+- **Fixed the multi-minute scrape hang**: the whole parallel scrape now runs under a hard
+  aggregate deadline (`scrape_budget`, default 20s) — a junk query can no longer stall the
+  request past the client timeout. Per-URL timeouts never bounded the batch or DNS.
+- PDF datasheet extraction (`extract_pdf`, default on, via `pypdf`); relaxed `skip_domains`
+  to social/login only and stopped skipping `.pdf`; lowered `min_page_text_length`.
+- Per-match `web_cost` block (strategy, brave_queries, scrape_ok/failed, evidence_chars) in
+  the `/matches` response + as a langfuse observation — the axis PromptPotter sweeps to pick
+  the most-efficiently-true strategy. `strategy` exposed as an optimizer param.
+- Free-to-try guarantees: works on the Brave free tier (description-only), 1 query/match
+  ceiling, and fails soft to LLM-knowledge-only with no Brave key. See
+  `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
+
 ## [1.0.6] - 2026-05-27
 
 ### Highlights

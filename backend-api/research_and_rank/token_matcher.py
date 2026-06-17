@@ -34,13 +34,18 @@ class TokenLookupMatcher:
         for token in query_tokens:
             candidates.update(self.token_term_lookup.get(token, set()))
 
-        # Score candidates
+        # Score candidates by how much of the query they cover. Normalizing by
+        # the query (constant across candidates) — not the candidate's own length
+        # — is what keeps a long, specific label (e.g. "Steel, unalloyed {GLO}|
+        # market for steel") from losing to a short generic one ("unalloyed
+        # steel") at equal overlap. This is recall: surface the right label into
+        # the top-K; the LLM ranker downstream decides precision.
         scores = []
         for i in candidates:
             term_tokens = self._tokenize(self.deduplicated_terms[i])
             shared_token_count = len(query_tokens & term_tokens)
             if shared_token_count > 0:
-                score = shared_token_count / len(term_tokens)
+                score = shared_token_count / len(query_tokens)
                 scores.append((self.deduplicated_terms[i], score))
 
         return sorted(scores, key=lambda x: x[1], reverse=True)

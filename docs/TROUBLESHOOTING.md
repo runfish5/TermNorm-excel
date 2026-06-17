@@ -60,6 +60,36 @@ INFO:     127.0.0.1:59464 - "OPTIONS /test-connection HTTP/1.1" 200 OK
 
 **Fix:** Restart server with clean state (see steps above).
 
+### Web Search Hangs / `/matches` Times Out on Some Queries
+
+**Symptom (historical):** a query — often a bare part code like `SJRG0022-PA-` — entered
+web search and never returned; the client timed out (~120s) and re-issued the same query
+every couple of minutes. The log showed `[WEB_SCRAPE] Scraping N URLs in parallel...` with
+no completion line.
+
+**Cause:** full-page scraping of every search result, with no bound on the *aggregate*
+batch (only per-URL read timeouts, which don't cover DNS resolution or a slow 20-URL fan-out).
+
+**Fix (now built in):** web search is strategy-driven with a hard aggregate deadline. Knobs
+in `backend-api/config/pipeline.json` → node `web_search`:
+
+- `strategy`: `hybrid` (default — scrape with snippet fallback), `snippets` (no scraping at
+  all, never hangs), or `scrape`. If you ever see a stall, set `strategy: "snippets"` to
+  rule scraping out entirely.
+- `scrape_budget`: aggregate scrape deadline in seconds (default 20). Lower it to cap the
+  step harder.
+
+Full explanation: `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
+
+**Reading the logs:** healthy runs log `[WEB_SCRAPE] Brave Search found N sources` then a
+green `✓ N sources · strategy=… · scrape_ok=… scrape_failed=…`. A `low_document_count`
+warning is tolerated noise (the pipeline still ranks), not an error. `scrape budget Ns
+exceeded — degrading` means the deadline fired and the step returned partial/snippet
+evidence — the correct, non-hanging behavior.
+
+**No results at all:** confirm `BRAVE_SEARCH_API_KEY` is set and `USE_BRAVE_API` isn't
+`false`. With no key the node still runs (LLM-knowledge-only), just with thinner profiles.
+
 ## Frontend Add-in Issues
 
 ### Mappings Don't Auto-Load
