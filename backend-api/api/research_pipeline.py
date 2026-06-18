@@ -14,7 +14,7 @@ from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call
 from core.log_format import TAG_CFG, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
-from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning, WarningKind
+from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning, WarningKind, http_status_warning
 import utils.utils as utils
 from utils.utils import ORANGE, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
@@ -293,27 +293,22 @@ def _llm_failure_code(e: HTTPException) -> str:
 
     Mirrors PromptPotter's STRUCTURAL_/TRANSIENT_WARNING_CODES taxonomy. Replaces the old
     single ``llm_error`` code that forced the consumer to grep the free-text message.
-    """
+
+    Delegates to the shared :func:`http_status_warning` taxonomy, overriding only the
+    LLM-specific ``schema_invalid`` for other-4xx (json/schema/token-limit faults)."""
     status = getattr(e, "status_code", None)
-    if status == 429:
-        return "rate_limited"
-    if isinstance(status, int) and status >= 500:
-        return "server_error"
-    if status in (401, 403, 404):
-        return "client_error"
-    return "schema_invalid"
+    code, _ = http_status_warning(status)
+    return "schema_invalid" if code == "upstream_error" else code
 
 
 def _llm_failure_kind(e: HTTPException) -> WarningKind:
     """Structural vs transient for a provider HTTPException — keyed on status, in
-    lockstep with :func:`_llm_failure_code`. 429 (rate-limited) and 5xx (upstream
-    outage / timeout) are recoverable noise → transient; every other 4xx (auth,
-    not-found, schema/json/token-limit fault) is a deterministic-for-config break
-    the optimizer must not re-propose → structural."""
-    status = getattr(e, "status_code", None)
-    if status == 429 or (isinstance(status, int) and status >= 500):
-        return WarningKind.TRANSIENT
-    return WarningKind.STRUCTURAL
+    lockstep with :func:`_llm_failure_code` via the shared :func:`http_status_warning`
+    taxonomy. 429 (rate-limited) and 5xx (upstream outage / timeout) are recoverable
+    noise → transient; every other 4xx (auth, not-found, schema/json/token-limit fault)
+    is a deterministic-for-config break the optimizer must not re-propose → structural."""
+    _, kind = http_status_warning(getattr(e, "status_code", None))
+    return kind
 
 
 async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:

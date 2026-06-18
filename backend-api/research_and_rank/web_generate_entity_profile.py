@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from core.llm_providers import llm_call
+from core.pipeline_context import StepWarning, WarningKind, http_status_warning
 from utils.utils import GREEN, YELLOW, BRIGHT_RED, RESET
 from config.settings import settings
 from config.pipeline_config import get_node_config
@@ -190,37 +191,36 @@ def scrape_url(url, char_limit, extract_pdf=False):
         return {"_scrape_error": str(e), "url": url}
 
 
-def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""):
+def _brave_search(query, num_results, query_prefix="", query_suffix=""):
     """Brave Search API — the one metered call per match (free tier: 2,000/month,
-    1/sec). Returns a list of result records ``{url, title, snippet}`` — NOT bare
-    URLs. ``snippet`` is Brave's own ``description`` (+ ``extra_snippets`` on paid
-    plans, absent on free) and is the evidence the ``snippets`` strategy uses
-    directly and the ``scrape``/``hybrid`` strategies fall back to. Returns [] on
-    any failure (disabled / no key / 429 / non-200 / exception); callers degrade
-    soft to LLM-knowledge-only.
+    1/sec). Returns ``(records, warning)`` where ``records`` is a list of result
+    records ``{url, title, snippet}`` — NOT bare URLs — and ``warning`` is a
+    :class:`StepWarning` on any failure (``None`` on success). ``snippet`` is
+    Brave's own ``description`` (+ ``extra_snippets`` on paid plans, absent on
+    free) and is the evidence the ``snippets`` strategy uses directly and the
+    ``scrape``/``hybrid`` strategies fall back to.
+
+    The warning rides the canonical ``StepWarning`` channel every other node uses
+    — TermNorm's own vocabulary for disabled/no-key (case a), and Brave's real
+    HTTP status+body for upstream failures (case b) via the shared
+    :func:`http_status_warning` taxonomy. Callers degrade soft to
+    LLM-knowledge-only and surface the warning to the consumer verbatim.
     """
     if not settings.use_brave_api:
         msg = "Brave Search disabled (USE_BRAVE_API=false)"
         logger.warning(msg)
-        if log:
-            log.append(msg)
-        return []
+        return [], StepWarning("web_search", "brave_disabled", msg, WarningKind.STRUCTURAL)
 
     api_key = settings.brave_search_api_key
     if not api_key:
         msg = "Brave Search API key not configured (set BRAVE_SEARCH_API_KEY in .env)"
         logger.warning(msg)
-        if log:
-            log.append(msg)
-        return []
+        return [], StepWarning("web_search", "brave_no_key", msg, WarningKind.STRUCTURAL)
 
     effective_query = f"{query_prefix} {query} {query_suffix}".strip()
 
     try:
-        msg = f"Trying Brave Search API for: '{effective_query}'"
-        logger.info(f"[WEB_SCRAPE] {msg}")
-        if log:
-            log.append(msg)
+        logger.info(f"[WEB_SCRAPE] Trying Brave Search API for: '{effective_query}'")
 
         headers = {
             'X-Subscription-Token': api_key,
@@ -268,30 +268,19 @@ def _brave_search(query, num_results, log=None, query_prefix="", query_suffix=""
                     'snippet': "\n".join(p for p in snippet_parts if p).strip(),
                 })
 
-            msg = f"Brave Search found {len(records)} sources"
-            logger.info(f"[WEB_SCRAPE] {msg}")
-            if log:
-                log.append(msg)
+            logger.info(f"[WEB_SCRAPE] Brave Search found {len(records)} sources")
+            return records, None
 
-            return records
-        elif response.status_code == 429:
-            msg = f"Brave Search rate limit exceeded (free tier: 2000/month, 1/sec)"
-            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
-            if log:
-                log.append(msg)
-        else:
-            msg = f"Brave Search failed with status {response.status_code}"
-            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
-            if log:
-                log.append(msg)
+        # Non-200: carry Brave's real status + body to the consumer (case b).
+        code, kind = http_status_warning(response.status_code)
+        msg = f"Brave Search HTTP {response.status_code}: {response.text[:200]}"
+        logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+        return [], StepWarning("web_search", code, msg, kind)
 
     except Exception as e:
         msg = f"Brave Search failed: {str(e)}"
         logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
-        if log:
-            log.append(msg)
-
-    return []
+        return [], StepWarning("web_search", "brave_error", msg, WarningKind.TRANSIENT)
 
 
 def _from_snippets(records, max_sites, content_char_limit):
@@ -383,7 +372,7 @@ def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     )
 
 
-def _build_debug_info(scraped_content, search_method, search_log, query, max_sites,
+def _build_debug_info(scraped_content, search_method, brave_warning, query, max_sites,
                       content_char_limit, raw_content_limit, query_prefix="", query_suffix="",
                       skip_search=False, num_results=0):
     """Build debug information dictionary. The three ``scraped_sources`` shapes
@@ -430,15 +419,17 @@ def _build_debug_info(scraped_content, search_method, search_log, query, max_sit
     else:
         sources_info = {
             "error": "web_search_no_content",
-            "search_attempts": search_log,
             "fallback": "LLM knowledge only",
             "method_parameters": method_params,
         }
-        last_log = search_log[-1] if search_log else "no results"
-        code = "search_failed" if search_log else "no_results"
+        # Surface Brave's real reason (rate-limited, auth, etc.) on the canonical
+        # channel. brave_warning is None only when records came back but were all
+        # scrape-filtered — that's a genuine no-usable-evidence transient.
+        w = brave_warning or StepWarning(
+            "web_search", "no_results", "No usable web evidence", WarningKind.TRANSIENT
+        )
         warnings.append({
-            "step": "web_search", "code": code, "kind": "transient",
-            "message": f"No web evidence — {last_log}",
+            "step": w.step, "code": w.code, "kind": w.kind.value, "message": w.message,
         })
 
     return {
@@ -484,7 +475,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     scrape_budget = ws_cfg.get("scrape_budget", 20)
     extract_pdf = ws_cfg.get("extract_pdf", False)
 
-    search_log = []
+    brave_warning = None
     fetched = 0
     search_method = "skipped"
     scrape_stats = {"scrape_attempts": 0, "scrape_ok": 0, "scrape_failed": 0}
@@ -500,13 +491,11 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         cost_strategy = "precomputed"
         fetched = len(scraped_content)
         logger.info(f"[WEB_SCRAPE] Using {len(scraped_content)} precomputed sources")
-        search_log.append(f"Web search precomputed ({len(scraped_content)} sources)")
     elif skip_search:
         scraped_content = []
         ws_elapsed = None
         cost_strategy = "skipped"
         logger.info("[WEB_SCRAPE] Skipped (LLM knowledge only)")
-        search_log.append("Web search skipped (skip_search=True)")
     else:
         scraped_content = []
         search_method = "Brave Search API"
@@ -514,9 +503,9 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         # The single metered Brave query, hard-bounded so a DNS/connection edge
         # case can't stall the step before the strategy even runs.
         try:
-            records = await asyncio.wait_for(
+            records, brave_warning = await asyncio.wait_for(
                 asyncio.to_thread(
-                    _brave_search, query, num_results=num_results, log=search_log,
+                    _brave_search, query, num_results=num_results,
                     query_prefix=query_prefix, query_suffix=query_suffix,
                 ),
                 timeout=ws_cfg["brave_api_timeout"] + 2,
@@ -524,7 +513,9 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         except Exception as e:
             records = []
             logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] Brave search bounded-timeout: {e}{RESET}")
-            search_log.append(f"Brave search error: {e}")
+            brave_warning = StepWarning(
+                "web_search", "brave_error", f"Brave search bounded-timeout: {e}", WarningKind.TRANSIENT
+            )
 
         if records:
             if strategy == "snippets":
@@ -619,7 +610,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     }
 
     # Build debug info
-    debug_info = _build_debug_info(scraped_content, search_method, search_log,
+    debug_info = _build_debug_info(scraped_content, search_method, brave_warning,
                                     query, max_sites, content_char_limit, raw_content_limit,
                                     query_prefix=query_prefix, query_suffix=query_suffix,
                                     skip_search=skip_search, num_results=num_results)

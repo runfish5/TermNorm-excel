@@ -46,11 +46,12 @@ def _ws_cfg(strategy, **over):
 
 
 class FakeResp:
-    def __init__(self, status=200, headers=None, json_data=None, body=b""):
+    def __init__(self, status=200, headers=None, json_data=None, body=b"", text=""):
         self.status_code = status
         self.headers = headers or {}
         self._json = json_data
         self._body = body
+        self.text = text
 
     def json(self):
         return self._json
@@ -126,7 +127,7 @@ def _assert_contract(debug):
 
 def test_brave_search_returns_records_free_tier():
     with _patched(_brave_results(with_extra_snippets=False)):
-        recs = web._brave_search("CuSn6", num_results=5)
+        recs, _ = web._brave_search("CuSn6", num_results=5)
     assert len(recs) == 2
     assert recs[0]["url"] == "https://matweb.com/x"
     assert recs[0]["title"] == "MatWeb CuSn6"
@@ -136,9 +137,49 @@ def test_brave_search_returns_records_free_tier():
 
 def test_brave_search_uses_extra_snippets_when_present():
     with _patched(_brave_results(with_extra_snippets=True)):
-        recs = web._brave_search("CuSn6", num_results=5)
+        recs, _ = web._brave_search("CuSn6", num_results=5)
     assert "Density 8.8 g/cm3" in recs[0]["snippet"]     # paid extra_snippets folded in
     assert "EN CW452K" in recs[0]["snippet"]
+
+
+# --- Brave 429 surfaces the real reason on the canonical warning channel ------
+
+def test_brave_429_surfaces_rate_limited_warning():
+    """A Brave 429 must reach the consumer as code=rate_limited/kind=transient
+    carrying the real body — not the old generic 'No web evidence — no results'."""
+    @contextmanager
+    def _patched_429():
+        orig_get, orig_llm = web.requests.get, web.llm_call
+        orig_use, orig_key = web.settings.use_brave_api, web.settings.brave_search_api_key
+
+        def fake_get(url, **kw):
+            assert "api.search.brave.com" in url  # only the Brave call happens — no scrape on []
+            return FakeResp(status=429, text="rate limit exceeded")
+
+        async def fake_llm(**kwargs):
+            if kwargs.get("usage_out") is not None:
+                kwargs["usage_out"].update({"input": 10, "output": 5})
+            return {"core_concept": "spring", "entity_name": "CuSn6"}
+
+        web.requests.get, web.llm_call = fake_get, fake_llm
+        web.settings.use_brave_api, web.settings.brave_search_api_key = True, "test-key"
+        try:
+            yield
+        finally:
+            web.requests.get, web.llm_call = orig_get, orig_llm
+            web.settings.use_brave_api, web.settings.brave_search_api_key = orig_use, orig_key
+
+    with _patched_429():
+        profile, debug = asyncio.run(web.web_generate_entity_profile(
+            "CuSn6", ws_cfg=_ws_cfg("hybrid"), ep_cfg=EP_CFG, schema=SCHEMA))
+    _assert_contract(debug)
+    ws = [w for w in debug["warnings"] if w["step"] == "web_search"]
+    assert ws, "expected a web_search warning"
+    w = ws[0]
+    assert w["code"] == "rate_limited"
+    assert w["kind"] == "transient"
+    assert "429" in w["message"]
+    assert "rate limit exceeded" in w["message"]
 
 
 # --- snippets strategy: one query, no scraping --------------------------------

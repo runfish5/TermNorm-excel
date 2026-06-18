@@ -53,6 +53,21 @@ class StepWarning:
     stats: tuple = ()    # frozen key-value pairs for structured numerics (e.g. min/usable/fetched/requested)
 
 
+def http_status_warning(status: int | None) -> tuple[str, WarningKind]:
+    """(code, kind) for an upstream HTTP status from ANY external web API.
+
+    The one taxonomy every external-API node shares (LLM provider, Brave, …) so
+    they cannot diverge. 429 -> rate_limited/transient; 5xx -> server_error/transient;
+    401/403/404 -> client_error/structural; anything else -> upstream_error/structural."""
+    if status == 429:
+        return "rate_limited", WarningKind.TRANSIENT
+    if status is not None and status >= 500:
+        return "server_error", WarningKind.TRANSIENT
+    if status in (401, 403, 404):
+        return "client_error", WarningKind.STRUCTURAL
+    return "upstream_error", WarningKind.STRUCTURAL
+
+
 @dataclass
 class _StepRecord:
     status: StepStatus
