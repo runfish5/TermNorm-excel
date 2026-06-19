@@ -281,8 +281,8 @@
       "description": "Generic LLM call — send a system prompt + user query, get a text response. Bypasses all enrichment. No session or terms required.",
       "prompt_info": {
         "family": "llm_only",
-        "template_variables": ["query"],
-        "description": "System prompt for the llm_only generation node — fully caller-supplied (cfg['prompt']), the node's primary optimization target."
+        "template_variables": [],
+        "description": "System prompt for the llm_only generation node — fully caller-supplied (cfg['prompt']) and sent as the system message; the row query is delivered as a separate user message, NOT {{substituted}} into the prompt. So there are no required template placeholders (cf. _step_llm_only). The prompt is the node's primary optimization target."
       },
       "config": {
         "provider": "groq",
