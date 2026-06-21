@@ -1,6 +1,7 @@
 """
 Research Pipeline API - Session-based term matching
 """
+import asyncio
 import json
 import logging
 import time
@@ -870,12 +871,19 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     training_record, api_response = _build_response(ctx)
     log_run_summary(ctx, api_response)
 
+    # Telemetry + match-DB persistence are blocking file I/O (a whole-DB
+    # json.dump + langfuse file writes). The response is already built, so
+    # offload them to a thread — otherwise they freeze the single worker's
+    # event loop on every full-pipeline call, stalling concurrent /matches +
+    # /status while PP fans out scoring.
     try:
-        log_pipeline(training_record, session_id=user_id, trace_id=trace_id)
+        await asyncio.to_thread(
+            log_pipeline, training_record, session_id=user_id, trace_id=trace_id
+        )
     except Exception as e:
         logger.error(f"[LANGFUSE] Failed to log: {e}")
 
-    update_match_database(training_record)
+    await asyncio.to_thread(update_match_database, training_record)
     if requires_session:
         _update_session_usage(user_id, training_record["target"])
 
