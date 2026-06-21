@@ -313,6 +313,10 @@
           "reasoning_effort": ["none", "default", "low", "medium", "high"],
           "response_format": ["text", "json"]
         },
+        "observation_name": "llm_only",
+        "observation_mappings": [
+          {"pipeline_key": "final_ranking", "output_field": "final_ranking", "is_llm": true}
+        ],
         "langfuse_type": "generation"
       }
     }
