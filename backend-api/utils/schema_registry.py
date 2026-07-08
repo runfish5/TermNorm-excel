@@ -181,10 +181,11 @@ def _render_value(prop: dict[str, Any], indent: int) -> str:
     """Render one property's placeholder. ``indent`` is the column of the key line."""
     prop_type = prop.get("type", "string")
 
-    # An `enum` IS the field's value space, so it outranks the `description` placeholder: the
-    # model must see the choices, not a paraphrase of them. Rendered in DECLARATION ORDER —
-    # order is load-bearing here exactly as it is for properties (the model reads the first
-    # value as prototypical), so never sort these.
+    # An `enum` IS the field's value space; a `description` is the rule for CHOOSING within it.
+    # They are not rivals, so render BOTH — dropping the gloss would make the description axis
+    # measure a channel that exists for some fields and not others, purely by which of them
+    # happen to be enums. Rendered in DECLARATION ORDER — order is load-bearing here exactly as
+    # it is for properties (the model reads the first value as prototypical), so never sort.
     #
     # This block is the whole reason the enum reaches the model at all on the free-form path:
     # `output_format="json"` sends no schema, and even on the `"schema"` path constrained
@@ -192,9 +193,11 @@ def _render_value(prop: dict[str, Any], indent: int) -> str:
     # space where the grammar does not COMPEL it.
     enum_values = prop.get("enum")
     if isinstance(enum_values, list) and enum_values:
-        return " | ".join(
+        rendered = " | ".join(
             f'"{v}"' if isinstance(v, str) else json.dumps(v) for v in enum_values
         )
+        gloss = prop.get("description")
+        return f"{rendered}  // {gloss}" if gloss else rendered
 
     if prop_type == "string":
         # A `description` is prompt text, not documentation: it lands inside the field-filling

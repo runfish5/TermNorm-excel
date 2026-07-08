@@ -498,6 +498,11 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     max_tokens = cfg.get("max_tokens")
     response_format = cfg.get("response_format", "text")
     reasoning_effort = cfg.get("reasoning_effort")
+    # `llm_call` has always accepted a seed; this node never passed one, so every dataset
+    # pinning `seed: 0` (justlogic does) silently ran non-deterministic on this arm while
+    # believing otherwise. A benchmark whose noise floor is only readable because it is
+    # deterministic cannot have the key it declared dropped one frame from the provider.
+    seed = cfg.get("seed")
     # The node's SECOND prompt. When declared, the answer arrives in a slot we named,
     # positioned, and described — instead of being regex-scraped out of prose.
     output_schema = cfg.get("output_schema")
@@ -545,6 +550,8 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         kwargs["system"] = system
     if reasoning_effort is not None:
         kwargs["reasoning_effort"] = reasoning_effort
+    if seed is not None:
+        kwargs["seed"] = seed
 
     llm_only_usage: dict = {}
     response = await llm_call(**kwargs, usage_out=llm_only_usage, node_name="llm_only")

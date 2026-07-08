@@ -42,6 +42,7 @@ that short-circuits the rest of the pipeline.
 | `temperature` | `0.0` | |
 | `max_tokens` | `null` | No default — provider's own output ceiling applies. Set explicitly only when you want to cap output; leaving it null stops TPM reservations from blowing the per-minute bucket on reasoning-heavy models. |
 | `reasoning_effort` | `"medium"` | `low` / `medium` / `high` — only honored by OpenAI/Groq reasoning models |
+| `seed` | `null` | Forwarded to the provider. Set it on any dataset whose noise floor you intend to read — an unseeded benchmark cannot tell a real lift from run-to-run variance |
 | `response_format` | `"text"` | Or `"json"` for free-form JSON. Ignored when `output_schema` is set |
 | `output_schema` | `null` | JSON Schema. Sets `output_format: "schema"` and renders the shape into the prompt. **Not optimizer-tunable** — PromptPotter strips it via `SCHEMA_OWNED_FIELDS` |
 | `answer_field` | — | Which schema property carries the answer. **Required** when `output_schema` is set, and validated against it |
@@ -57,11 +58,16 @@ prose. One schema object feeds **both** the prompt block and the decoder, so the
 two can never disagree (the rule `call_llm_for_ranking` already follows).
 
 What the schema *teaches* matters as much as what it compels: `format_string_from_schema`
-renders field order and `enum` values in **declaration order** into the prompt, because
-constrained decoding is provider-dependent (Groq does not honor `enum`) and on the
-`"json"` path no schema is sent at all. Put reasoning fields *above* the answer — fields
-generate in order, so an answer emitted first is only rationalised afterwards. Never sort
-a schema's properties or its enum values; order is the lever.
+renders field order, `enum` values and `description` strings in **declaration order** into
+the prompt, because constrained decoding is provider-dependent (Groq does not honor `enum`)
+and on the `"json"` path no schema is sent at all. Put reasoning fields *above* the answer —
+fields generate in order, so an answer emitted first is only rationalised afterwards. Never
+sort a schema's properties or its enum values; order is the lever.
+
+An enum and its `description` both render (`"A" | "B"  // when to pick which`). They are not
+rivals: the enum is the value space, the description is the rule for choosing within it. Drop
+the gloss and the description axis would exist for some fields and not others, decided by
+nothing but which of them happen to be enums.
 
 ```json
 "llm_only": {"output_schema": {"type": "object", "properties": {

@@ -143,11 +143,18 @@ def test_enum_renders_its_value_space_in_declaration_order():
     )
     check("enum order is not sorted", '"Uncertain" | "TRUE"' in reordered)
 
-    # An enum outranks `description`: the model needs the choices, not a paraphrase of them.
+    # An enum and its `description` are not rivals: the enum is the value space, the description
+    # is the rule for choosing within it. Render BOTH. Dropping the gloss would give the
+    # description axis a channel that exists for some fields and not others, decided by nothing
+    # but which of them happen to be enums -- and justlogic's `answer` carries the semantics
+    # ("Uncertain ONLY when the premises do not determine the claim -- never as a hedge") that
+    # its enum values cannot state on their own.
     glossed = format_string_from_schema(
         {"type": "object", "properties": {"a": {"type": "string", "enum": ["X"], "description": "D"}}}
     )
-    check("enum outranks description", '"a": "X"' in glossed and '"a": "D"' not in glossed)
+    check("enum value space reaches the prompt", '"X"' in glossed)
+    check("its gloss reaches the prompt too", "D" in glossed)
+    check("gloss never displaces the value space", '"a": "D"' not in glossed)
 
 
 def test_installed_schemas_render_byte_identically():
