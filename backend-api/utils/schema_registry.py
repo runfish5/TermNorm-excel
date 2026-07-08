@@ -7,6 +7,19 @@ Structure:
         └── <version>/
             ├── metadata.json
             └── schema.json
+
+The on-disk ``schema.json`` is the ONLY source of truth. It is git-tracked, so a fresh clone
+always has it; there is no bootstrap-from-Python path and no code that writes a v2.
+
+FIELD ORDER IS LOAD-BEARING — never ``json.dump(..., sort_keys=True)`` a schema, and never
+"tidy" a schema file by alphabetising it. The model generates fields in the order it reads
+them, so each field becomes context for the next: evidence placed above a score conditions
+that score, while evidence placed below it can only rationalise a number already emitted.
+``format_string_from_schema`` renders these files straight into the prompt, so a reorder here
+silently changes model behaviour. Same for ``description`` strings: they are prompt text, not
+documentation, and for ``enum`` VALUE order — the model reads the first as prototypical.
+(``enum`` values themselves are the wire contract; their order and the descriptions are not.)
+See the PromptPotter note ``docs/concepts/structured-output.md``.
 """
 
 import json
@@ -52,7 +65,7 @@ class SchemaRegistry:
         schema_dir = self.base_path / family / str(version)
         schema_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save schema
+        # Save schema. NO sort_keys — field order is the lever (see module docstring).
         with open(schema_dir / "schema.json", "w", encoding="utf-8") as f:
             json.dump(schema, f, indent=2)
 
@@ -164,111 +177,71 @@ def get_schema_registry() -> SchemaRegistry:
     return _registry
 
 
-def initialize_default_schemas():
-    """
-    Initialize default schemas in the registry.
+def _render_value(prop: dict[str, Any], indent: int) -> str:
+    """Render one property's placeholder. ``indent`` is the column of the key line."""
+    prop_type = prop.get("type", "string")
 
-    Registers entity_profile and llm_ranking_output schemas as v1.
-    Skips families that already exist.
-    """
-    registry = get_schema_registry()
-    existing = set(registry.list_families())
-    registered = []
-
-    # ========================================================================
-    # ENTITY PROFILE SCHEMA - v1
-    # ========================================================================
-    if "entity_profile" not in existing:
-        entity_profile_schema = {
-            "type": "object",
-            "properties": {
-                "entity_name": {"type": "string"},
-                "core_concept": {"type": "string", "description": "The single word that defines what this expression represents"},
-                "distinguishing_features": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
-                "key_properties": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
-                "technical_specifications": {"type": "array", "items": {"type": "string"}, "maxItems": 4, "description": "Explicit technical specs, dimensions, codes, ratings, tolerances"},
-                "alternative_names": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
-                "classification_aliases": {"type": "array", "items": {"type": "string"}, "maxItems": 4, "description": "Full spectrum of valid ways this entity could be referenced using expert-level terminology, from precise to generic"},
-                "constituent_materials": {"type": "array", "items": {"type": "string"}, "maxItems": 4, "description": "All materials that make up this product, both explicit and standard/typical materials inferred from domain knowledge"},
-                "manufacturing_processes": {"type": "array", "items": {"type": "string"}, "maxItems": 4, "description": "Both stated and inferred manufacturing processes based on product type, materials, and industry standards"},
-                "applications": {"type": "array", "items": {"type": "string"}, "maxItems": 4, "description": "Direct and derived applications based on product characteristics"},
-                "notes": {"type": "array", "items": {"type": "string"}, "maxItems": 4}
-            },
-            "required": [
-                "entity_name", "core_concept",
-                "distinguishing_features", "key_properties", "technical_specifications",
-                "alternative_names", "classification_aliases",
-                "constituent_materials", "manufacturing_processes",
-                "applications", "notes"
-            ]
-        }
-        registry.register_schema(
-            family="entity_profile",
-            version=1,
-            schema=entity_profile_schema,
-            description="Entity profile extraction schema for web research pipeline",
-            metadata={
-                "author": "system",
-                "use_case": "Structured entity extraction from web research",
-                "compatible_prompts": ["entity_profiling"]
-            }
+    # An `enum` IS the field's value space, so it outranks the `description` placeholder: the
+    # model must see the choices, not a paraphrase of them. Rendered in DECLARATION ORDER —
+    # order is load-bearing here exactly as it is for properties (the model reads the first
+    # value as prototypical), so never sort these.
+    #
+    # This block is the whole reason the enum reaches the model at all on the free-form path:
+    # `output_format="json"` sends no schema, and even on the `"schema"` path constrained
+    # decoding is provider-dependent (Groq does not honor `enum`). The prompt TEACHES the value
+    # space where the grammar does not COMPEL it.
+    enum_values = prop.get("enum")
+    if isinstance(enum_values, list) and enum_values:
+        return " | ".join(
+            f'"{v}"' if isinstance(v, str) else json.dumps(v) for v in enum_values
         )
-        registered.append("entity_profile v1")
 
-    # ========================================================================
-    # LLM RANKING OUTPUT SCHEMA - v1
-    # ========================================================================
-    if "llm_ranking_output" not in existing:
-        llm_ranking_output_schema = {
-            "type": "object",
-            "properties": {
-                "profile_summary": {"type": "string", "description": "1-2 sentence summary of the entity profile"},
-                "core_concept_description": {"type": "string", "description": "Description of the core concept match"},
-                "ranked_candidates": {
-                    "type": "array",
-                    "description": "Candidates ranked by relevance score",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "candidate": {"type": "string"},
-                            "core_concept_score": {"type": "number"},
-                            "spec_score": {"type": "number"},
-                            "evaluation_reasoning": {"type": "string"},
-                            "key_match_factors": {"type": "array", "items": {"type": "string"}},
-                            "spec_gaps": {"type": "array", "items": {"type": "string"}}
-                        },
-                        "required": ["candidate", "core_concept_score", "spec_score",
-                                     "evaluation_reasoning", "key_match_factors"]
-                    }
-                }
-            },
-            "required": ["profile_summary", "core_concept_description", "ranked_candidates"]
-        }
-        registry.register_schema(
-            family="llm_ranking_output",
-            version=1,
-            schema=llm_ranking_output_schema,
-            description="LLM ranking step output schema — structured candidate evaluation",
-            fields=["profile_summary", "core_concept_description", "ranked_candidates"],
-            metadata={
-                "author": "system",
-                "use_case": "Structured output from LLM candidate ranking",
-                "compatible_prompts": ["llm_ranking"]
-            }
-        )
-        registered.append("llm_ranking_output v1")
+    if prop_type == "string":
+        # A `description` is prompt text, not documentation: it lands inside the field-filling
+        # loop, adjacent to the slot it governs. Prefer it over the bare "string" placeholder.
+        return f'"{prop.get("description", "string")}"'
+    if prop_type in ("number", "integer"):
+        return prop_type
+    if prop_type == "boolean":
+        return "true/false"
+    if prop_type == "object":
+        return _render_object(prop, indent) if "properties" in prop else '{"object"}'
+    if prop_type == "array":
+        items = prop.get("items", {})
+        if items.get("type") == "object" and "properties" in items:
+            pad = " " * indent
+            return f'[\n{pad}  {_render_object(items, indent + 2)}\n{pad}]'
+        return '["array of strings"]'
+    return f'"{prop_type}"'
 
-    if registered:
-        logger.info(f"[SCHEMA_REGISTRY] Initialized default schemas: {', '.join(registered)}")
-    else:
-        logger.debug("[SCHEMA_REGISTRY] All default schemas already exist, skipping")
+
+def _render_object(schema: dict[str, Any], indent: int) -> str:
+    """Render an object body. ``indent`` is the column its closing brace sits at."""
+    pad = " " * (indent + 2)
+    lines = [
+        f'{pad}"{name}": {_render_value(prop, indent + 2)}'
+        for name, prop in schema["properties"].items()
+    ]
+    return "{\n" + ",\n".join(lines) + "\n" + " " * indent + "}"
+
+
+def format_string_from_schema(schema: dict[str, Any]) -> str:
+    """Render a JSON schema as the example structure block for an LLM prompt.
+
+    This is what makes ``schema.json`` load-bearing rather than decorative: the emitted block
+    preserves the schema's property ORDER and inlines its ``description`` strings, both of
+    which steer generation (see module docstring). Recurses into arrays-of-objects.
+
+    Scalar placeholders come from ``description`` when present; arrays render as a shape hint.
+    """
+    if "properties" not in schema:
+        raise ValueError("Schema must contain 'properties' field")
+    return _render_object(schema, 0)
 
 
 if __name__ == "__main__":
-    # Initialize default schemas
-    initialize_default_schemas()
-
-    # Test retrieval
+    # Inspection only. Schemas are authored on disk and git-tracked; nothing bootstraps them
+    # from Python, and nothing writes a v2 (see module docstring).
     registry = get_schema_registry()
 
     logger.info("Schema families: %s", registry.list_families())
