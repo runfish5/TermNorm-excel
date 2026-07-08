@@ -14,10 +14,10 @@ from research_and_rank.call_llm_for_ranking import call_llm_for_ranking, find_to
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
 from core.llm_providers import llm_call
-from core.log_format import TAG_CFG, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
+from core.log_format import TAG_CFG, TAG_LOAD, TAG_PIPE, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
+from core import throughput
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, StepWarning, WarningKind, http_status_warning
 import utils.utils as utils
-from utils.utils import ORANGE, YELLOW, GREEN, WHITE, BRIGHT_RED, RESET
 from services.match_database import get_db as get_match_database, get_cache_metadata, update as update_match_database
 from utils.langfuse_logger import (
     log_batch_start, log_batch_complete, log_pipeline,
@@ -127,15 +127,45 @@ def _resolve_pipeline_params(
     return resolved
 
 
+# Config echo is stateful by design. The effective LLM config (provider, model,
+# reasoning, temperature, prompt size) is identical across a homogeneous batch,
+# so echoing it on every request is pure noise that buries the per-request line.
+# We print it once via [CFG ] and re-print only when the signature changes.
+_last_cfg_sig: str | None = None
+_LLM_NODE_TYPES = {"llm", "match-ranker", "enricher"}  # nodes that call an LLM
+
+# Throughput heartbeat cadence — the [LOAD] line prints at most this often, so a
+# busy batch gets a periodic utilization pulse without a line per request.
+_LOAD_EVERY_S = 15.0
+_last_load_emit = 0.0
+
+
+def _cfg_line(node: str, cfg: dict) -> str:
+    """One `[CFG ]` body: the effective LLM config for *node*, prompt as a size."""
+    parts: list[str] = [node]
+    prov, model = cfg.get("provider"), cfg.get("model")
+    parts.append(f"{prov}:{model}" if prov and model else str(model or prov or "?"))
+    if cfg.get("reasoning_effort"):
+        parts.append(f"reasoning={cfg['reasoning_effort']}")
+    if cfg.get("temperature") is not None:
+        parts.append(f"temp={cfg['temperature']}")
+    if cfg.get("max_tokens") is not None:
+        parts.append(f"max={cfg['max_tokens']}")
+    prompt = cfg.get("prompt")
+    if isinstance(prompt, str) and prompt:
+        parts.append(f"prompt={len(prompt)}c")
+    return " · ".join(parts)
+
+
 def _run_fuzzy_step(query: str, terms: list[str], fm_cfg: dict) -> tuple:
     """Step 0: Fuzzy matching. Returns (results, elapsed_time)."""
-    logger.info(ORANGE + "[PIPELINE] Step 0: Fuzzy matching" + RESET)
+    logger.info(f"{TAG_PIPE} Step 0: Fuzzy matching")
     t0 = time.time()
     results = fuzzy_match_terms(
         query, terms, threshold=fm_cfg["threshold"], scorer=fm_cfg["scorer"], limit=fm_cfg["limit"]
     )
     elapsed = round(time.time() - t0, 3)
-    logger.info(f"[PIPELINE] Fuzzy: {len(results)} matches in {elapsed}s")
+    logger.info(f"{TAG_PIPE} Fuzzy: {len(results)} matches in {elapsed}s")
     return results, elapsed
 
 
@@ -153,14 +183,14 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
     run_entity_profiling = "entity_profiling" in steps
 
     if not run_entity_profiling:
-        logger.info(WHITE + "[PIPELINE] Step 1: Skipping entity profiling" + RESET)
+        logger.info(f"{TAG_PIPE} Step 1: Skipping entity profiling")
         profile_debug = {"inputs": {"scraped_sources": {"status": "skipped", "note": "Skipped by pipeline steps"}}}
         return [], profile_debug, None, None
 
     if scraped_content is not None:
-        logger.info(ORANGE + "[PIPELINE] Step 1: Researching (precomputed web content)" + RESET)
+        logger.info(f"{TAG_PIPE} Step 1: Researching (precomputed web content)")
     else:
-        logger.info(ORANGE + "[PIPELINE] Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else "") + RESET)
+        logger.info(f"{TAG_PIPE} Step 1: Researching" + (" (LLM knowledge only)" if not run_web_search else ""))
     entity_profile, profile_debug = await web_generate_entity_profile(
         query,
         ws_cfg=ws_cfg,
@@ -171,7 +201,7 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
         scraped_content=scraped_content,
         usage_out=usage_out,
     )
-    logger.debug("[PIPELINE] Entity profile: %s", entity_profile)
+    logger.debug("%s Entity profile: %s", TAG_PIPE, entity_profile)
     ep_time = profile_debug.get("llm_elapsed")
     ws_time = profile_debug.get("web_search_elapsed")
     return entity_profile, profile_debug, ep_time, ws_time
@@ -179,11 +209,11 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
 
 def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLookupMatcher") -> tuple:
     """Step 2: Token matching. Returns (candidate_results, elapsed_time)."""
-    logger.info(YELLOW + "[PIPELINE] Step 2: Matching candidates" + RESET)
+    logger.info(f"{TAG_PIPE} Step 2: Matching candidates")
     search_terms = [word for s in [query] + utils.flatten_strings(entity_profile) for word in s.split()]
     unique_search_terms = list(set(search_terms))
 
-    logger.debug(f"[PIPELINE] {len(unique_search_terms)} profile terms (from {len(search_terms)}): {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
+    logger.debug(f"{TAG_PIPE} {len(unique_search_terms)} profile terms (from {len(search_terms)}): {', '.join(unique_search_terms[:20])}{'...' if len(unique_search_terms) > 20 else ''}")
 
     t0 = time.time()
     candidate_results = token_matcher.match(unique_search_terms)
@@ -193,9 +223,9 @@ def _run_token_step(query: str, entity_profile: list, token_matcher: "TokenLooku
     if n:
         top_name, top_score = candidate_results[0]
         bot_score = candidate_results[-1][1]
-        logger.info(f"[PIPELINE] Token matches: {n} in {elapsed:.2f}s ({top_score:.3f}–{bot_score:.3f})  top: {top_name[:60]}... ({top_score:.3f})")
+        logger.info(f"{TAG_PIPE} Token matches: {n} in {elapsed:.2f}s ({top_score:.3f}–{bot_score:.3f})  top: {top_name[:60]}... ({top_score:.3f})")
     else:
-        logger.warning(f"{BRIGHT_RED}[PIPELINE] Token matches: 0 candidates in {elapsed:.2f}s{RESET}")
+        logger.warning(f"{TAG_PIPE} Token matches: 0 candidates in {elapsed:.2f}s")
     return candidate_results, elapsed
 
 
@@ -210,7 +240,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
 
     t0 = time.time()
     if not run_llm_ranking:
-        logger.info(WHITE + "[PIPELINE] Step 3: Skipping LLM ranking (using token scores)" + RESET)
+        logger.info(f"{TAG_PIPE} Step 3: Skipping LLM ranking (using token scores)")
         llm_response = {
             "ranked_candidates": [
                 {"candidate": term, "relevance_score": score, "core_concept_score": score, "spec_score": 0}
@@ -219,7 +249,7 @@ async def _run_ranking_step(entity_profile: list, candidates: list, query: str, 
         }
         ranking_debug = {"inputs": {"candidate_ranking": candidates[:max_token_candidates]}}
     else:
-        logger.info(YELLOW + "[PIPELINE] Step 3: Ranking with LLM" + RESET)
+        logger.info(f"{TAG_PIPE} Step 3: Ranking with LLM")
         llm_response, ranking_debug = await call_llm_for_ranking(
             entity_profile, candidates, query,
             lr_cfg=lr_cfg,
@@ -245,29 +275,16 @@ async def _step_fuzzy(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
     try:
         results, elapsed = _run_fuzzy_step(query, terms, cfg)
     except Exception as e:
-        logger.error("[PIPELINE] Fuzzy matching failed: %s — continuing", e)
+        logger.error("%s Fuzzy matching failed: %s — continuing", TAG_PIPE, e)
         return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
                           warnings=[StepWarning("fuzzy_matching", "step_error", f"Fuzzy matching failed: {e}", WarningKind.STRUCTURAL)])
 
-    # Determine if fuzzy is the last step — if so, terminate the pipeline
+    # Determine if fuzzy is the last step — if so, terminate the pipeline. The
+    # unified _build_response reads ctx output("fuzzy_matching") to shape the
+    # terminal envelope; no side-channel response is stashed here.
     req = ctx.requested_steps
     fuzzy_idx = req.index("fuzzy_matching") if "fuzzy_matching" in req else -1
     is_last = fuzzy_idx == len(req) - 1
-
-    if is_last:
-        # Build early-exit response and store it
-        fuzzy_ranking = [{"candidate": t, "relevance_score": s} for t, s in results]
-        ctx.set_output("_early_response", _ok(
-            message=f"Fuzzy matching completed - {len(results)} matches in {ctx.total_time}s",
-            data={
-                "final_ranking": fuzzy_ranking,
-                "total_time": ctx.total_time,
-                "step_timings": ctx.step_timings,
-                "pipeline_params": {"steps": ["fuzzy_matching"], "fuzzy_matching": cfg},
-                "terminated_at": "fuzzy_matching",
-                "diagnostics": ctx.build_diagnostics(),
-            },
-        ))
 
     return StepResult(output=results, elapsed=elapsed, terminates=is_last)
 
@@ -381,7 +398,7 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
         return StepResult(output=entity_profile, elapsed=ep_time or 0.0, status=ep_status)
 
     except HTTPException as e:
-        logger.warning("[PIPELINE] Entity profiling failed — continuing with token matching only")
+        logger.warning("%s Entity profiling failed — continuing with token matching only", TAG_PIPE)
         profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": []}
         if scraped_content is not None:
             profile_debug["scraped_content"] = scraped_content
@@ -407,7 +424,7 @@ async def _step_token(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
         results, elapsed = _run_token_step(query, entity_profile, token_matcher)
         return StepResult(output=results, elapsed=elapsed)
     except Exception as e:
-        logger.error("[PIPELINE] Token matching failed: %s — continuing with empty candidates", e)
+        logger.error("%s Token matching failed: %s — continuing with empty candidates", TAG_PIPE, e)
         return StepResult(output=[], elapsed=0.0, status=StepStatus.FAILED,
                           warnings=[StepWarning("token_matching", "step_error", f"Token matching failed: {e}", WarningKind.STRUCTURAL)])
 
@@ -420,7 +437,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
     tm_cfg = ctx.params.get("token_matching", {})
 
     if not candidates:
-        logger.info("[PIPELINE] llm_ranking: no candidates — skipping")
+        logger.info("%s llm_ranking: no candidates — skipping", TAG_PIPE)
         return StepResult(
             output={"ranked_candidates": []},
             elapsed=0.0,
@@ -449,8 +466,8 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
     except HTTPException as e:
         max_cands = tm_cfg.get("max_token_candidates", 20)
         logger.error(
-            "[PIPELINE] LLM ranking failed (%d: %s) — falling back to token match scores (%d candidates)",
-            e.status_code, e.detail, len(candidates[:max_cands]),
+            "%s LLM ranking failed (%d: %s) — falling back to token match scores (%d candidates)",
+            TAG_PIPE, e.status_code, e.detail, len(candidates[:max_cands]),
         )
         llm_response = {
             "ranked_candidates": [
@@ -508,6 +525,10 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     else:
         answer = response.get("output", json.dumps(response))
     elapsed = round(time.time() - t0, 3)
+    # The model's chain-of-thought (reasoning models put it on message.reasoning,
+    # not content). Popped BEFORE record_step_tokens so step_tokens stays numeric;
+    # forwarded in the response envelope for PromptPotter's critique tier.
+    reasoning_trace = llm_only_usage.pop("reasoning_text", "")
     ctx.record_step_tokens("llm_only", llm_only_usage)
 
     # The ``llm_call`` retry/repair/empty channel is recoverable noise → transient.
@@ -522,38 +543,27 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         else:
             step_warnings.append(StepWarning("llm_only", "llm_retry", w, WarningKind.TRANSIENT))
     if not answer.strip():
-        logger.warning("[PIPELINE] llm_only: empty output after %ss", elapsed)
+        logger.warning("%s llm_only: empty output after %ss", TAG_PIPE, elapsed)
         step_warnings.append(
             StepWarning("llm_only", "empty_output", "LLM returned empty content", WarningKind.TRANSIENT)
         )
 
-    # Build early-exit response
-    final_ranking = [{"candidate": answer.strip(), "score": 1.0}]
-    warning_dicts = [
-        {"step": w.step, "code": w.code, "message": w.message, "kind": w.kind.value} for w in step_warnings
-    ]
-    step_status = "success" if answer.strip() else "empty_output"
-    early_data: dict = {
-        "final_ranking": final_ranking,
-        "node_outputs": {},
-        "step_timings": {"llm_only": elapsed},
-        "total_time": elapsed,
-        "terminated_at": "llm_only",
-        "pipeline_params": {"steps": ["llm_only"], "llm_only": cfg},
-        "llm_provider": provider,
-        "diagnostics": {"warnings": warning_dicts, "step_statuses": {"llm_only": step_status}},
-    }
-    if llm_only_usage:
-        early_data["step_tokens"] = {"llm_only": dict(llm_only_usage)}
-    ctx.set_output("_early_response", _ok(
-        message=f"LLM-only completed in {elapsed}s",
-        data=early_data,
-    ))
-
+    # An empty / declined answer is a structural NO_RESULT — final_ranking == []
+    # (the SOLE no-result signal, shared with the multi-node path), NOT a
+    # confident empty candidate at score 1.0. A non-empty answer passes through
+    # raw at relevance_score 1.0: the SCORING MATCHER extracts the label
+    # downstream, so the backend must not pre-judge it. The unified
+    # _build_response reads this output to shape the terminal envelope — no
+    # _early_response side-channel, one response shape for every pipeline.
+    stripped = answer.strip()
+    final_ranking = (
+        [{"candidate": stripped, "relevance_score": 1.0}] if stripped else []
+    )
     return StepResult(
-        output={"final_ranking": final_ranking},
+        output={"final_ranking": final_ranking, "reasoning_trace": reasoning_trace},
         elapsed=elapsed,
         terminates=True,
+        status=StepStatus.SUCCESS if stripped else StepStatus.DEGRADED,
         warnings=step_warnings,
     )
 
@@ -609,11 +619,80 @@ NODE_OUTPUT_SERIALIZERS: dict[str, tuple[str, Callable]] = {
 # Response building
 # ---------------------------------------------------------------------------
 
-def _build_response(ctx: PipelineContext) -> tuple:
-    """Build training_record and api_response from PipelineContext outputs.
+def _response_data(
+    ctx: PipelineContext,
+    ranked: list[dict],
+    *,
+    entity_profile: Any = None,
+    candidate_ranking: list | None = None,
+    web_status: str | None = None,
+    web_error: str | None = None,
+    web_cost: dict | None = None,
+    node_outputs: dict | None = None,
+    providers: dict | None = None,
+) -> dict:
+    """The ONE ``/matches`` response shape — identical fields for a single-node
+    (``llm_only``), a fuzzy-only, and a full multi-node pipeline.
 
-    Returns (training_record, api_response).
-    """
+    ``final_ranking == []`` is the SOLE NO_RESULT signal. The enrichment fields
+    (entity profile, candidate ranking, web status/cost, node outputs) default to
+    empty/None for a pipeline that never ran retrieval, web search, or ranking —
+    so the consumer (PromptPotter) reads one stable shape and never special-cases
+    on node count or on a field being absent versus empty."""
+    data = {
+        "final_ranking": ranked,
+        "entity_profile": entity_profile if entity_profile is not None else [],
+        "candidate_ranking": candidate_ranking if candidate_ranking is not None else [],
+        "total_time": ctx.total_time,
+        "step_timings": ctx.step_timings,
+        "step_tokens": ctx.step_tokens,
+        "web_search_status": web_status,
+        "web_search_error": web_error,
+        "web_cost": web_cost if web_cost is not None else {},
+        "node_outputs": node_outputs if node_outputs is not None else {},
+        "pipeline_params": {
+            "steps": ctx.executed_steps,
+            "requested_steps": ctx.requested_steps,
+            **ctx.params,
+        },
+        "terminated_at": ctx.terminated_at,
+        "diagnostics": ctx.build_diagnostics(),
+    }
+    if providers:
+        data.update(providers)
+    return data
+
+
+def _build_response(ctx: PipelineContext) -> tuple:
+    """Build ``(training_record, api_response)`` from PipelineContext outputs.
+
+    ONE envelope shape for every terminal node, keyed on which node the pipeline
+    stopped at. Only the full ranker pipeline produces a ``training_record`` for
+    match-DB / langfuse persistence; the single-node (``llm_only``) and
+    fuzzy-only terminals return ``None`` there — there is no candidate matched
+    against the session term library to persist."""
+    terminal = ctx.terminated_at
+
+    if terminal == "llm_only":
+        out = ctx.get_output("llm_only") or {}
+        data = _response_data(ctx, out.get("final_ranking", []))
+        # Model chain-of-thought (reasoning models only; head-capped at source).
+        # PromptPotter's critique tier reads it to diagnose per-sample failures.
+        data["reasoning_trace"] = out.get("reasoning_trace", "")
+        return None, _ok(
+            message=f"LLM-only completed in {ctx.total_time}s",
+            data=data,
+        )
+
+    if terminal == "fuzzy_matching":
+        fuzzy = ctx.get_output("fuzzy_matching") or []
+        ranked = [{"candidate": t, "relevance_score": s} for t, s in fuzzy]
+        return None, _ok(
+            message=f"Fuzzy matching completed - {len(ranked)} matches in {ctx.total_time}s",
+            data=_response_data(ctx, ranked),
+        )
+
+    # Full ranker pipeline — entity profile + token candidates + LLM ranking.
     entity_profile = ctx.get_output("entity_profiling") or []
     llm_response = ctx.get_output("llm_ranking") or {}
     candidates = ctx.get_output("token_matching") or []
@@ -621,10 +700,12 @@ def _build_response(ctx: PipelineContext) -> tuple:
     ranking_debug = ctx.get_output("_ranking_debug")
 
     ranked = llm_response.get("ranked_candidates", [])
-    target = ranked[0].get("candidate") if ranked else "No matches found"
+    # No ranked candidate == NO_RESULT (final_ranking == []); the match-DB record
+    # carries an explicit None target rather than a "No matches found" sentinel.
+    target = ranked[0].get("candidate") if ranked else None
     confidence = ranked[0].get("relevance_score", 0) if ranked else 0
 
-    # Three-state web_search_status (backward compat)
+    # Three-state web_search_status
     scraped_sources = profile_debug["inputs"]["scraped_sources"]
     if scraped_sources.get("status") in ("skipped", "precomputed"):
         web_status, web_error, web_sources = scraped_sources["status"], None, []
@@ -639,28 +720,27 @@ def _build_response(ctx: PipelineContext) -> tuple:
     # "most efficiently true" web_search strategy. See WEB_SEARCH_STRATEGY.md.
     web_cost = profile_debug.get("web_cost", {})
 
-    step_timings = ctx.step_timings
-    step_tokens = ctx.step_tokens
-    total_time = ctx.total_time
-    pipeline_params = {
-        "steps": ctx.executed_steps,
-        "requested_steps": ctx.requested_steps,
-        **ctx.params,
-    }
-
     ep_cfg = ctx.params.get("entity_profiling", {})
     lr_cfg = ctx.params.get("llm_ranking", {})
-    training_record = {
-        "source": ctx.query, "target": target, "method": "ProfileRank",
-        "confidence": confidence, "session_id": ctx.user_id,
+    providers = {
         "profiling_provider": ep_cfg.get("provider"),
         "profiling_model": ep_cfg.get("model"),
         "ranking_provider": lr_cfg.get("provider"),
         "ranking_model": lr_cfg.get("model"),
-        "total_time": total_time, "web_search_status": web_status, "error": web_error,
-        "step_timings": step_timings,
-        "step_tokens": step_tokens,
-        "pipeline_params": pipeline_params,
+    }
+
+    training_record = {
+        "source": ctx.query, "target": target, "method": "ProfileRank",
+        "confidence": confidence, "session_id": ctx.user_id,
+        **providers,
+        "total_time": ctx.total_time, "web_search_status": web_status, "error": web_error,
+        "step_timings": ctx.step_timings,
+        "step_tokens": ctx.step_tokens,
+        "pipeline_params": {
+            "steps": ctx.executed_steps,
+            "requested_steps": ctx.requested_steps,
+            **ctx.params,
+        },
         "entity_profile": entity_profile,
         "candidates": [
             {"rank": i, "name": c.get("candidate"), "score": c.get("relevance_score"),
@@ -682,28 +762,16 @@ def _build_response(ctx: PipelineContext) -> tuple:
             if raw is not None:
                 node_outputs[node_name] = serializer(raw)
 
-    data = {
-        "final_ranking": ranked, "entity_profile": entity_profile,
-        "candidate_ranking": candidates[:ctx.params.get("token_matching", {}).get("max_token_candidates", 20)],
-        "profiling_provider": ep_cfg.get("provider"),
-        "profiling_model": ep_cfg.get("model"),
-        "ranking_provider": lr_cfg.get("provider"),
-        "ranking_model": lr_cfg.get("model"),
-        "total_time": total_time,
-        "step_timings": step_timings,
-        "web_search_status": web_status,
-        "web_search_error": web_error, "web_cost": web_cost,
-        "pipeline_params": pipeline_params,
-        "terminated_at": ctx.terminated_at,
-        "diagnostics": ctx.build_diagnostics(),
-    }
-    if step_tokens:
-        data["step_tokens"] = step_tokens
-    if node_outputs:
-        data["node_outputs"] = node_outputs
+    candidate_ranking = candidates[: ctx.params.get("token_matching", {}).get("max_token_candidates", 20)]
     api_response = _ok(
-        message=f"Research completed - Found {len(ranked)} matches in {total_time}s",
-        data=data,
+        message=f"Research completed - Found {len(ranked)} matches in {ctx.total_time}s",
+        data=_response_data(
+            ctx, ranked,
+            entity_profile=entity_profile,
+            candidate_ranking=candidate_ranking,
+            web_status=web_status, web_error=web_error, web_cost=web_cost,
+            node_outputs=node_outputs, providers=providers,
+        ),
     )
     return training_record, api_response
 
@@ -739,59 +807,47 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     else:
         terms = []
 
-    # Single request entry — merges incoming-step bookkeeping with the query
-    # preview into one structured [REQ ] line. Optional fields drop out via
-    # fmt_fields when their value is None/empty. `overrides` only renders
-    # when node_config carries a key beyond the active steps (i.e. a real
-    # cross-step override) — the common shape `node_config={"<step>": {...}}`
-    # would just duplicate `steps`.
+    # Throughput heartbeat — record this request, then emit a throttled [LOAD]
+    # line (1m/5m/15m req/min, load-average style) above the request group.
+    global _last_cfg_sig, _last_load_emit
+    throughput.record()
+    _now = time.monotonic()
+    if _now - _last_load_emit >= _LOAD_EVERY_S:
+        logger.info(f"{TAG_LOAD} {throughput.format_load()}")
+        _last_load_emit = _now
+
+    # Config echo — once, on change. The effective LLM config is constant across
+    # a batch; print it only when its signature moves (see _last_cfg_sig).
+    cfg_lines = [
+        _cfg_line(s, params.get(s, {}))
+        for s in steps
+        if STEP_NODE_TYPE.get(s) in _LLM_NODE_TYPES
+    ]
+    sig = " || ".join(cfg_lines)
+    if cfg_lines and sig != _last_cfg_sig:
+        for cl in cfg_lines:
+            logger.info(f"{TAG_CFG} {cl}")
+        _last_cfg_sig = sig
+
+    # Per-request entry: path · steps · size · query preview. The query is
+    # whitespace-collapsed — raw newlines would split the line mid-preview.
+    # (The blank-line boundary between requests is a trailing newline on the
+    # prior [RESP]; see log_run_summary.)
+    steps_str = steps[0] if len(steps) == 1 else fmt_list(steps)
     overrides = list((payload.get("node_config") or {}).keys())
     extra_overrides = [o for o in overrides if o not in steps]
-    query_display = query if len(query) <= 25 else f"{query[:25]}…"
+    query_oneline = " ".join(query.split())
+    query_display = query_oneline if len(query_oneline) <= 40 else f"{query_oneline[:40]}…"
     body = fmt_fields(
         "/matches",
-        ("steps", fmt_list(steps)),
-        ("default_steps", fmt_list(steps) if not payload_steps else None),
+        steps_str,
         ("overrides", fmt_list(extra_overrides) if extra_overrides else None),
         ("terms", len(terms) if terms else None),
         ("precomputed", fmt_list(precomputed) if precomputed else None),
-        ("chars", len(query)),
-        ("query", f'"{query_display}"'),
+        f"{len(query)} chars",
+        f'"{query_display}"',
     )
-    logger.info(f"{ORANGE}{TAG_REQ} {body}{RESET}")
-
-    # Surface the caller's effective node_config overrides (post-merge with
-    # backend defaults) so it's visible *what* the caller asked for, not just
-    # *that* they asked. Single most-useful diagnostic when an LLM call fails
-    # on a type-mismatch — operator can read the offending value off the log
-    # line instead of digging through optimizer state. Only the keys actually
-    # overridden are printed; backend defaults stay implicit.
-    caller_ov = payload.get("node_config") or {}
-    # Keep [CFG] to values an operator actually tunes. Operational constants —
-    # the UA pool, request headers, skip lists, retry policy, language/region —
-    # are static noise that buried the meaningful knobs (models, limits, timeouts).
-    _cfg_skip = {
-        "user_agents", "scrape_headers", "skip_extensions", "skip_domains",
-        "html_strip_tags", "keyword_split_chars", "scrape_retry_status_codes",
-        "accept_language", "search_language", "search_country", "spellcheck",
-        "result_filter", "extra_snippets", "freshness", "scrape_jitter",
-        "scrape_retry_delay", "scrape_max_retries", "title_truncate_length",
-        "min_keyword_length", "min_page_text_length", "max_page_text_length",
-        "fallback_keywords_limit", "schema_family", "schema_version",
-    }
-    for node_name, ov_keys in caller_ov.items():
-        if not isinstance(ov_keys, dict) or not ov_keys:
-            continue
-        ov_fields = [
-            (k, v)
-            for k, v in ov_keys.items()
-            if k not in _cfg_skip
-            and not isinstance(v, (list, dict))
-            and v not in (None, "")
-        ]
-        if not ov_fields:
-            continue
-        logger.info(f"{TAG_CFG} {fmt_fields(node_name, *ov_fields)}")
+    logger.info(f"{TAG_REQ} {body}")
 
     # Validate step dependencies — warn if input_keys aren't satisfied
     # (precomputed outputs count as available upstream)
@@ -861,13 +917,9 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         if result.terminates:
             break
 
-    # Check for early-exit response (fuzzy-only, llm_only, etc.)
-    early = ctx.get_output("_early_response")
-    if early is not None:
-        log_run_summary(ctx, early)
-        return early
-
-    # Full pipeline — build response from collected outputs
+    # One envelope for every terminal node (single-node llm_only, fuzzy-only, or
+    # full ranker pipeline). training_record is None for the terminal-early
+    # cases — nothing to persist against the session term library.
     training_record, api_response = _build_response(ctx)
     log_run_summary(ctx, api_response)
 
@@ -876,16 +928,17 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
     # offload them to a thread — otherwise they freeze the single worker's
     # event loop on every full-pipeline call, stalling concurrent /matches +
     # /status while PP fans out scoring.
-    try:
-        await asyncio.to_thread(
-            log_pipeline, training_record, session_id=user_id, trace_id=trace_id
-        )
-    except Exception as e:
-        logger.error(f"[LANGFUSE] Failed to log: {e}")
+    if training_record is not None:
+        try:
+            await asyncio.to_thread(
+                log_pipeline, training_record, session_id=user_id, trace_id=trace_id
+            )
+        except Exception as e:
+            logger.error(f"[LANGFUSE] Failed to log: {e}")
 
-    await asyncio.to_thread(update_match_database, training_record)
-    if requires_session:
-        _update_session_usage(user_id, training_record["target"])
+        await asyncio.to_thread(update_match_database, training_record)
+        if requires_session:
+            _update_session_usage(user_id, training_record["target"])
 
     return api_response
 
@@ -920,7 +973,7 @@ async def batch_start(
         session_id=user_id,
     )
 
-    logger.info(f"[BATCH] Started batch {batch_id}: {method}, {item_count} items")
+    logger.info(f"{TAG_PIPE} batch started {batch_id}: {method}, {item_count} items")
 
     return _ok(
         message=f"Batch started: {item_count} items",
@@ -955,7 +1008,7 @@ async def batch_complete(
         total_time_ms=total_time_ms,
     )
 
-    logger.info(f"[BATCH] Completed batch {batch_id}: {success_count} success, {error_count} errors")
+    logger.info(f"{TAG_PIPE} batch completed {batch_id}: {success_count} success, {error_count} errors")
 
     return _ok(
         message=f"Batch completed: {success_count}/{success_count + error_count} successful",
@@ -996,7 +1049,7 @@ async def direct_prompt(
     current_output = payload.get("current_output", "").strip()  # Current output column value
     project_context = payload.get("project_context", "").strip()  # Project-specific context
 
-    logger.info(f"[DIRECT_PROMPT] query='{query[:30]}', batch_id={batch_id}")
+    logger.info(f"{TAG_PIPE} direct-prompt query='{query[:30]}', batch_id={batch_id}")
 
     if not query:
         raise HTTPException(400, "Query is required")
@@ -1060,7 +1113,7 @@ Return ONLY valid JSON."""
         reasoning = response.get("reasoning", "")
 
     except Exception as e:
-        logger.error(f"[DIRECT_PROMPT] LLM error: {e}")
+        logger.error(f"{TAG_PIPE} direct-prompt LLM error: {e}")
         return {"status": "error", "message": f"LLM error: {str(e)}"}
 
     total_time = round(time.time() - start_time, 2)
@@ -1107,7 +1160,7 @@ Return ONLY valid JSON."""
         update_match_database(training_record)
     _update_session_usage(user_id, target if not needs_user_selection else None)
 
-    logger.info(f"[DIRECT_PROMPT] {query[:30]}... -> {target[:30]} ({confidence:.0%}) in {total_time}s")
+    logger.info(f"{TAG_PIPE} direct-prompt {query[:30]}... -> {target[:30]} ({confidence:.0%}) in {total_time}s")
 
     return _ok(
         message="Direct prompt completed",
@@ -1181,7 +1234,7 @@ async def log_match(request: Request, payload: LogMatchRequest) -> dict[str, Any
         else:
             raise HTTPException(400, f"Unknown method: {payload.method}")
 
-        logger.info(f"[LOG_MATCH] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}... ({trace_id})")
+        logger.info(f"{TAG_PIPE} log-match {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}... ({trace_id})")
 
         return _ok(
             message=f"{payload.method} match logged",
@@ -1189,7 +1242,7 @@ async def log_match(request: Request, payload: LogMatchRequest) -> dict[str, Any
         )
 
     except Exception as e:
-        logger.error(f"[LOG_MATCH] Error: {e}")
+        logger.error(f"{TAG_PIPE} log-match error: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -1208,7 +1261,7 @@ async def log_activity(request: Request, payload: LogActivityRequest) -> dict[st
             method=payload.method,
         )
 
-        logger.info(f"[LOG_ACTIVITY] {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}...")
+        logger.info(f"{TAG_PIPE} log-activity {payload.method}: {payload.source[:30]}... -> {payload.target[:30]}...")
 
         return _ok(
             message=f"{payload.method} logged",
@@ -1216,5 +1269,5 @@ async def log_activity(request: Request, payload: LogActivityRequest) -> dict[st
         )
 
     except Exception as e:
-        logger.error(f"[LOG_ACTIVITY] Error: {e}")
+        logger.error(f"{TAG_PIPE} log-activity error: {e}")
         return {"status": "error", "message": str(e)}

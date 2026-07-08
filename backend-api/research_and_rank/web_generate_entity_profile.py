@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
 from core.llm_providers import llm_call
 from core.pipeline_context import StepWarning, WarningKind, http_status_warning
-from utils.utils import GREEN, YELLOW, BRIGHT_RED, RESET
+from core.log_format import TAG_PIPE, TAG_WEB
 from config.settings import settings
 from config.pipeline_config import get_node_config
 from utils.prompt_registry import get_prompt_registry
@@ -220,7 +220,7 @@ def _brave_search(query, num_results, query_prefix="", query_suffix=""):
     effective_query = f"{query_prefix} {query} {query_suffix}".strip()
 
     try:
-        logger.info(f"[WEB_SCRAPE] Trying Brave Search API for: '{effective_query}'")
+        logger.info(f"{TAG_WEB} Trying Brave Search API for: '{effective_query}'")
 
         headers = {
             'X-Subscription-Token': api_key,
@@ -268,18 +268,18 @@ def _brave_search(query, num_results, query_prefix="", query_suffix=""):
                     'snippet': "\n".join(p for p in snippet_parts if p).strip(),
                 })
 
-            logger.info(f"[WEB_SCRAPE] Brave Search found {len(records)} sources")
+            logger.info(f"{TAG_WEB} Brave Search found {len(records)} sources")
             return records, None
 
         # Non-200: carry Brave's real status + body to the consumer (case b).
         code, kind = http_status_warning(response.status_code)
         msg = f"Brave Search HTTP {response.status_code}: {response.text[:200]}"
-        logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+        logger.warning(f"{TAG_WEB} {msg}")
         return [], StepWarning("web_search", code, msg, kind)
 
     except Exception as e:
         msg = f"Brave Search failed: {str(e)}"
-        logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] {msg}{RESET}")
+        logger.warning(f"{TAG_WEB} {msg}")
         return [], StepWarning("web_search", "brave_error", msg, WarningKind.TRANSIENT)
 
 
@@ -319,7 +319,7 @@ async def _from_scrape(records, max_sites, content_char_limit, scrape_budget, ex
     except asyncio.TimeoutError:
         # Batch overran the budget. Threads finish in the background and are
         # discarded; the request returns now. Hybrid still yields snippets below.
-        logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] scrape budget {scrape_budget}s exceeded — degrading{RESET}")
+        logger.warning(f"{TAG_WEB} scrape budget {scrape_budget}s exceeded — degrading")
         results = [None] * len(records)
 
     out = []
@@ -490,12 +490,12 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         search_method = "precomputed"
         cost_strategy = "precomputed"
         fetched = len(scraped_content)
-        logger.info(f"[WEB_SCRAPE] Using {len(scraped_content)} precomputed sources")
+        logger.info(f"{TAG_WEB} Using {len(scraped_content)} precomputed sources")
     elif skip_search:
         scraped_content = []
         ws_elapsed = None
         cost_strategy = "skipped"
-        logger.info("[WEB_SCRAPE] Skipped (LLM knowledge only)")
+        logger.info("%s Skipped (LLM knowledge only)", TAG_WEB)
     else:
         scraped_content = []
         search_method = "Brave Search API"
@@ -512,7 +512,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
             )
         except Exception as e:
             records = []
-            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] Brave search bounded-timeout: {e}{RESET}")
+            logger.warning(f"{TAG_WEB} Brave search bounded-timeout: {e}")
             brave_warning = StepWarning(
                 "web_search", "brave_error", f"Brave search bounded-timeout: {e}", WarningKind.TRANSIENT
             )
@@ -529,14 +529,14 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
             if scraped_content:
                 titles = " | ".join(s["title"][:40] for s in scraped_content)
                 logger.info(
-                    f"{GREEN}[WEB_SCRAPE] ✓ {fetched} sources · target {max_sites} · "
+                    f"{TAG_WEB} ✓ {fetched} sources · target {max_sites} · "
                     f"strategy={strategy} · scrape_ok={scrape_stats['scrape_ok']} "
-                    f"scrape_failed={scrape_stats['scrape_failed']}{RESET}: {titles}"
+                    f"scrape_failed={scrape_stats['scrape_failed']}: {titles}"
                 )
             else:
-                logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ 0/{max_sites} sources (strategy={strategy}){RESET}")
+                logger.warning(f"{TAG_WEB} ✗ 0/{max_sites} sources (strategy={strategy})")
         else:
-            logger.warning(f"{BRIGHT_RED}[WEB_SCRAPE] ✗ No results{RESET}")
+            logger.warning(f"{TAG_WEB} ✗ No results")
         ws_elapsed = round(time.time() - ws_start, 3)
 
     # Build research prompt (custom override or registry-based)
@@ -566,7 +566,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     else:
         has_data = "RESEARCH DATA:" in prompt or any(item['title'] in prompt for item in scraped_content[:1])
         checks.append(f"research_data: {'✓' if has_data else '✗ MISSING'}")
-    logger.debug(f"{YELLOW}[PROMPT] {' | '.join(checks)}{RESET}")
+    logger.debug(f"{TAG_PIPE} prompt {' | '.join(checks)}")
 
     messages = [{"role": "user", "content": prompt}]
     llm_kwargs = {

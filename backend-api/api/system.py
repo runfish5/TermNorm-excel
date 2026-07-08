@@ -9,7 +9,7 @@ from fastapi import APIRouter, Body
 
 from config.pipeline_config import get_pipeline_config
 from config.settings import settings
-from core import llm_providers
+from core import llm_providers, throughput
 from services import match_database as match_db
 from api.responses import _ok, _err
 
@@ -101,6 +101,9 @@ async def status() -> dict[str, Any]:
         "experiments": experiments,
         "pipeline_version": pipeline_cfg.get("version", "unknown"),
         "available_providers": llm_providers.get_available_providers(),
+        # Request throughput, Dropwizard-Meter shape: lifetime count + 1/5/15-min
+        # req/min rates. No side-car — computed from an in-process window.
+        "throughput": throughput.snapshot(),
     })
 
 

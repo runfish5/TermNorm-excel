@@ -266,5 +266,7 @@ See `backend-api/docs/LANGFUSE_DATA_MODEL.md` for full specification.
 
 ## Development Notes
 
-- **Backend print() statements are intentional**: Colored console output in `research_and_rank/` files provides developer-friendly pipeline visibility. Do not convert to logging module.
+- **Console color is level-only + centralized**: call sites emit plain `[TAG] body` via `logger.*`; `core.logging.ConsoleFormatter` paints the tag **only** for WARNING (yellow) / ERROR (red) — INFO tags stay neutral. The one INFO color is the `[RESP]` outcome word (`core.log_format.paint`). Never re-add inline `{COLOR}…{RESET}` or per-stage tag color at a call site, and keep the file handler plain so `logs/app.log` stays ANSI-free.
+- **Per-request stream shape**: effective LLM config prints once-on-change (`[CFG ]`, keyed on `_last_cfg_sig` in `research_pipeline.py`), not per request; each request is `[REQ ]` (path·steps·size·query) then `[RESP]` (outcome·time·tokens·cost·→answer), a blank line between requests. `[LLM ]` dispatch is DEBUG. Don't reintroduce per-request config/dispatch echo.
+- **Throughput/utilization** rides `core/throughput.py` — an in-process request-timestamp window (no side-car metrics store). Surfaced as a throttled `[LOAD]` console heartbeat (1m/5m/15m req/min, load-average style) and a Dropwizard-`Meter`-shaped `throughput` block (`count`, `rate_{1,5,15}m`) on `/status`. Reuse `throughput.record()`/`snapshot()`; don't add a parallel counter.
 - **Archive folder**: `backend-api/.archive/` contains migration scripts needed until v1.3.0. Do not remove.

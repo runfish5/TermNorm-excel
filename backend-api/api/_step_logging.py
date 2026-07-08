@@ -19,9 +19,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from core.log_format import TAG_RESP, TAG_STEP
+from core.log_format import TAG_RESP, TAG_STEP, paint
 from core.pipeline_context import PipelineContext, StepResult
-from utils.utils import BRIGHT_RED, GREEN, RESET, YELLOW
+from utils.utils import BRIGHT_RED, GREEN, YELLOW
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +116,19 @@ def log_step_short(
     rec = ctx._steps.get(step_name)
     warn_count = len(rec.warnings) if rec else 0
     body = fmt(step_name, result.elapsed, result.output, warn_count)
-    logger.info(f"{GREEN}{TAG_STEP}{RESET} {body}")
+    logger.info(f"{TAG_STEP} {body}")
 
 
 def log_run_summary(ctx: PipelineContext, api_response: dict) -> None:
-    """Emit the long-form ``[RESP]`` summary once per request."""
-    logger.info(_summarize_response(api_response))
+    """Emit the long-form ``[RESP]`` summary once per request.
+
+    Logged at a level matching the outcome (ok→INFO, warn→WARNING, fail→ERROR)
+    so the console formatter paints the ``[RESP]`` tag to match — no inline tag
+    color needed; only the outcome word itself is content-painted below.
+    """
+    level, text = _summarize_response(api_response)
+    # Trailing blank line = the visual boundary between request groups.
+    logger.log(level, text + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -136,11 +143,7 @@ _ROW_INDENT = " " * 9
 
 
 def _row(label: str, body: str) -> str:
-    return f"{_ROW_INDENT}{GREEN}{label:<{_LABEL_WIDTH}}{RESET} {body}"
-
-
-def _approx_tokens(chars: int) -> int:
-    return max(1, round(chars / 4)) if chars else 0
+    return f"{_ROW_INDENT}{label:<{_LABEL_WIDTH}} {body}"
 
 
 def _fmt_params(cfg: dict) -> str:
@@ -163,8 +166,11 @@ def _fmt_params(cfg: dict) -> str:
     return " · ".join(parts)
 
 
-def _summarize_response(resp: dict) -> str:
+def _summarize_response(resp: dict) -> tuple[int, str]:
     """Compact, grouped structural summary of an API response for logging.
+
+    Returns ``(levelno, text)`` — the level encodes the outcome (ok→INFO,
+    warn→WARNING, fail→ERROR) so the caller logs at it and the tag color follows.
 
     Header status reflects pipeline outcome (ok/warn/fail), not the HTTP
     response wrapper — a step that errored still returns a 200 OK envelope,
@@ -173,7 +179,7 @@ def _summarize_response(resp: dict) -> str:
     Layout (one row per group, labels left-aligned). Sub-rows are emitted
     only when they carry information not already on [REQ ] / [LLM ]:
 
-        [RESP] <ok|warn|fail> · <total:.2f>s [→ <terminated_at>]
+        [RESP] <ok|warn|fail> · <total:.2f>s [→ <terminated_at>] [· <in>→<out> tok] [· $<cost>]
                  output    {final_ranking: {...}, entity_profile: {...}, ...}
                  llm       t=.. · max=.. · fmt=..   (model+reasoning on [LLM ])
                  steps     <per-step timings>        (multi-step pipelines only)
@@ -191,42 +197,51 @@ def _summarize_response(resp: dict) -> str:
     statuses = diag.get("step_statuses", {}) if isinstance(diag, dict) else {}
     has_failed = any(st == "failed" for st in statuses.values())
     if has_failed:
-        outcome, color = "fail", BRIGHT_RED
+        outcome, color, level = "fail", BRIGHT_RED, logging.ERROR
     elif warnings or any(st not in ("success", "skipped") for st in statuses.values()):
-        outcome, color = "warn", YELLOW
+        outcome, color, level = "warn", YELLOW, logging.WARNING
     else:
-        outcome, color = "ok", GREEN
+        outcome, color, level = "ok", GREEN, logging.INFO
 
-    header = f"{color}{TAG_RESP} {outcome}"
+    header = f"{TAG_RESP} {paint(outcome, color)}"
     if total is not None:
         header += f" · {total:.2f}s"
     # Only show terminated_at on early termination — when the pipeline ran
     # all the way through, the operator already knows the last step from REQ.
     if terminated and terminated != final_step:
         header += f" → {terminated}"
-    header += RESET
-    lines = [header]
+    # Token + cost rollup — real provider-reported spend, summed over the run's
+    # LLM nodes (step_tokens). The one number the per-request stream lacked;
+    # cost only shows when the provider surfaced it.
+    tok = data.get("step_tokens", {}) or {}
+    tin = sum(int(t.get("input", 0) or 0) for t in tok.values())
+    tout = sum(int(t.get("output", 0) or 0) for t in tok.values())
+    cost = sum(float(t.get("cost_usd", 0) or 0) for t in tok.values())
+    if tin or tout:
+        header += f" · {tin}→{tout} tok"
+    if cost:
+        header += f" · ${cost:.4f}"
 
-    # ---- output (nested-dict-style one-liner showing result shape) --------
-    parts: list[str] = []
-
+    # ---- answer on the header (the top result, the thing you're watching) --
+    # Collapse whitespace, drop the ** bold the answer-format matcher reads.
     ranked = data.get("final_ranking", [])
     if ranked:
-        top = ranked[0]
-        name = str(top.get("candidate", ""))
-        preview = name.replace("\n", " ")[:50]
-        suffix = "…" if len(name) > 50 else ""
-        chars = len(name)
-        tokens = _approx_tokens(chars)
-        score = top.get("relevance_score")
-        fr_inner = [
-            f'{len(ranked)} items',
-            f'top="{preview}{suffix}"',
-            f'chars={chars}',
-            f'tokens~{tokens}',
-        ]
-        if isinstance(score, (int, float)):
-            fr_inner.append(f'score={score:.3f}')
+        raw = " ".join(str(ranked[0].get("candidate", "")).split()).strip("*")
+        answer = raw[:40] + ("…" if len(raw) > 40 else "")
+        if answer:
+            header += f" · → {answer}"
+    lines = [header]
+
+    # ---- output sub-rows (only what the header doesn't already say) --------
+    parts: list[str] = []
+
+    # final_ranking: the header already shows the top answer; only add a row
+    # when there's a field of candidates worth summarizing (score range).
+    if len(ranked) > 1:
+        scores = [c.get("relevance_score") for c in ranked if isinstance(c.get("relevance_score"), (int, float))]
+        fr_inner = [f'{len(ranked)} items']
+        if scores:
+            fr_inner.append(f'score={max(scores):.3f}–{min(scores):.3f}')
         parts.append(f"final_ranking: {{{', '.join(fr_inner)}}}")
 
     ep = data.get("entity_profile")
@@ -284,4 +299,4 @@ def _summarize_response(resp: dict) -> str:
         status_tail = f" · {', '.join(non_success)}" if non_success else ""
         lines.append(_row("status", f"{n_exec}/{n_req} steps · {w_str}{status_tail}"))
 
-    return "\n".join(lines)
+    return level, "\n".join(lines)

@@ -24,7 +24,6 @@ from core.log_format import (
     continuation,
     fmt_fields,
 )
-from utils.utils import RED, RESET
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +40,10 @@ _LOGPROBS = _llm_cfg.get("logprobs")
 # Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts
 # the model with the validation errors, up to this many times, before raising 422.
 _STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg.get("structured_repair_attempts", 2)
+# Head-cap on the reasoning trace surfaced through usage_out. Reasoning models
+# (gpt-oss et al.) put their chain-of-thought on message.reasoning, not content;
+# PromptPotter's critique tier reads it to diagnose per-sample failures.
+_REASONING_TRACE_CAP = _llm_cfg.get("reasoning_trace_cap", 4000)
 # Structured-output mode. "native" (default) sends a provider-native ``response_format``
 # (``json_schema`` when a schema is supplied, else ``json_object``) so capable models are
 # CONSTRAINED to emit valid JSON. "prompt_repair" sends no ``response_format`` and relies
@@ -336,12 +339,15 @@ async def llm_call(
     # sees model + reasoning on every call. Input chars are already on the
     # [REQ ] line (for /matches calls); duplicating here was redundant.
     if node_name is not None:
+        # DEBUG, not INFO: provider/model/reasoning are echoed once per config
+        # change on the [CFG ] line, so a per-call dispatch echo is redundant on
+        # the happy path. Failures still surface via [LLM!] at warning/error.
         body = fmt_fields(
             node_name,
             f"{provider}:{model}",
             ("reasoning", reasoning_effort),
         )
-        logger.info(f"{RED}{TAG_LLM} {body}{RESET}")
+        logger.debug(f"{TAG_LLM} {body}")
 
     if system:
         messages = [{"role": "system", "content": system}] + messages
@@ -538,6 +544,10 @@ async def llm_call(
                             rt = getattr(details, "reasoning_tokens", None)
                             if rt is not None:
                                 usage_out["reasoning"] = int(rt)
+                        if response.choices:
+                            trace = getattr(response.choices[0].message, "reasoning", None) or ""
+                            if trace:
+                                usage_out["reasoning_text"] = trace[:_REASONING_TRACE_CAP]
                     # OpenRouter ships USD on the wire under usage.cost (some
                     # responses also expose total_cost). PromptPotter's
                     # dashboard prefers this over its rate table when present.

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .settings import settings
 from core.user_manager import user_manager
+from core.log_format import TAG_AUTH
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ async def user_auth_middleware(request: Request, call_next):
         user_id = user_manager.authenticate(client_ip)
 
         if not user_id:
-            logger.warning(f"[USER_AUTH] IP {client_ip} not authorized")
+            logger.warning(f"{TAG_AUTH} IP {client_ip} not authorized")
             return JSONResponse(
                 status_code=403,
                 content={
@@ -59,7 +60,7 @@ async def user_auth_middleware(request: Request, call_next):
 
         # Inject user context into request
         request.state.user_id = user_id
-        logger.debug(f"[USER_AUTH] Request from user {user_id} (IP: {client_ip})")
+        logger.debug(f"{TAG_AUTH} Request from user {user_id} (IP: {client_ip})")
 
     response = await call_next(request)
     return response

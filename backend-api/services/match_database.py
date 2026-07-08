@@ -12,6 +12,7 @@ from typing import Any
 
 from utils.cache_metadata import CacheMetadata
 from config.pipeline_config import get_cache_config
+from core.log_format import TAG_DB
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def load():
     needs_rebuild = False
 
     if not MATCH_DB_PATH.exists():
-        logger.info("[MATCH_DB] Cache missing, will rebuild")
+        logger.info("%s Cache missing, will rebuild", TAG_DB)
         needs_rebuild = True
     elif experiments_path.exists():
         cache_mtime = MATCH_DB_PATH.stat().st_mtime
@@ -105,7 +106,7 @@ def load():
                 continue
             runs_dir = exp_dir / "runs"
             if runs_dir.exists() and runs_dir.stat().st_mtime > cache_mtime:
-                logger.info(f"[MATCH_DB] Experiment {exp_dir.name} has new data, will rebuild")
+                logger.info(f"{TAG_DB} Experiment {exp_dir.name} has new data, will rebuild")
                 needs_rebuild = True
                 break
 
@@ -116,11 +117,11 @@ def load():
     try:
         with open(MATCH_DB_PATH, 'r', encoding='utf-8') as f:
             _db = json.load(f)
-        logger.debug(f"[MATCH_DB] Loaded {len(_db)} identifiers from cache")
+        logger.debug(f"{TAG_DB} Loaded {len(_db)} identifiers from cache")
         summary = _cache_metadata.get_summary()
-        logger.debug(f"[MATCH_DB] Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
+        logger.debug(f"{TAG_DB} Cache age: {summary['age']}, identifiers: {summary['total_identifiers']}")
     except (json.JSONDecodeError, IOError) as e:
-        logger.warning(f"[MATCH_DB] Failed to load cache: {e}, rebuilding...")
+        logger.warning(f"{TAG_DB} Failed to load cache: {e}, rebuilding...")
         rebuild()
 
 
@@ -190,11 +191,11 @@ def rebuild():
     observations_path = langfuse_path / "observations"
 
     if not traces_path.exists():
-        logger.warning("[MATCH_DB] No langfuse traces directory found")
+        logger.warning("%s No langfuse traces directory found", TAG_DB)
         save()
         return 0
 
-    logger.info("[MATCH_DB] Rebuilding from langfuse structure...")
+    logger.info("%s Rebuilding from langfuse structure...", TAG_DB)
     _cache_metadata.mark_rebuild_start("langfuse")
 
     total_records = 0
@@ -235,7 +236,7 @@ def rebuild():
             total_records += 1
 
         except (json.JSONDecodeError, IOError) as e:
-            logger.warning(f"[MATCH_DB] Error reading {trace_file}: {e}")
+            logger.warning(f"{TAG_DB} Error reading {trace_file}: {e}")
             continue
 
     identifiers_count = len(_db)
@@ -251,5 +252,5 @@ def rebuild():
         data_sources=[{"type": "langfuse", "traces_loaded": total_records}],
     )
 
-    logger.info(f"[MATCH_DB] Rebuilt from langfuse: {identifiers_count} identifiers, {total_records} records")
+    logger.info(f"{TAG_DB} Rebuilt from langfuse: {identifiers_count} identifiers, {total_records} records")
     return identifiers_count

@@ -2,8 +2,40 @@
 Centralized logging configuration for TermNorm Backend API
 """
 import logging
+import re
 import sys
 from pathlib import Path
+
+from core.log_format import TAGS
+from utils.utils import BRIGHT_RED, RESET, YELLOW
+
+# Match only real, registered tags — never a stray bracket in a message body.
+_TAG_RE = re.compile("|".join(re.escape(t) for t in TAGS))
+
+
+class ConsoleFormatter(logging.Formatter):
+    """Color the leading tag by **level only** — the ONE place console color lives.
+
+    Call sites emit plain ``[TAG] body`` text. INFO lines stay neutral (colored
+    tags on every line read as noise); only a warning (yellow) or error (red)
+    paints its tag, so a problem is unmistakable amid the stream. The single
+    INFO-level color is the ``[RESP]`` outcome word, painted at its source. The
+    file handler never sees this formatter — so ``logs/app.log`` is ANSI-free.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        msg = super().format(record)
+        if record.levelno >= logging.ERROR:
+            color = BRIGHT_RED
+        elif record.levelno >= logging.WARNING:
+            color = YELLOW
+        else:
+            return msg  # INFO and below: neutral
+        match = _TAG_RE.search(msg)
+        if not match:
+            return msg
+        start, end = match.span()
+        return f"{msg[:start]}{color}{match.group(0)}{RESET}{msg[end:]}"
 
 
 def setup_logging(
@@ -35,11 +67,11 @@ def setup_logging(
 
     root_logger = logging.getLogger()
 
-    # Console handler
+    # Console handler — colored by ConsoleFormatter (tag + level).
     if include_console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(
-            logging.Formatter('%(asctime)s %(message)s', datefmt='%H:%M:%S')
+            ConsoleFormatter('%(asctime)s %(message)s', datefmt='%H:%M:%S')
         )
         root_logger.addHandler(console_handler)
 
@@ -53,6 +85,9 @@ def setup_logging(
 
     # Set specific loggers to appropriate levels
     logging.getLogger("uvicorn").setLevel(logging.INFO)
+    # uvicorn's access line ("POST /matches 200 OK") duplicates our [REQ ]/[RESP]
+    # pair (which carry the query, timing, outcome + tokens) — silence it.
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("fastapi").setLevel(logging.INFO)
     logging.getLogger("bs4.dammit").setLevel(logging.ERROR)
     logging.getLogger("httpx").setLevel(logging.WARNING)

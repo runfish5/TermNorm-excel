@@ -22,10 +22,13 @@ optimizer param shape.
 (injected as system).
 
 **Output:** `StepResult` whose `output` is
-`{"final_ranking": [{"candidate": <text>, "score": 1.0}]}`. Single
-synthetic candidate. Pipeline terminates after this step
-(`terminates=True`) — the step is a ranker that short-circuits the rest
-of the pipeline.
+`{"final_ranking": [{"candidate": <text>, "relevance_score": 1.0}]}` — a
+single synthetic candidate carrying the raw answer through (the scoring
+matcher extracts the label, not this node). An **empty / declined answer
+yields `{"final_ranking": []}`** — the structural NO_RESULT shared with the
+multi-node path, not a confident empty candidate. Pipeline terminates after
+this step (`terminates=True`) — the step is a ranker that short-circuits the
+rest of the pipeline.
 
 **Config keys** (all optimizer-tunable):
 
@@ -73,14 +76,15 @@ from the advisory + raw response shape we expose here.
    `Literal["low","medium","high"] | None` argument and forwards it as
    `params["reasoning_effort"]` on OpenAI/Groq. `_step_llm_only` reads
    it from `cfg` and passes it through.
-4. **Empty-output guard in `_step_llm_only`.** If the final answer is
-   empty, the step also attaches a
-   `StepWarning("llm_only", "empty_output", ...)` and sets its
-   `diagnostics.step_statuses.llm_only = "empty_output"`. This is
-   independent of the `content_empty` advisory above — it is the
-   step-level view, useful when classifiers want a coarser signal.
-   The empty candidate is still returned — swallowing it would hide
-   the failure mode.
+4. **Empty-output → NO_RESULT in `_step_llm_only`.** If the final answer
+   is empty/declined, the step attaches a
+   `StepWarning("llm_only", "empty_output", ...)`, returns
+   `status=DEGRADED`, and emits `final_ranking: []` — the structural
+   NO_RESULT. It does NOT return an empty candidate at `relevance_score 1.0`:
+   that read downstream as a confident MISS and hid the decline. This is the
+   step-level companion to the `content_empty` advisory above; the matcher
+   scores `[]` as NO_RESULT, so the failure mode surfaces rather than passing
+   as a wrong answer.
 
 ## Langfuse
 
