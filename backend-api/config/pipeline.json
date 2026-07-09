@@ -337,6 +337,9 @@
     "token_limit": 100000,
     "seed": null,
     "logprobs": null,
-    "structured_repair_attempts": 2
+    "structured_repair_attempts": 2,
+    "reasoning_trace_cap": 4000,
+    "structured_output_mode": "native",
+    "anthropic_max_tokens_default": 8192
   }
 }

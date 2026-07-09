@@ -1,6 +1,8 @@
 """
 TermNorm Backend API - Minimal FastAPI Application
 """
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 
 # Load .env file BEFORE importing modules that read environment variables
@@ -26,8 +28,38 @@ setup_logging(level="INFO", log_file="logs/app.log")
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: load the match cache, print the boot banner, warn on missing provider keys.
+    Shutdown: log the stop. (FastAPI lifespan — replaces the deprecated on_event handlers.)"""
+    # Default prompts (v1) live in logs/prompts/ — no runtime init needed.
+    # Manual reinit: python -m utils.prompt_registry
+    from services.match_database import load
+    load()
+
+    from core.banner import print_startup_banner
+    print_startup_banner()
+
+    available = get_available_providers()
+    if not available:
+        logger.warning(
+            "No LLM provider API keys detected — LLM features will fail at first call. "
+            "Copy backend-api/.env.example to backend-api/.env, uncomment one of the "
+            "provider lines (GROQ_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY / "
+            "ANTHROPIC_API_KEY), paste your key, then restart. From the repo root:\n"
+            "    cp backend-api/.env.example backend-api/.env\n"
+            "    nano backend-api/.env"
+        )
+    else:
+        logger.info("LLM providers available: %s", ", ".join(available))
+
+    yield
+
+    logger.info("Shutting down TermNorm Backend API")
+
+
 # Create FastAPI application
-app = FastAPI(title=settings.api_title, description=settings.api_description)
+app = FastAPI(title=settings.api_title, description=settings.api_description, lifespan=lifespan)
 
 # Custom HTTPException handler - standardize error format
 @app.exception_handler(HTTPException)
@@ -71,38 +103,6 @@ app.include_router(system_router)      # Health checks, connection test, activit
 app.include_router(research_router)    # /research-and-match pipeline (stateless)
 app.include_router(experiments_router)  # Experiments/traces data endpoints
 app.include_router(pipeline_router)    # Pipeline config + trace lifecycle
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Load cache, print the boot banner, warn on missing active-provider key."""
-    # Default prompts (v1) live in logs/prompts/ — no runtime init needed.
-    # Manual reinit: python -m utils.prompt_registry
-
-    from services.match_database import load
-    load()
-
-    from core.banner import print_startup_banner
-    print_startup_banner()
-
-    available = get_available_providers()
-    if not available:
-        logger.warning(
-            "No LLM provider API keys detected — LLM features will fail at first call. "
-            "Copy backend-api/.env.example to backend-api/.env, uncomment one of the "
-            "provider lines (GROQ_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY / "
-            "ANTHROPIC_API_KEY), paste your key, then restart. From the repo root:\n"
-            "    cp backend-api/.env.example backend-api/.env\n"
-            "    nano backend-api/.env"
-        )
-    else:
-        logger.info("LLM providers available: %s", ", ".join(available))
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on application shutdown"""
-    logger.info("Shutting down TermNorm Backend API")
 
 
 if __name__ == "__main__":

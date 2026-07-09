@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Any
 from fastapi import APIRouter, HTTPException, Request, Body
 
@@ -23,19 +23,18 @@ from utils.langfuse_logger import (
     log_batch_start, log_batch_complete, log_pipeline,
     log_cache_match, log_fuzzy_match, log_user_correction
 )
-from utils.schema_registry import format_string_from_schema, get_schema_registry
-from config.settings import settings
+from utils.schema_registry import append_structure_directive, get_schema_registry
 from config.pipeline_config import (
     get_node_config,
     get_pipeline_steps,
     get_session_required_steps,
     validate_step_dependencies,
 )
-
-logger = logging.getLogger(__name__)
-
 from api.responses import _ok
 from api._step_logging import STEP_NODE_TYPE, log_run_summary, log_step_short
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -56,6 +55,19 @@ _pipeline = get_pipeline_steps
 
 # Threshold for accepting fuzzy corrections in direct prompt
 ACCEPT_THRESHOLD = _node("direct_prompt")["accept_threshold"]
+
+# direct_prompt's output shape — declared once, rendered into the prompt via the same
+# append_structure_directive seam every other node uses (not a hand-written JSON block).
+# `confidence`'s 0.0-1.0 range rides the instruction prose: format_string_from_schema inlines
+# descriptions for string/enum fields, not numeric ones.
+_DIRECT_PROMPT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "output": {"type": "string", "description": "the processed/transformed result"},
+        "confidence": {"type": "number", "description": "0.0-1.0"},
+        "reasoning": {"type": "string", "description": "brief explanation of what you did"},
+    },
+}
 
 
 def _update_session_usage(user_id, target=None):
@@ -88,7 +100,7 @@ async def init_terms(request: Request, payload: dict[str, Any] = Body(...)) -> d
     # Store terms in session with usage tracking
     user_sessions[user_id] = {
         "terms": terms,
-        "init_time": datetime.utcnow(),
+        "init_time": datetime.now(timezone.utc),
         "query_count": 0,
         "targets_used": {}  # target → count
     }
@@ -290,11 +302,8 @@ async def _step_fuzzy(query: str, cfg: dict, ctx: PipelineContext) -> StepResult
 
 
 async def _step_web_search(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
-    """Sentinel — actual web search runs inside _step_entity_profiling (coupled function)."""
-    if "entity_profiling" in ctx.requested_steps:
-        # Will be handled by _step_entity_profiling
-        return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
-    # web_search without entity_profiling is not a supported configuration
+    """Sentinel — web search always runs inside _step_entity_profiling (coupled function), so
+    this step is itself a no-op. web_search without entity_profiling is not a supported config."""
     return StepResult(output=None, elapsed=0.0, status=StepStatus.SKIPPED)
 
 
@@ -464,7 +473,7 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
         return StepResult(output=llm_response, elapsed=elapsed or 0.0, status=status, warnings=warnings)
 
     except HTTPException as e:
-        max_cands = tm_cfg.get("max_token_candidates", 20)
+        max_cands = tm_cfg["max_token_candidates"]
         logger.error(
             "%s LLM ranking failed (%d: %s) — falling back to token match scores (%d candidates)",
             TAG_PIPE, e.status_code, e.detail, len(candidates[:max_cands]),
@@ -494,9 +503,9 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     system = cfg.get("prompt", "")
     provider = cfg["provider"]
     model = cfg["model"]
-    temperature = cfg.get("temperature", 0.0)
+    temperature = cfg["temperature"]
     max_tokens = cfg.get("max_tokens")
-    response_format = cfg.get("response_format", "text")
+    response_format = cfg["response_format"]
     reasoning_effort = cfg.get("reasoning_effort")
     # `llm_call` has always accepted a seed; this node never passed one, so every dataset
     # pinning `seed: 0` (justlogic does) silently ran non-deterministic on this arm while
@@ -537,11 +546,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         # two can never disagree — the same rule `call_llm_for_ranking` follows. The rendered
         # block is what TEACHES the field order and the enum value space; constrained decoding
         # only COMPELS them where the provider honors it.
-        structure_block = format_string_from_schema(output_schema)
-        system = (
-            f"{system}\n\nIMPORTANT: Return a valid JSON response matching this exact "
-            f"structure:\n{structure_block}"
-        ).lstrip()
+        system = append_structure_directive(system, output_schema).lstrip()
         kwargs["output_format"] = "schema"
         kwargs["schema"] = output_schema
     elif response_format == "json":
@@ -817,7 +822,7 @@ def _build_response(ctx: PipelineContext) -> tuple:
             if raw is not None:
                 node_outputs[node_name] = serializer(raw)
 
-    candidate_ranking = candidates[: ctx.params.get("token_matching", {}).get("max_token_candidates", 20)]
+    candidate_ranking = candidates[: ctx.params["token_matching"]["max_token_candidates"]]
     api_response = _ok(
         message=f"Research completed - Found {len(ranked)} matches in {ctx.total_time}s",
         data=_response_data(
@@ -1117,13 +1122,13 @@ async def direct_prompt(
     terms = user_sessions[user_id]["terms"]
     start_time = time.time()
 
-    # Resolve direct_prompt node config (pipeline.json base + request overrides)
-    _dp = _node("direct_prompt")
-    _dp_ov = payload.get("node_config", {}).get("direct_prompt", {})
-    dp_provider = _dp_ov.get("provider", _dp["provider"])
-    dp_model = _dp_ov.get("model", _dp["model"])
-    dp_temperature = _dp_ov.get("temperature", _dp["temperature"])
-    dp_max_tokens = _dp_ov.get("max_tokens", _dp["max_tokens"])
+    # Resolve direct_prompt node config through the same per-key merge every /matches node uses
+    # (pipeline.json base + request node_config override) — not a hand-rolled per-field .get chain.
+    dp = _resolve_pipeline_params(payload, steps=["direct_prompt"])["direct_prompt"]
+    dp_provider = dp["provider"]
+    dp_model = dp["model"]
+    dp_temperature = dp["temperature"]
+    dp_max_tokens = dp["max_tokens"]
 
     # Build system prompt for general LLM inference
     context_sections = []
@@ -1133,18 +1138,13 @@ async def direct_prompt(
     if current_output:
         context_sections.append(f"Current output value: {current_output}")
 
-    system_prompt = f"""You are a helpful assistant that processes text according to user instructions.
-
-{chr(10).join(context_sections)}
-
-For the given input, apply the user's instructions and return a JSON object:
-{{
-    "output": "the processed/transformed result",
-    "confidence": 0.0-1.0,
-    "reasoning": "brief explanation of what you did"
-}}
-
-Return ONLY valid JSON."""
+    system_prompt = append_structure_directive(
+        "You are a helpful assistant that processes text according to user instructions.\n\n"
+        f"{chr(10).join(context_sections)}\n\n"
+        "For the given input, apply the user's instructions. `confidence` is 0.0-1.0.",
+        _DIRECT_PROMPT_SCHEMA,
+        suffix="Return ONLY valid JSON.",
+    )
 
     # Build user message
     user_content = f"Input: {query}"
@@ -1163,13 +1163,21 @@ Return ONLY valid JSON."""
             max_tokens=dp_max_tokens,
         )
 
-        target = response.get("output", query)  # Default to original if no output
+        # A response that omits `output` is a malformed result, not a confident answer — leave
+        # target empty so it flows into the needs_user_selection path below (fuzzy score 0),
+        # rather than writing the raw input query back as if the model had chosen it.
+        target = response.get("output", "")
         confidence = float(response.get("confidence", 0.5))
         reasoning = response.get("reasoning", "")
 
+    except HTTPException:
+        # llm_call already raised the standardized envelope (stable code, Retry-After on 429);
+        # re-wrapping it into a 200 body would hide the failure — the frontend reads HTTP 200 as
+        # success regardless of a status:"error" field.
+        raise
     except Exception as e:
-        logger.error(f"{TAG_PIPE} direct-prompt LLM error: {e}")
-        return {"status": "error", "message": f"LLM error: {str(e)}"}
+        logger.error(f"{TAG_PIPE} direct-prompt unexpected error: {e}")
+        raise HTTPException(500, f"Direct prompt failed: {e}")
 
     total_time = round(time.time() - start_time, 2)
 
@@ -1181,7 +1189,7 @@ Return ONLY valid JSON."""
     fuzzy_score = 0.0
     original_target = None
 
-    top_matches = find_top_matches(target, terms, n=_dp["correction_top_n"])
+    top_matches = find_top_matches(target, terms, n=dp["correction_top_n"])
     best_match, best_score = top_matches[0] if top_matches else (None, 0)
     fuzzy_score = best_score
 
@@ -1231,8 +1239,6 @@ Return ONLY valid JSON."""
 # =============================================================================
 # FRONTEND LOGGING ENDPOINTS
 # =============================================================================
-
-from pydantic import BaseModel
 
 
 class LogMatchRequest(BaseModel):
@@ -1296,9 +1302,11 @@ async def log_match(request: Request, payload: LogMatchRequest) -> dict[str, Any
             data={"trace_id": trace_id}
         )
 
+    except HTTPException:
+        raise  # the explicit 400 (unknown method) keeps its status, not flattened to a 200
     except Exception as e:
         logger.error(f"{TAG_PIPE} log-match error: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(500, f"log-match failed: {e}")
 
 
 @router.post("/activities")
@@ -1325,4 +1333,4 @@ async def log_activity(request: Request, payload: LogActivityRequest) -> dict[st
 
     except Exception as e:
         logger.error(f"{TAG_PIPE} log-activity error: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(500, f"log-activity failed: {e}")

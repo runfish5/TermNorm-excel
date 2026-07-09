@@ -26,7 +26,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
-from datetime import datetime
+from utils.utils import utcnow_iso
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class SchemaRegistry:
             "version": version,
             "family": family,
             "description": description,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": utcnow_iso(),
             "fields": fields or [],
             "metadata": metadata or {}
         }
@@ -177,6 +177,16 @@ def get_schema_registry() -> SchemaRegistry:
     return _registry
 
 
+def _gloss(rendered: str, prop: dict[str, Any]) -> str:
+    """Append the field's ``description`` as an inline ``// comment`` after a non-string
+    placeholder. A ``description`` is prompt text for EVERY field, not just strings — an
+    array's "constituent materials, both explicit and inferred" or a number's "0-100" steers
+    generation exactly as a string field's does. Strings alone skip this: their description IS
+    the placeholder (rendered in quotes), so a trailing gloss would only duplicate it."""
+    desc = prop.get("description")
+    return f"{rendered}  // {desc}" if desc else rendered
+
+
 def _render_value(prop: dict[str, Any], indent: int) -> str:
     """Render one property's placeholder. ``indent`` is the column of the key line."""
     prop_type = prop.get("type", "string")
@@ -204,17 +214,17 @@ def _render_value(prop: dict[str, Any], indent: int) -> str:
         # loop, adjacent to the slot it governs. Prefer it over the bare "string" placeholder.
         return f'"{prop.get("description", "string")}"'
     if prop_type in ("number", "integer"):
-        return prop_type
+        return _gloss(prop_type, prop)
     if prop_type == "boolean":
-        return "true/false"
+        return _gloss("true/false", prop)
     if prop_type == "object":
-        return _render_object(prop, indent) if "properties" in prop else '{"object"}'
+        return _gloss(_render_object(prop, indent) if "properties" in prop else '{"object"}', prop)
     if prop_type == "array":
         items = prop.get("items", {})
         if items.get("type") == "object" and "properties" in items:
             pad = " " * indent
-            return f'[\n{pad}  {_render_object(items, indent + 2)}\n{pad}]'
-        return '["array of strings"]'
+            return _gloss(f'[\n{pad}  {_render_object(items, indent + 2)}\n{pad}]', prop)
+        return _gloss('["array of strings"]', prop)
     return f'"{prop_type}"'
 
 
@@ -240,6 +250,26 @@ def format_string_from_schema(schema: dict[str, Any]) -> str:
     if "properties" not in schema:
         raise ValueError("Schema must contain 'properties' field")
     return _render_object(schema, 0)
+
+
+# The ONE wording every node uses to hand the model its output shape. Sole owner of both the
+# directive text and the render call, so field order / descriptions / enum value-spaces always
+# reach the model through ``format_string_from_schema`` (never the flat placeholder path a
+# second renderer would reintroduce).
+_STRUCTURE_DIRECTIVE = "IMPORTANT: Return a valid JSON response matching this exact structure:"
+
+
+def append_structure_directive(text: str, schema: dict[str, Any], *, suffix: str = "") -> str:
+    """Append the rendered schema block to ``text`` as the "return exactly this" directive.
+
+    ``text`` is the node's prompt (system message or user prompt); ``suffix`` is optional
+    trailing guidance (e.g. JSON-escaping rules). Callers own placement — some prompts embed
+    the block mid-template via their own ``{{format_string}}`` instead of appending; those pass
+    the render straight to :func:`format_string_from_schema` and do not use this helper.
+    """
+    block = format_string_from_schema(schema)
+    out = f"{text}\n\n{_STRUCTURE_DIRECTIVE}\n{block}"
+    return f"{out}\n\n{suffix}" if suffix else out
 
 
 if __name__ == "__main__":

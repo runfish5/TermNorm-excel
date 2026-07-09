@@ -4,8 +4,9 @@ import logging
 import random
 from rapidfuzz import fuzz, process
 from core.llm_providers import llm_call
-from utils.prompt_registry import get_prompt_registry
-from utils.schema_registry import get_schema_registry, format_string_from_schema
+from core.log_format import TAG_PIPE
+from utils.prompt_registry import get_prompt_registry, substitute_vars
+from utils.schema_registry import get_schema_registry, append_structure_directive
 from config.pipeline_config import get_node_config
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,6 @@ _LR_CONFIG = get_node_config("llm_ranking")
 _RANKING_SCHEMA = get_schema_registry().get_schema(
     _LR_CONFIG["schema_family"], _LR_CONFIG.get("schema_version")
 )
-
-from core.log_format import TAG_PIPE
 
 
 def find_top_matches(llm_string: str, candidates: list[str], n: int) -> list[tuple[str, float]]:
@@ -78,15 +77,11 @@ def _correct_candidate_strings(ranking_result, match_results, relevance_weight_c
     return ranking_result
 
 
-def _build_result(query: str, candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int, provider: str, model: str) -> tuple[dict, dict]:
-    """Build standardized (result, debug_info) tuple for ranking responses."""
-    result = {
-        "query": query,
-        "total_matches": len(candidates),
-        "research_performed": True,
-        "ranked_candidates": candidates,
-        "llm_provider": f"{provider}/{model}",
-    }
+def _build_result(candidates: list, match_results: list[tuple[str, float]], debug_output_limit: int) -> tuple[dict, dict]:
+    """Build (result, debug_info) for a ranking response. The consumer (research_pipeline's
+    _build_response) reads only ``ranked_candidates`` off the result; earlier query/total/
+    provider fields were dead payload and are dropped."""
+    result = {"ranked_candidates": candidates}
     debug_info = {"inputs": {"candidate_ranking": match_results[:debug_output_limit]}}
     return result, debug_info
 
@@ -120,9 +115,10 @@ async def call_llm_for_ranking(
     ranking_prompt = lr_cfg.get("prompt")
     if ranking_prompt:
         # Use custom prompt with {{variable}} substitution
-        prompt = ranking_prompt.replace("{{core_concept}}", core_concept)
-        prompt = prompt.replace("{{entity_profile_json}}", entity_profile_json)
-        prompt = prompt.replace("{{matches}}", matches)
+        prompt = substitute_vars(
+            ranking_prompt, core_concept=core_concept,
+            entity_profile_json=entity_profile_json, matches=matches,
+        )
     else:
         # Get prompt from registry
         registry = get_prompt_registry()
@@ -154,14 +150,11 @@ async def call_llm_for_ranking(
     # `L1Variant.evidence_grounding`, which runs every L1 round and which `promptpotter-self`
     # measures. See PromptPotter `docs/concepts/structured-output.md`.
     ranking_schema = lr_cfg.get("output_schema")
-    structure_block = format_string_from_schema(ranking_schema or _RANKING_SCHEMA)
-
-    enhanced_prompt = f"""{prompt}
-
-IMPORTANT: Return a valid JSON response matching this exact structure:
-{structure_block}
-
-Ensure all strings are properly escaped and avoid complex punctuation in reasoning."""
+    enhanced_prompt = append_structure_directive(
+        prompt,
+        ranking_schema or _RANKING_SCHEMA,
+        suffix="Ensure all strings are properly escaped and avoid complex punctuation in reasoning.",
+    )
 
     llm_kwargs = {
         "messages": [{"role": "user", "content": enhanced_prompt}],
@@ -194,7 +187,7 @@ Ensure all strings are properly escaped and avoid complex punctuation in reasoni
     else:
         logger.warning(f"{TAG_PIPE} No usable ranked candidates in LLM response")
 
-    result, debug_info = _build_result(query, candidates, match_results, debug_output_limit, lr_cfg["provider"], lr_cfg["model"])
+    result, debug_info = _build_result(candidates, match_results, debug_output_limit)
 
     if _usage:
         debug_info["llm_usage"] = dict(_usage)

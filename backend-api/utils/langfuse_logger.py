@@ -13,7 +13,7 @@ import json
 import uuid
 from pathlib import Path
 from typing import Any
-from datetime import datetime
+from utils.utils import utcnow_iso
 
 from .id_gen import generate_dated_id
 
@@ -29,7 +29,7 @@ _index_loaded = False
 def _log_event(event: dict):
     """Append event to events.jsonl (simple flat log of all actions)."""
     _ensure_dirs()
-    event["timestamp"] = datetime.utcnow().isoformat() + "Z"
+    event["timestamp"] = utcnow_iso()
     with open(EVENTS_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(event) + "\n")
 
@@ -66,7 +66,7 @@ def create_trace(
     trace = {
         "id": trace_id,
         "name": name,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": utcnow_iso(),
         "input": input,
         "output": None,
         "user_id": user_id,
@@ -118,7 +118,7 @@ def create_observation(
 ) -> str:
     """Create observation linked to trace. Returns obs_id."""
     obs_id = f"obs-{uuid.uuid4().hex[:12]}"
-    now = datetime.utcnow().isoformat() + "Z"
+    now = utcnow_iso()
 
     observation = {
         "id": obs_id,
@@ -155,7 +155,7 @@ def create_score(trace_id: str, name: str, value: Any, data_type: str = "NUMERIC
         "name": name,
         "value": value,
         "data_type": data_type,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": utcnow_iso(),
     }
 
     path = BASE_PATH / "scores" / f"{trace_id}.jsonl"
@@ -206,7 +206,7 @@ def get_or_create_item(query: str, source_trace_id: str = None) -> str:
         "input": {"query": query},
         "expected_output": None,
         "source_trace_id": source_trace_id,
-        "metadata": {"created_at": datetime.utcnow().isoformat() + "Z"},
+        "metadata": {"created_at": utcnow_iso()},
         "status": "ACTIVE",
     }
 
@@ -224,7 +224,7 @@ def _update_item_trace(item_id: str, trace_id: str):
 
     item = json.loads(path.read_text(encoding="utf-8"))
     item["source_trace_id"] = trace_id
-    item["metadata"]["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    item["metadata"]["updated_at"] = utcnow_iso()
     path.write_text(json.dumps(item, indent=2), encoding="utf-8")
 
 
@@ -236,7 +236,7 @@ def set_ground_truth(item_id: str, target: str) -> bool:
 
     item = json.loads(path.read_text(encoding="utf-8"))
     item["expected_output"] = {"target": target}
-    item["metadata"]["ground_truth_at"] = datetime.utcnow().isoformat() + "Z"
+    item["metadata"]["ground_truth_at"] = utcnow_iso()
     path.write_text(json.dumps(item, indent=2), encoding="utf-8")
     return True
 

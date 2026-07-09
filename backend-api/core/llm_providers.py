@@ -29,35 +29,37 @@ logger = logging.getLogger(__name__)
 
 _llm_cfg = get_llm_defaults()
 
-# Loop / budget knobs — non-provider; still sourced from pipeline.json llm_defaults.
-_TIMEOUT = _llm_cfg.get("timeout", 60)
-_RETRY_ATTEMPTS = _llm_cfg.get("retry_attempts", 3)
-_RETRY_BACKOFF_BASE = _llm_cfg.get("retry_backoff_base", 2)
-_TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg.get("token_estimation_multiplier", 1.3)
-_TOKEN_LIMIT = _llm_cfg.get("token_limit", 100000)
-_SEED = _llm_cfg.get("seed")
-_LOGPROBS = _llm_cfg.get("logprobs")
+# Loop / budget knobs — non-provider; sourced from pipeline.json llm_defaults. Required, not
+# defaulted: pipeline.json is the complete declaration of every tunable (no shadow defaults that
+# could silently drift from config), so a missing key is a config error, not a fallback.
+_TIMEOUT = _llm_cfg["timeout"]
+_RETRY_ATTEMPTS = _llm_cfg["retry_attempts"]
+_RETRY_BACKOFF_BASE = _llm_cfg["retry_backoff_base"]
+_TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg["token_estimation_multiplier"]
+_TOKEN_LIMIT = _llm_cfg["token_limit"]
+_SEED = _llm_cfg["seed"]
+_LOGPROBS = _llm_cfg["logprobs"]
 # Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts
 # the model with the validation errors, up to this many times, before raising 422.
-_STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg.get("structured_repair_attempts", 2)
+_STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg["structured_repair_attempts"]
 # Head-cap on the reasoning trace surfaced through usage_out. Reasoning models
 # (gpt-oss et al.) put their chain-of-thought on message.reasoning, not content;
 # PromptPotter's critique tier reads it to diagnose per-sample failures.
-_REASONING_TRACE_CAP = _llm_cfg.get("reasoning_trace_cap", 4000)
+_REASONING_TRACE_CAP = _llm_cfg["reasoning_trace_cap"]
 # Structured-output mode. "native" (default) sends a provider-native ``response_format``
 # (``json_schema`` when a schema is supplied, else ``json_object``) so capable models are
 # CONSTRAINED to emit valid JSON. "prompt_repair" sends no ``response_format`` and relies
 # only on the client-side parse/validate/repair loop — kept inactive for rare experiments
 # with models that lack reliable native structured-output. Overridable per call via
 # ``llm_call(structured_output_mode=...)`` (sourced from a node's config).
-_STRUCTURED_OUTPUT_MODE = _llm_cfg.get("structured_output_mode", "native")
+_STRUCTURED_OUTPUT_MODE = _llm_cfg["structured_output_mode"]
 # Anthropic's API rejects requests where ``max_tokens`` is omitted. To honor the
 # "no dataset-side default across all providers" contract, we substitute a sane
 # floor when the caller passes ``None``. Set to a value safe for all current
 # Anthropic models (claude-haiku-4-5 publishes 8192 max output tokens; opus/sonnet
-# accept much higher). Override via ``llm_defaults.anthropic_max_tokens_default``
+# accept much higher). Tune via ``llm_defaults.anthropic_max_tokens_default``
 # in pipeline.json if you need more headroom on a specific deployment.
-_ANTHROPIC_MAX_TOKENS_DEFAULT = _llm_cfg.get("anthropic_max_tokens_default", 8192)
+_ANTHROPIC_MAX_TOKENS_DEFAULT = _llm_cfg["anthropic_max_tokens_default"]
 
 
 @dataclass(frozen=True)

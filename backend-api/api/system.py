@@ -2,8 +2,8 @@
 System API - Health checks, connection testing, and activity logging
 """
 import logging
-import os
 import socket
+from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Body
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-EXPERIMENTS_PATH = __import__("pathlib").Path("logs/experiments")
+EXPERIMENTS_PATH = Path("logs/experiments")
 
 
 def _get_local_ip() -> str:
@@ -36,24 +36,6 @@ def _get_connection_info():
         return ("Cloud API" if environment == "cloud" else "Network API",
                 f"http://{local_ip}:8000", environment)
     return "Local API", "http://localhost:8000", environment
-
-
-def _read_yaml(file_path) -> dict:
-    data = {}
-    try:
-        for line in file_path.read_text(encoding="utf-8").splitlines():
-            if ":" in line:
-                key, value = line.split(":", 1)
-                value = value.strip().strip('"')
-                try:
-                    value = int(value)
-                except ValueError:
-                    if value == "None":
-                        value = None
-                data[key] = value
-    except Exception:
-        pass
-    return data
 
 
 @router.get("/health")

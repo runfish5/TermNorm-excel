@@ -13,9 +13,21 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
-from datetime import datetime
+from utils.utils import utcnow_iso
 
 logger = logging.getLogger(__name__)
+
+
+def substitute_vars(template: str, **variables: str) -> str:
+    """Fill ``{{name}}`` placeholders in a caller-supplied prompt template.
+
+    The one substitution path for the custom-prompt escape hatch (a node overriding the registry
+    prompt via ``config.prompt``); the registry path renders through :meth:`PromptRegistry.render_prompt`.
+    Unknown placeholders are left intact so an injection check can flag them.
+    """
+    for name, value in variables.items():
+        template = template.replace(f"{{{{{name}}}}}", value)
+    return template
 
 
 class PromptRegistry:
@@ -61,7 +73,7 @@ class PromptRegistry:
             "version": version,
             "family": family,
             "description": description,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": utcnow_iso(),
             "template_variables": template_variables or [],
             "metadata": metadata or {}
         }

@@ -12,7 +12,8 @@ from core.pipeline_context import StepWarning, WarningKind, http_status_warning
 from core.log_format import TAG_PIPE, TAG_WEB
 from config.settings import settings
 from config.pipeline_config import get_node_config
-from utils.prompt_registry import get_prompt_registry
+from utils.prompt_registry import get_prompt_registry, substitute_vars
+from utils.schema_registry import format_string_from_schema
 
 logger = logging.getLogger(__name__)
 
@@ -33,22 +34,24 @@ ACCEPT_LANGUAGE = _WS_CONFIG["accept_language"]
 HTML_STRIP_TAGS = _WS_CONFIG["html_strip_tags"]
 MIN_KEYWORD_LENGTH = _WS_CONFIG["min_keyword_length"]
 KEYWORD_SPLIT_CHARS = _WS_CONFIG["keyword_split_chars"]
-SCRAPE_MAX_RETRIES = _WS_CONFIG.get("scrape_max_retries", 1)
-SCRAPE_RETRY_DELAY = _WS_CONFIG.get("scrape_retry_delay", 1.0)
-SCRAPE_RETRY_STATUS_CODES = set(_WS_CONFIG.get("scrape_retry_status_codes", [429, 500, 502, 503, 504]))
-SCRAPE_JITTER = _WS_CONFIG.get("scrape_jitter", 0.5)
-SCRAPE_EXTRA_HEADERS = _WS_CONFIG.get("scrape_headers", {})
+# Required, not defaulted: every one of these lives in pipeline.json::web_search.config, so a
+# `.get(key, literal)` fallback here would be a shadow default that can silently drift from
+# config (rule: config is the complete declaration of every tunable). A missing key is a config
+# error, not a fallback.
+SCRAPE_MAX_RETRIES = _WS_CONFIG["scrape_max_retries"]
+SCRAPE_RETRY_DELAY = _WS_CONFIG["scrape_retry_delay"]
+SCRAPE_RETRY_STATUS_CODES = set(_WS_CONFIG["scrape_retry_status_codes"])
+SCRAPE_JITTER = _WS_CONFIG["scrape_jitter"]
+SCRAPE_EXTRA_HEADERS = _WS_CONFIG["scrape_headers"]
 # PDF datasheets (matweb/basf/sabic) hold the truest materials data but were
 # blanket-skipped. When extract_pdf is on we pull their text too. PDFs need a
 # bigger byte budget than HTML (the xref table lives at the end — a too-tight
 # cap truncates the file and pypdf can't parse it), still bounded by the same
 # wall-clock scrape_timeout so a slow PDF can never extend the step.
-PDF_MAX_PAGES = _WS_CONFIG.get("pdf_max_pages", 10)
-PDF_MAX_BYTES = _WS_CONFIG.get("pdf_max_bytes", 5_000_000)
+PDF_MAX_PAGES = _WS_CONFIG["pdf_max_pages"]
+PDF_MAX_BYTES = _WS_CONFIG["pdf_max_bytes"]
 
-_USER_AGENTS = _WS_CONFIG.get("user_agents", [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-])
+_USER_AGENTS = _WS_CONFIG["user_agents"]
 
 
 def _split_keywords(query):
@@ -57,32 +60,6 @@ def _split_keywords(query):
     for ch in KEYWORD_SPLIT_CHARS:
         text = text.replace(ch, ' ')
     return text.split()
-
-
-def _generate_format_string_from_schema(schema):
-    """Generate the JSON format string for LLM prompt from a JSON schema"""
-    if 'properties' not in schema:
-        raise ValueError("Schema must contain 'properties' field")
-
-    format_items = []
-    for prop_name, prop_def in schema['properties'].items():
-        prop_type = prop_def.get('type', 'string')
-
-        if prop_type == 'string':
-            format_items.append(f'  "{prop_name}": "string"')
-        elif prop_type == 'array':
-            items_type = prop_def.get('items', {}).get('type', 'string')
-            format_items.append(f'  "{prop_name}": ["array of strings"]')
-        elif prop_type == 'object':
-            format_items.append(f'  "{prop_name}": {{"object"}}')
-        elif prop_type == 'number' or prop_type == 'integer':
-            format_items.append(f'  "{prop_name}": {prop_type}')
-        elif prop_type == 'boolean':
-            format_items.append(f'  "{prop_name}": true/false')
-        else:
-            format_items.append(f'  "{prop_name}": "{prop_type}"')
-
-    return "{\n" + ",\n".join(format_items) + "\n}"
 
 
 def _extract_pdf_text(data):
@@ -359,7 +336,7 @@ def _build_combined_text(query, scraped_content, raw_content_limit):
 def _build_research_prompt(query, scraped_content, schema, raw_content_limit):
     """Build LLM prompt for entity profile extraction"""
     combined_text = _build_combined_text(query, scraped_content, raw_content_limit)
-    format_string = _generate_format_string_from_schema(schema)
+    format_string = format_string_from_schema(schema)
 
     # Get prompt from registry (versioned)
     registry = get_prompt_registry()
@@ -468,12 +445,12 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     max_sites = ws_cfg["max_sites"]
     num_results = ws_cfg["num_results"]
     content_char_limit = ws_cfg["content_char_limit"]
-    query_prefix = ws_cfg.get("query_prefix", "")
-    query_suffix = ws_cfg.get("query_suffix", "")
+    query_prefix = ws_cfg["query_prefix"]
+    query_suffix = ws_cfg["query_suffix"]
     raw_content_limit = ep_cfg["raw_content_limit"]
-    strategy = ws_cfg.get("strategy", "hybrid")
-    scrape_budget = ws_cfg.get("scrape_budget", 20)
-    extract_pdf = ws_cfg.get("extract_pdf", False)
+    strategy = ws_cfg["strategy"]
+    scrape_budget = ws_cfg["scrape_budget"]
+    extract_pdf = ws_cfg["extract_pdf"]
 
     brave_warning = None
     fetched = 0
@@ -539,20 +516,24 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
             logger.warning(f"{TAG_WEB} ✗ No results")
         ws_elapsed = round(time.time() - ws_start, 3)
 
-    # Build research prompt (custom override or registry-based)
+    # Build research prompt (custom override or registry-based). ONE declaration of the shape
+    # feeds BOTH the prompt block and (when in schema mode) the decoder: an `output_schema`
+    # override is rendered into the prompt too, never only into the decoder — the same
+    # invariant llm_only and llm_ranking hold.
     profiling_prompt = ep_cfg.get("prompt")
     profiling_schema = ep_cfg.get("output_schema")
     profiling_provider = ep_cfg["provider"]
     profiling_model = ep_cfg["model"]
+    effective_schema = profiling_schema or schema
     if profiling_prompt:
         # Custom prompt with {{variable}} substitution
         combined_text = _build_combined_text(query, scraped_content, raw_content_limit)
-        format_string = _generate_format_string_from_schema(profiling_schema or schema)
-        prompt = profiling_prompt.replace("{{query}}", query)
-        prompt = prompt.replace("{{format_string}}", format_string)
-        prompt = prompt.replace("{{combined_text}}", combined_text)
+        format_string = format_string_from_schema(effective_schema)
+        prompt = substitute_vars(
+            profiling_prompt, query=query, format_string=format_string, combined_text=combined_text
+        )
     else:
-        prompt = _build_research_prompt(query, scraped_content, schema, raw_content_limit)
+        prompt = _build_research_prompt(query, scraped_content, effective_schema, raw_content_limit)
 
     # Injection check: verify all elements made it into the prompt
     checks = [f"{len(prompt):,} chars"]

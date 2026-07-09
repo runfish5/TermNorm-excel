@@ -1,12 +1,25 @@
 # ./backend-api/utils/utils.py
-"""Shared ANSI color codes for console output.
+"""Small shared helpers (string flattening, UTC timestamps) + the ANSI palette.
 
-Deliberately minimal: console color is level-only (WARNING/ERROR tags, applied
-by ``core.logging.ConsoleFormatter``) plus the ``[RESP]`` outcome word painted
-via ``core.log_format.paint``. That's the whole palette. Add a constant here
-only when a new level/outcome genuinely needs it — not for decorative per-stage
-color, which was deliberately removed.
+Console color is level-only (WARNING/ERROR tags, applied by
+``core.logging.ConsoleFormatter``) plus the ``[RESP]`` outcome word painted via
+``core.log_format.paint``. That's the whole palette — add a constant only when a
+new level/outcome genuinely needs it, not for decorative per-stage color.
 """
+
+from datetime import datetime, timezone
+
+
+def utcnow_iso() -> str:
+    """UTC now as an ISO-8601 string with a ``Z`` suffix (e.g. ``2026-07-09T12:00:00.000000Z``).
+
+    Sole producer of stored timestamps. ``match_database`` compares them LEXICOGRAPHICALLY, so
+    the ``Z`` form is load-bearing — a ``+00:00`` offset would sort before existing ``…Z`` values
+    and silently break the staleness guard. Format-identical to the old
+    ``datetime.utcnow().isoformat() + "Z"`` it replaces, minus the deprecation.
+    """
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 def flatten_strings(data, exclude=None):
     """Recursively extract all strings from nested dict/list, excluding specified keys."""

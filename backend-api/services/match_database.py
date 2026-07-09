@@ -7,7 +7,7 @@ langfuse trace data.
 import json
 import logging
 from pathlib import Path
-from datetime import datetime
+from utils.utils import utcnow_iso
 from typing import Any
 
 from utils.cache_metadata import CacheMetadata
@@ -42,6 +42,16 @@ def _is_alias_verified(method, confidence):
     return method in VERIFIED_METHODS or confidence >= HIGH_CONFIDENCE_THRESHOLD
 
 
+def _alias_record(method, confidence, timestamp) -> dict:
+    """The per-source alias entry — built identically by live ``update`` and batch rebuild."""
+    return {
+        "timestamp": timestamp,
+        "method": method,
+        "confidence": confidence,
+        "verified": _is_alias_verified(method, confidence or 0),
+    }
+
+
 def _ensure_db_entry(target, web_sources=None, timestamp=None):
     """Create a database entry for target if it doesn't exist. Returns the entry."""
     if target not in _db:
@@ -65,16 +75,9 @@ def _update_db_entry(record: dict[str, Any]):
 
     existing = entry["aliases"].get(source)
     if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
-        method = record.get("method")
-        confidence = record.get("confidence", 0)
-        verified = _is_alias_verified(method, confidence or 0)
-
-        entry["aliases"][source] = {
-            "timestamp": record.get("timestamp"),
-            "method": method,
-            "confidence": confidence,
-            "verified": verified
-        }
+        entry["aliases"][source] = _alias_record(
+            record.get("method"), record.get("confidence", 0), record.get("timestamp")
+        )
 
     if record.get("web_sources") and record.get("timestamp", "") > entry.get("last_updated", ""):
         entry["web_sources"] = record.get("web_sources", [])
@@ -139,7 +142,7 @@ def update(record: dict[str, Any]):
     if not target or not source or target == "No matches found":
         return
 
-    now = datetime.utcnow().isoformat() + "Z"
+    now = utcnow_iso()
 
     # Update all existing aliases for this source to point to new target
     for entity_id, entity in _db.items():
@@ -152,16 +155,7 @@ def update(record: dict[str, Any]):
 
     entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=now)
 
-    method = record.get("method")
-    confidence = record.get("confidence", 0)
-    verified = _is_alias_verified(method, confidence)
-
-    entry["aliases"][source] = {
-        "timestamp": now,
-        "method": method,
-        "confidence": confidence,
-        "verified": verified
-    }
+    entry["aliases"][source] = _alias_record(record.get("method"), record.get("confidence", 0), now)
 
     if record.get("web_sources"):
         entry["web_sources"] = record.get("web_sources", [])

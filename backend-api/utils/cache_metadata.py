@@ -6,7 +6,9 @@ Tracks when cache was last updated and provides staleness detection.
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+
+from utils.utils import utcnow_iso
 
 
 class CacheMetadata:
@@ -58,7 +60,7 @@ class CacheMetadata:
 
     def mark_rebuild_start(self, source_type: str):
         """Mark the start of a cache rebuild operation."""
-        self.metadata["last_rebuild_timestamp"] = datetime.utcnow().isoformat() + "Z"
+        self.metadata["last_rebuild_timestamp"] = utcnow_iso()
         self.metadata["rebuild_in_progress"] = True
         self.metadata["rebuild_source"] = source_type
         self.save()
@@ -72,7 +74,7 @@ class CacheMetadata:
         data_sources: list[dict] = None,
     ):
         """Mark completion of cache rebuild and record statistics."""
-        now = datetime.utcnow().isoformat() + "Z"
+        now = utcnow_iso()
 
         self.metadata["last_updated"] = now
         self.metadata["rebuild_in_progress"] = False
@@ -98,7 +100,7 @@ class CacheMetadata:
         identifiers_updated: int = 0,
     ):
         """Record an incremental update (e.g., after logging a new match)."""
-        now = datetime.utcnow().isoformat() + "Z"
+        now = utcnow_iso()
         self.metadata["last_updated"] = now
 
         # Track incremental updates
@@ -125,7 +127,7 @@ class CacheMetadata:
             return None
 
         last_updated = datetime.fromisoformat(self.metadata["last_updated"].replace("Z", "+00:00"))
-        now = datetime.utcnow().replace(tzinfo=last_updated.tzinfo)
+        now = datetime.now(timezone.utc)
         return (now - last_updated).total_seconds()
 
     def is_stale(self, max_age_seconds: int = 3600) -> bool:

@@ -1,7 +1,7 @@
 """Datetime-prefixed ID generation."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def generate_dated_id(length: int = 32) -> str:
@@ -10,6 +10,6 @@ def generate_dated_id(length: int = 32) -> str:
     Format: YYMMDDHHMMSS + random hex to fill remaining length.
     Example (32 chars): 251205143052a7b8c9d0e1f2345678ab
     """
-    datetime_prefix = datetime.utcnow().strftime("%y%m%d%H%M%S")
+    datetime_prefix = datetime.now(timezone.utc).strftime("%y%m%d%H%M%S")
     random_hex = uuid.uuid4().hex[:length - len(datetime_prefix)]
     return f"{datetime_prefix}{random_hex}"

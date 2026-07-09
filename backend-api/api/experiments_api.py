@@ -9,7 +9,6 @@ from pathlib import Path
 import json
 
 from utils.prompt_registry import get_prompt_registry
-from api.responses import _ok
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
@@ -522,7 +521,7 @@ async def get_dataset_item_full(dataset_name: str, item_id: str):
                 for line in scores_file.read_text(encoding="utf-8").strip().split("\n"):
                     if line:
                         result["scores"].append(json.loads(line))
-            except (json.JSONDecodeError, Exception):
+            except json.JSONDecodeError:
                 pass
 
     return result

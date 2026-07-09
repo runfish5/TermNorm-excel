@@ -75,11 +75,15 @@ def setup_middleware(app: FastAPI) -> None:
     app.middleware("http")(user_auth_middleware)
     app.middleware("http")(bearer_auth_middleware)
 
-    # CORS middleware
+    # CORS middleware. allow_credentials is False: auth is IP-based + an optional
+    # Authorization bearer header (both are request headers, not cookies), so no cross-origin
+    # credential mode is needed. Pairing allow_credentials=True with a "*" in cors_origins is the
+    # spec-invalid combo browsers reject — and would let any origin ride credentials if cookies
+    # were ever added. Keep them decoupled: "*" origins, no credentials.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"]
     )
