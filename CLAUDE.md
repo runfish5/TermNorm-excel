@@ -1,272 +1,178 @@
-# CLAUDE.md
+# CLAUDE.md — TermNorm backend (Python server)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repository.
 
-## Project Overview
+## What this is
 
-TermNorm is an AI-powered terminology normalization Excel add-in. It matches free-form text to standardized database identifiers using a three-tier approach: exact cache lookup → fuzzy matching → LLM research with web scraping.
+TermNorm is a **Python FastAPI server** that normalizes free-form text to standardized database
+identifiers via a composable pipeline: cache lookup → fuzzy → web-search evidence → LLM entity
+profiling → token matching → LLM ranking.
 
-**Architecture**: Vanilla JavaScript frontend (Office.js) + Python FastAPI backend
+**It is the co-owned backend half of PromptPotter.** It was split into its own repo *for security
+reasons only* — same project, same doctrine; the standing goal is to eliminate the split and fold
+it back in when practical. **Cross-repo edits are authorized.** The PP↔TermNorm boundary is a
+*shape contract*: touch one side, fix both.
 
-**Version**: See package.json (this field may be outdated)
+It also serves an **Excel/Office.js add-in** (under `src/`), but that add-in is a *consumer* of
+this server, not the center of the project. Frontend guidance lives in **`src/CLAUDE.md`** (a child
+layer that loads when you work under `src/`). The center of gravity — and essentially all recent
+work — is the server.
 
-## Common Commands
+## The contract (the server's reason to exist)
 
-### Frontend Development
-```bash
-npm run dev-server          # Start webpack dev server (port 3000)
-npm run build               # Production build
-npm run build:iis           # Build for IIS deployment
-npm run build:m365          # Build for Microsoft 365
-npm test                    # Run Jest tests
-npm run test:watch          # Watch mode
-npm run test:coverage       # Generate coverage report
-npm run lint                # Check with ESLint
-npm run lint:fix            # Auto-fix lint issues
-npm run start               # Debug in Excel desktop (F5 in VS Code)
-npm run validate            # Validate manifest.xml
-```
+PromptPotter optimizes this server by reading its shape and sweeping its parameters. Three endpoints
+are the contract:
 
-### Backend Development
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/matches` | POST | Run one query. Body `{query, steps, node_config}`. Returns prediction, ranked candidates, `web_cost`, `diagnostics.warnings[]`. |
+| `/pipeline` | GET | Full machine-readable shape: nodes, types, tunable params + allowed value-sets, and **resolved** prompts/schemas. Read once at init. |
+| `/status` | GET | Liveness + throughput. |
+
+- **Error envelope is TermNorm's `{status, message, code}`** (via `main.py`), *not* FastAPI's
+  `{detail}`. Clients (PromptPotter's session self-heal) key on a stable `code`. Endpoints must
+  **raise into this envelope**, never return HTTP 200 with `{"status": "error"}`.
+- **`node_config`** is the only accepted override shape: per-node dicts, e.g.
+  `{"entity_profiling": {"output_schema": {...}, "prompt": "...", "model": "..."}}`. Flat params
+  are rejected. See `docs/spec/README.md`.
+- This server pairs with PromptPotter releases (e.g. PP 0.8.8 pairs on the web-search `strategy`
+  axis + the structured-output seam). When you change the contract, the paired half moves too.
+
+## Backend Commands
+
 ```bash
 cd backend-api
 python -m venv .venv
 .\.venv\Scripts\activate    # Windows
 pip install -r requirements.txt
-python -m uvicorn main:app --reload                              # Local dev
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Network
+python -m uvicorn main:app --reload                              # local dev
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # network
+python -m pytest -q                                             # tests
 ```
 
 Or use `start-server-py-LLMs.bat` for one-click startup.
 
-## Architecture
+## Backend Architecture (backend-api/)
 
-### Frontend (src/)
-- **core/**: Event-driven state management
-  - `state-store.js` - Immutable state container with subscriber pattern
-  - `event-bus.js` - Pub/sub event system for loose coupling
-  - `events.js` - Event type definitions (MAPPINGS_LOADED, MATCH_LOGGED, TRACKING_CHANGED, SESSION_HISTORY_CHANGED, etc.)
-  - `state-actions.js` - Centralized state mutations (JSDoc typed)
-- **services/**: Business logic and data processing
-  - `live-tracker.js` - Excel cell change tracking, emits MATCH_LOGGED events
-  - `normalizer.js` - Three-tier matching pipeline (JSDoc typed)
-  - `workflows.js` - Async business logic: mappings, sessions, settings, tracking lifecycle (JSDoc typed)
-  - `mapping-processor.js` - Excel mapping file processor
-- **matchers/**: Matching algorithms
-  - `matchers.js` - Cache + fuzzy matching (single threshold, default 0.7) (JSDoc typed)
-- **taskpane/**: Main entry point (`taskpane.js` - Office.onReady, wizard state machine)
-- **ui-components/**: Reusable UI modules
-  - `thermometer.js` - Progress/status indicator with two modes
-  - `candidate-ranking.js` - Drag-to-rank candidate selection
-  - `processing-history.js` - Matching Journal view, listens for MATCH_LOGGED events
-  - `direct-prompt.js` - Custom LLM inference UI with fuzzy validation and candidate picker
-  - `file-handling.js` - Config file drag-and-drop
-  - `mapping-config.js` - Mapping configuration panel
-  - `settings-panel.js` - Settings UI
-- **utils/**: DOM and API helpers
-  - `api-fetch.js` - Backend API client + server utilities (JSDoc typed)
-  - `dom-helpers.js` - `$()`, `showView()`, modal helpers
-  - `column-utilities.js` - Column mapping builders (JSDoc typed)
-  - `error-display.js` - User-facing status messages
-  - `settings-manager.js` - Persistent settings storage
-  - `status-indicators.js` - LED indicators and status updates
-  - `app-utilities.js` - Version display, relevance colors
-  - `history-cache.js` - Processing history cache
-- **config/**: Configuration constants
-  - `config.js` - All constants, thresholds, JSDoc typedefs (MatchResult, CellState, MappingData)
-- **design-system/**: CSS architecture
-  - `tokens.css` - Color, spacing, typography variables
-  - `utilities.css` - Utility classes (hidden, flex, etc.)
-  - `components.css` - Badges, cards, buttons, forms
-
-### Backend (backend-api/)
-- **main.py**: FastAPI app entry point
-- **api/**: Route handlers (RESTful endpoints)
+- **main.py**: FastAPI app entry point; owns the standard error envelope.
+- **api/**: Route handlers
   - `research_pipeline.py` - `/sessions`, `/matches`, `/batches`, `/prompts`, `/activities`
   - `system.py` - `/health`, `/status`, `/settings`, `/history`, `/cache`
+  - `pipeline.py` - `/pipeline` (registry resolution via `_enrich_with_registries()`), `/pipeline/trace`, `/pipeline/steps`
   - `experiments_api.py` - `/experiments/*` for eval/optimization integration
-  - `pipeline.py` - `/pipeline` (with registry resolution via `_enrich_with_registries()`), `/pipeline/trace`, `/pipeline/steps`
 - **core/**: Infrastructure
-  - `llm_providers.py` - Unified Groq/OpenAI interface with retry logic
-  - `logging.py` - Backend logging configuration
+  - `llm_providers.py` - Unified Groq/OpenAI/OpenRouter interface (`llm_call`), retry + self-repair, native structured output
+  - `throughput.py` - In-process request-timestamp window (load-average style)
+  - `logging.py`, `log_format.py` - Backend logging + tag painting
   - `user_manager.py` - IP-based user authentication
-- **research_and_rank/**: AI pipeline modules
-  - `web_generate_entity_profile.py` - Web scraping + entity extraction
+- **research_and_rank/**: AI pipeline nodes
+  - `web_generate_entity_profile.py` - Web-search evidence gathering + entity extraction
   - `call_llm_for_ranking.py` - LLM candidate ranking
   - `correct_candidate_strings.py` - Fuzzy correction of LLM outputs
-  - `display_profile.py` - Entity profile formatting
   - `fuzzy_matching.py` - rapidfuzz-based fuzzy matching (threshold 70, WRatio)
+  - `display_profile.py` - Entity profile formatting
 - **utils/**:
+  - `schema_registry.py` - Versioned JSON schema management. **Sole owner** of schema→prompt rendering (`format_string_from_schema` / `append_structure_directive`) — see "Structured-output seam" below.
+  - `prompt_registry.py` - Versioned prompt management + `substitute_vars`/`render_prompt`
   - `langfuse_logger.py` - Langfuse-compatible logging
-  - `prompt_registry.py` - Versioned prompt management
-  - `standards_logger.py` - Experiment/run management
-  - `cache_metadata.py` - Cache metadata tracking
-  - `responses.py` - API response formatting
-  - `utils.py` - General utilities
-  - `schema_registry.py` - Versioned JSON schema management. Serves the pipeline resolution contract — `_enrich_with_registries()` reads registered schemas on-demand.
-- **config/**: Settings, middleware, users.json (hot-reload), pipeline.json (v1.1 — all tunable params)
+  - `standards_logger.py`, `cache_metadata.py`, `responses.py`, `id_gen.py`, `utils.py`
+- **config/**: `settings.py`, `middleware.py`, `users.json` (hot-reload), `pipeline.json` (v1.1 — all tunable params)
 - **logs/**: Runtime data
   - `match_database.json` - Persistent match cache
-  - `langfuse/` - Langfuse-compatible logging (traces, observations, scores, datasets)
-  - `prompts/` - Versioned LLM prompts (defaults committed to git, not runtime-initialized)
-  - `schemas/` - Versioned JSON schemas (`entity_profile`, `llm_ranking_output`) — committed to git, resolved at request time by `GET /pipeline`
+  - `langfuse/` - Traces, observations, scores, datasets
+  - `prompts/` - Versioned LLM prompts (defaults committed to git)
+  - `schemas/` - Versioned JSON schemas (`entity_profile`, `llm_ranking_output`) — committed, resolved at request time by `GET /pipeline`
 
-### Web Search
-**Brave only** — one metered query per match (free tier 2,000/month). No secondary provider;
-with no key the node fails soft to LLM-knowledge-only. Toggle via `USE_BRAVE_API=true/false`
-in `.env`. Get key: https://api-dashboard.search.brave.com/register
+## The server's features
 
-The `web_search` node has **3 reachable strategies** (`web_search.config.strategy`), all on
-the *same* single Brave query — they differ only in how that query becomes evidence:
+### 1. Pipeline composability
+`nodes` + `pipelines` JSON format shared across backend, frontend, and PromptPotter. `GET /pipeline`
+(v1.1) exposes every tunable param. `LLMGeneration` nodes carry `schema_family`/`prompt_family`
+references; `_enrich_with_registries()` resolves them from on-disk registries into top-level
+`resolved_schemas`/`resolved_prompts` — so external consumers (PromptPotter) see field names,
+descriptions, template variables, and JSON schemas with **no hardcoded metadata**. Named pipelines
+in `pipeline.json` (`default`, `llm_only`) select *which nodes run*.
 
-1. **`snippets`** — use the text Brave already returns (description + extra_snippets). No page
-   fetches: instant, never hangs, fewest LLM tokens; shallowest evidence.
-2. **`scrape`** — fetch the full pages behind the result URLs (deepest evidence) under a hard
-   `scrape_budget` aggregate deadline; slower, more LLM tokens. PDF datasheets extracted when
-   `extract_pdf` is on.
-3. **`hybrid`** *(default)* — `scrape`, falling back to each source's snippet on failure/timeout.
-   Snippet floor everywhere + full-page depth where sites cooperate; never empty, never hangs.
+### 2. Config completeness — `pipeline.json` is the single source of truth
+`pipeline.json` is a **complete declaration of what the system assumes**, not just a list of what
+users change. If a value is a parameter of a node's implementation (threshold, limit, regex, model,
+etc.), it MUST be declared in that node's config — even if the code currently hardcodes it and nobody
+tweaks it today. Never delete a param because current code ignores it; **wire it**. Never hardcode a
+fallback that should be configurable.
 
-`strategy` is a swept optimizer axis; the per-match `web_cost` block (on `/matches` + langfuse)
-carries `brave_queries`/`scrape_ok`/`scrape_failed`/`evidence_chars` so PromptPotter picks the
-most-efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
-(Distinct from the named *pipelines* in `pipeline.json` — `default` and `llm_only` — which select
-*which nodes run*; strategy selects *how `web_search` gathers evidence*.)
+**No shadow defaults**: pipeline functions must NOT carry parameter defaults that duplicate
+`pipeline.json` values. Config-sourced params are **required** (`cfg["key"]`, no `.get(key, default)`)
+— a shadow default silently hides a broken contract and drifts from config. Use `/audit-pipeline` to
+surface hardcoded values, implicit library defaults, and domain assumptions.
 
-### Key Patterns
-1. **Event-Driven UI**: Components react to events from event-bus (MAPPINGS_LOADED, CANDIDATES_AVAILABLE, MATCH_LOGGED)
-2. **Service/UI Boundary**: Services emit events, UI listens. No direct imports from services→UI.
-3. **Unified State Store**: All state lives in `state-store.js`
-   - Cell state: `session.workbooks[workbookId].cells[cellKey]`
-   - Mutations via `state-actions.js` functions
-4. **Centralized Config**: All constants in `config/config.js` with JSDoc typedefs
-5. **Session-Based**: No database - in-memory state with JSON persistence
-6. **Three-Tier Matching**: Cache → Fuzzy → LLM (best result always written; 0.9 threshold is UI color only)
-7. **Workbook-Scoped Tracking**: Multiple workbooks track cells independently
-8. **IP-Based Auth**: Users configured in `backend-api/config/users.json`
-9. **Office.js Operations**: Batch inside `Excel.run(async (ctx) => {...})`, commit with `ctx.sync()`
-10. **$ Helper Pattern**: DOM queries via `const $ = id => document.getElementById(id)`
-11. **Thermometer Component**: Progress indicator in persistent dashboard with two modes:
-    - `progress`: Sequential steps, collapsible, fill bar (setup wizard: server→config→mappings→activate)
-    - `status`: Independent toggleable states (research pipeline: web→LLM→score→rank)
-12. **Centralized Tracking Workflows**: Tracking state managed via `workflows.js` with `TRACKING_CHANGED` events for reactive UI updates
-13. **Pipeline Composability**: `nodes` + `pipelines` JSON format shared across backend, frontend, and PromptPotter. Backend exposes all tunable params via `GET /pipeline` (v1.1). `LLMGeneration` nodes carry `schema_family`/`prompt_family` references; `_enrich_with_registries()` resolves them from on-disk registries into top-level `resolved_schemas`/`resolved_prompts` dicts. This gives external consumers (PromptPotter) full visibility into field names, descriptions, template variables, and JSON schemas — no hardcoded metadata needed. Frontend owns local tiers and declares `backend_pipeline: "default"`. `/matches` accepts **only `node_config`** — structured per-node dicts (e.g. `{"entity_profiling": {"output_schema": {...}}}`). Each LLM node supports `prompt`, `output_schema`, and `model` overrides. Flat params are not accepted. See `docs/spec/README.md`.
-14. **Pipeline Config Completeness**: `pipeline.json` is the single source of truth for ALL tunable parameters. A config is not a list of what users change — it is a complete declaration of what the system assumes. If a value is a parameter of a node's implementation (threshold, limit, regex, model, etc.), it MUST be declared in that node's config — even if the current code hardcodes it and nobody tweaks it today. The config serves as a complete, discoverable description of each node's capabilities for anyone building pipelines on TermNorm. Never delete a parameter just because current code doesn't read it from config; instead, wire it. Never hardcode a fallback that should be configurable. **No shadow defaults**: pipeline functions must NOT carry parameter defaults that duplicate pipeline.json values — make config-sourced params required (no default). Shadow defaults create drift risk (e.g., `max_sites=6` in function vs `7` in config). Use `/audit-pipeline` to surface hardcoded values, implicit library defaults, and domain assumptions.
+### 3. Structured-output seam — one seam, every LLM node
+The output schema is a **variable, direct lever on every LLM node**. A node sets `output_schema` in
+its config and the rest is automatic: `schema_registry.format_string_from_schema` renders the schema
+(preserving property order, `description`, and `enum` — all of which steer generation), and
+`append_structure_directive` (the sole owner of the "return exactly this" wording) injects it. The
+same declaration feeds both the prompt and the decoder — no split-brain, no per-node duplication.
+`llm_only` and `direct_prompt` additionally carry `answer_field` to declare which slot *is* the
+answer. There is exactly one renderer; never reintroduce a second, lossy one.
 
-## Code Quality Standards
+### 4. Web-search strategy axis
+**Brave only** — one metered query per match (free tier 2,000/month). No secondary provider; with no
+key the node fails soft to LLM-knowledge-only. Toggle via `USE_BRAVE_API=true/false` in `.env`.
 
-**Maintainability**: Code is organized into focused modules with clear responsibilities. Complexity is added only when needed.
+The `web_search` node has **3 strategies** (`web_search.config.strategy`), all on the *same* single
+Brave query — they differ only in how that query becomes evidence:
+1. **`snippets`** — use the text Brave already returns. No page fetches: instant, fewest tokens; shallowest.
+2. **`scrape`** — fetch the full pages (deepest evidence) under a hard `scrape_budget` deadline; slower, more tokens. PDF datasheets extracted when `extract_pdf` is on.
+3. **`hybrid`** *(default)* — `scrape`, falling back to each source's snippet on failure/timeout. Never empty, never hangs.
 
-**Direct State Access**: State accessed via `state.server.online` for simplicity. No getters/setters unless needed.
+`strategy` is a swept optimizer axis; each match's `web_cost` block (`brave_queries`/`scrape_ok`/
+`scrape_failed`/`evidence_chars`, on `/matches` + langfuse) lets PromptPotter pick the most-
+efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
 
-**Central Coordination**: `taskpane.js` orchestrates services while delegating specialized work to dedicated modules.
-
-**Type Definitions**: Key functions have JSDoc types for IDE autocomplete. Shared types defined in `config/config.js`:
-- `MatchResult` - Normalization result (target, method, confidence, candidates, etc.)
-- `CellState` - Cell processing state (value, status, row, col, result)
-- `MappingData` - Forward/reverse mappings with metadata
-
-## Configuration Files
-
-- `manifest.xml` - Development manifest (localhost:3000)
-- `manifest-iis.xml` - IIS/network deployment
-- `manifest-cloud.xml` - Microsoft 365 deployment
-- `config/app.config.json` - Frontend runtime config (backend URL, column mappings)
-- `backend-api/.env` - Environment variables (API keys)
-- `backend-api/config/users.json` - IP-based user authentication (hot-reload)
-- `backend-api/config/pipeline.json` - Pipeline node configs, named pipelines, LLM defaults (v1.1)
-- `src/config/pipeline.json` - Frontend pipeline config with `backend_pipeline` reference
-
-### app.config.json Structure
-```json
-{
-  "backend_url": "http://127.0.0.1:8000",
-  "excel-projects": {
-    "Workbook.xlsx": {
-      "column_map": {
-        "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" }
-      },
-      "standard_mappings": [{
-        "mapping_reference": "C:\\path\\to\\reference.xlsx",
-        "worksheet": "Sheet1",
-        "source_column": "SourceCol",
-        "target_column": "TargetCol"
-      }]
-    }
-  }
-}
-```
-
-Column mapping structure: `{ "InputColumn": { "output": "OutputColumn", "confidence": "ConfidenceColumn" } }`. The `confidence` field is optional.
-
-## Testing
-
-Frontend tests are in `__tests__/` directories adjacent to source files:
-- `src/core/__tests__/` - State store and event bus tests
-
-Run a single test file:
-```bash
-npm test -- src/core/__tests__/state-store.test.js
-```
-
-## Data Flow
-
-The TermNorm add-in follows a structured event-driven workflow:
-
-```
-App Initialization
-    ↓
-Configuration Loading (Drag & Drop or filesystem)
-    ↓
-Server Setup (backend-api venv + FastAPI on localhost:8000)
-    ↓
-Mapping Processing (Auto-load reference files + validate column mappings)
-    ↓
-Auto-Activate Live Tracking (ON/OFF toggle in dashboard)
-    ↓
-[User Input: Cell Entry + Enter]
-    ↓
-Normalization Pipeline
-    ├─ 1. Quick lookup (cached)
-    ├─ 2. Fuzzy matching
-    └─ 3. LLM research (/research-and-match API)
-    ↓
-Results Display (Ranked candidates + status indicators)
-    ↓
-Optional: User Selection (Apply term → update target column)
-    ↓
-Logging (MATCH_LOGGED event → history + backend)
-```
-
-## Langfuse-Compatible Logging
-
+### 5. Observability — langfuse logging, throughput, reasoning traces
 Backend logs to `logs/langfuse/` in Langfuse-compatible format:
-
 ```
 logs/langfuse/
-├── traces/                    # Lean trace files (~10 lines)
-├── observations/{trace_id}/   # Verbose step details (separate files)
-├── scores/                    # Evaluation metrics
-└── datasets/                  # Ground truth items
+├── traces/                    # lean workflow summaries (input/output)
+├── observations/{trace_id}/   # verbose per-step data (web_search, entity_profiling, …)
+├── scores/                    # evaluation metrics
+└── datasets/                  # ground truth; items link back via source_trace_id
 ```
+Trace IDs are datetime-prefixed: `YYMMDDHHMMSSxxxxxxxx…`. Full spec:
+`backend-api/docs/LANGFUSE_DATA_MODEL.md`. Throughput rides `core/throughput.py` (see Dev Notes).
 
-Key concepts:
-- **Traces**: Lean workflow summaries (input/output only)
-- **Observations**: Verbose step data in separate files (web_search, entity_profiling, etc.)
-- **Dataset Items**: Ground truth with `source_trace_id` linking TO traces
-- **UserChoice/DirectEdit**: Updates dataset item's `expected_output`
+## Backend Key Patterns
 
-Trace IDs use datetime-prefixed format: `YYMMDDHHMMSSxxxxxxxx...`
+1. **Session-Based**: No database — in-memory state with JSON persistence.
+2. **Three-Tier Matching**: Cache → Fuzzy → LLM. Best result is always written (0.9 threshold is UI color only).
+3. **IP-Based Auth**: Users in `backend-api/config/users.json` (hot-reload); optional bearer-token wire auth.
+4. **Node-config ownership**: `/matches` merges per-node config dicts — no silent half-merges, no flat params.
 
-See `backend-api/docs/LANGFUSE_DATA_MODEL.md` for full specification.
+## Configuration Files (backend)
 
-## Known Limitations
-
-1. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state. Opening the same file twice creates two independent instances.
+- `backend-api/.env` - Environment variables (API keys, `USE_BRAVE_API`)
+- `backend-api/config/users.json` - IP-based auth (hot-reload)
+- `backend-api/config/pipeline.json` - Pipeline node configs, named pipelines, LLM defaults (v1.1)
 
 ## Development Notes
 
 - **Console color is level-only + centralized**: call sites emit plain `[TAG] body` via `logger.*`; `core.logging.ConsoleFormatter` paints the tag **only** for WARNING (yellow) / ERROR (red) — INFO tags stay neutral. The one INFO color is the `[RESP]` outcome word (`core.log_format.paint`). Never re-add inline `{COLOR}…{RESET}` or per-stage tag color at a call site, and keep the file handler plain so `logs/app.log` stays ANSI-free.
 - **Per-request stream shape**: effective LLM config prints once-on-change (`[CFG ]`, keyed on `_last_cfg_sig` in `research_pipeline.py`), not per request; each request is `[REQ ]` (path·steps·size·query) then `[RESP]` (outcome·time·tokens·cost·→answer), a blank line between requests. `[LLM ]` dispatch is DEBUG. Don't reintroduce per-request config/dispatch echo.
-- **Throughput/utilization** rides `core/throughput.py` — an in-process request-timestamp window (no side-car metrics store). Surfaced as a throttled `[LOAD]` console heartbeat (1m/5m/15m req/min, load-average style) and a Dropwizard-`Meter`-shaped `throughput` block (`count`, `rate_{1,5,15}m`) on `/status`. Reuse `throughput.record()`/`snapshot()`; don't add a parallel counter.
+- **Throughput/utilization** rides `core/throughput.py` — an in-process request-timestamp window (no side-car metrics store). Surfaced as a throttled `[LOAD]` console heartbeat (1m/5m/15m req/min) and a Dropwizard-`Meter`-shaped `throughput` block (`count`, `rate_{1,5,15}m`) on `/status`. Reuse `throughput.record()`/`snapshot()`; don't add a parallel counter.
 - **Archive folder**: `backend-api/.archive/` contains migration scripts needed until v1.3.0. Do not remove.
+
+## Known Limitations
+
+1. **Single Excel Instance Per Project**: Each Excel file runs its own add-in instance with isolated state (frontend concern — see `src/CLAUDE.md`).
+
+## Frontend
+
+The Excel/Office.js add-in that consumes this server is documented in **`src/CLAUDE.md`**, which
+Claude Code loads automatically when you work under `src/`. It declares `backend_pipeline: "default"`
+and owns its own local matching tiers.
+
+## Backlog
+
+Open code-quality residuals and the deferred `research_pipeline.py` split live in
+`backend-api/docs/IMPROVEMENT_BACKLOG.md` — **not here**. This file holds durable rules only: no
+dates, no commit hashes, no `file:line`, no TODOs, no "not pushed" status. Anything time-bound goes
+in the backlog doc or an issue.
