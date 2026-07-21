@@ -64,6 +64,25 @@ def _ensure_db_entry(target, web_sources=None, timestamp=None):
     return _db[target]
 
 
+def _upsert_entry(source, target, method, confidence, web_sources, timestamp):
+    """The one canonical upsert: refresh the ``source``→``target`` alias and merge
+    ``web_sources``, newest-timestamp-wins. Shared by the live ``update`` and the batch
+    ``rebuild`` so their alias + web_sources merge policy cannot diverge. Does not save
+    or touch cache metadata — the caller owns those. (In live mode ``timestamp`` is
+    ``now``, always the newest, so the guarded writes are unconditional in practice.)
+    """
+    entry = _ensure_db_entry(target, web_sources=web_sources, timestamp=timestamp)
+
+    existing = entry["aliases"].get(source)
+    if not existing or (timestamp or "") > existing.get("timestamp", ""):
+        entry["aliases"][source] = _alias_record(method, confidence or 0, timestamp)
+
+    if web_sources and (timestamp or "") > (entry.get("last_updated") or ""):
+        entry["web_sources"] = web_sources
+        entry["last_updated"] = timestamp
+    return entry
+
+
 def _update_db_entry(record: dict[str, Any]):
     """Internal: Update database entry without saving (for batch rebuild)."""
     target = record.get("target")
@@ -71,17 +90,10 @@ def _update_db_entry(record: dict[str, Any]):
     if not target or not source or target == "No matches found":
         return
 
-    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=record.get("timestamp"))
-
-    existing = entry["aliases"].get(source)
-    if not existing or record.get("timestamp", "") > existing.get("timestamp", ""):
-        entry["aliases"][source] = _alias_record(
-            record.get("method"), record.get("confidence", 0), record.get("timestamp")
-        )
-
-    if record.get("web_sources") and record.get("timestamp", "") > entry.get("last_updated", ""):
-        entry["web_sources"] = record.get("web_sources", [])
-        entry["last_updated"] = record.get("timestamp")
+    _upsert_entry(
+        source, target, record.get("method"), record.get("confidence", 0),
+        record.get("web_sources", []), record.get("timestamp"),
+    )
 
 
 def load():
@@ -153,13 +165,10 @@ def update(record: dict[str, Any]):
 
     is_new = target not in _db
 
-    entry = _ensure_db_entry(target, web_sources=record.get("web_sources", []), timestamp=now)
-
-    entry["aliases"][source] = _alias_record(record.get("method"), record.get("confidence", 0), now)
-
-    if record.get("web_sources"):
-        entry["web_sources"] = record.get("web_sources", [])
-        entry["last_updated"] = now
+    _upsert_entry(
+        source, target, record.get("method"), record.get("confidence", 0),
+        record.get("web_sources", []), now,
+    )
 
     _cache_metadata.add_incremental_update(
         source="backend_pipeline",

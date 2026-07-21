@@ -3,7 +3,6 @@ System API - Health checks, connection testing, and activity logging
 """
 import logging
 import socket
-from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Body
 
@@ -12,12 +11,11 @@ from config.settings import settings
 from core import llm_providers, throughput
 from services import match_database as match_db
 from api.responses import _ok, _err
+from api.experiments_api import EXPERIMENTS_PATH  # single source of truth for logs/experiments
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-EXPERIMENTS_PATH = Path("logs/experiments")
 
 
 def _get_local_ip() -> str:
