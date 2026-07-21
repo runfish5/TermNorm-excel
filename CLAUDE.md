@@ -18,6 +18,16 @@ this server, not the center of the project. Frontend guidance lives in **`src/CL
 layer that loads when you work under `src/`). The center of gravity — and essentially all recent
 work — is the server.
 
+## Committing & pushing
+
+**Don't commit by default: never `git commit` or `git push` unless the operator says so — a commit
+ask is NOT a push ask, and "finish the release" is NOT a push ask either.** Mirrors the PromptPotter
+root CLAUDE.md rule (co-owned project, same doctrine). Before committing, run the backend tests
+(`cd backend-api && pytest -q`) and lint (`ruff check`, `npm run lint`) — note this repo is not
+`ruff format`-clean as a baseline, so do NOT reformat existing files. Releases are cut as a dedicated
+`chore(release): prepare vX.Y.Z` commit that bumps `package.json` + finalizes `CHANGELOG.md`, then a
+matching annotated tag — all done locally and pushed only on the operator's explicit say-so.
+
 ## The contract (the server's reason to exist)
 
 PromptPotter optimizes this server by reading its shape and sweeping its parameters. Three endpoints
@@ -126,7 +136,16 @@ Brave query — they differ only in how that query becomes evidence:
 
 `strategy` is a swept optimizer axis; each match's `web_cost` block (`brave_queries`/`scrape_ok`/
 `scrape_failed`/`evidence_chars`, on `/matches` + langfuse) lets PromptPotter pick the most-
-efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
+efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`;
+30-second decision guide: `backend-api/docs/WEB_SEARCH_STRATEGY_QUICKPICK.md`.
+
+> **⚠ Provisional — new in v1.2.0, not settled doctrine.** The `strategy` axis works and ships, but
+> it is a **borderline layer under review**, not a fixed invariant. It carries an *overlapping-control*
+> smell: (a) the three-value enum is really **two code paths** — `snippets` vs `scrape` — plus a
+> boolean (`hybrid` = `scrape` + snippet-on-failure), so "3 strategies" overstates the implementation;
+> and (b) it overlaps with pipeline/step selection, which *already* decides whether web evidence is
+> gathered at all. Keep it for now, but **do not build hard dependencies on the three-way shape** — it
+> is a candidate for consolidation. If you touch it, prefer collapsing the overlap over extending it.
 
 ### 5. Observability — langfuse logging, throughput, reasoning traces
 Backend logs to `logs/langfuse/` in Langfuse-compatible format:

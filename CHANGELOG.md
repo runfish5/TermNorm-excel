@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Web Search — strategy-driven evidence + hang fix
+## [1.2.0] - 2026-07-21
+
+### Structured Output — one seam across every LLM node
+- A node sets `output_schema` and one renderer (`format_string_from_schema`) + one directive
+  (`append_structure_directive`) feed BOTH the prompt and the decoder — field order, descriptions,
+  and enums now genuinely steer generation (previously dropped by a lossy second renderer).
+- `answer_field` names which slot IS the answer on `llm_only` / `direct_prompt`.
+- Native structured-output mode with client-side validation + self-repair; per-node
+  `reasoning_effort`; `llm_only` now honours a declared `seed` (was silently dropped — pinned
+  datasets had run non-deterministic).
+
+### Web Search — strategy-driven evidence + hang fix (provisional)
 - `web_search` is now strategy-driven (`strategy`: `snippets` / `scrape` / `hybrid`,
   default `hybrid`). `snippets` uses the text Brave already returns (instant, no scraping);
   `scrape` fetches full pages; `hybrid` scrapes with per-source snippet fallback. All three
@@ -23,6 +34,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Free-to-try guarantees: works on the Brave free tier (description-only), 1 query/match
   ceiling, and fails soft to LLM-knowledge-only with no Brave key. See
   `backend-api/docs/WEB_SEARCH_STRATEGY.md`.
+- **Provisional / under review:** the three-value `strategy` enum is really two code paths
+  (`snippets` vs `scrape`) plus a fallback flag, and overlaps with pipeline/step selection — a
+  candidate for consolidation. Quick-pick guide: `backend-api/docs/WEB_SEARCH_STRATEGY_QUICKPICK.md`.
+
+### Backend Modularization
+- `api/research_pipeline.py` split 1344 → 547 lines into `pipeline_steps` / `response_builder` /
+  `frontend_logging`; one canonical match-DB upsert (`_upsert_entry`); new endpoint contract tests
+  (`/sessions` · `/matches` · `/prompts`).
+
+### Diagnostics & Observability
+- `WarningKind` stamped on every step warning at source; tag-based console formatting;
+  reasoning-trace capture forwarded for the critique tier; structured detail preserved in the error
+  envelope; blocking match-DB + langfuse writes offloaded off the event loop.
+
+### Docs
+- Server-first `CLAUDE.md` reframe (co-owned Python backend half of PromptPotter); Excel add-in
+  guidance moved to a `src/CLAUDE.md` child layer; audit backlog relocated to
+  `backend-api/docs/IMPROVEMENT_BACKLOG.md`; committing procedure documented.
 
 ## [1.0.6] - 2026-05-27
 
