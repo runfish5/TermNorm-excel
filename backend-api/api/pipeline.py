@@ -1,11 +1,13 @@
 """Pipeline configuration and trace lifecycle endpoints."""
-import json
+import copy
 import logging
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from config.pipeline_config import get_pipeline_config
+from core.llm_providers import llm_spend_bound
+from research_and_rank.web_generate_entity_profile import web_spend_bound
 from utils.langfuse_logger import (
     create_trace, create_observation, create_score, update_trace,
     _log_event, get_or_create_item,
@@ -16,8 +18,6 @@ from api.responses import _ok
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["pipeline"])
-
-PIPELINE_CONFIG_PATH = Path(__file__).parent.parent / "config" / "pipeline.json"
 
 
 # =============================================================================
@@ -81,10 +81,24 @@ def _enrich_with_registries(config: dict) -> None:
         config["resolved_prompts"] = resolved_prompts
 
 
+def _attach_spend_bounds(config: dict) -> None:
+    """Stamp ``spend_bound`` — the most one run of the node can bill — on every node that bills.
+
+    Computed from the same loaded config ``/matches`` resolves node configs from, through the
+    same readers its call sites enforce, so the served bound cannot drift from the enforced one.
+    """
+    for name, node in config["nodes"].items():
+        if node["type"] == "llm":
+            node["spend_bound"] = llm_spend_bound(node["config"])
+        elif name == "web_search":
+            node["spend_bound"] = web_spend_bound(node["config"])
+
+
 @router.get("/pipeline")
 async def get_pipeline():
     """Return the complete pipeline configuration with resolved registry references."""
-    config = json.loads(PIPELINE_CONFIG_PATH.read_text(encoding="utf-8"))
+    config = copy.deepcopy(get_pipeline_config())
+    _attach_spend_bounds(config)
     _enrich_with_registries(config)
     return _ok(
         message="Pipeline configuration",

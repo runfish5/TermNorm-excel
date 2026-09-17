@@ -79,8 +79,10 @@ The fixes, all live now:
 `strategy` is a **swept optimization axis** (exposed in the node's optimizer `param_keys`).
 PromptPotter runs `strategy ∈ {snippets, scrape, hybrid}` over the LCA ground-truth set and
 weighs match accuracy against the per-match `web_cost` block
-(`{strategy, brave_queries, scrape_attempts, scrape_ok, scrape_failed, evidence_chars}`,
-surfaced in the `/matches` response and as a langfuse observation). The default ships as
+(`{strategy, brave_queries, usd, scrape_attempts, scrape_ok, scrape_failed, evidence_chars}`,
+surfaced in the `/matches` response — also when entity profiling then fails — and as a
+langfuse observation). `usd` is `brave_queries × usd_per_query`; `GET /pipeline` serves the
+same ceiling ahead of time as the node's `spend_bound` (`{kind: "web", queries: 1, usd_per_query}`). The default ships as
 `hybrid` — it strictly dominates plain `scrape` on reliability at equal Brave cost — but the
 data decides, not this doc. Re-sweep the `entity_profiling` prompt after changing strategy:
 the evidence base changes, so the prompt's grounding/inference balance should be re-tuned.
@@ -90,6 +92,7 @@ the evidence base changes, so the prompt's grounding/inference balance should be
 | Key | Meaning |
 |-----|---------|
 | `strategy` | `snippets` \| `scrape` \| `hybrid` |
+| `usd_per_query` | Price of one Brave query — prices `web_cost.usd` and `spend_bound` |
 | `scrape_budget` | Aggregate scrape deadline (s) — the hang ceiling |
 | `extract_pdf` | Extract text from PDF datasheets (needs `pypdf`) |
 | `pdf_max_pages` / `pdf_max_bytes` | Bounds on PDF extraction |

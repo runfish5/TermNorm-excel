@@ -7,7 +7,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor
-from core.llm_providers import llm_call
+from core.llm_providers import llm_call, spend_limits
 from core.pipeline_context import StepWarning, WarningKind, http_status_warning
 from core.log_format import TAG_PIPE, TAG_WEB
 from config.settings import settings
@@ -52,6 +52,15 @@ PDF_MAX_PAGES = _WS_CONFIG["pdf_max_pages"]
 PDF_MAX_BYTES = _WS_CONFIG["pdf_max_bytes"]
 
 _USER_AGENTS = _WS_CONFIG["user_agents"]
+
+# Metered Brave queries one web_search run sends: the single _brave_search call, which never
+# retries. The cost block and the served spend bound both read it.
+BRAVE_QUERIES_PER_RUN = 1
+
+
+def web_spend_bound(cfg):
+    """The most one web_search run can bill, from its resolved node config."""
+    return {"kind": "web", "queries": BRAVE_QUERIES_PER_RUN, "usd_per_query": cfg["usd_per_query"]}
 
 
 def _split_keywords(query):
@@ -416,7 +425,7 @@ def _build_debug_info(scraped_content, search_method, brave_warning, query, max_
     }
 
 
-async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search=False, warnings=None, scraped_content=None, usage_out=None):
+async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search=False, warnings=None, scraped_content=None, usage_out=None, web_cost_out=None):
     """Web search + entity profiling.
 
     Evidence gathering is strategy-driven (``ws_cfg["strategy"]``):
@@ -435,9 +444,10 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         skip_search: If True, skip web search (LLM knowledge only).
         warnings: Mutable list to collect LLM retry warnings.
         scraped_content: Precomputed web content (skips gathering when provided).
-        usage_out: Optional dict to receive the provider's token usage
-            (``{"input": int, "output": int}``). Also mirrored into
-            ``debug_info["llm_usage"]``.
+        usage_out: Optional dict to receive what the LLM call billed (see
+            ``llm_call``). Also mirrored into ``debug_info["llm_usage"]``.
+        web_cost_out: Optional dict to receive the ``web_cost`` block. Filled before
+            the LLM call, so a caller whose profiling raises still has the Brave spend.
     """
     if not schema:
         raise ValueError("Schema parameter is required.")
@@ -476,7 +486,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     else:
         scraped_content = []
         search_method = "Brave Search API"
-        brave_queries = 1
+        brave_queries = BRAVE_QUERIES_PER_RUN
         # The single metered Brave query, hard-bounded so a DNS/connection edge
         # case can't stall the step before the strategy even runs.
         try:
@@ -515,6 +525,18 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         else:
             logger.warning(f"{TAG_WEB} ✗ No results")
         ws_elapsed = round(time.time() - ws_start, 3)
+
+    # Cost + reliability per match — the axis PromptPotter weighs against accuracy
+    # to pick "most efficiently true". brave_queries is the metered cost (==1 on a
+    # live search, 0 when skipped/precomputed) and is the free-tier ceiling; usd prices it.
+    web_cost = web_cost_out if web_cost_out is not None else {}
+    web_cost.update({
+        "strategy": cost_strategy,
+        "brave_queries": brave_queries,
+        "usd": brave_queries * ws_cfg["usd_per_query"],
+        "evidence_chars": sum(len(item.get("content", "")) for item in scraped_content),
+        **scrape_stats,
+    })
 
     # Build research prompt (custom override or registry-based). ONE declaration of the shape
     # feeds BOTH the prompt block and (when in schema mode) the decoder: an `output_schema`
@@ -555,7 +577,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
         "provider": profiling_provider,
         "model": profiling_model,
         "temperature": ep_cfg["temperature"],
-        "max_tokens": ep_cfg.get("max_tokens"),
+        **spend_limits(ep_cfg),
         "output_format": "schema" if profiling_schema else "json",
         "structured_output_mode": ep_cfg.get("structured_output_mode"),
         # Cap reasoning_effort: "low" in the node config for schema nodes — Groq gpt-oss
@@ -569,16 +591,14 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
 
     # LLM call phase timing
     llm_start = time.time()
-    _usage: dict = {}
+    _usage = usage_out if usage_out is not None else {}
     result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage, node_name="entity_profiling")
     llm_elapsed = round(time.time() - llm_start, 3)
-    if usage_out is not None and _usage:
-        usage_out.update(_usage)
 
-    # The non-strict recovery path (prompt_repair, taken when a token-budget 400 forces us off
-    # constrained decoding) can return the profile wrapped in a single-element array instead of
-    # the bare object — the strict json_schema decoder would have forbidden it. Unwrap to the
-    # first object so the metadata stamp below doesn't crash with "list indices must be integers".
+    # Unconstrained decoding (prompt_repair mode, or Anthropic, which has no response_format) can
+    # return the profile wrapped in a single-element array instead of the bare object — the strict
+    # json_schema decoder would have forbidden it. Unwrap to the first object so the metadata
+    # stamp below doesn't crash with "list indices must be integers".
     if isinstance(result, list):
         result = next((item for item in result if isinstance(item, dict)), {})
 
@@ -599,15 +619,7 @@ async def web_generate_entity_profile(query, ws_cfg, ep_cfg, schema, skip_search
     debug_info["llm_elapsed"] = llm_elapsed
     if _usage:
         debug_info["llm_usage"] = dict(_usage)
-    # Cost + reliability per match — the axis PromptPotter weighs against accuracy
-    # to pick "most efficiently true". brave_queries is the metered cost (==1 on a
-    # live search, 0 when skipped/precomputed) and is the free-tier ceiling.
-    debug_info["web_cost"] = {
-        "strategy": cost_strategy,
-        "brave_queries": brave_queries,
-        "evidence_chars": sum(len(item.get("content", "")) for item in scraped_content),
-        **scrape_stats,
-    }
+    debug_info["web_cost"] = web_cost
     # Full evidence content for intermediate caching (Wave 4)
     debug_info["scraped_content"] = scraped_content
     return result, debug_info

@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Body
 
 from research_and_rank.call_llm_for_ranking import find_top_matches
 from research_and_rank.token_matcher import TokenLookupMatcher
-from core.llm_providers import llm_call
+from core.llm_providers import llm_call, spend_limits
 from core.log_format import TAG_CFG, TAG_LOAD, TAG_PIPE, TAG_REQ, TAG_STEP, fmt_fields, fmt_list
 from core import throughput
 from core.pipeline_context import PipelineContext, StepResult, StepStatus, WarningKind
@@ -22,7 +22,7 @@ from config.pipeline_config import (
     get_pipeline_steps,
     validate_step_dependencies,
 )
-from api.responses import _ok
+from api.responses import HTTPExceptionWithData, _ok
 from api._step_logging import STEP_NODE_TYPE, log_run_summary, log_step_short
 from api.pipeline_steps import STEP_REGISTRY, PRECOMPUTED_DESERIALIZERS, REQUIRES_SESSION
 from api.response_builder import build_response
@@ -270,8 +270,9 @@ async def research_and_match(request: Request, payload: dict[str, Any] = Body(..
         cfg = params.get(step_name, {})
         try:
             result = await STEP_REGISTRY[step_name](query, cfg, ctx)
-        except HTTPException:
-            raise
+        except HTTPException as exc:
+            # The failed step may have billed, and so may every step before it.
+            raise HTTPExceptionWithData(exc, {"step_tokens": ctx.step_tokens}) from exc
         except Exception as exc:
             ctx.record_step(step_name, StepStatus.FAILED)
             ctx.add_warning(step_name, "step_error", f"{step_name} failed: {exc}", WarningKind.STRUCTURAL)
@@ -449,7 +450,6 @@ async def direct_prompt(
     dp_provider = dp["provider"]
     dp_model = dp["model"]
     dp_temperature = dp["temperature"]
-    dp_max_tokens = dp["max_tokens"]
 
     # Build system prompt for general LLM inference
     context_sections = []
@@ -481,7 +481,7 @@ async def direct_prompt(
             system=system_prompt,
             output_format="json",
             temperature=dp_temperature,
-            max_tokens=dp_max_tokens,
+            **spend_limits(dp),
         )
 
         # A response that omits `output` is a malformed result, not a confident answer — leave

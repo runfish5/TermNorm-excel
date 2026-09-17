@@ -17,7 +17,7 @@ from research_and_rank.web_generate_entity_profile import web_generate_entity_pr
 from research_and_rank.call_llm_for_ranking import call_llm_for_ranking
 from research_and_rank.fuzzy_matching import fuzzy_match_terms
 from research_and_rank.token_matcher import TokenLookupMatcher
-from core.llm_providers import llm_call
+from core.llm_providers import llm_call, spend_limits
 from core.log_format import TAG_PIPE
 from core.pipeline_context import (
     PipelineContext, StepResult, StepStatus, StepWarning, WarningKind, http_status_warning,
@@ -49,15 +49,15 @@ def _run_fuzzy_step(query: str, terms: list[str], fm_cfg: dict) -> tuple:
     return results, elapsed
 
 
-async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg: dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None, usage_out: dict | None = None) -> tuple:
+async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg: dict, llm_warnings: list[str] | None = None, scraped_content: list | None = None, usage_out: dict | None = None, web_cost_out: dict | None = None) -> tuple:
     """Step 1: Web search + entity profiling.
     Returns (entity_profile, profile_debug, ep_time, ws_time).
     Times are None when the step was skipped.
 
     When *scraped_content* is provided, web scraping is skipped and the
-    precomputed content is passed directly to entity profiling. When
-    *usage_out* is provided, it is populated with the LLM call's token
-    usage (``{"input", "output"}``).
+    precomputed content is passed directly to entity profiling. *usage_out* and
+    *web_cost_out* receive what the LLM call and the web search billed — filled
+    as the spend happens, so they hold it when this raises too.
     """
     run_web_search = "web_search" in steps
     run_entity_profiling = "entity_profiling" in steps
@@ -80,6 +80,7 @@ async def _run_research_step(query: str, steps: list[str], ws_cfg: dict, ep_cfg:
         warnings=llm_warnings,
         scraped_content=scraped_content,
         usage_out=usage_out,
+        web_cost_out=web_cost_out,
     )
     logger.debug("%s Entity profile: %s", TAG_PIPE, entity_profile)
     ep_time = profile_debug.get("llm_elapsed")
@@ -128,8 +129,7 @@ def _token_scores_as_ranking(candidates: list, limit: int) -> dict:
 async def _run_ranking_step(entity_profile: list, candidates: list, query: str, steps: list[str], lr_cfg: dict, tm_cfg: dict, llm_warnings: list[str] | None = None, usage_out: dict | None = None) -> tuple:
     """Step 3: LLM ranking. Returns (llm_response, ranking_debug, elapsed_time).
 
-    When *usage_out* is provided, it is populated with the LLM call's token
-    usage (``{"input", "output"}``).
+    *usage_out* receives what the LLM call billed, and holds it when this raises too.
     """
     run_llm_ranking = "llm_ranking" in steps
     max_token_candidates = tm_cfg["max_token_candidates"]
@@ -244,16 +244,17 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
     if precomputed_web is not None:
         ctx.record_step("web_search", StepStatus.PRECOMPUTED, elapsed=0.0)
 
+    ep_usage: dict = {}
+    web_cost: dict = {}
     try:
         ep_llm_warnings = []
-        ep_usage: dict = {}
         entity_profile, profile_debug, ep_time, ws_time = await _run_research_step(
             query, steps, ws_cfg, ep_cfg,
             llm_warnings=ep_llm_warnings,
             scraped_content=scraped_content,
             usage_out=ep_usage,
+            web_cost_out=web_cost,
         )
-        ctx.record_step_tokens("entity_profiling", ep_usage)
         # Surface warnings — web_search dicts carry their own source-stamped kind;
         # the llm retry/repair channel is recoverable noise → transient.
         for w in profile_debug.get("warnings", []):
@@ -287,7 +288,8 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
 
     except HTTPException as e:
         logger.warning("%s Entity profiling failed — continuing with token matching only", TAG_PIPE)
-        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": []}
+        # The Brave query and every LLM attempt before the failure are billed all the same.
+        profile_debug = {"inputs": {"scraped_sources": {"status": "error", "error": e.detail}}, "warnings": [], "web_cost": web_cost}
         if scraped_content is not None:
             profile_debug["scraped_content"] = scraped_content
         ctx.set_output("_profile_debug", profile_debug)
@@ -299,6 +301,8 @@ async def _step_entity_profiling(query: str, cfg: dict, ctx: PipelineContext) ->
             status=StepStatus.FAILED,
             warnings=[StepWarning("entity_profiling", _llm_failure_code(e), f"Entity profiling failed: {e.detail}", _llm_failure_kind(e))],
         )
+    finally:
+        ctx.record_step_tokens("entity_profiling", ep_usage)
 
 
 async def _step_token(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
@@ -332,16 +336,15 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
             status=StepStatus.SKIPPED,
         )
 
+    lr_usage: dict = {}
     try:
         ranking_llm_warnings = []
-        lr_usage: dict = {}
         llm_response, ranking_debug, elapsed = await _run_ranking_step(
             entity_profile, candidates, query,
             ctx.requested_steps, lr_cfg, tm_cfg,
             llm_warnings=ranking_llm_warnings,
             usage_out=lr_usage,
         )
-        ctx.record_step_tokens("llm_ranking", lr_usage)
         ctx.set_output("_ranking_debug", ranking_debug)
 
         if "llm_ranking" not in ctx.requested_steps:
@@ -367,6 +370,8 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
             output=llm_response, elapsed=0.0, status=StepStatus.FAILED,
             warnings=[StepWarning("llm_ranking", "llm_fallback", f"LLM ranking failed, using token scores: {e.detail}", WarningKind.TRANSIENT)],
         )
+    finally:
+        ctx.record_step_tokens("llm_ranking", lr_usage)
 
 
 async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
@@ -378,7 +383,6 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     provider = cfg["provider"]
     model = cfg["model"]
     temperature = cfg["temperature"]
-    max_tokens = cfg.get("max_tokens")
     response_format = cfg["response_format"]
     reasoning_effort = cfg.get("reasoning_effort")
     # `llm_call` has always accepted a seed; this node never passed one, so every dataset
@@ -398,7 +402,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         "provider": provider,
         "model": model,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        **spend_limits(cfg),
         "warnings": call_warnings,
     }
     if output_schema:
@@ -424,7 +428,16 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         kwargs["output_format"] = "schema"
         kwargs["schema"] = output_schema
     elif response_format == "json":
-        kwargs["output_format"] = "json"
+        # `json` without a schema was the one arm that could not keep its promise. It sent a bare
+        # `{"type":"json_object"}` — which 400s on openai-compat unless the word "json" appears in
+        # the messages, and this arm added no directive — and then read the answer out of an
+        # `"output"` key no node declares, so any other top-level name handed the whole decoded
+        # blob back as the answer. Structured output means a structure: declare one.
+        raise ValueError(
+            "llm_only: response_format='json' needs an `output_schema` naming the shape to "
+            "return, plus an `answer_field` naming the slot that carries the answer. Declare "
+            "them, or use response_format='text'."
+        )
     if system:
         kwargs["system"] = system
     if reasoning_effort is not None:
@@ -433,7 +446,15 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         kwargs["seed"] = seed
 
     llm_only_usage: dict = {}
-    response = await llm_call(**kwargs, usage_out=llm_only_usage, node_name="llm_only")
+    try:
+        response = await llm_call(**kwargs, usage_out=llm_only_usage, node_name="llm_only")
+    finally:
+        # The model's chain-of-thought (reasoning models put it on message.reasoning, not
+        # content). Popped BEFORE record_step_tokens so step_tokens stays numeric; forwarded in
+        # the response envelope for PromptPotter's critique tier. Recorded on failure too: a
+        # raised call may still have billed attempts, and the error envelope reports them.
+        reasoning_trace = llm_only_usage.pop("reasoning_text", "")
+        ctx.record_step_tokens("llm_only", llm_only_usage)
     if response is None:
         answer = ""
     elif output_schema:
@@ -452,16 +473,11 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
                 type(response).__name__,
             )
             answer = ""
-    elif isinstance(response, str):
-        answer = response
     else:
-        answer = response.get("output", json.dumps(response))
+        # No schema declared, so `llm_call` ran in text mode and the answer IS the text. A
+        # non-str here would mean the provider decoded something nobody asked it to decode.
+        answer = response if isinstance(response, str) else ""
     elapsed = round(time.time() - t0, 3)
-    # The model's chain-of-thought (reasoning models put it on message.reasoning,
-    # not content). Popped BEFORE record_step_tokens so step_tokens stays numeric;
-    # forwarded in the response envelope for PromptPotter's critique tier.
-    reasoning_trace = llm_only_usage.pop("reasoning_text", "")
-    ctx.record_step_tokens("llm_only", llm_only_usage)
 
     # The ``llm_call`` retry/repair/empty channel is recoverable noise → transient.
     # ``content_empty`` keeps its distinct code (PoBB's empty-response fast-path

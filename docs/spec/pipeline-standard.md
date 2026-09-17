@@ -114,6 +114,15 @@ Each key in `nodes` is the node's canonical name. The value is:
 }
 ```
 
+**Spend bound (served, never declared):** `GET /pipeline` stamps `spend_bound` on every node that can bill, computed from the same loaded config `/matches` enforces — the most one run of the node can cost:
+
+```jsonc
+"spend_bound": {"kind": "llm", "attempts": 3, "input_bytes": 31000, "max_tokens": 8192}  // LLM node
+"spend_bound": {"kind": "web", "queries": 1, "usd_per_query": 0.005}                      // web_search
+```
+
+`attempts` is every provider request one run may send (resends after a 5xx or an unsent connection and schema-repair re-prompts share it); each carries at most `input_bytes` UTF-8 bytes of prompt text (refused before sending otherwise) and generates at most `max_tokens`. A `node_config` override of `max_tokens` / `input_bytes` moves the bound for that request — the consumer that sent it prices it.
+
 **Completeness rule:** A config is not a list of what users change — it is a complete declaration of what the system assumes. If a value affects the node's behavior — threshold, limit, regex, model, multiplier, scorer — it MUST appear in `config`, even if the implementation currently hardcodes it and no current user would ever touch it. Beyond explicit parameters, producers should surface *assumptions*: domain beliefs baked into design (language, scale, ontology) where no parameter exists yet but a different deployment context would need one.
 
 ### 2.3 Pipeline Definition
@@ -151,18 +160,15 @@ Each runtime owns only the nodes it can execute. A frontend's `fuzzy_matching` (
 
 ### 2.5 LLM Defaults
 
-Provider-level infrastructure settings, separate from per-node LLM config:
+Provider-level infrastructure settings, separate from per-node LLM config (provider, model, and the spend caps `max_tokens` / `input_bytes` / `max_price` are per node):
 
 ```jsonc
 {
   "llm_defaults": {
-    "provider": "groq",
-    "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
     "timeout": 60,
-    "retry_attempts": 3,
+    "max_attempts": 3,               // provider requests one LLM call may send, repairs included
     "retry_backoff_base": 2,
-    "token_estimation_multiplier": 1.3,
-    "token_limit": 100000
+    "structured_repair_attempts": 2  // repair re-prompts, within max_attempts
   }
 }
 ```
@@ -276,10 +282,16 @@ No flat parameters are accepted — all overrides are namespaced under their nod
     "terminated_at": "llm_ranking",       // Last step that ran
     "pipeline_params": { ... },           // Effective params snapshot (defaults + overrides)
     "web_search_status": "success",
+    "step_tokens": {                      // Per LLM node, summed over every provider request sent
+      "llm_ranking": {"attempts": 1, "input": 1200, "output": 400, "finish_reason": "stop", "cost_usd": 0.0004}
+    },
+    "web_cost": {"brave_queries": 1, "usd": 0.005, ... },
     "llm_provider": "groq/llama-4-maverick"
   }
 }
 ```
+
+A failed request still carries what it billed: its error envelope (`{status, message, code, detail}`) adds `data.step_tokens`.
 
 The response exposes intermediate outputs (`entity_profile`, `token_matched_candidates`) alongside the final result. This enables consumers to cache intermediates and replay only the steps that vary during optimization sweeps.
 

@@ -35,8 +35,8 @@ are the contract:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/matches` | POST | Run one query. Body `{query, steps, node_config}`. Returns prediction, ranked candidates, `web_cost`, `diagnostics.warnings[]`. |
-| `/pipeline` | GET | Full machine-readable shape: nodes, types, tunable params + allowed value-sets, and **resolved** prompts/schemas. Read once at init. |
+| `/matches` | POST | Run one query. Body `{query, steps, node_config}`. Returns prediction, ranked candidates, `step_tokens`, `web_cost`, `diagnostics.warnings[]`. An error envelope still carries `data.step_tokens`. |
+| `/pipeline` | GET | Full machine-readable shape: nodes, types, tunable params + allowed value-sets, **resolved** prompts/schemas, and each billing node's `spend_bound`. Read once at init. |
 | `/status` | GET | Liveness + throughput. |
 
 - **Error envelope is TermNorm's `{status, message, code}`** (via `main.py`), *not* FastAPI's
@@ -134,7 +134,7 @@ Brave query — they differ only in how that query becomes evidence:
 2. **`scrape`** — fetch the full pages (deepest evidence) under a hard `scrape_budget` deadline; slower, more tokens. PDF datasheets extracted when `extract_pdf` is on.
 3. **`hybrid`** *(default)* — `scrape`, falling back to each source's snippet on failure/timeout. Never empty, never hangs.
 
-`strategy` is a swept optimizer axis; each match's `web_cost` block (`brave_queries`/`scrape_ok`/
+`strategy` is a swept optimizer axis; each match's `web_cost` block (`brave_queries`/`usd`/`scrape_ok`/
 `scrape_failed`/`evidence_chars`, on `/matches` + langfuse) lets PromptPotter pick the most-
 efficiently-true mode on ground truth. Full rationale: `backend-api/docs/WEB_SEARCH_STRATEGY.md`;
 30-second decision guide: `backend-api/docs/WEB_SEARCH_STRATEGY_QUICKPICK.md`.

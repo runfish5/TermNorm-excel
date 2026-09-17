@@ -80,7 +80,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     provider actually rejected. Flattening to ``{status,message,code}`` dropped that
     dict and PP fell back to dumping raw body text — so the envelope now carries both
     the flat fields (for the ``no_session`` self-heal) and the full ``detail``.
+
+    An ``HTTPExceptionWithData`` adds ``data`` — a failed ``/matches`` carries
+    ``data.step_tokens``, since a step that raised may still have billed.
     """
+    from api.responses import HTTPExceptionWithData
+
     detail = exc.detail
     content = {"status": "error", "message": "", "code": exc.status_code}
     if isinstance(detail, dict):
@@ -89,6 +94,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content["code"] = detail.get("code") or detail.get("error_code") or exc.status_code
     else:
         content["message"] = detail
+    if isinstance(exc, HTTPExceptionWithData):
+        content["data"] = exc.data
     return JSONResponse(
         status_code=exc.status_code,
         content=content,

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Spend bounds — what one request can bill is known before it is sent
+- `GET /pipeline` serves `spend_bound` on every billing node, from the same loaded config
+  `/matches` enforces: LLM `{kind, attempts, input_bytes, max_tokens}`, web `{kind, queries, usd_per_query}`.
+- Every LLM node declares a required `max_tokens` (always sent, never removed or raised) and an
+  `input_bytes` cap on each request's UTF-8 prompt text (413 `input_too_large`, no provider call).
+- One attempt budget, `llm_defaults.max_attempts` (was `retry_attempts`): only 5xx and unsent
+  connections are resent, schema repairs draw on the same budget; SDK-internal retries are off.
+  A read timeout is terminal; a truncated or token-limited reply is the result, not a retry.
+- `step_tokens[node]` sums usage over every provider request and adds `attempts`, and an error
+  envelope carries it as `data.step_tokens`. `web_cost` gains `usd`, reported on a failed profile too.
+- `max_price` node key → OpenRouter `provider.max_price` + `require_parameters: true`.
+- Removed: `token_limit` / `token_estimation_multiplier` (replaced by `input_bytes`),
+  `anthropic_max_tokens_default`, and `llm_call`'s unused `tools` parameter.
+
 ## [1.2.0] - 2026-07-21
 
 ### Structured Output — one seam across every LLM node

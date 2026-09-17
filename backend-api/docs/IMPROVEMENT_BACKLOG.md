@@ -15,7 +15,8 @@ the actual tree on 2026-07-21 with `pytest` green (**18 passed**).
   `tests/test_ranking_prompt_contract.py`.
 - **Arc 2 — kill shadow defaults: DONE.** `core/llm_providers.py` and `web_generate_entity_profile.py`
   read config as required (`cfg["key"]`); `reasoning_trace_cap` / `structured_output_mode` /
-  `anthropic_max_tokens_default` now declared in `pipeline.json → llm_defaults`.
+  `anthropic_max_tokens_default` now declared in `pipeline.json → llm_defaults` (since removed:
+  every LLM node now declares a required `max_tokens`, so no provider needs a fallback cap).
 - **Arc 3 — collapse redundant mechanisms: DONE** (3a–3f closed, incl. 3b).
 - **Arc 4 — error surfacing: DONE** (4a/4b/4c closed).
 - **Arc 5 — god-file split: DONE** — `research_pipeline.py` 1344 → 547 lines; three modules carved out.

@@ -102,9 +102,11 @@ class PipelineContext:
         self._start = time.time()
         self._steps: dict[str, _StepRecord] = {}
         self._outputs: dict[str, Any] = {}
-        # Per-LLM-node token counts, populated by record_step_tokens().
-        # Shape: {node_name: {"input": int, "output": int, optionally
-        # "reasoning": int, "finish_reason": str, "max_tokens_requested": int}}.
+        # Per-LLM-node spend, populated by record_step_tokens(), summed over every
+        # provider request the node sent. Shape: {node_name: {"attempts": int,
+        # "input": int, "output": int, optionally "reasoning": int, "finish_reason": str,
+        # "max_tokens_requested": int, "cost_usd": float, "model": str, "served_by": str}}.
+        # An optional key is ABSENT rather than zeroed when the provider reported nothing.
         self._step_tokens: dict[str, dict[str, Any]] = {}
 
     # -- recording ----------------------------------------------------------
@@ -126,19 +128,20 @@ class PipelineContext:
         )
 
     def record_step_tokens(self, name: str, usage: dict | None) -> None:
-        """Record provider-reported token usage for an LLM node.
+        """Record what an LLM node billed — ``llm_call``'s ``usage_out``, summed over
+        every provider request it sent, whether the node succeeded or raised.
 
-        ``usage`` should be ``{"input": int, "output": int}``; it may also
-        carry ``reasoning`` (Groq/OpenAI reasoning models), normalized
-        ``finish_reason`` (length / stop / content_filter / tool_use), and
-        ``max_tokens_requested``. Those extra fields are forwarded so
-        PromptPotter's classifier can read raw response shape per LLM call.
-        ``None`` or empty is a no-op so callers can always invoke this even
-        when the provider didn't surface a usage object (e.g. timeout path).
+        ``attempts`` counts the requests sent; ``input``/``output`` (and, when the
+        provider reports them, ``reasoning``/``cost_usd``) are totals across them. It
+        may also carry the last response's normalized ``finish_reason`` (length / stop
+        / content_filter / tool_use) and ``max_tokens_requested``, forwarded so
+        PromptPotter's classifier can read raw response shape per LLM call. ``None``
+        or empty — no request was sent — is a no-op, so callers can always invoke this.
         """
         if not usage:
             return
         record: dict[str, Any] = {
+            "attempts": int(usage["attempts"]),
             "input": int(usage.get("input", 0) or 0),
             "output": int(usage.get("output", 0) or 0),
         }
@@ -158,6 +161,10 @@ class PipelineContext:
         # the provider slug.
         if usage.get("model"):
             record["model"] = str(usage["model"])
+        # WHICH host served it, where the configured provider is a gateway routing onward.
+        # Absent for a provider that is its own host — never the gateway's name twice.
+        if usage.get("served_by"):
+            record["served_by"] = str(usage["served_by"])
         self._step_tokens[name] = record
 
     def add_warning(self, step: str, code: str, message: str,
@@ -209,9 +216,10 @@ class PipelineContext:
 
     @property
     def step_tokens(self) -> dict[str, dict[str, Any]]:
-        """Per-LLM-node token counts and raw response shape:
-        ``{node_name: {"input", "output", optionally "reasoning",
-        "finish_reason", "max_tokens_requested"}}``."""
+        """Per-LLM-node spend summed over every provider request, plus raw response shape:
+        ``{node_name: {"attempts", "input", "output", optionally "reasoning",
+        "finish_reason", "max_tokens_requested", "cost_usd", "model", "served_by"}}`` — an
+        optional key is ABSENT when the provider reported nothing, never zeroed."""
         return dict(self._step_tokens)
 
     @property

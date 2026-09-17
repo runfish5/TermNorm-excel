@@ -11,9 +11,10 @@ import json
 import logging
 import os
 import re
+import weakref
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import HTTPException
 
@@ -33,14 +34,14 @@ _llm_cfg = get_llm_defaults()
 # defaulted: pipeline.json is the complete declaration of every tunable (no shadow defaults that
 # could silently drift from config), so a missing key is a config error, not a fallback.
 _TIMEOUT = _llm_cfg["timeout"]
-_RETRY_ATTEMPTS = _llm_cfg["retry_attempts"]
+# Every provider request one llm_call may send. Transport retries and schema repairs draw on this
+# ONE budget, so it is each LLM node's served ``spend_bound.attempts`` whatever the node's mode.
+_MAX_ATTEMPTS = _llm_cfg["max_attempts"]
 _RETRY_BACKOFF_BASE = _llm_cfg["retry_backoff_base"]
-_TOKEN_ESTIMATION_MULTIPLIER = _llm_cfg["token_estimation_multiplier"]
-_TOKEN_LIMIT = _llm_cfg["token_limit"]
 _SEED = _llm_cfg["seed"]
 _LOGPROBS = _llm_cfg["logprobs"]
-# Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts
-# the model with the validation errors, up to this many times, before raising 422.
+# Schema-mode self-repair budget. On a parse/validation failure llm_call re-prompts the model with
+# the validation errors, up to this many times and never past _MAX_ATTEMPTS, before raising 422.
 _STRUCTURED_REPAIR_ATTEMPTS = _llm_cfg["structured_repair_attempts"]
 # Head-cap on the reasoning trace surfaced through usage_out. Reasoning models
 # (gpt-oss et al.) put their chain-of-thought on message.reasoning, not content;
@@ -53,13 +54,15 @@ _REASONING_TRACE_CAP = _llm_cfg["reasoning_trace_cap"]
 # with models that lack reliable native structured-output. Overridable per call via
 # ``llm_call(structured_output_mode=...)`` (sourced from a node's config).
 _STRUCTURED_OUTPUT_MODE = _llm_cfg["structured_output_mode"]
-# Anthropic's API rejects requests where ``max_tokens`` is omitted. To honor the
-# "no dataset-side default across all providers" contract, we substitute a sane
-# floor when the caller passes ``None``. Set to a value safe for all current
-# Anthropic models (claude-haiku-4-5 publishes 8192 max output tokens; opus/sonnet
-# accept much higher). Tune via ``llm_defaults.anthropic_max_tokens_default``
-# in pipeline.json if you need more headroom on a specific deployment.
-_ANTHROPIC_MAX_TOKENS_DEFAULT = _llm_cfg["anthropic_max_tokens_default"]
+
+# Provider stop reasons, normalized so PromptPotter's classifier sees stable values.
+_ANTHROPIC_FINISH = {
+    "end_turn": "stop",
+    "stop_sequence": "stop",
+    "max_tokens": "length",
+    "tool_use": "tool_use",
+}
+_OPENAI_FINISH = {"tool_calls": "tool_use"}
 
 
 @dataclass(frozen=True)
@@ -83,6 +86,44 @@ _OPENAI_COMPAT_SPECS: dict[str, ProviderSpec] = {
 
 _VALID_PROVIDERS = sorted(set(_OPENAI_COMPAT_SPECS) | {"anthropic"})
 
+# One client per (provider, key) on each event loop. Building one loads the CA bundle
+# synchronously — ~0.4 s on Windows — so a client per call ran every concurrent /matches
+# request's setup one after another on the single worker's loop, capping the server near two
+# requests in flight however many the caller sent. Keyed by loop because a client's
+# connection pool belongs to the loop it first ran on.
+_CLIENTS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple[str, str], Any]] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _client(provider: str, api_key: str) -> Any:
+    # max_retries=0 on both SDKs: a retry inside the SDK is a billed request llm_call never sees,
+    # so every resend goes through llm_call's own loop, where it counts against _MAX_ATTEMPTS.
+    clients = _CLIENTS.setdefault(asyncio.get_running_loop(), {})
+    if (provider, api_key) not in clients:
+        if provider == "anthropic":
+            import anthropic
+
+            clients[provider, api_key] = anthropic.AsyncAnthropic(api_key=api_key, max_retries=0)
+        else:
+            from openai import AsyncOpenAI
+
+            base_url = _OPENAI_COMPAT_SPECS[provider].base_url
+            clients[provider, api_key] = AsyncOpenAI(
+                api_key=api_key, max_retries=0, **({"base_url": base_url} if base_url else {})
+            )
+    return clients[provider, api_key]
+
+
+def _sdk_errors(provider: str) -> tuple[type[Exception], type[Exception]]:
+    """(connection error, timeout error) of the SDK serving ``provider``. In both SDKs the
+    timeout subclasses the connection error."""
+    if provider == "anthropic":
+        import anthropic as sdk
+    else:
+        import openai as sdk
+    return sdk.APIConnectionError, sdk.APITimeoutError
+
 
 def get_available_providers() -> list[str]:
     """Return list of providers with configured API keys."""
@@ -98,6 +139,31 @@ def get_available_providers() -> list[str]:
     return providers
 
 
+def spend_limits(cfg: dict) -> dict:
+    """The per-call spend caps ``llm_call`` enforces, read from one resolved LLM node config.
+
+    Every call site passes ``**spend_limits(cfg)`` and :func:`llm_spend_bound` reads through
+    here too, so what ``GET /pipeline`` serves is what ``/matches`` enforces.
+    """
+    return {
+        "max_tokens": cfg["max_tokens"],
+        "input_bytes": cfg["input_bytes"],
+        "max_price": cfg["max_price"],
+    }
+
+
+def llm_spend_bound(cfg: dict) -> dict:
+    """The most one run of an LLM node can bill: ``attempts`` provider requests, each carrying
+    at most ``input_bytes`` of prompt text and generating at most ``max_tokens``."""
+    limits = spend_limits(cfg)
+    return {
+        "kind": "llm",
+        "attempts": _MAX_ATTEMPTS,
+        "input_bytes": limits["input_bytes"],
+        "max_tokens": limits["max_tokens"],
+    }
+
+
 def _is_token_limit_error(e: Exception) -> bool:
     """Detect a completion that ran out of token budget.
 
@@ -105,9 +171,8 @@ def _is_token_limit_error(e: Exception) -> bool:
     error message), or — under Groq's native ``json_schema`` constrained decoding
     — as a ``json_validate_failed`` whose ``failed_generation`` reads "max
     completion tokens reached before generating a valid document". The second is a
-    budget failure wearing a conformance label: the strict decoder hit the ceiling
-    mid-document, so there is no partial output to repair. Both must be re-driven
-    with more headroom, so both are matched here (message AND failed_generation).
+    budget failure wearing a conformance label. Both are reported as
+    ``finish_reason=length``; neither is re-driven, since only a bigger cap could help.
     """
     body = getattr(e, "body", None)
     if isinstance(body, dict):
@@ -118,6 +183,54 @@ def _is_token_limit_error(e: Exception) -> bool:
             if "max completion tokens" in str(error.get("failed_generation", "")):
                 return True
     return "max completion tokens" in str(e)
+
+
+def _retryable(e: Exception, provider: str) -> bool:
+    """A failed request worth sending again: a 5xx, or a connection that never got a response.
+
+    A read timeout is not one — the provider may have generated, and billed, before it — so it
+    is terminal. A 429 propagates with its Retry-After instead: rate windows run to hours, so
+    the caller decides whether to wait. Every resend still counts against _MAX_ATTEMPTS.
+    """
+    status = getattr(e, "status_code", None)
+    if status is not None:
+        return status >= 500
+    connection_error, timeout_error = _sdk_errors(provider)
+    return isinstance(e, connection_error) and not isinstance(e, timeout_error)
+
+
+def _input_bytes(messages: list[dict], params: dict) -> int:
+    """UTF-8 bytes of one request's prompt text: every message, plus the response schema when
+    it is sent natively — the provider tokenizes that as prompt too."""
+    size = sum(len(str(m["content"]).encode("utf-8")) for m in messages)
+    if "response_format" in params:
+        size += len(json.dumps(params["response_format"]).encode("utf-8"))
+    return size
+
+
+def _accrue_usage(usage: dict, response: Any, provider: str) -> None:
+    """Add one response's provider-reported usage to the call's running totals.
+
+    ``reasoning`` (OpenAI-compat) and ``cost_usd`` (OpenRouter ships USD as ``usage.cost``,
+    some responses as ``total_cost``) appear only once a provider reports them.
+    """
+    u = getattr(response, "usage", None)
+    if u is None:
+        return
+    if provider == "anthropic":
+        tokens = {"input": getattr(u, "input_tokens", 0), "output": getattr(u, "output_tokens", 0)}
+    else:
+        tokens = {"input": getattr(u, "prompt_tokens", 0), "output": getattr(u, "completion_tokens", 0)}
+        reasoning = getattr(getattr(u, "completion_tokens_details", None), "reasoning_tokens", None)
+        if reasoning is not None:
+            tokens["reasoning"] = reasoning
+    cost = getattr(u, "cost", None)
+    if cost is None:
+        cost = getattr(u, "total_cost", None)
+    if cost is not None:
+        usage["cost_usd"] = usage.get("cost_usd", 0.0) + float(cost)
+    for key, value in tokens.items():
+        usage[key] = usage.get(key, 0) + int(value or 0)
 
 
 # JSON Schema type name -> Python predicate. ``bool`` is excluded from
@@ -291,14 +404,92 @@ def _extract_retry_after(exc: Exception) -> int | None:
     return None
 
 
+def _send_error(
+    e: Exception, provider: str, model: str, node_name: str | None, attempt: int, usage: dict
+) -> HTTPException:
+    """Log a provider request that will not be sent again and shape the HTTPException for it."""
+    node = node_name or "llm"
+    if isinstance(e, (asyncio.TimeoutError, _sdk_errors(provider)[1])):
+        header = fmt_fields(
+            node,
+            "timeout",
+            f"{provider}:{model}",
+            ("attempt", f"{attempt}/{_MAX_ATTEMPTS}"),
+            ("timeout_s", _TIMEOUT),
+        )
+        logger.error("%s %s", TAG_LLM_ERR, header)
+        return HTTPException(503, "LLM request timeout")
+    status = getattr(e, "status_code", None)
+    upstream = _format_api_error(e)
+    err_code = _extract_error_code(e)
+    if status == 429:
+        # Forward the provider's Retry-After to the client (RFC 7231).
+        # Server-side seconds-scale backoff is useless against Groq TPD
+        # windows (multi-hour); the client decides whether to wait.
+        # Surface provider/model both in the server log and the response
+        # detail so the consumer (PromptPotter) sees which call hit the
+        # cap, not just the bare 429.
+        retry_after = _extract_retry_after(e)
+        header = fmt_fields(
+            node,
+            f"HTTP 429 {err_code or 'rate_limit_exceeded'}",
+            f"{provider}:{model}",
+            ("retry_after", f"{retry_after}s" if retry_after is not None else None),
+        )
+        logger.warning("%s %s\n%s", TAG_LLM_ERR, header, continuation(upstream, "upstream"))
+        headers = {"Retry-After": str(retry_after)} if retry_after else None
+        return HTTPException(
+            429,
+            f"LLM rate limited (provider={provider}, model={model}): {upstream}",
+            headers=headers,
+        )
+    if status and 400 <= status < 500:
+        if _is_token_limit_error(e):
+            usage["finish_reason"] = "length"
+        # Upstream 4xx is the caller's fault — propagate as 4xx, not
+        # 502. 502 Bad Gateway implies the upstream is broken, which
+        # mis-signals a wire-format error to optimizers like
+        # PromptPotter that treat 5xx as transient (and burn retries).
+        # The detail dict carries the upstream summary so the consumer
+        # can render "temperature: Invalid input: expected number..."
+        # to the operator without scraping our log file.
+        if status == 404:
+            phrase = "model_not_found"
+        elif status == 401:
+            phrase = "auth_failed"
+        else:
+            phrase = err_code or "client_error"
+        header = fmt_fields(node, f"HTTP {status} {phrase}", f"{provider}:{model}")
+        logger.error("%s %s\n%s", TAG_LLM_ERR, header, continuation(upstream, "upstream"))
+        return HTTPException(
+            status,
+            {
+                "upstream_status": status,
+                "upstream_provider": provider,
+                "upstream_model": model,
+                "upstream_message": upstream,
+                "error_code": err_code or phrase,
+            },
+        )
+    header = fmt_fields(
+        node,
+        f"HTTP {status} {err_code or 'upstream_error'}" if status else "upstream_error",
+        f"{provider}:{model}",
+        ("attempt", f"{attempt}/{_MAX_ATTEMPTS}"),
+    )
+    logger.error("%s %s\n%s", TAG_LLM_ERR, header, continuation(upstream, "upstream"))
+    return HTTPException(503, f"LLM error: {upstream}")
+
+
 async def llm_call(
     messages: list[dict[str, str]],
     *,
     provider: str,
     model: str,
-    max_tokens: int | None = None,
+    max_tokens: int,
+    input_bytes: int,
+    max_price: dict | None,
     system: str | None = None,
-    tools: list[dict] | None = None,
     stop_sequences: list[str] | None = None,
     temperature: float = 0.7,
     output_format: Literal["text", "json", "schema"] = "text",
@@ -306,7 +497,8 @@ async def llm_call(
     structured_output_mode: Literal["native", "prompt_repair"] | None = None,
     seed: int | None = None,
     logprobs: int | None = None,
-    reasoning_effort: Literal["low", "medium", "high"] | None = None,
+    top_p: float | None = None,
+    reasoning_effort: Literal["none", "default", "low", "medium", "high"] | None = None,
     warnings: list[str] | None = None,
     usage_out: dict | None = None,
     node_name: str | None = None,
@@ -319,22 +511,34 @@ async def llm_call(
             ``pipeline.json``, overridable per request via ``node_config``.
         model: Model identifier. Required. (Was previously globally defaulted
             via ``LLM_MODEL`` env var — that env var is no longer consulted.)
-        usage_out: Optional dict the caller supplies to receive per-call
-            token usage. When provided and the provider returns a usage
-            object, populated with ``{"input": prompt_tokens, "output":
-            completion_tokens}`` before return. Left untouched on timeout /
-            retry paths where no single call succeeded.
+        max_tokens, input_bytes, max_price: the node's spend caps, passed as
+            ``**spend_limits(cfg)``. ``max_tokens`` rides every request and nothing
+            raises it; a request whose prompt text exceeds ``input_bytes`` UTF-8 bytes
+            is refused (413) before it is sent, repair resends included;
+            ``max_price`` (USD per million tokens) keeps OpenRouter off pricier upstreams.
+        usage_out: Optional dict the caller supplies to receive usage summed over
+            EVERY provider request this call sent. It fills as requests go out, so
+            it is complete when the call raises too: ``attempts`` (requests sent),
+            ``input``/``output`` and, once reported, ``reasoning``/``cost_usd``;
+            plus the last response's ``finish_reason``/``reasoning_text``/``served_by``,
+            and ``max_tokens_requested``/``model``.
     """
     is_openai_compat = provider in _OPENAI_COMPAT_SPECS
     if not is_openai_compat and provider != "anthropic":
         raise ValueError(
             f"Unknown provider: {provider!r}. Valid: {', '.join(_VALID_PROVIDERS)}."
         )
-
-    # Request validation - prevent guaranteed failures
-    total_tokens = sum(len(m.get('content', '').split()) for m in messages) * _TOKEN_ESTIMATION_MULTIPLIER
-    if total_tokens > _TOKEN_LIMIT:
-        raise HTTPException(400, "Request exceeds token limit")
+    for cap_name, cap in (("max_tokens", max_tokens), ("input_bytes", input_bytes)):
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise HTTPException(
+                400,
+                {
+                    "error_code": "invalid_spend_cap",
+                    "message": f"{node_name or 'llm'}: {cap_name} must be a positive integer, got {cap!r}",
+                    "node": node_name,
+                },
+            )
+    usage = usage_out if usage_out is not None else {}
 
     # Per-LLM-node start line — one chokepoint, every node inherits.
     # Emits "[LLM ] {node} · {provider}:{model} · reasoning=X" so the operator
@@ -358,11 +562,8 @@ async def llm_call(
         "model": model,
         "messages": messages,
         "temperature": temperature,
+        "max_tokens": max_tokens,
     }
-    if max_tokens is not None:
-        params["max_tokens"] = max_tokens
-    if tools:
-        params["tools"] = tools
     if stop_sequences:
         params["stop"] = stop_sequences
 
@@ -370,12 +571,25 @@ async def llm_call(
     effective_seed = seed if seed is not None else _SEED
     if effective_seed is not None and is_openai_compat:
         params["seed"] = effective_seed
+    # A sampling axis the caller may search; accepted here so it does not evaporate between a
+    # node config that declares it and a request that never carried it.
+    if top_p is not None:
+        params["top_p"] = top_p
     effective_logprobs = logprobs if logprobs is not None else _LOGPROBS
     if effective_logprobs is not None and is_openai_compat:
         params["logprobs"] = True
         params["top_logprobs"] = effective_logprobs
-    if reasoning_effort is not None and is_openai_compat:
+    # "default" is the caller's rung for "send no effort at all"; every other value, "none"
+    # included, is one the provider defines — "none" means reasoning genuinely OFF. Sending
+    # "default" as a literal was the bug: on a model that reasons by default it read as a cap
+    # that existed and did nothing, which is how a caller paid for 92.8% reasoning tokens while
+    # its config said it had asked for less.
+    if reasoning_effort not in (None, "default") and is_openai_compat:
         params["reasoning_effort"] = reasoning_effort
+    # OpenRouter routing: only upstreams priced under the cap, and only ones that honor every
+    # parameter sent — one that silently dropped max_tokens would void the output bound.
+    if max_price is not None and provider == "openrouter":
+        params["extra_body"] = {"provider": {"max_price": max_price, "require_parameters": True}}
 
     # Structured output. In "native" mode (default) we send a provider-native
     # ``response_format`` so capable models are CONSTRAINED to valid JSON — the
@@ -401,51 +615,49 @@ async def llm_call(
         else:
             params["response_format"] = {"type": "json_object"}
 
-    # Construct provider client
-    if is_openai_compat:
-        spec = _OPENAI_COMPAT_SPECS[provider]
-        from openai import AsyncOpenAI
-
-        api_key = os.getenv(spec.api_key_env)
-        client_kwargs: dict = {"api_key": api_key}
-        if spec.base_url:
-            client_kwargs["base_url"] = spec.base_url
-        client = AsyncOpenAI(**client_kwargs)
-    else:  # anthropic
-        import anthropic
-
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        client = anthropic.AsyncAnthropic(api_key=api_key)
-
+    env = _OPENAI_COMPAT_SPECS[provider].api_key_env if is_openai_compat else "ANTHROPIC_API_KEY"
+    api_key = os.getenv(env)
     if not api_key:
         raise ValueError(f"API key not found for {provider}")
+    client = _client(provider, api_key)
 
-    # Retry logic with exponential backoff. ``attempt`` advances only on transport
-    # errors (timeout / 5xx); schema-repair re-issues use ``repair_attempt`` and a
-    # bare ``continue`` so they never consume the transport-retry budget.
+    # One loop, one budget: each pass sends one request and counts it, whether it is the first
+    # send, a resend after a 5xx / unsent connection, or a schema-repair re-prompt.
     attempt = 0
-    repair_attempt = 0
+    repairs = 0
     while True:
+        sent_bytes = _input_bytes(messages, params)
+        if sent_bytes > input_bytes:
+            header = fmt_fields(
+                node_name or "llm",
+                "input over cap · refused",
+                ("bytes", sent_bytes),
+                ("cap", input_bytes),
+            )
+            logger.error("%s %s", TAG_LLM_ERR, header)
+            raise HTTPException(
+                413,
+                {
+                    "error_code": "input_too_large",
+                    "message": (
+                        f"{node_name or 'llm'}: request input is {sent_bytes} UTF-8 bytes, "
+                        f"over the node's input_bytes cap of {input_bytes}"
+                    ),
+                    "input_bytes": sent_bytes,
+                    "input_bytes_cap": input_bytes,
+                    "node": node_name,
+                },
+            )
+        attempt += 1
+        usage["attempts"] = attempt
+        usage["max_tokens_requested"] = max_tokens
+        usage["model"] = model
         try:
-            # Anthropic uses different API structure
             if provider == "anthropic":
-                # Anthropic's API requires max_tokens. The other providers accept
-                # ``None`` and fall back to their own ceiling — to keep the contract
-                # uniform across providers, auto-fill with a safe floor here.
-                # Truncation still surfaces normally via the finish_reason="length"
-                # path, so self-healing is not defeated.
-                anthropic_max_tokens = (
-                    max_tokens if max_tokens is not None else _ANTHROPIC_MAX_TOKENS_DEFAULT
-                )
-                if max_tokens is None:
-                    logger.info(
-                        "%s anthropic · max_tokens auto-filled · max=%d (caller passed None)",
-                        TAG_LLM, anthropic_max_tokens,
-                    )
                 anthropic_params: dict = {
                     "model": model,
                     "messages": [m for m in messages if m["role"] != "system"],
-                    "max_tokens": anthropic_max_tokens,
+                    "max_tokens": max_tokens,
                     "temperature": temperature,
                 }
                 if system:
@@ -455,277 +667,96 @@ async def llm_call(
                 response = await asyncio.wait_for(
                     client.messages.create(**anthropic_params), timeout=_TIMEOUT
                 )
-                content = response.content[0].text if response.content else ""
             else:
-                # OpenAI-compatible providers (openai/groq/openrouter)
                 response = await asyncio.wait_for(
                     client.chat.completions.create(**params), timeout=_TIMEOUT
                 )
-                # Some providers (notably reasoning models) ship a successful
-                # response with ``message.content = None`` — coerce to "" so
-                # the contract stays ``str | dict``, never ``None``. The
-                # finish_reason / reasoning_chars warning below still fires.
-                content = (
-                    (response.choices[0].message.content or "") if response.choices else ""
+        except Exception as e:
+            if attempt < _MAX_ATTEMPTS and _retryable(e, provider):
+                header = fmt_fields(
+                    node_name or "llm",
+                    "upstream failure · resending",
+                    f"{provider}:{model}",
+                    ("attempt", f"{attempt}/{_MAX_ATTEMPTS}"),
                 )
-                # Reasoning models (e.g. Groq gpt-oss-120b) can spend their entire
-                # output budget on the hidden ``reasoning`` field and return
-                # ``content=""``. Emit a neutral advisory and let raw response shape
-                # (finish_reason + reasoning_tokens) flow through ``usage_out``;
-                # PromptPotter's classifier decides whether this is fatal. We do not
-                # substitute the reasoning trace as content — it is internal monologue,
-                # not an answer.
-                if not content and response.choices:
-                    msg = response.choices[0].message
-                    reasoning = getattr(msg, "reasoning", None) or ""
-                    fr = response.choices[0].finish_reason or "unknown"
+                logger.warning(
+                    "%s %s\n%s", TAG_LLM_ERR, header, continuation(_format_api_error(e), "upstream")
+                )
+                await asyncio.sleep(_RETRY_BACKOFF_BASE ** (attempt - 1))
+                continue
+            raise _send_error(e, provider, model, node_name, attempt, usage) from e
+
+        if provider == "anthropic":
+            content = response.content[0].text if response.content else ""
+            raw_fr = getattr(response, "stop_reason", None)
+            usage["finish_reason"] = _ANTHROPIC_FINISH.get(raw_fr or "", raw_fr or "unknown")
+            truncated = raw_fr == "max_tokens"
+        else:
+            # Some providers (notably reasoning models) ship a successful response with
+            # ``message.content = None`` — coerce to "" so the contract stays ``str | dict``.
+            content = (response.choices[0].message.content or "") if response.choices else ""
+            raw_fr = response.choices[0].finish_reason if response.choices else None
+            usage["finish_reason"] = _OPENAI_FINISH.get(raw_fr or "", raw_fr or "unknown")
+            truncated = raw_fr == "length"
+            if response.choices:
+                reasoning = getattr(response.choices[0].message, "reasoning", None) or ""
+                if reasoning:
+                    usage["reasoning_text"] = reasoning[:_REASONING_TRACE_CAP]
+                # Reasoning models (e.g. Groq gpt-oss-120b) can spend their entire output
+                # budget on the hidden ``reasoning`` field and return ``content=""``. Emit a
+                # neutral advisory and let raw response shape (finish_reason +
+                # reasoning_tokens) flow through ``usage_out``; PromptPotter's classifier
+                # decides whether this is fatal. The reasoning trace is internal monologue,
+                # never substituted as the answer.
+                if not content:
                     header = fmt_fields(
                         node_name or "llm",
                         "empty content",
-                        ("finish_reason", fr),
+                        ("finish_reason", raw_fr or "unknown"),
                         ("reasoning_chars", len(reasoning)),
                     )
                     logger.warning("%s %s", TAG_LLM_ERR, header)
                     if warnings is not None:
                         warnings.append(
-                            f"content_empty: finish_reason={fr} reasoning_chars={len(reasoning)}"
+                            f"content_empty: finish_reason={raw_fr or 'unknown'} "
+                            f"reasoning_chars={len(reasoning)}"
                         )
+        _accrue_usage(usage, response, provider)
+        # WHICH host answered, where ``provider`` is a gateway routing onward (OpenRouter puts it
+        # on the response root). Absent for a provider that is its own host.
+        served = (getattr(response, "model_extra", None) or {}).get("provider")
+        if served:
+            usage["served_by"] = str(served)
 
-            # Detect output truncation by max_tokens. Normalize ``finish_reason``
-            # across providers so PromptPotter's classifier sees stable values.
-            if provider == "anthropic":
-                _raw_fr = getattr(response, "stop_reason", None)
-                _ANTH_MAP = {
-                    "end_turn": "stop",
-                    "stop_sequence": "stop",
-                    "max_tokens": "length",
-                    "tool_use": "tool_use",
-                }
-                normalized_fr = _ANTH_MAP.get(_raw_fr or "", _raw_fr or "unknown")
-                truncated = _raw_fr == "max_tokens"
-            else:
-                _raw_fr = response.choices[0].finish_reason if response.choices else None
-                _OAI_MAP = {"tool_calls": "tool_use"}
-                normalized_fr = _OAI_MAP.get(_raw_fr or "", _raw_fr or "unknown")
-                truncated = _raw_fr == "length"
-
-            if truncated and output_format in ("json", "schema") and max_tokens is not None:
-                _mt = params.get("max_tokens", max_tokens)
-                header = fmt_fields(
-                    node_name or "llm",
-                    "structured output truncated · retrying without max_tokens",
-                    ("max_tokens", _mt),
-                )
-                logger.warning("%s %s", TAG_LLM_ERR, header)
-                if warnings is not None:
-                    warnings.append(f"Structured output truncated (max_tokens={_mt}) — retried without limit")
-                params.pop("max_tokens", None)
-                max_tokens = None
-                continue
-
-            # Capture provider-reported token usage when the caller asked for it.
-            # OpenAI/Groq/OpenRouter expose prompt_tokens/completion_tokens on
-            # response.usage; Anthropic exposes input_tokens/output_tokens.
-            # Missing fields default to 0 so the dict shape is always stable
-            # for downstream aggregation. ``reasoning`` (OpenAI-compat only),
-            # ``finish_reason``, and ``max_tokens_requested`` are surfaced for
-            # PromptPotter's classifier; ``max_tokens_requested`` echoes the
-            # value actually sent (post-retry it can differ from the caller's
-            # argument).
-            if usage_out is not None:
-                u = getattr(response, "usage", None)
-                if u is not None:
-                    if provider == "anthropic":
-                        usage_out["input"] = int(getattr(u, "input_tokens", 0) or 0)
-                        usage_out["output"] = int(getattr(u, "output_tokens", 0) or 0)
-                    else:
-                        usage_out["input"] = int(getattr(u, "prompt_tokens", 0) or 0)
-                        usage_out["output"] = int(getattr(u, "completion_tokens", 0) or 0)
-                        details = getattr(u, "completion_tokens_details", None)
-                        if details is not None:
-                            rt = getattr(details, "reasoning_tokens", None)
-                            if rt is not None:
-                                usage_out["reasoning"] = int(rt)
-                        if response.choices:
-                            trace = getattr(response.choices[0].message, "reasoning", None) or ""
-                            if trace:
-                                usage_out["reasoning_text"] = trace[:_REASONING_TRACE_CAP]
-                    # OpenRouter ships USD on the wire under usage.cost (some
-                    # responses also expose total_cost). PromptPotter's
-                    # dashboard prefers this over its rate table when present.
-                    cost = getattr(u, "cost", None)
-                    if cost is None:
-                        cost = getattr(u, "total_cost", None)
-                    if cost is not None:
-                        usage_out["cost_usd"] = float(cost)
-                usage_out["finish_reason"] = normalized_fr
-                usage_out["max_tokens_requested"] = params.get("max_tokens", max_tokens)
-                usage_out["model"] = model
-
-            # Parse + validate client-side, repairing in place. ``json`` and
-            # ``schema`` share ONE path — both parse-and-repair; ``schema`` (when a
-            # ``schema`` is supplied) additionally checks structure. No provider
-            # response_format is involved, so this is the only JSON-correctness gate.
-            if output_format in ("json", "schema"):
-                try:
-                    parsed = json.loads(content)
-                except json.JSONDecodeError:
-                    if repair_attempt < _STRUCTURED_REPAIR_ATTEMPTS:
-                        repair_attempt += 1
-                        _note_repair(node_name, repair_attempt, "response was not valid JSON", warnings)
-                        _append_repair_turn(messages, content, "Response was not valid JSON.")
-                        continue
-                    raise HTTPException(
-                        422,
-                        {
-                            "upstream_provider": provider,
-                            "upstream_model": model,
-                            "error_code": "json_parse_failed",
-                            "node": node_name,
-                        },
-                    )
-                schema_err = _schema_errors(parsed, schema) if schema is not None else ""
-                if schema_err:
-                    if repair_attempt < _STRUCTURED_REPAIR_ATTEMPTS:
-                        repair_attempt += 1
-                        _note_repair(node_name, repair_attempt, schema_err, warnings)
-                        _append_repair_turn(messages, content, schema_err)
-                        continue
-                    raise HTTPException(
-                        422,
-                        {
-                            "upstream_provider": provider,
-                            "upstream_model": model,
-                            "error_code": "schema_validation_failed",
-                            "validation_errors": schema_err,
-                            "node": node_name,
-                        },
-                    )
-                return parsed
+        if output_format == "text":
             return content
 
-        except HTTPException:
-            # Validation-exhaustion (422) and already-shaped upstream errors propagate
-            # untouched — they are deliberate, not transport failures to retry/re-wrap.
-            raise
-        except asyncio.TimeoutError:
-            if attempt == _RETRY_ATTEMPTS - 1:
-                header = fmt_fields(
-                    node_name or "llm",
-                    "timeout",
-                    f"{provider}:{model}",
-                    ("attempt", f"{attempt + 1}/{_RETRY_ATTEMPTS}"),
-                    ("timeout_s", _TIMEOUT),
-                )
-                logger.error("%s %s", TAG_LLM_ERR, header)
-                raise HTTPException(503, "LLM request timeout")
-            await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
-            attempt += 1
-        except Exception as e:
-            status = getattr(e, "status_code", None)
-            upstream = _format_api_error(e)
-            err_code = _extract_error_code(e)
-            if status == 429:
-                # Forward the provider's Retry-After to the client (RFC 7231).
-                # Server-side seconds-scale backoff is useless against Groq TPD
-                # windows (multi-hour); the client decides whether to wait.
-                # Surface provider/model both in the server log and the response
-                # detail so the consumer (PromptPotter) sees which call hit the
-                # cap, not just the bare 429.
-                retry_after = _extract_retry_after(e)
-                header = fmt_fields(
-                    node_name or "llm",
-                    f"HTTP 429 {err_code or 'rate_limit_exceeded'}",
-                    f"{provider}:{model}",
-                    ("retry_after", f"{retry_after}s" if retry_after is not None else None),
-                )
-                logger.warning(
-                    "%s %s\n%s",
-                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
-                )
-                headers = {"Retry-After": str(retry_after)} if retry_after else None
-                raise HTTPException(
-                    429,
-                    f"LLM rate limited (provider={provider}, model={model}): {upstream}",
-                    headers=headers,
-                )
-            if status and 400 <= status < 500:
-                if _is_token_limit_error(e):
-                    # Budget exhaustion — recover by freeing headroom rather than
-                    # failing hard, regardless of whether a cap was set. Relax in
-                    # one shot: drop any explicit cap; cap reasoning so reasoning
-                    # tokens stop stealing the document's budget; drop strict
-                    # ``json_schema`` so a truncated doc is parseable and the
-                    # client-side repair gate can salvage it. Each lever fires at
-                    # most once, so the retry is naturally bounded (a second hit
-                    # finds nothing left to relax and propagates).
-                    relaxed: list[str] = []
-                    if params.pop("max_tokens", None) is not None:
-                        max_tokens = None
-                        relaxed.append("max_tokens")
-                    if reasoning_effort != "low":
-                        reasoning_effort = "low"
-                        if is_openai_compat:
-                            params["reasoning_effort"] = "low"
-                        relaxed.append("reasoning_effort=low")
-                    if so_mode == "native" and params.pop("response_format", None) is not None:
-                        so_mode = "prompt_repair"
-                        relaxed.append("non-strict")
-                    if relaxed:
-                        header = fmt_fields(
-                            node_name or "llm",
-                            "token budget exhausted · retrying relaxed",
-                            ("relaxed", ", ".join(relaxed)),
-                        )
-                        logger.warning("%s %s", TAG_LLM_ERR, header)
-                        if warnings is not None:
-                            warnings.append(
-                                f"Token budget exhausted — retried relaxed ({', '.join(relaxed)})"
-                            )
-                        continue
-                # Upstream 4xx is the caller's fault — propagate as 4xx, not
-                # 502. 502 Bad Gateway implies the upstream is broken, which
-                # mis-signals a wire-format error to optimizers like
-                # PromptPotter that treat 5xx as transient (and burn retries).
-                # The detail dict carries the upstream summary so the consumer
-                # can render "temperature: Invalid input: expected number..."
-                # to the operator without scraping our log file.
-                if status == 404:
-                    phrase = "model_not_found"
-                elif status == 401:
-                    phrase = "auth_failed"
-                else:
-                    phrase = err_code or "client_error"
-                header = fmt_fields(
-                    node_name or "llm",
-                    f"HTTP {status} {phrase}",
-                    f"{provider}:{model}",
-                )
-                logger.error(
-                    "%s %s\n%s",
-                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
-                )
-                raise HTTPException(
-                    status,
-                    {
-                        "upstream_status": status,
-                        "upstream_provider": provider,
-                        "upstream_model": model,
-                        "upstream_message": upstream,
-                        "error_code": err_code or phrase,
-                    },
-                )
-            if attempt == _RETRY_ATTEMPTS - 1:
-                header = fmt_fields(
-                    node_name or "llm",
-                    f"HTTP {status} {err_code or 'upstream_error'}" if status else "upstream_error",
-                    f"{provider}:{model}",
-                    ("attempt", f"{attempt + 1}/{_RETRY_ATTEMPTS}"),
-                )
-                logger.error(
-                    "%s %s\n%s",
-                    TAG_LLM_ERR, header, continuation(upstream, "upstream"),
-                )
-                raise HTTPException(503, f"LLM error: {upstream}")
-            await asyncio.sleep(_RETRY_BACKOFF_BASE ** attempt)
-            attempt += 1
+        # Parse + validate client-side, repairing in place. ``json`` and ``schema`` share ONE
+        # path — both parse-and-repair; ``schema`` (when a ``schema`` is supplied) additionally
+        # checks structure.
+        try:
+            parsed = json.loads(content)
+            error_code = "schema_validation_failed"
+            problem = _schema_errors(parsed, schema) if schema is not None else ""
+        except json.JSONDecodeError:
+            error_code, problem = "json_parse_failed", "Response was not valid JSON."
+        if not problem:
+            return parsed
+        detail = {
+            "upstream_provider": provider,
+            "upstream_model": model,
+            "error_code": error_code,
+            "node": node_name,
+        }
+        if truncated:
+            # Cut off at max_tokens. A repair resend at the same cap would be cut off again and
+            # the cap is never raised, so the truncation is the result.
+            raise HTTPException(422, {**detail, "error_code": "output_truncated", "finish_reason": "length"})
+        if repairs < _STRUCTURED_REPAIR_ATTEMPTS and attempt < _MAX_ATTEMPTS:
+            repairs += 1
+            _note_repair(node_name, repairs, problem, warnings)
+            _append_repair_turn(messages, content, problem)
+            continue
+        if error_code == "schema_validation_failed":
+            detail["validation_errors"] = problem
+        raise HTTPException(422, detail)

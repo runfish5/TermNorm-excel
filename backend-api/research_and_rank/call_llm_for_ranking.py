@@ -3,7 +3,7 @@ import json
 import logging
 import random
 from rapidfuzz import fuzz, process
-from core.llm_providers import llm_call
+from core.llm_providers import llm_call, spend_limits
 from core.log_format import TAG_PIPE
 from utils.prompt_registry import get_prompt_registry, substitute_vars
 from utils.schema_registry import get_schema_registry, append_structure_directive
@@ -40,8 +40,8 @@ def _correct_candidate_strings(ranking_result, match_results, relevance_weight_c
     original_candidates = [result[0] for result in match_results]
     corrected_candidates = []
 
-    # A token-budget 400 makes llm_call drop response_format and retry unconstrained, which
-    # permits a bare-array reply (see web_generate_entity_profile's same compensation).
+    # Unconstrained decoding (prompt_repair mode, Anthropic) permits a bare-array reply (see
+    # web_generate_entity_profile's same compensation).
     if not isinstance(ranking_result, dict):
         logger.warning(f"{TAG_PIPE} Ranking response is {type(ranking_result).__name__}, expected object")
         ranking_result = {}
@@ -99,9 +99,8 @@ async def call_llm_for_ranking(
     Args:
         lr_cfg: LLM ranking node config dict (temperature, max_tokens, sample_size,
                 relevance_weight_core, prompt, output_schema, model, debug_output_limit).
-        usage_out: Optional dict to receive the provider's token usage
-            (``{"input": int, "output": int}``). Also mirrored into
-            ``debug_info["llm_usage"]``.
+        usage_out: Optional dict to receive what the LLM call billed (see
+            ``llm_call``). Also mirrored into ``debug_info["llm_usage"]``.
     """
     sample_size = lr_cfg["sample_size"]
     available_results = list(match_results[:sample_size])
@@ -161,16 +160,14 @@ async def call_llm_for_ranking(
         "provider": lr_cfg["provider"],
         "model": lr_cfg["model"],
         "temperature": lr_cfg["temperature"],
-        "max_tokens": lr_cfg.get("max_tokens"),
+        **spend_limits(lr_cfg),
         "output_format": "schema" if ranking_schema else "json",
         "structured_output_mode": lr_cfg.get("structured_output_mode"),
     }
     if ranking_schema:
         llm_kwargs["schema"] = ranking_schema
-    _usage: dict = {}
+    _usage = usage_out if usage_out is not None else {}
     ranking_result = await llm_call(**llm_kwargs, warnings=warnings, usage_out=_usage, node_name="llm_ranking")
-    if usage_out is not None and _usage:
-        usage_out.update(_usage)
 
     logger.info(f"\n{TAG_PIPE} Step 4: Correcting candidate strings")
     corrected = _correct_candidate_strings(ranking_result, match_results, relevance_weight_core=lr_cfg["relevance_weight_core"])

@@ -40,11 +40,13 @@ that short-circuits the rest of the pipeline.
 | `prompt` | `""` | System prompt — the main optimization target |
 | `model` | `openai/gpt-oss-120b` | Any provider-backed model |
 | `temperature` | `0.0` | |
-| `max_tokens` | `null` | No default — provider's own output ceiling applies. Set explicitly only when you want to cap output; leaving it null stops TPM reservations from blowing the per-minute bucket on reasoning-heavy models. |
-| `reasoning_effort` | `"medium"` | `low` / `medium` / `high` — only honored by OpenAI/Groq reasoning models |
+| `max_tokens` | `8192` | Output cap, reasoning included. Required and sent on every request; no retry removes or raises it — a truncated reply comes back as `finish_reason: length`. A `null` override is refused (400 `invalid_spend_cap`) |
+| `input_bytes` | `31000` | **Spend cap, not an axis.** UTF-8 bytes of one request's prompt text (system + user message, plus the response schema when sent natively). Over it, the request is refused before it is sent (413 `input_too_large`). Kept under 32k tokens, the length past which some hosts bill a whole request at a dearer tier — a caller holding the bound pays for that tier otherwise |
+| `max_price` | `null` | **Spend cap, not an axis.** `{"prompt": usd, "completion": usd}` per million tokens; on `provider: openrouter` only, sent as `extra_body.provider.max_price` with `require_parameters: true` |
+| `reasoning_effort` | `"medium"` | `none` / `default` / `low` / `medium` / `high` — `default` sends nothing, `none` turns reasoning off; only reasoning models honor it |
 | `seed` | `null` | Forwarded to the provider. Set it on any dataset whose noise floor you intend to read — an unseeded benchmark cannot tell a real lift from run-to-run variance |
-| `response_format` | `"text"` | Or `"json"` for free-form JSON. Ignored when `output_schema` is set |
-| `output_schema` | `null` | JSON Schema. Sets `output_format: "schema"` and renders the shape into the prompt. **Not optimizer-tunable** — PromptPotter strips it via `SCHEMA_OWNED_FIELDS` |
+| `response_format` | `"text"` | **Not an axis here.** `output_schema` decides the mode; PromptPotter owns the text↔structured toggle and spends it by choosing whether to send a schema at all. What is left for this key is the mistake it refuses: `"json"` with no schema RAISES, because a structure was promised and none was declared |
+| `output_schema` | `null` | JSON Schema, and the node's MODE: present → structured (`output_format: "schema"`, shape rendered into the prompt), absent → prose. **Not optimizer-tunable** — PromptPotter strips it via `SCHEMA_OWNED_FIELDS` |
 | `answer_field` | — | Which schema property carries the answer. **Required** when `output_schema` is set, and validated against it |
 
 Defined in `config/pipeline.json` under `nodes.llm_only`. Registered in
@@ -59,8 +61,8 @@ two can never disagree (the rule `call_llm_for_ranking` already follows).
 
 What the schema *teaches* matters as much as what it compels: `format_string_from_schema`
 renders field order, `enum` values and `description` strings in **declaration order** into
-the prompt, because constrained decoding is provider-dependent (Groq does not honor `enum`)
-and on the `"json"` path no schema is sent at all. Put reasoning fields *above* the answer —
+the prompt, because constrained decoding is provider-dependent (Groq does not honor `enum`).
+Put reasoning fields *above* the answer —
 fields generate in order, so an answer emitted first is only rationalised afterwards. Never
 sort a schema's properties or its enum values; order is the lever.
 
@@ -97,19 +99,30 @@ from the advisory + raw response shape we expose here.
    `"content_empty: finish_reason={fr} reasoning_chars={N}"`.
    Anthropic's path is unchanged (different failure mode).
 2. **Raw response shape via `usage_out`.** Every `llm_call` populates
-   the caller's `usage_out` dict with `input` / `output` token counts,
-   plus (Groq/OpenAI only) `reasoning` token count when the provider
-   exposes `usage.completion_tokens_details.reasoning_tokens`,
-   normalized `finish_reason` (`length` / `stop` / `content_filter` /
-   `tool_use` regardless of provider), and `max_tokens_requested`.
-   These flow through `step_tokens.llm_only` on the wire so
+   the caller's `usage_out` dict with `attempts` (provider requests sent)
+   and `input` / `output` token counts summed over all of them, plus
+   (Groq/OpenAI only) the summed `reasoning` token count when the provider
+   exposes `usage.completion_tokens_details.reasoning_tokens`, the last
+   reply's normalized `finish_reason` (`length` / `stop` / `content_filter` /
+   `tool_use` regardless of provider), and `max_tokens_requested`. The dict
+   fills as requests go out, so a call that raises still reports what it
+   billed. These flow through `step_tokens.llm_only` on the wire — on an
+   error response too, as `data.step_tokens` — so
    PromptPotter's `classify_result()` can derive fatal codes
    (`reasoning_budget_exhausted`, `output_truncated`, `empty_response`,
    `content_filtered`) without string-matching backend warnings.
+   Alongside them, `served_by` — WHICH upstream host answered, where the
+   configured `provider` is a gateway that routes onward (OpenRouter puts
+   it on the response root); absent for a provider that is its own host.
+   A `:nitro` model picks the fastest host per call and hosts of one model
+   disagree systematically, so without it two disagreeing runs cannot be
+   asked whether they ran on the same silicon. PromptPotter banks it on
+   `TokenUsageRecord.served_by`.
 3. **`reasoning_effort` plumbing.** The `llm_call` signature accepts a
-   `Literal["low","medium","high"] | None` argument and forwards it as
-   `params["reasoning_effort"]` on OpenAI/Groq. `_step_llm_only` reads
-   it from `cfg` and passes it through.
+   `Literal["none","default","low","medium","high"] | None` argument and forwards every value
+   but `"default"` — which sends no effort at all — as `params["reasoning_effort"]` on
+   OpenAI-compatible providers; `"none"` switches reasoning off. `_step_llm_only` reads it from
+   `cfg` and passes it through.
 4. **Empty-output → NO_RESULT in `_step_llm_only`.** If the final answer
    is empty, declined, or (with a schema) missing its `answer_field`, the step attaches a
    `StepWarning("llm_only", "empty_output", ...)`, returns

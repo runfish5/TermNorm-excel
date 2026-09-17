@@ -30,6 +30,9 @@ EP_CFG = {
     "provider": "groq",
     "model": "openai/gpt-oss-120b",
     "temperature": 0.3,
+    "max_tokens": 4096,
+    "input_bytes": 32000,
+    "max_price": None,
     "output_schema": SCHEMA,
     "prompt": "Profile {{query}} from:\n{{combined_text}}\nReturn {{format_string}}",
 }
@@ -37,7 +40,7 @@ EP_CFG = {
 
 def _ws_cfg(strategy, **over):
     cfg = {
-        "strategy": strategy, "scrape_budget": 0.5, "extract_pdf": False,
+        "strategy": strategy, "usd_per_query": 0.005, "scrape_budget": 0.5, "extract_pdf": False,
         "max_sites": 3, "num_results": 5, "content_char_limit": 200,
         "brave_api_timeout": 5, "query_prefix": "", "query_suffix": "",
     }
@@ -194,6 +197,7 @@ def test_snippets_strategy_builds_evidence_without_scraping():
     _assert_contract(debug)
     assert debug["web_cost"]["strategy"] == "snippets"
     assert debug["web_cost"]["brave_queries"] == 1           # free-tier ceiling
+    assert debug["web_cost"]["usd"] == 0.005                 # priced per query sent
     assert debug["web_cost"]["scrape_attempts"] == 0
     assert len(debug["scraped_content"]) == 2
     assert "tin bronze" in debug["scraped_content"][0]["content"]
