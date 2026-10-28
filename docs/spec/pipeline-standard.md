@@ -206,13 +206,14 @@ Prompt templates resolved from the producer's prompt registry. Keyed by `{family
       "version": 1,
       "description": "Extract entity profile from web research",
       "template_variables": ["query", "format_string", "combined_text"],
+      "fields": ["persona", "task_intent", "problem_description", "instruction", "thinking_style", "answer_format"],
       "template": "You are a comprehensive technical database API..."
     }
   }
 }
 ```
 
-Consumers use `template_variables` to know which placeholders a custom prompt must provide, and `template` as a starting point for prompt engineering.
+Consumers use `template_variables` to know which placeholders a custom prompt must provide, `fields` as the prompt's loci in render order (`canonical.json`'s key order; PromptPotter refuses a prompt node with none), and `template` as a starting point for prompt engineering.
 
 ---
 

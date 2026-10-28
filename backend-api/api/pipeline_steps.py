@@ -466,6 +466,15 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         if isinstance(response, dict):
             value = response.get(answer_field, "")
             answer = value if isinstance(value, str) else json.dumps(value)
+            # Every other slot is the model's visible working — the part the caller's prompt
+            # shapes, and for a model with no hidden reasoning the only trace there is. Appended
+            # AFTER the hidden reasoning so a head+tail reader keeps the conclusion.
+            working = "\n".join(
+                f"{key}: {val if isinstance(val, str) else json.dumps(val)}"
+                for key, val in response.items()
+                if key != answer_field and val not in ("", None)
+            )
+            reasoning_trace = "\n\n".join(part for part in (reasoning_trace, working) if part)
         else:
             logger.warning(
                 "%s llm_only: schema declared but response decoded as %s — NO_RESULT",

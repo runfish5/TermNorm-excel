@@ -70,7 +70,8 @@ def build_response(ctx: PipelineContext) -> tuple:
     if terminal == "llm_only":
         out = ctx.get_output("llm_only") or {}
         data = _response_data(ctx, out.get("final_ranking", []))
-        # Model chain-of-thought (reasoning models only; head-capped at source).
+        # Model chain-of-thought: hidden reasoning (head-capped at source) plus a structured
+        # response's non-answer slots.
         # PromptPotter's critique tier reads it to diagnose per-sample failures.
         data["reasoning_trace"] = out.get("reasoning_trace", "")
         return None, _ok(

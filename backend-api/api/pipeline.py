@@ -70,6 +70,7 @@ def _enrich_with_registries(config: dict) -> None:
                         "version": meta.get("version", pv),
                         "description": meta.get("description", ""),
                         "template_variables": meta.get("template_variables", []),
+                        "fields": prompt_reg.get_fields(pf, pv),
                         "template": template,
                     }
                 except FileNotFoundError:

@@ -98,27 +98,28 @@ class PromptRegistry:
             version = self.get_latest_version(family)
 
         version_dir = self.base_path / family / str(version)
-        canonical_file = version_dir / "canonical.json"
-        if canonical_file.exists():
-            with open(canonical_file, "r", encoding="utf-8") as f:
-                template = json.load(f)
-            # Match PromptPotter's PromptTemplate.render(): join the 6 canonical
-            # string fields with blank lines, skipping empty ones.
-            six_fields = (
-                "persona",
-                "task_intent",
-                "problem_description",
-                "instruction",
-                "thinking_style",
-                "answer_format",
-            )
-            return "\n\n".join(v for f in six_fields if (v := template.get(f)))
+        if (canonical := self._canonical(family, version)) is not None:
+            # Match PromptPotter's render: the fields in declared order, blank-line joined, empty ones skipped.
+            return "\n\n".join(v for v in canonical.values() if v)
 
         prompt_file = version_dir / "prompt.txt"
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt not found: {family} v{version}")
 
         return prompt_file.read_text(encoding="utf-8")
+
+    def _canonical(self, family: str, version: int) -> dict[str, str] | None:
+        canonical_file = self.base_path / family / str(version) / "canonical.json"
+        if not canonical_file.exists():
+            return None
+        with open(canonical_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def get_fields(self, family: str, version: int | None = None) -> list[str]:
+        """The prompt's fields in RENDER ORDER — `canonical.json`'s key order; none for a plain `prompt.txt`."""
+        if version is None:
+            version = self.get_latest_version(family)
+        return list(self._canonical(family, version) or ())
 
     def get_metadata(self, family: str, version: int | None = None) -> dict:
         """Get prompt metadata."""
