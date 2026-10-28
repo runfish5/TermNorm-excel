@@ -33,7 +33,10 @@ _llm_cfg = get_llm_defaults()
 # Loop / budget knobs — non-provider; sourced from pipeline.json llm_defaults. Required, not
 # defaulted: pipeline.json is the complete declaration of every tunable (no shadow defaults that
 # could silently drift from config), so a missing key is a config error, not a fallback.
-_TIMEOUT = _llm_cfg["timeout"]
+# One provider request's deadline grows with the reply it may generate (`_request_timeout`): a
+# fixed deadline under a long `max_tokens` cuts the same request, billed, on every send.
+_TIMEOUT_FLOOR_S = _llm_cfg["timeout_floor_s"]
+_TIMEOUT_MIN_TOKENS_PER_S = _llm_cfg["timeout_min_tokens_per_s"]
 # Every provider request one llm_call may send. Transport retries and schema repairs draw on this
 # ONE budget, so it is each LLM node's served ``spend_bound.attempts`` whatever the node's mode.
 _MAX_ATTEMPTS = _llm_cfg["max_attempts"]
@@ -199,6 +202,22 @@ def _retryable(e: Exception, provider: str) -> bool:
     return isinstance(e, connection_error) and not isinstance(e, timeout_error)
 
 
+def _left_unreported(e: Exception, provider: str) -> bool:
+    """A failed request that may have reached a model and came back with no usage: a 5xx / 408,
+    or a connection that broke after the request left. Reported as ``unreported_attempts``, so
+    PromptPotter holds exactly these at their bound and reads every other attempt off the sums.
+    A timeout is not one: it marks the whole call ``unreported``."""
+    status = getattr(e, "status_code", None)
+    if status is not None:
+        return status >= 500 or status == 408
+    connection_error, timeout_error = _sdk_errors(provider)
+    if not isinstance(e, connection_error) or isinstance(e, timeout_error):
+        return False
+    import httpx
+
+    return not isinstance(e.__cause__, (httpx.ConnectError, httpx.ConnectTimeout))
+
+
 def _input_bytes(messages: list[dict], params: dict) -> int:
     """UTF-8 bytes of one request's prompt text: every message, plus the response schema when
     it is sent natively — the provider tokenizes that as prompt too."""
@@ -218,12 +237,20 @@ def _accrue_usage(usage: dict, response: Any, provider: str) -> None:
     if u is None:
         return
     if provider == "anthropic":
-        tokens = {"input": getattr(u, "input_tokens", 0), "output": getattr(u, "output_tokens", 0)}
+        cache_read = getattr(u, "cache_read_input_tokens", None)
+        tokens = {
+            "input": (getattr(u, "input_tokens", 0) or 0) + (cache_read or 0),
+            "output": getattr(u, "output_tokens", 0),
+        }
     else:
         tokens = {"input": getattr(u, "prompt_tokens", 0), "output": getattr(u, "completion_tokens", 0)}
         reasoning = getattr(getattr(u, "completion_tokens_details", None), "reasoning_tokens", None)
         if reasoning is not None:
             tokens["reasoning"] = reasoning
+        cache_read = getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", None)
+    # Absent is "not reported", never 0: PromptPotter renders the two differently.
+    if cache_read is not None:
+        tokens["cache_read"] = cache_read
     cost = getattr(u, "cost", None)
     if cost is None:
         cost = getattr(u, "total_cost", None)
@@ -404,21 +431,46 @@ def _extract_retry_after(exc: Exception) -> int | None:
     return None
 
 
+def _request_timeout(max_tokens: int) -> float:
+    """Seconds one provider request may take: ``max_tokens`` at the slowest throughput accepted."""
+    return max(_TIMEOUT_FLOOR_S, max_tokens / _TIMEOUT_MIN_TOKENS_PER_S)
+
+
 def _send_error(
-    e: Exception, provider: str, model: str, node_name: str | None, attempt: int, usage: dict
+    e: Exception,
+    provider: str,
+    model: str,
+    node_name: str | None,
+    attempt: int,
+    usage: dict,
+    timeout_s: float,
 ) -> HTTPException:
     """Log a provider request that will not be sent again and shape the HTTPException for it."""
     node = node_name or "llm"
     if isinstance(e, (asyncio.TimeoutError, _sdk_errors(provider)[1])):
+        # The provider may have generated, and billed, a reply nobody received, so this node's
+        # usage is unknown; and the same request meets the same deadline again.
+        usage["unreported"] = True
         header = fmt_fields(
             node,
             "timeout",
             f"{provider}:{model}",
             ("attempt", f"{attempt}/{_MAX_ATTEMPTS}"),
-            ("timeout_s", _TIMEOUT),
+            ("timeout_s", f"{timeout_s:.0f}"),
         )
         logger.error("%s %s", TAG_LLM_ERR, header)
-        return HTTPException(503, "LLM request timeout")
+        return HTTPException(
+            504,
+            {
+                "error_code": "llm_timeout",
+                "retryable": False,
+                "message": f"{node}: no reply from {provider}:{model} within {timeout_s:.0f}s",
+                "upstream_provider": provider,
+                "upstream_model": model,
+                "timeout_s": timeout_s,
+                "node": node_name,
+            },
+        )
     status = getattr(e, "status_code", None)
     upstream = _format_api_error(e)
     err_code = _extract_error_code(e)
@@ -521,7 +573,9 @@ async def llm_call(
             it is complete when the call raises too: ``attempts`` (requests sent),
             ``input``/``output`` and, once reported, ``reasoning``/``cost_usd``;
             plus the last response's ``finish_reason``/``reasoning_text``/``served_by``,
-            and ``max_tokens_requested``/``model``.
+            and ``max_tokens_requested``/``model``; ``unreported`` once a request
+            timed out, whose usage nobody learned; ``unreported_attempts`` counting the
+            failed requests that may have billed and reported no usage.
     """
     is_openai_compat = provider in _OPENAI_COMPAT_SPECS
     if not is_openai_compat and provider != "anthropic":
@@ -625,6 +679,7 @@ async def llm_call(
     # send, a resend after a 5xx / unsent connection, or a schema-repair re-prompt.
     attempt = 0
     repairs = 0
+    timeout_s = _request_timeout(max_tokens)
     while True:
         sent_bytes = _input_bytes(messages, params)
         if sent_bytes > input_bytes:
@@ -665,13 +720,15 @@ async def llm_call(
                 if stop_sequences:
                     anthropic_params["stop_sequences"] = stop_sequences
                 response = await asyncio.wait_for(
-                    client.messages.create(**anthropic_params), timeout=_TIMEOUT
+                    client.messages.create(**anthropic_params), timeout=timeout_s
                 )
             else:
                 response = await asyncio.wait_for(
-                    client.chat.completions.create(**params), timeout=_TIMEOUT
+                    client.chat.completions.create(**params), timeout=timeout_s
                 )
         except Exception as e:
+            if _left_unreported(e, provider):
+                usage["unreported_attempts"] = usage.get("unreported_attempts", 0) + 1
             if attempt < _MAX_ATTEMPTS and _retryable(e, provider):
                 header = fmt_fields(
                     node_name or "llm",
@@ -684,7 +741,7 @@ async def llm_call(
                 )
                 await asyncio.sleep(_RETRY_BACKOFF_BASE ** (attempt - 1))
                 continue
-            raise _send_error(e, provider, model, node_name, attempt, usage) from e
+            raise _send_error(e, provider, model, node_name, attempt, usage, timeout_s) from e
 
         if provider == "anthropic":
             content = response.content[0].text if response.content else ""
@@ -742,11 +799,16 @@ async def llm_call(
             error_code, problem = "json_parse_failed", "Response was not valid JSON."
         if not problem:
             return parsed
+        # The model ANSWERED and was billed; the caller grades this as the configuration's miss and
+        # prices it, so the spend rides the error in the success path's `step_tokens` shape.
         detail = {
             "upstream_provider": provider,
             "upstream_model": model,
             "error_code": error_code,
             "node": node_name,
+            "step_tokens": {
+                node_name or "llm": {k: v for k, v in usage.items() if k != "reasoning_text"}
+            },
         }
         if truncated:
             # Cut off at max_tokens. A repair resend at the same cap would be cut off again and

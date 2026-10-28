@@ -334,7 +334,8 @@
     "verified_methods": ["UserChoice", "DirectEdit", "cached", "fuzzy"]
   },
   "llm_defaults": {
-    "timeout": 60,
+    "timeout_floor_s": 60,
+    "timeout_min_tokens_per_s": 40,
     "max_attempts": 3,
     "retry_backoff_base": 2,
     "seed": null,

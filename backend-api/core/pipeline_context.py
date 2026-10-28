@@ -104,10 +104,12 @@ class PipelineContext:
         self._outputs: dict[str, Any] = {}
         # Per-LLM-node spend, populated by record_step_tokens(), summed over every
         # provider request the node sent. Shape: {node_name: {"attempts": int,
-        # "input": int, "output": int, optionally "reasoning": int, "finish_reason": str,
+        # "input": int, "output": int, optionally "unreported_attempts": int, "reasoning": int, "finish_reason": str,
         # "max_tokens_requested": int, "cost_usd": float, "model": str, "served_by": str}}.
         # An optional key is ABSENT rather than zeroed when the provider reported nothing.
         self._step_tokens: dict[str, dict[str, Any]] = {}
+        # A node sent a request whose usage nobody learned (a timeout).
+        self._unreported = False
 
     # -- recording ----------------------------------------------------------
 
@@ -140,13 +142,19 @@ class PipelineContext:
         """
         if not usage:
             return
+        if usage.get("unreported"):
+            self._unreported = True
         record: dict[str, Any] = {
             "attempts": int(usage["attempts"]),
             "input": int(usage.get("input", 0) or 0),
             "output": int(usage.get("output", 0) or 0),
         }
+        if usage.get("unreported_attempts"):
+            record["unreported_attempts"] = int(usage["unreported_attempts"])
         if "reasoning" in usage and usage["reasoning"] is not None:
             record["reasoning"] = int(usage["reasoning"])
+        if "cache_read" in usage and usage["cache_read"] is not None:
+            record["cache_read"] = int(usage["cache_read"])
         if "finish_reason" in usage and usage["finish_reason"]:
             record["finish_reason"] = str(usage["finish_reason"])
         if "max_tokens_requested" in usage and usage["max_tokens_requested"] is not None:
@@ -215,12 +223,15 @@ class PipelineContext:
         return {name: rec.elapsed for name, rec in self._steps.items()}
 
     @property
-    def step_tokens(self) -> dict[str, dict[str, Any]]:
+    def step_tokens(self) -> dict[str, dict[str, Any]] | None:
         """Per-LLM-node spend summed over every provider request, plus raw response shape:
         ``{node_name: {"attempts", "input", "output", optionally "reasoning",
         "finish_reason", "max_tokens_requested", "cost_usd", "model", "served_by"}}`` — an
-        optional key is ABSENT when the provider reported nothing, never zeroed."""
-        return dict(self._step_tokens)
+        optional key is ABSENT when the provider reported nothing, never zeroed.
+
+        ``None`` once a request's usage went unreported: a reply that cannot report every
+        billed request reports none, and PromptPotter then holds the cell at its whole bound."""
+        return None if self._unreported else dict(self._step_tokens)
 
     @property
     def warnings(self) -> list[StepWarning]:

@@ -94,6 +94,8 @@ def test_every_attempt_is_counted_and_its_usage_summed(provider):
     usage = {}
     assert _call(usage, output_format="schema", schema=_SCHEMA) == {"answer": "x"}
     assert usage["attempts"] == len(stub.sent) == 3
+    # Only the 5xx left with no usage; the repair re-prompt is in the sums, never held again.
+    assert usage["unreported_attempts"] == 1
     assert (usage["input"], usage["output"]) == (40, 12)
     assert usage["cost_usd"] == pytest.approx(0.003)
     assert [p["max_tokens"] for p in stub.sent] == [64, 64, 64]
@@ -113,25 +115,37 @@ def test_a_hit_output_cap_is_the_result_not_a_retry(provider, outcome):
     with pytest.raises(HTTPException):
         _call(usage, output_format="schema", schema=_SCHEMA)
     assert usage["attempts"] == len(stub.sent) == 1
+    assert "unreported_attempts" not in usage
     assert usage["finish_reason"] == "length"
     assert stub.sent[0]["max_tokens"] == 64
 
 
 @pytest.mark.parametrize(
-    "failure, sends",
+    "failure, sends, status",
     [
-        (openai.APITimeoutError(request=_REQUEST), 1),
-        (openai.APIConnectionError(request=_REQUEST), 3),
+        (openai.APITimeoutError(request=_REQUEST), 1, 504),
+        (openai.APIConnectionError(request=_REQUEST), 3, 503),
     ],
     ids=["read_timeout_may_have_billed", "unsent_connection"],
 )
-def test_only_unbilled_failures_are_resent(provider, failure, sends):
+def test_only_unbilled_failures_are_resent(provider, failure, sends, status):
     stub = provider(failure)
     usage = {}
     with pytest.raises(HTTPException) as err:
         _call(usage)
-    assert err.value.status_code == 503
+    assert err.value.status_code == status
     assert usage["attempts"] == len(stub.sent) == sends
+
+
+def test_a_timeout_is_final_and_its_reply_reports_no_usage(provider):
+    stub = provider(asyncio.TimeoutError())
+    with _client() as c:
+        reply = _llm_only(c, 10)
+    body = reply.json()
+    assert reply.status_code == 504 and len(stub.sent) == 1
+    assert body["code"] == "llm_timeout" and body["detail"]["retryable"] is False
+    # A zero here would read as "billed nothing" for a generation the provider may have billed.
+    assert body["data"]["step_tokens"] is None
 
 
 @pytest.mark.parametrize("name, routed", [("openrouter", True), ("groq", False)])
@@ -177,6 +191,7 @@ def test_pipeline_serves_the_bound_matches_enforces(provider):
     assert at_cap.status_code == 503
     spent = at_cap.json()["data"]["step_tokens"]["llm_only"]
     assert spent["attempts"] == bound["attempts"] == len(stub.sent)
+    assert spent["unreported_attempts"] == bound["attempts"]
     assert {p["max_tokens"] for p in stub.sent} == {bound["max_tokens"]}
     # One byte over, it is refused before any provider request.
     assert over_cap.status_code == 413

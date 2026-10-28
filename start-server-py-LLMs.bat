@@ -89,7 +89,7 @@ echo  Python  !PYTHON_VERSION!
 echo          .venv ready
 echo  Backend backend-api/
 echo          !REQ_STATUS!
-echo  Host    0.0.0.0:8000 --reload
+echo  Host    0.0.0.0:8000 --reload --timeout-graceful-shutdown 240
 echo  Log     server.log
 echo.
 echo  %DIM%booting uvicorn...%RESET%
@@ -97,7 +97,8 @@ echo.
 
 :server_loop
 echo [%date% %time%] Server starting >> "!LOG_FILE!"
-"!VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+:: A reload or stop lets in-flight /matches finish and report what they billed; past 240s it cuts them.
+"!VENV_PATH!\Scripts\python.exe" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --timeout-graceful-shutdown 240
 
 echo.
 echo %CYAN%--- Server stopped - exit !errorlevel! --%RESET%

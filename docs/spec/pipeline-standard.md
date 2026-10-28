@@ -165,7 +165,8 @@ Provider-level infrastructure settings, separate from per-node LLM config (provi
 ```jsonc
 {
   "llm_defaults": {
-    "timeout": 60,
+    "timeout_floor_s": 60,           // one provider request's deadline: max(floor, max_tokens / rate)
+    "timeout_min_tokens_per_s": 40,  // slowest generation accepted; a timeout is 504, retryable: false
     "max_attempts": 3,               // provider requests one LLM call may send, repairs included
     "retry_backoff_base": 2,
     "structured_repair_attempts": 2  // repair re-prompts, within max_attempts

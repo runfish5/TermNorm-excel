@@ -79,3 +79,6 @@ venv/
 # Test coverage
 coverage/
 .nyc_output/
+
+# Runtime pid file written by PromptPotter's boot of this server
+backend-api/logs/pp_boot_pid.txt

@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `step_tokens[node]` sums usage over every provider request and adds `attempts`, and an error
   envelope carries it as `data.step_tokens`. `web_cost` gains `usd`, reported on a failed profile too.
 - `max_price` node key → OpenRouter `provider.max_price` + `require_parameters: true`.
+- A provider request's deadline is `max(timeout_floor_s, max_tokens / timeout_min_tokens_per_s)`
+  (was a fixed `timeout: 60`). A timeout answers 504 with `detail: {error_code: "llm_timeout",
+  retryable: false}`, and its reply carries `step_tokens: null`: the provider may have billed a
+  generation nobody received, so the reply reports no usage rather than a zero.
+- `start-server-py-LLMs.bat` runs uvicorn with `--timeout-graceful-shutdown 240`.
 - Removed: `token_limit` / `token_estimation_multiplier` (replaced by `input_bytes`),
   `anthropic_max_tokens_default`, and `llm_call`'s unused `tools` parameter.
 
