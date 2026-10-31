@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### `llm_only` answers in several slots
+- `answer_fields` (a list) replaces `answer_field`: one slot answers with its value, several with
+  the JSON object of them in declared order, which PromptPotter grades field by field. A response
+  missing any named slot is a NO_RESULT.
+
 ### Spend bounds — what one request can bill is known before it is sent
 - `GET /pipeline` serves `spend_bound` on every billing node, from the same loaded config
   `/matches` enforces: LLM `{kind, attempts, input_bytes, max_tokens}`, web `{kind, queries, usd_per_query}`.

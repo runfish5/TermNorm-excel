@@ -26,8 +26,8 @@ optimizer param shape.
 `{"final_ranking": [{"candidate": <answer>, "relevance_score": 1.0}]}` — a
 single synthetic candidate carrying the answer through. The scoring matcher
 decides HIT/MISS; this node never does. Without a schema `<answer>` is the raw
-text; with one it is the `answer_field` slot, destructured (reading a declared
-field is not judging it). An **empty, declined, or schema-violating answer
+text; with one it is the `answer_fields` slots, destructured (reading a declared
+field is not judging it): one slot's value, or with several the JSON object of them. An **empty, declined, or schema-violating answer
 yields `{"final_ranking": []}`** — the structural NO_RESULT shared with the
 multi-node path, not a confident empty candidate, and never a wrong answer.
 Pipeline terminates after this step (`terminates=True`) — the step is a ranker
@@ -47,7 +47,7 @@ that short-circuits the rest of the pipeline.
 | `seed` | `null` | Forwarded to the provider. Set it on any dataset whose noise floor you intend to read — an unseeded benchmark cannot tell a real lift from run-to-run variance |
 | `response_format` | `"text"` | **Not an axis here.** `output_schema` decides the mode; PromptPotter owns the text↔structured toggle and spends it by choosing whether to send a schema at all. What is left for this key is the mistake it refuses: `"json"` with no schema RAISES, because a structure was promised and none was declared |
 | `output_schema` | `null` | JSON Schema, and the node's MODE: present → structured (`output_format: "schema"`, shape rendered into the prompt), absent → prose. **Not optimizer-tunable** — PromptPotter strips it via `SCHEMA_OWNED_FIELDS` |
-| `answer_field` | — | Which schema property carries the answer. **Required** when `output_schema` is set, and validated against it |
+| `answer_fields` | — | Which schema properties carry the answer, as a list. **Required** when `output_schema` is set, and validated against it. One field answers with its value; several answer with the JSON object of them, in declared order |
 
 Defined in `config/pipeline.json` under `nodes.llm_only`. Registered in
 `pipelines.llm_only: ["llm_only"]` so PromptPotter can select it by name
@@ -55,7 +55,7 @@ via `GET /pipeline`.
 
 ## Structured answers — the node's second prompt
 
-Declaring `output_schema` + `answer_field` stops the answer being scraped out of
+Declaring `output_schema` + `answer_fields` stops the answer being scraped out of
 prose. One schema object feeds **both** the prompt block and the decoder, so the
 two can never disagree (the rule `call_llm_for_ranking` already follows).
 
@@ -75,11 +75,16 @@ nothing but which of them happen to be enums.
 "llm_only": {"output_schema": {"type": "object", "properties": {
     "reasoning": {"type": "string", "description": "Work through the premises step by step."},
     "answer":    {"type": "string", "enum": ["TRUE", "FALSE", "Uncertain"]}}},
-  "answer_field": "answer"}
+  "answer_fields": ["answer"]}
 ```
 
-A response missing `answer_field`, or one that is not an object, is a NO_RESULT —
+A response missing any of `answer_fields`, or one that is not an object, is a NO_RESULT —
 excluded from accuracy, not scored as a wrong answer.
+
+With several fields the answer is the object of them, e.g. `"answer_fields": ["type_of_document",
+"requires_action", "extract_depth"]` answers `{"type_of_document": "invoice", "requires_action": true,
+"extract_depth": 2}`; every other slot rides in `reasoning_trace`, ungraded. An empty string inside
+the object is a value, so only a single empty slot is a NO_RESULT.
 
 ## Reasoning-model handling
 
@@ -124,7 +129,7 @@ from the advisory + raw response shape we expose here.
    OpenAI-compatible providers; `"none"` switches reasoning off. `_step_llm_only` reads it from
    `cfg` and passes it through.
 4. **Empty-output → NO_RESULT in `_step_llm_only`.** If the final answer
-   is empty, declined, or (with a schema) missing its `answer_field`, the step attaches a
+   is empty, declined, or (with a schema) missing one of its `answer_fields`, the step attaches a
    `StepWarning("llm_only", "empty_output", ...)`, returns
    `status=DEGRADED`, and emits `final_ranking: []` — the structural
    NO_RESULT. It does NOT return an empty candidate at `relevance_score 1.0`:

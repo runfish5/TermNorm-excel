@@ -121,8 +121,7 @@ its config and the rest is automatic: `schema_registry.format_string_from_schema
 (preserving property order, `description`, and `enum` — all of which steer generation), and
 `append_structure_directive` (the sole owner of the "return exactly this" wording) injects it. The
 same declaration feeds both the prompt and the decoder — no split-brain, no per-node duplication.
-`llm_only` and `direct_prompt` additionally carry `answer_field` to declare which slot *is* the
-answer. There is exactly one renderer; never reintroduce a second, lossy one.
+`llm_only` additionally carries `answer_fields` to declare which slots *are* the answer. There is exactly one renderer; never reintroduce a second, lossy one.
 
 ### 4. Web-search strategy axis
 **Brave only** — one metered query per match (free tier 2,000/month). No secondary provider; with no

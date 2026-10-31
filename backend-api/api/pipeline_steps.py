@@ -374,6 +374,14 @@ async def _step_ranking(query: str, cfg: dict, ctx: PipelineContext) -> StepResu
         ctx.record_step_tokens("llm_ranking", lr_usage)
 
 
+def _answer_of(slots: dict[str, Any]) -> str:
+    """One slot is its value as text; several are one JSON object, keyed by slot."""
+    if len(slots) > 1:
+        return json.dumps(slots, ensure_ascii=False)
+    (value,) = slots.values()
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
 async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepResult:
     """Generic LLM call — send prompt + query, get text response."""
     # Start line is emitted by llm_call() via node_name=, so no separate tag here.
@@ -393,7 +401,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     # The node's SECOND prompt. When declared, the answer arrives in a slot we named,
     # positioned, and described — instead of being regex-scraped out of prose.
     output_schema = cfg.get("output_schema")
-    answer_field = cfg.get("answer_field")
+    answer_fields = cfg.get("answer_fields")
 
     messages = [{"role": "user", "content": query}]
     call_warnings: list[str] = []
@@ -406,19 +414,21 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         "warnings": call_warnings,
     }
     if output_schema:
-        # `answer_field` names which slot IS the answer. Required, not defaulted: a hidden
+        # `answer_fields` names the slots that ARE the answer. Required, not defaulted: a hidden
         # default here would silently grade the wrong field (`CLAUDE.md`: no fallbacks in
         # service code), and hardcoding "answer" would bake a dataset's vocabulary into the
         # backend.
-        if not answer_field:
+        if not answer_fields:
             raise ValueError(
-                "llm_only: `output_schema` is set but `answer_field` is not — "
-                "declare which schema field carries the answer."
+                "llm_only: `output_schema` is set but `answer_fields` is not — "
+                "declare which schema fields carry the answer."
             )
-        if answer_field not in (output_schema.get("properties") or {}):
+        declared = output_schema.get("properties") or {}
+        undeclared = [field for field in answer_fields if field not in declared]
+        if undeclared:
             raise ValueError(
-                f"llm_only: answer_field {answer_field!r} is not a property of output_schema "
-                f"(have: {sorted((output_schema.get('properties') or {}))})"
+                f"llm_only: answer_fields {undeclared!r} are not properties of output_schema "
+                f"(have: {sorted(declared)})"
             )
         # ONE declaration of the shape, feeding both the prompt block and the decoder, so the
         # two can never disagree — the same rule `call_llm_for_ranking` follows. The rendered
@@ -435,7 +445,7 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
         # blob back as the answer. Structured output means a structure: declare one.
         raise ValueError(
             "llm_only: response_format='json' needs an `output_schema` naming the shape to "
-            "return, plus an `answer_field` naming the slot that carries the answer. Declare "
+            "return, plus `answer_fields` naming the slots that carry the answer. Declare "
             "them, or use response_format='text'."
         )
     if system:
@@ -458,28 +468,29 @@ async def _step_llm_only(query: str, cfg: dict, ctx: PipelineContext) -> StepRes
     if response is None:
         answer = ""
     elif output_schema:
-        # Destructure the named slot. This is NOT pre-judging: the backend reads the field the
-        # schema declares, the SCORING MATCHER still decides HIT/MISS. A response that omits
-        # `answer_field` (or was never an object) leaves `answer` empty, which falls into the
-        # existing structural NO_RESULT below — a schema violation is a non-result, never a
-        # wrong answer.
-        if isinstance(response, dict):
-            value = response.get(answer_field, "")
-            answer = value if isinstance(value, str) else json.dumps(value)
+        # Destructure the named slots. This is NOT pre-judging: the backend reads the fields the
+        # schema declares, the SCORING MATCHER still decides HIT/MISS. One slot answers with its
+        # value, several with the JSON object of them in declared order — the shape PromptPotter's
+        # `fields_match` grades field by field. A response that omits any named slot (or was
+        # never an object) leaves `answer` empty, which falls into the structural NO_RESULT
+        # below — a schema violation is a non-result, never a wrong answer.
+        if isinstance(response, dict) and all(field in response for field in answer_fields):
+            answer = _answer_of({field: response[field] for field in answer_fields})
             # Every other slot is the model's visible working — the part the caller's prompt
             # shapes, and for a model with no hidden reasoning the only trace there is. Appended
             # AFTER the hidden reasoning so a head+tail reader keeps the conclusion.
             working = "\n".join(
                 f"{key}: {val if isinstance(val, str) else json.dumps(val)}"
                 for key, val in response.items()
-                if key != answer_field and val not in ("", None)
+                if key not in answer_fields and val not in ("", None)
             )
             reasoning_trace = "\n\n".join(part for part in (reasoning_trace, working) if part)
         else:
             logger.warning(
-                "%s llm_only: schema declared but response decoded as %s — NO_RESULT",
+                "%s llm_only: schema declared but response %s lacks a slot of %s — NO_RESULT",
                 TAG_PIPE,
                 type(response).__name__,
+                answer_fields,
             )
             answer = ""
     else:
